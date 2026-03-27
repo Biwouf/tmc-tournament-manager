@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(/Users/m.tresalmauroz/Desktop/perso/tmc-tournament-manager/.env.local:*)"
+    ]
+  }
+}
