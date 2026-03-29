@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactElement } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import AppHomePage from './pages/AppHomePage';
@@ -7,6 +7,11 @@ import HomePage from './pages/HomePage';
 import TournamentPage from './pages/TournamentPage';
 import LoginPage from './pages/LoginPage';
 import ProgrammationImagePage from './pages/ProgrammationImagePage';
+
+function RedirectTournament() {
+  const { id } = useParams();
+  return <Navigate to={`/tmc-planning/${id}`} replace />;
+}
 
 function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -33,6 +38,7 @@ function App() {
       <Route path="/" element={auth(<AppHomePage />)} />
       <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
       <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
+      <Route path="/tournament/:id" element={<RedirectTournament />} />
       <Route path="/programmation-image" element={auth(<ProgrammationImagePage />)} />
     </Routes>
   );
