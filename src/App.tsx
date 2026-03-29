@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -25,7 +25,7 @@ function App() {
 
   if (user === undefined) return null;
 
-  const auth = (el: JSX.Element) => user ? el : <Navigate to="/login" replace />;
+  const auth = (el: ReactElement) => user ? el : <Navigate to="/login" replace />;
 
   return (
     <Routes>
