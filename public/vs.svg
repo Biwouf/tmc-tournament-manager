@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none">
+  <defs>
+    <mask id="bolt">
+      <rect width="300" height="200" fill="white"/>
+      <!-- Éclair diagonal — zone noire = découpe transparente -->
+      <path d="M112,8 L122,0 L134,8 L168,95 L184,80 L210,192 L216,200 L204,192 L178,108 L162,122 Z" fill="black"/>
+    </mask>
+  </defs>
+  <text
+    x="2" y="180"
+    font-family="'Arial Black', Impact, Arial, sans-serif"
+    font-size="182" font-weight="900" font-style="italic"
+    fill="#C8102E"
+    mask="url(#bolt)">VS</text>
+</svg>
