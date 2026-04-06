@@ -54,7 +54,7 @@ export default function HomePage({ user: _user }: Props) {
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-foreground">Tournois</h2>
           <Link
-            to="/tournament/new"
+            to="/tmc-planning/new"
             className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
           >
             Nouveau tournoi
@@ -72,7 +72,7 @@ export default function HomePage({ user: _user }: Props) {
             {tournaments.map((entry) => (
               <Link
                 key={entry.id}
-                to={`/tournament/${entry.id}`}
+                to={`/tmc-planning/${entry.id}`}
                 className="rounded-2xl border bg-card/90 p-6 shadow-sm transition hover:border-primary/30 hover:shadow-md"
               >
                 <h3 className="text-lg font-semibold text-card-foreground">{entry.config.name}</h3>

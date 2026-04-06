@@ -21,9 +21,12 @@ export default function AppHomePage() {
     <div className="min-h-screen">
       <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
         <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Tennis Club Manager</h1>
-            <p className="mt-2 text-muted-foreground">Outils de gestion pour votre club</p>
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="CAC Tennis Club" className="h-16 w-16" />
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight">Administration du CAC Tennis</h1>
+              <p className="mt-2 text-muted-foreground">Affiche, events, programmation…</p>
+            </div>
           </div>
           <button
             onClick={handleLogout}

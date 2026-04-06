@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: 38 44% 97%;
-  --foreground: 160 24% 16%;
+  --background: 0 0% 99%;
+  --foreground: 355 20% 15%;
   --card: 0 0% 100%;
-  --card-foreground: 160 24% 16%;
+  --card-foreground: 355 20% 15%;
   --popover: 0 0% 100%;
-  --popover-foreground: 160 24% 16%;
-  --primary: 152 42% 32%;
-  --primary-foreground: 48 44% 96%;
-  --secondary: 144 18% 91%;
-  --secondary-foreground: 158 26% 22%;
-  --muted: 144 16% 93%;
-  --muted-foreground: 160 12% 40%;
-  --accent: 40 67% 92%;
-  --accent-foreground: 156 34% 24%;
-  --destructive: 0 74% 45%;
+  --popover-foreground: 355 20% 15%;
+  --primary: 355 81% 50%;          /* #e51828 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 355 80% 73%;        /* #f1818a */
+  --secondary-foreground: 355 20% 15%;
+  --muted: 355 70% 94%;
+  --muted-foreground: 355 20% 45%;
+  --accent: 355 75% 88%;           /* #f9c9cd */
+  --accent-foreground: 355 60% 35%;
+  --destructive: 355 81% 45%;
   --destructive-foreground: 0 0% 98%;
-  --border: 146 20% 84%;
-  --input: 146 20% 84%;
-  --ring: 152 42% 32%;
+  --border: 355 50% 88%;
+  --input: 355 50% 88%;
+  --ring: 355 81% 50%;
   --radius: 0.8rem;
 }
 
@@ -54,9 +54,9 @@
     @apply bg-background text-foreground antialiased;
     font-family: "Manrope", "Segoe UI", sans-serif;
     background-image:
-      radial-gradient(circle at 8% 12%, hsl(44 78% 88% / 0.5), transparent 35%),
-      radial-gradient(circle at 92% 0%, hsl(149 51% 80% / 0.35), transparent 32%),
-      linear-gradient(to bottom, hsl(var(--background)), hsl(45 56% 95%));
+      radial-gradient(circle at 8% 12%, hsl(355 75% 88% / 0.45), transparent 35%),
+      radial-gradient(circle at 92% 0%, hsl(355 80% 73% / 0.15), transparent 32%),
+      linear-gradient(to bottom, hsl(var(--background)), hsl(355 60% 97%));
     min-height: 100vh;
   }
 }
