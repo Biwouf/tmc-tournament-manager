@@ -50,7 +50,7 @@ export default function TournamentPage({ user }: Props) {
           .select('id')
           .single();
         if (error) throw error;
-        navigate(`/tournament/${data.id}`);
+        navigate(`/tmc-planning/${data.id}`);
       } else {
         const { error } = await supabase
           .from('tournaments')
@@ -90,7 +90,7 @@ export default function TournamentPage({ user }: Props) {
 
   const handleDelete = async () => {
     await supabase.from('tournaments').delete().eq('id', id!);
-    navigate('/');
+    navigate('/tmc-planning');
   };
 
   const handleReset = async () => {
@@ -113,7 +113,7 @@ export default function TournamentPage({ user }: Props) {
     return (
       <div className="container mx-auto px-4 py-8">
         <p className="text-muted-foreground">Tournoi introuvable.</p>
-        <Link to="/" className="text-primary hover:underline">
+        <Link to="/tmc-planning" className="text-primary hover:underline">
           Retour à l'accueil
         </Link>
       </div>
@@ -125,7 +125,7 @@ export default function TournamentPage({ user }: Props) {
       <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
         <div className="container mx-auto px-4 py-8">
           <Link
-            to="/"
+            to="/tmc-planning"
             className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
           >
             ← Tous les tournois
