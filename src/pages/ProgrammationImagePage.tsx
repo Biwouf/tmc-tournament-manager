@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import html2canvas from 'html2canvas';
+import * as pdfjsLib from 'pdfjs-dist';
+import PDFWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = PDFWorkerUrl;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +48,122 @@ function parseCSV(text: string): Match[] {
       line.split(',').map(s => s.trim());
     return { date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j2_prenom, j2_nom, j2_classement };
   });
+}
+
+// ---------------------------------------------------------------------------
+// PDF parsing
+// ---------------------------------------------------------------------------
+
+type PdfItem = { x: number; y: number; str: string };
+
+// Retire les diacritiques pour les comparaisons
+function stripAccents(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function parseDateFromText(text: string): string {
+  const normalized = stripAccents(text).toUpperCase();
+  const m = normalized.match(
+    /(\d{1,2})\s+(JANVIER|FEVRIER|MARS|AVRIL|MAI|JUIN|JUILLET|AOUT|SEPTEMBRE|OCTOBRE|NOVEMBRE|DECEMBRE)/
+  );
+  if (!m) return '';
+  const MONTHS: Record<string, string> = {
+    JANVIER: '01', FEVRIER: '02', MARS: '03', AVRIL: '04', MAI: '05', JUIN: '06',
+    JUILLET: '07', AOUT: '08', SEPTEMBRE: '09', OCTOBRE: '10', NOVEMBRE: '11', DECEMBRE: '12',
+  };
+  const yearMatch = text.match(/\d{4}/);
+  const year = yearMatch ? yearMatch[0] : String(new Date().getFullYear());
+  return `${year}-${MONTHS[m[2]]}-${m[1].padStart(2, '0')}`;
+}
+
+// Distingue un nom de joueur (contient des minuscules) d'un nom de club (tout en majuscules)
+function hasMixedCase(s: string): boolean {
+  return s !== s.toUpperCase();
+}
+
+function parseFullName(str: string): { nom: string; prenom: string } {
+  const words = str.trim().split(/\s+/);
+  // Tous les mots consécutifs tout en majuscules forment le nom (ex: "DE MARIA")
+  // Le premier mot avec des minuscules marque le début du prénom
+  let i = 0;
+  while (i < words.length - 1 && words[i] === words[i].toUpperCase()) {
+    i++;
+  }
+  return { nom: words.slice(0, i).join(' '), prenom: words.slice(i).join(' ') };
+}
+
+// Dans le PDF "Feuille de programmation" FFT/TEN'UP :
+//  - La page est en mode paysage : les matchs sont des colonnes (distincts par X)
+//  - Les types d'information sont des lignes (distincts par Y) :
+//      y ≈ 60-65  → catégorie (NC-30/3), type (SM Senior), heure du match
+//      y ≈ 150    → noms des joueurs + noms des clubs
+//      y ≈ 323    → classements des joueurs (séparés des noms)
+//  - Chaque colonne-match est ancrée par un item "N° Court"
+async function parsePDF(file: File): Promise<Match[]> {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+  const RANK_RE = /^(2\/6|5\/6|15\/[1-5]|15|30\/[1-5]|30|40|NC)$/;
+  const TIME_RE = /^\d{1,2}:\d{2}$/;
+  const Y_TOL = 12;
+
+  const allMatches: Match[] = [];
+
+  // Chaque page est traitée indépendamment : les coordonnées X se répètent d'une page à l'autre
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+
+    const items: PdfItem[] = [];
+    for (const raw of tc.items as Array<{ str: string; transform: number[] }>) {
+      const str = raw.str.trim();
+      if (str) items.push({ x: Math.round(raw.transform[4]), y: Math.round(raw.transform[5]), str });
+    }
+
+    // Date depuis l'en-tête (ex: "PROGRAMMATION DU VENDREDI 20 FÉVRIER 2026")
+    const headerItem = items.find(it => it.str.includes('PROGRAMMATION'));
+    const date = headerItem ? parseDateFromText(headerItem.str) : '';
+
+    // Chaque "N° Court" ancre une colonne-match sur cette page
+    for (const nc of items.filter(it => it.str === 'N° Court')) {
+      const xMin = nc.x - 15;
+      const xMax = nc.x + 50;
+      const col = items.filter(it => it.x >= xMin && it.x <= xMax);
+
+      const rankings = col
+        .filter(it => Math.abs(it.y - 323) <= Y_TOL && RANK_RE.test(it.str))
+        .sort((a, b) => a.x - b.x);
+
+      const names = col
+        .filter(it => Math.abs(it.y - 150) <= Y_TOL && hasMixedCase(it.str))
+        .sort((a, b) => a.x - b.x);
+
+      const metaItems = col.filter(it => it.y < 100);
+      const timeItem = metaItems.find(it => TIME_RE.test(it.str));
+      const nonTime = metaItems.filter(it => it !== timeItem).sort((a, b) => a.x - b.x);
+      const categoryItem = nonTime[0];
+      const typeItem = nonTime[1];
+
+      if (!timeItem || names.length < 2 || rankings.length < 2) continue;
+
+      const p1 = parseFullName(names[0].str);
+      const p2 = parseFullName(names[1].str);
+
+      allMatches.push({
+        date,
+        heure: timeItem.str,
+        type_tournoi: [categoryItem?.str, typeItem?.str].filter(Boolean).join(' '),
+        j1_prenom: p1.prenom,
+        j1_nom: p1.nom,
+        j1_classement: rankings[0].str,
+        j2_prenom: p2.prenom,
+        j2_nom: p2.nom,
+        j2_classement: rankings[1].str,
+      });
+    }
+  }
+
+  return allMatches;
 }
 
 function formatTime(heure: string): string {
@@ -190,10 +310,32 @@ export default function ProgrammationImagePage() {
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [pdfError, setPdfError] = useState('');
   const posterRef = useRef<HTMLDivElement>(null);
 
   function handleParse() {
     setMatches(parseCSV(csvText));
+  }
+
+  async function handlePDFUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsParsing(true);
+    setPdfError('');
+    try {
+      const result = await parsePDF(file);
+      if (result.length === 0) {
+        setPdfError('Aucun match trouvé dans ce PDF. Vérifiez que le format correspond bien à une feuille de programmation.');
+      } else {
+        setMatches(result);
+      }
+    } catch (err) {
+      setPdfError(`Erreur lors de la lecture du PDF : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsParsing(false);
+      e.target.value = '';
+    }
   }
 
   function handleLoadFake() {
@@ -238,6 +380,28 @@ export default function ProgrammationImagePage() {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-6">
+        {/* Import PDF */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <h2 className="text-lg font-semibold">Import PDF</h2>
+          <p className="text-xs text-muted-foreground">
+            Feuille de programmation exportée depuis Ten'Up / FFT.
+          </p>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <span className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
+              {isParsing ? 'Lecture…' : 'Choisir un PDF'}
+            </span>
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              className="hidden"
+              disabled={isParsing}
+              onChange={handlePDFUpload}
+            />
+            <span className="text-sm text-muted-foreground">ou glisser-déposer</span>
+          </label>
+          {pdfError && <p className="text-sm text-destructive">{pdfError}</p>}
+        </div>
+
         {/* Saisie CSV */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-4">
           <div className="flex items-center justify-between">
