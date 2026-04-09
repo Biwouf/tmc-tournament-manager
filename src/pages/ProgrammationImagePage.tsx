@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import html2canvas from 'html2canvas';
+import { toJpeg } from 'html-to-image';
 import * as pdfjsLib from 'pdfjs-dist';
 import PDFWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -209,11 +209,14 @@ function MatchCell({ match }: { match: Match }) {
             background: '#C8102E',
             color: 'white',
             borderRadius: 999,
-            padding: '3px 11px',
+            padding: '0 11px',
+            height: 24,
+            display: 'inline-block',
             fontSize: 15,
             fontWeight: 800,
             letterSpacing: 0.2,
             whiteSpace: 'nowrap',
+            lineHeight: '24px',
           }}
         >
           {formatTime(match.heure)}
@@ -356,10 +359,10 @@ export default function ProgrammationImagePage() {
     setIsGenerating(true);
     const pages = posterRef.current.querySelectorAll<HTMLElement>('[data-page]');
     for (let i = 0; i < pages.length; i++) {
-      const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true, logging: false });
+      const dataUrl = await toJpeg(pages[i], { quality: 0.92, pixelRatio: 2 });
       const link = document.createElement('a');
       link.download = pages.length === 1 ? 'programmation.jpg' : `programmation-page-${i + 1}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.92);
+      link.href = dataUrl;
       link.click();
     }
     setIsGenerating(false);
