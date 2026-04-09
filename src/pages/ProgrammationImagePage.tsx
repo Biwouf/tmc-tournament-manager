@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import html2canvas from 'html2canvas';
+import { toJpeg } from 'html-to-image';
 import * as pdfjsLib from 'pdfjs-dist';
 import PDFWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -209,11 +209,14 @@ function MatchCell({ match }: { match: Match }) {
             background: '#C8102E',
             color: 'white',
             borderRadius: 999,
-            padding: '3px 11px',
+            padding: '0 11px',
+            height: 24,
+            display: 'inline-block',
             fontSize: 15,
             fontWeight: 800,
             letterSpacing: 0.2,
             whiteSpace: 'nowrap',
+            lineHeight: '24px',
           }}
         >
           {formatTime(match.heure)}
@@ -231,7 +234,15 @@ function MatchCell({ match }: { match: Match }) {
           <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
         </div>
 
-        <img src="/vs.svg" alt="VS" style={{ height: 44, width: 44, flexShrink: 0, marginTop: 4, alignSelf: 'flex-start' }} />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none" style={{ height: 44, width: 44, flexShrink: 0, marginTop: 4, alignSelf: 'flex-start' }}>
+          <defs>
+            <mask id="bolt">
+              <rect width="300" height="200" fill="white"/>
+              <path d="M112,8 L122,0 L134,8 L168,95 L184,80 L210,192 L216,200 L204,192 L178,108 L162,122 Z" fill="black"/>
+            </mask>
+          </defs>
+          <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill="#C8102E" mask="url(#bolt)">VS</text>
+        </svg>
 
         <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
           <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_prenom}</div>
@@ -348,10 +359,10 @@ export default function ProgrammationImagePage() {
     setIsGenerating(true);
     const pages = posterRef.current.querySelectorAll<HTMLElement>('[data-page]');
     for (let i = 0; i < pages.length; i++) {
-      const canvas = await html2canvas(pages[i], { scale: 2, useCORS: true, logging: false });
+      const dataUrl = await toJpeg(pages[i], { quality: 0.92, pixelRatio: 2 });
       const link = document.createElement('a');
       link.download = pages.length === 1 ? 'programmation.jpg' : `programmation-page-${i + 1}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.92);
+      link.href = dataUrl;
       link.click();
     }
     setIsGenerating(false);
