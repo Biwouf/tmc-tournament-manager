@@ -3,7 +3,18 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(/Users/m.tresalmauroz/Desktop/perso/tmc-tournament-manager/.env.local:*)"
+      "Bash(/Users/m.tresalmauroz/Desktop/perso/tmc-tournament-manager/.env.local:*)",
+      "Bash(git rebase:*)",
+      "Bash(source ~/.zshrc)",
+      "Read(//usr/local/lib/node_modules/npm/bin/**)",
+      "Bash(/usr/local/bin/npm install:*)",
+      "Bash(/Users/m.tresalmauroz/.nvm/versions/node/v22.19.0/bin/npm install:*)",
+      "Bash(PATH=\"/Users/m.tresalmauroz/.nvm/versions/node/v22.19.0/bin:$PATH\" npm install html-to-image)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }
