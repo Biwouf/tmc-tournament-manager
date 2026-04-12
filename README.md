@@ -84,32 +84,6 @@ Une fois les matches chargés, cliquez sur "Télécharger" pour générer une im
 - Chaque page contient jusqu'à 8 matches
 - Le format suit la charte graphique CAC Tennis
 
-## Format TMC (Tournoi Multi-Chances)
-
-Dans un TMC, chaque joueur dispute **exactement le même nombre de matches**.
-
-### Exemple pour 8 joueurs
-
-Chaque joueur joue 3 matches au total :
-- **Tableau principal** : 7 matches
-  - 4 quarts de finale
-  - 2 demi-finales
-  - 1 finale
-- **Matches de classement** : 5 matches
-  - 4 matches pour les places 5 à 8
-  - 1 match pour la 3ème place
-
-**Total** : 12 matches
-
-### Exemple pour 4 joueurs
-
-Chaque joueur joue 2 matches :
-- 2 demi-finales
-- 1 finale
-- 1 match pour la 3ème place
-
-**Total** : 4 matches
-
 ## Technologies
 
 - **React 19** : Framework UI
