@@ -1,5 +1,34 @@
 # CLAUDE.md
 
+---
+
+## Projet — TMC Tournament Manager
+
+### Première action obligatoire
+
+Avant toute intervention sur le code, lire **`docs/CODEBASE.md`** pour avoir la carte d'architecture à jour.
+
+### Specs fonctionnelles
+
+Les specs sont dans `docs/specs/` :
+- `SCHEDULING_RULES.md` — règles de l'algo de planification
+- `GEN_PROG.md` — module Programmation Image
+- *(nouveaux modules → créer un fichier dédié dans ce dossier)*
+
+### Maintenance de la documentation
+
+Après chaque changement fonctionnel, mettre à jour sans qu'on le demande :
+
+| Si… | Alors mettre à jour… |
+|---|---|
+| Logique d'un module change (scheduler, tmcLogic, moveMatch, ProgrammationImage) | Le fichier spec correspondant dans `docs/specs/` |
+| Nouveau fichier `src/` créé ou rôle d'un fichier existant change | `docs/CODEBASE.md` |
+| Fonctionnalité ajoutée ou modifiée côté utilisateur | `README.md` |
+
+---
+
+## Guidelines de développement
+
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
