@@ -162,7 +162,7 @@ Pour chaque créneau :
 | `numberOfCourts` | Terrains disponibles en parallèle |
 | `matchDuration` | Durée d'un match (minutes, défaut : 90) |
 | `dailyTimeSlots` | Par jour : `firstMatchStart`, `lastMatchStart` |
-| `tournaments[].numberOfPlayers` | 4, 8 ou 16 joueurs |
+| `tournaments[].numberOfPlayers` | 4, 8, 12 ou 16 joueurs |
 | `tournaments[].gender` | `"homme"` ou `"femme"` |
 | `tournaments[].minRanking` / `maxRanking` | Classement tennis (NC → 15) |
 

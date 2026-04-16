@@ -81,7 +81,7 @@ PDF (pdfjs-dist) ou CSV (texte brut)
 ## Constantes importantes
 
 - `MIN_HOURS_BETWEEN_MATCHES = 240 min` (4h) — délai obligatoire entre deux tours du même tournoi
-- Nombre de joueurs supportés : 4, 8, 16 (puissances de 2)
+- Nombre de joueurs supportés : 4, 8, 16 (puissances de 2) + 12 (tableau asymétrique, 4 joueurs exemptés du T1)
 - Capacité max affiche : 8 matchs par page A4
 
 ---
