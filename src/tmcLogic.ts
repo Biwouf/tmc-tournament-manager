@@ -12,20 +12,17 @@ import type { Match, TournamentConfig } from './types';
 export function generateTMCMatches(tournamentConfig: TournamentConfig): Match[] {
   const numPlayers = tournamentConfig.numberOfPlayers;
 
-  // Currently only supporting power of 2 player counts
-  if (!isPowerOfTwo(numPlayers)) {
-    throw new Error('Le nombre de joueurs doit être une puissance de 2 (4, 8, 16, 32, etc.)');
-  }
-
   switch (numPlayers) {
     case 4:
       return generateTMC4Players(tournamentConfig);
     case 8:
       return generateTMC8Players(tournamentConfig);
+    case 12:
+      return generateTMC12Players(tournamentConfig);
     case 16:
       return generateTMC16Players(tournamentConfig);
     default:
-      throw new Error(`Nombre de joueurs non supporté: ${numPlayers}`);
+      throw new Error(`Nombre de joueurs non supporté: ${numPlayers} (valeurs autorisées : 4, 8, 12, 16)`);
   }
 }
 
@@ -165,6 +162,141 @@ function generateTMC8Players(config: TournamentConfig): Match[] {
     matchType: 'ranking-5-8',
     round: 3,
     playerSlots: [], // Losers of consolation round 1
+    description: 'Match pour la 7ème place',
+  });
+
+  return matches;
+}
+
+/**
+ * Generate matches for 12 players TMC (asymmetric bracket)
+ *
+ * 4 players are exempted from round 1; the other 8 play the 1/8 finals.
+ * Structure (20 matches, 4 rounds):
+ * - R1: 4 matches  — 1/8 finals (8 non-exempted)
+ * - R2: 4 QF (4 winners + 4 exempted) + 2 SF consolante 9-12
+ * - R3: 2 SF main draw + 2 matches (final + 3rd place consolante 9-12) + 2 SF consolante 5-8
+ * - R4: 1 final + 1 3rd place + 2 matches (final + 3rd place consolante 5-8)
+ *
+ * Matches per player varies (asymmetric):
+ * - exempted, or non-exempted losing R1: 3 matches
+ * - non-exempted winning R1: 4 matches
+ */
+function generateTMC12Players(config: TournamentConfig): Match[] {
+  const matches: Match[] = [];
+  let matchCounter = 1;
+
+  // ===== ROUND 1: 1/8 finals (4 matches, slots 0..7 — non-exempted players) =====
+  for (let i = 0; i < 4; i++) {
+    matches.push({
+      id: `${config.id}-match-${matchCounter++}`,
+      tournamentId: config.id,
+      matchType: 'quarter-final',
+      round: 1,
+      playerSlots: [i * 2, i * 2 + 1],
+      description: `1/8 de finale ${i + 1}`,
+    });
+  }
+
+  // ===== ROUND 2: Main draw QF (4 winners R1 + 4 exempted) =====
+  for (let i = 0; i < 4; i++) {
+    matches.push({
+      id: `${config.id}-match-${matchCounter++}`,
+      tournamentId: config.id,
+      matchType: 'quarter-final',
+      round: 2,
+      playerSlots: [],
+      description: `Quart de finale ${i + 1} (Tableau principal)`,
+    });
+  }
+
+  // ===== ROUND 2: Consolante 9-12 — 1/2 finals (losers R1) =====
+  for (let i = 0; i < 2; i++) {
+    matches.push({
+      id: `${config.id}-match-${matchCounter++}`,
+      tournamentId: config.id,
+      matchType: 'ranking-5-8',
+      round: 2,
+      playerSlots: [],
+      description: `Demi-finale consolante 9-12 (Match ${i + 1})`,
+    });
+  }
+
+  // ===== ROUND 3: Main draw 1/2 finals =====
+  for (let i = 0; i < 2; i++) {
+    matches.push({
+      id: `${config.id}-match-${matchCounter++}`,
+      tournamentId: config.id,
+      matchType: 'semi-final',
+      round: 3,
+      playerSlots: [],
+      description: `Demi-finale ${i + 1} (Tableau principal)`,
+    });
+  }
+
+  // ===== ROUND 3: Consolante 9-12 — final (9th) + 3rd place (11th) =====
+  matches.push({
+    id: `${config.id}-match-${matchCounter++}`,
+    tournamentId: config.id,
+    matchType: 'ranking-5-8',
+    round: 3,
+    playerSlots: [],
+    description: 'Match pour la 9ème place',
+  });
+  matches.push({
+    id: `${config.id}-match-${matchCounter++}`,
+    tournamentId: config.id,
+    matchType: 'ranking-5-8',
+    round: 3,
+    playerSlots: [],
+    description: 'Match pour la 11ème place',
+  });
+
+  // ===== ROUND 3: Consolante 5-8 — 1/2 finals (losers R2 QF) =====
+  for (let i = 0; i < 2; i++) {
+    matches.push({
+      id: `${config.id}-match-${matchCounter++}`,
+      tournamentId: config.id,
+      matchType: 'ranking-5-8',
+      round: 3,
+      playerSlots: [],
+      description: `Demi-finale consolante 5-8 (Match ${i + 1})`,
+    });
+  }
+
+  // ===== ROUND 4: Main draw — final + 3rd place =====
+  matches.push({
+    id: `${config.id}-match-${matchCounter++}`,
+    tournamentId: config.id,
+    matchType: 'final',
+    round: 4,
+    playerSlots: [],
+    description: 'Finale',
+  });
+  matches.push({
+    id: `${config.id}-match-${matchCounter++}`,
+    tournamentId: config.id,
+    matchType: 'ranking-3-4',
+    round: 4,
+    playerSlots: [],
+    description: 'Match pour la 3ème place',
+  });
+
+  // ===== ROUND 4: Consolante 5-8 — final (5th) + 3rd place (7th) =====
+  matches.push({
+    id: `${config.id}-match-${matchCounter++}`,
+    tournamentId: config.id,
+    matchType: 'ranking-5-8',
+    round: 4,
+    playerSlots: [],
+    description: 'Match pour la 5ème place',
+  });
+  matches.push({
+    id: `${config.id}-match-${matchCounter++}`,
+    tournamentId: config.id,
+    matchType: 'ranking-5-8',
+    round: 4,
+    playerSlots: [],
     description: 'Match pour la 7ème place',
   });
 
@@ -364,6 +496,10 @@ function generateTMC16Players(config: TournamentConfig): Match[] {
  * Calculate total number of matches for a TMC tournament
  */
 export function calculateTotalMatches(numberOfPlayers: number): number {
+  if (numberOfPlayers === 12) {
+    // Asymmetric bracket — see generateTMC12Players
+    return 20;
+  }
   if (!isPowerOfTwo(numberOfPlayers)) {
     return 0;
   }
@@ -372,4 +508,15 @@ export function calculateTotalMatches(numberOfPlayers: number): number {
   // Total matches = (numberOfPlayers * matchesPerPlayer) / 2
   const matchesPerPlayer = Math.log2(numberOfPlayers);
   return (numberOfPlayers * matchesPerPlayer) / 2;
+}
+
+/**
+ * Total number of rounds for a TMC tournament (used for display "Match R/N").
+ * For power-of-2 brackets, equals log2(n) (also = matches per player).
+ * For 12 players (asymmetric), returns 4.
+ */
+export function getTotalRounds(numberOfPlayers: number): number {
+  if (numberOfPlayers === 12) return 4;
+  if (!isPowerOfTwo(numberOfPlayers)) return 0;
+  return Math.log2(numberOfPlayers);
 }

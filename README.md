@@ -5,7 +5,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 ## Fonctionnalités
 
 ### Planification TMC
-- Configuration de tournois multi-chances avec différents nombres de joueurs (4, 8, ou 16)
+- Configuration de tournois multi-chances avec différents nombres de joueurs (4, 8, 12 ou 16)
 - Gestion des créneaux horaires par jour
 - Planification automatique des matches sur plusieurs courts
 - Support de tournois simultanés (hommes et femmes)
@@ -58,7 +58,7 @@ Pour chaque jour du tournoi, définissez :
 
 Ajoutez autant de tournois que nécessaire :
 - **Sexe** : Homme ou Femme
-- **Nombre de joueurs** : 4, 8 ou 16 (puissance de 2)
+- **Nombre de joueurs** : 4, 8, 12 ou 16 (12 joueurs = tableau asymétrique, 4 joueurs exemptés du 1er tour)
 - **Classement minimum et maximum** : De NC (le plus bas) à 15 (le plus haut)
 
 #### 4. Génération du Planning

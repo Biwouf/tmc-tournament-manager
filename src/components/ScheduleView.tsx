@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Schedule, GlobalConfig, ScheduledMatch } from '../types';
+import { getTotalRounds } from '../tmcLogic';
 import ConfigDropdown from './ConfigDropdown';
 
 interface Props {
@@ -410,7 +411,7 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
                                   {tournament?.numberOfPlayers} joueurs ({tournament?.minRanking} - {tournament?.maxRanking})
                                 </div>
                                 <div className="mt-1 text-xs font-semibold" style={{ color: colors.text }}>
-                                  Match {scheduledMatch.match.round}/{Math.log2(tournament?.numberOfPlayers ?? 1)}
+                                  Match {scheduledMatch.match.round}/{getTotalRounds(tournament?.numberOfPlayers ?? 0)}
                                 </div>
                               </div>
                             );
@@ -475,7 +476,7 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: colors.text }}>
                         {scheduledMatch.match.description}
                         <span className="ml-2 text-xs font-normal opacity-70">
-                          (match {scheduledMatch.match.round}/{Math.log2(tournament?.numberOfPlayers ?? 1)})
+                          (match {scheduledMatch.match.round}/{getTotalRounds(tournament?.numberOfPlayers ?? 0)})
                         </span>
                       </td>
                     </tr>

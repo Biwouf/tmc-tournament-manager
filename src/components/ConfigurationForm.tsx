@@ -347,6 +347,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
             >
               <option value="4">4</option>
               <option value="8">8</option>
+              <option value="12">12</option>
               <option value="16">16</option>
             </select>
           </div>
@@ -424,6 +425,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
                       >
                         <option value="4">4 joueurs</option>
                         <option value="8">8 joueurs</option>
+                        <option value="12">12 joueurs</option>
                         <option value="16">16 joueurs</option>
                       </select>
                       <select
