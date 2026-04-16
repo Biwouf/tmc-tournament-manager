@@ -27,6 +27,34 @@ Tour 3 : 1 finale
          2 matchs consolante 5-8 tour 2
 ```
 
+### 12 joueurs — 20 matchs (cas asymétrique)
+
+4 joueurs sont exemptés du 1er tour. Le nombre de matchs par joueur varie :
+- Joueur **exempté** : **3 matchs** (quel que soit son parcours)
+- Joueur **non-exempté, perd au T1** : **3 matchs**
+- Joueur **non-exempté, gagne au T1** : **4 matchs**
+
+```
+Tour 1 : 4 matchs (1/8 de finale — 8 joueurs non-exemptés)
+  → 4 vainqueurs → tableau principal (1/4 de finale)
+  → 4 perdants  → consolante 9-12
+
+Tour 2 : 4 matchs (1/4 de finale — 4 vainqueurs T1 + 4 exemptés)
+         2 matchs (1/2 finale consolante 9-12)
+  → 4 vainqueurs QF → demi-finales
+  → 4 perdants QF  → consolante 5-8
+
+Tour 3 : 2 matchs (1/2 finale principale)
+         2 matchs (finale + 3e place consolante 9-12) → places 9, 10, 11, 12
+         2 matchs (1/2 finale consolante 5-8)
+
+Tour 4 : 1 finale (1re place)
+         1 match 3e place
+         2 matchs (finale + 3e place consolante 5-8) → places 5, 6, 7, 8
+```
+
+Classement final complet : 1→12.
+
 ### 16 joueurs — 32 matchs, chaque joueur joue 4 fois
 
 ```
@@ -49,9 +77,11 @@ Consolante 3-4 (perdants des 1/2 principales) — 1 match :
   Tour 4 : match 3e place
 ```
 
-**Formule générale :**
+**Formule générale (puissances de 2 uniquement) :**
 - Matchs par joueur = `log2(numberOfPlayers)`
 - Total matchs = `(numberOfPlayers × matchesPerPlayer) / 2`
+
+> ⚠️ Le cas 12 joueurs est asymétrique : la formule ne s'applique pas. Voir section dédiée ci-dessus.
 
 ---
 
