@@ -4,6 +4,10 @@
 
 ## Projet — TMC Tournament Manager
 
+### Règle absolue — branches Git
+
+**Ne jamais créer de nouvelle branche.** Toujours travailler directement sur la branche demandée par l'utilisateur (ex. `planning/ranking-order`). Ne pas utiliser de worktrees ou de branches "claude/xxx" — éditer les fichiers dans le répertoire principal du projet.
+
 ### Première action obligatoire
 
 Avant toute intervention sur le code, lire **`docs/CODEBASE.md`** pour avoir la carte d'architecture à jour.
