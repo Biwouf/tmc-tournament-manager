@@ -17,9 +17,11 @@ interface Match {
   j1_prenom: string;
   j1_nom: string;
   j1_classement: string;
+  j1_club: string;
   j2_prenom: string;
   j2_nom: string;
   j2_classement: string;
+  j2_club: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,7 +48,7 @@ function parseCSV(text: string): Match[] {
   return lines.slice(1).map(line => {
     const [date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j2_prenom, j2_nom, j2_classement] =
       line.split(',').map(s => s.trim());
-    return { date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j2_prenom, j2_nom, j2_classement };
+    return { date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j1_club: '', j2_prenom, j2_nom, j2_classement, j2_club: '' };
   });
 }
 
@@ -146,6 +148,14 @@ async function parsePDF(file: File): Promise<Match[]> {
 
       if (!timeItem || names.length < 2 || rankings.length < 2) continue;
 
+      // Clubs : items en majuscules à y≈150, entre les deux noms (J1) ou après (J2).
+      // Peuvent être éclatés en plusieurs tokens (noms longs) → on concatène.
+      const clubTokens = col
+        .filter(it => Math.abs(it.y - 150) <= Y_TOL && !hasMixedCase(it.str))
+        .sort((a, b) => a.x - b.x);
+      const j1_club = clubTokens.filter(it => it.x > names[0].x && it.x < names[1].x).map(it => it.str).join(' ');
+      const j2_club = clubTokens.filter(it => it.x > names[1].x).map(it => it.str).join(' ');
+
       const p1 = parseFullName(names[0].str);
       const p2 = parseFullName(names[1].str);
 
@@ -156,9 +166,11 @@ async function parsePDF(file: File): Promise<Match[]> {
         j1_prenom: p1.prenom,
         j1_nom: p1.nom,
         j1_classement: rankings[0].str,
+        j1_club,
         j2_prenom: p2.prenom,
         j2_nom: p2.nom,
         j2_classement: rankings[1].str,
+        j2_club,
       });
     }
   }
@@ -189,6 +201,26 @@ const GRID_GAP = 20;
 
 const MAX_PER_PAGE = 8; // 2 colonnes × 4 lignes
 
+// Affiche le club sous le classement. Taille fixe ; ellipsis si le club dépasse.
+function ClubLabel({ club }: { club: string }) {
+  if (!club) return null;
+  return (
+    <div
+      style={{
+        color: '#6b6b6b',
+        fontSize: 9,
+        fontWeight: 500,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        marginTop: 2,
+      }}
+    >
+      {club}
+    </div>
+  );
+}
+
 function MatchCell({ match }: { match: Match }) {
   return (
     <div
@@ -200,6 +232,7 @@ function MatchCell({ match }: { match: Match }) {
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
+        minWidth: 0,
       }}
     >
       {/* Heure + type */}
@@ -227,11 +260,12 @@ function MatchCell({ match }: { match: Match }) {
       </div>
 
       {/* Adversaires */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
         <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
           <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_prenom}</div>
           <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_nom}</div>
           <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
+          <ClubLabel club={match.j1_club} />
         </div>
 
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none" style={{ height: 44, width: 44, flexShrink: 0, marginTop: 4, alignSelf: 'flex-start' }}>
@@ -248,6 +282,7 @@ function MatchCell({ match }: { match: Match }) {
           <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_prenom}</div>
           <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_nom}</div>
           <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
+          <ClubLabel club={match.j2_club} />
         </div>
       </div>
     </div>
@@ -300,7 +335,7 @@ function PosterPage({ matches, date }: { matches: Match[]; date: string }) {
           left: GRID_LEFT,
           width: W - GRID_LEFT - GRID_RIGHT,
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
           gridAutoRows: 'auto',
           gap: GRID_GAP,
         }}
