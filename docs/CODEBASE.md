@@ -7,12 +7,13 @@
 
 ## Vue d'ensemble
 
-Application React/TypeScript pour gérer des tournois de tennis TMC (Tournoi Multi-Chances). Deux modules indépendants :
+Application React/TypeScript pour gérer des tournois de tennis TMC (Tournoi Multi-Chances). Trois modules indépendants :
 
 1. **TMC Planner** — configuration + génération automatique du planning multi-tournois
 2. **Programmation Image** — import d'une feuille FFT/TEN'UP (PDF ou CSV) → export affiche JPEG
+3. **Events** — CRUD backoffice d'événements du club (Supabase + Storage)
 
-Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth), localStorage (persistance).
+Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage), localStorage (persistance TMC), react-markdown.
 
 ---
 
@@ -22,7 +23,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth), localStorage 
 
 | Fichier | Rôle |
 |---|---|
-| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`) |
+| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent`, `EventType`) |
 | `tmcLogic.ts` | Génère les matchs TMC pour 4, 8 ou 16 joueurs. Entrée : `TournamentConfig`. Sortie : `Match[]`. Pas d'effet de bord. |
 | `scheduler.ts` | Algorithme de planification : génère les créneaux horaires (`generateTimeSlots`) et distribue les matchs dessus (`generateSchedule`). Entrée : `GlobalConfig` + `Match[][]`. Sortie : `Schedule`. |
 | `moveMatch.ts` | Déplacement manuel d'un ou plusieurs matchs avec cascade automatique des tours suivants si la contrainte 4h est violée. Importe `generateTimeSlots` depuis `scheduler.ts`. |
@@ -36,6 +37,8 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth), localStorage 
 | `pages/HomePage.tsx` | `/tmc-planning` | Liste des configurations sauvegardées |
 | `pages/TournamentPage.tsx` | `/tmc-planning/:id` | Écran principal TMC Planner (config + schedule) |
 | `pages/ProgrammationImagePage.tsx` | `/programmation-image` | Import PDF/CSV → rendu affiche → export JPEG |
+| `pages/EventsPage.tsx` | `/events` | Liste paginée des événements (toggle à venir / passés), actions modifier/dupliquer/supprimer |
+| `components/EventForm.tsx` | `/events/new`, `/events/:id/edit` | Formulaire création/édition d'événement (markdown preview, upload image Supabase Storage) |
 
 ### Composants
 
@@ -44,6 +47,8 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth), localStorage 
 | `components/ConfigurationForm.tsx` | `TournamentPage` | Formulaire de configuration GlobalConfig |
 | `components/ScheduleView.tsx` | `TournamentPage` | Affichage calendrier/tableau + drag-and-drop des matchs |
 | `components/ConfigDropdown.tsx` | `TournamentPage` | Sélecteur de configurations prédéfinies |
+| `components/EventCard.tsx` | `EventsPage` | Carte d'un événement dans la liste (badge type, dates, prix, actions) |
+| `components/EventForm.tsx` | `EventsPage` / routes | Formulaire création/édition (voir ligne pages) |
 
 ### Infra
 
@@ -91,3 +96,8 @@ PDF (pdfjs-dist) ou CSV (texte brut)
 Voir `docs/specs/` :
 - `SCHEDULING_RULES.md` — règles de l'algo de planification (contraintes R1–R5)
 - `GEN_PROG.md` — spec du module Programmation Image
+- `EVENTS.md` — spec du module Events (table Supabase `events`, bucket `event-images`, flux JSON)
+
+## Infrastructure Supabase
+
+- Table `events` + bucket `event-images` : migration `supabase/migrations/20260418_events.sql`

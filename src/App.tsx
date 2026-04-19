@@ -7,6 +7,8 @@ import HomePage from './pages/HomePage';
 import TournamentPage from './pages/TournamentPage';
 import LoginPage from './pages/LoginPage';
 import ProgrammationImagePage from './pages/ProgrammationImagePage';
+import EventsPage from './pages/EventsPage';
+import EventForm from './components/EventForm';
 
 function RedirectTournament() {
   const { id } = useParams();
@@ -40,6 +42,9 @@ function App() {
       <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
       <Route path="/tournament/:id" element={<RedirectTournament />} />
       <Route path="/programmation-image" element={auth(<ProgrammationImagePage />)} />
+      <Route path="/events" element={auth(<EventsPage />)} />
+      <Route path="/events/new" element={auth(<EventForm />)} />
+      <Route path="/events/:id/edit" element={auth(<EventForm />)} />
     </Routes>
   );
 }
