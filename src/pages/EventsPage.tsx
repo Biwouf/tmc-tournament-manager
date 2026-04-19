@@ -107,6 +107,12 @@ export default function EventsPage() {
       <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
         <div className="container mx-auto flex items-start justify-between px-4 py-8">
           <div>
+            <Link
+              to="/"
+              className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+            >
+              ← Accueil
+            </Link>
             <h1 className="text-3xl font-semibold tracking-tight">Événements du club</h1>
             <p className="mt-2 text-muted-foreground">Créer, modifier et gérer les événements.</p>
           </div>
