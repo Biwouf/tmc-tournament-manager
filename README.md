@@ -83,8 +83,8 @@ Accessible depuis le menu principal → **Programmation Image**.
 #### 1. Import des données
 
 Deux méthodes disponibles :
-- **Import PDF** : Importer directement une feuille de programmation FFT/TEN'UP. L'application extrait automatiquement les joueurs, classements, horaires et courts.
-- **Saisie CSV** : Saisir manuellement les données des matches au format CSV.
+- **Import PDF** : Importer directement une feuille de programmation FFT/TEN'UP. L'application extrait automatiquement les joueurs, classements, clubs et horaires.
+- **Saisie CSV** : Saisir manuellement les données des matches au format CSV (sans club).
 
 #### 2. Export en image
 
