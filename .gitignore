@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# PDF de test local (contient des données personnelles, non versionné)
+public/template_pdf.pdf
