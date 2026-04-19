@@ -73,3 +73,20 @@ export interface TournamentEntry {
   config: GlobalConfig;
   schedule: Schedule | null;
 }
+
+export type EventType = 'Animation' | 'Tournoi' | 'Match par équipe' | 'Sortie' | 'Soirée';
+
+export const EVENT_TYPES: EventType[] = ['Animation', 'Tournoi', 'Match par équipe', 'Sortie', 'Soirée'];
+
+export interface ClubEvent {
+  id: string;
+  type: EventType;
+  titre: string;
+  description: string;
+  date_debut: string;
+  date_fin: string | null;
+  image_url: string | null;
+  prix: number | null;
+  created_at: string;
+  updated_at: string;
+}

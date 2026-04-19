@@ -12,6 +12,11 @@ const features = [
     label: 'Affiche programmation',
     description: 'Générer une image de la programmation à afficher.',
   },
+  {
+    to: '/events',
+    label: 'Événements',
+    description: 'Créer et gérer les événements du club.',
+  },
 ];
 
 export default function AppHomePage() {

@@ -20,9 +20,17 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Mise en page A4 avec 8 matches par page (2 colonnes × 4 lignes)
 - Charte graphique CAC Tennis intégrée
 
+### Événements
+- Gestion des événements du club (Animations, Tournois, Matchs par équipe, Sorties, Soirées)
+- Liste paginée avec toggle « à venir / passés »
+- Formulaire de création/édition avec description en Markdown (aperçu intégré)
+- Upload d'image (JPEG/PNG, max 5 Mo) stockée sur Supabase Storage
+- Actions : modifier, dupliquer, supprimer
+- Exposition d'un flux JSON authentifié (via client Supabase) pour une future webapp publique
+
 ### Général
 - Authentification via Supabase
-- Sauvegarde automatique avec localStorage
+- Sauvegarde automatique avec localStorage (TMC) et Supabase (Events)
 
 ## Installation
 
