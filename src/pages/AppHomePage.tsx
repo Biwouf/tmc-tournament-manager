@@ -17,6 +17,11 @@ const features = [
     label: 'Événements',
     description: 'Créer et gérer les événements du club.',
   },
+  {
+    to: '/live-score',
+    label: 'Live Score',
+    description: 'Suivre et saisir le score des matchs en direct.',
+  },
 ];
 
 export default function AppHomePage() {
