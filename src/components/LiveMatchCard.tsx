@@ -1,5 +1,5 @@
 import type { LiveMatch } from '../types';
-import { getSet, getSet3Normal, getSet3SuperTb, getNormalSetWinner } from '../liveScoreRules';
+import { getSet, getSet3Normal, getSet3SuperTb, getNormalSetWinner, getTeamLabel } from '../liveScoreRules';
 
 interface Props {
   match: LiveMatch;
@@ -13,21 +13,6 @@ function formatDate(iso: string): string {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function teamLabel(m: LiveMatch, team: 1 | 2): string {
-  if (team === 1) {
-    const main = `${m.j1_prenom} ${m.j1_nom}`;
-    if (m.match_type === 'double' && m.j3_prenom && m.j3_nom) {
-      return `${main} / ${m.j3_prenom} ${m.j3_nom}`;
-    }
-    return main;
-  }
-  const main = `${m.j2_prenom} ${m.j2_nom}`;
-  if (m.match_type === 'double' && m.j4_prenom && m.j4_nom) {
-    return `${main} / ${m.j4_prenom} ${m.j4_nom}`;
-  }
-  return main;
 }
 
 function renderSetScore(j1: number, j2: number, tbj1: number | null, tbj2: number | null): string {
@@ -108,11 +93,29 @@ export default function LiveMatchCard({ match, onPrimary, onDelete }: Props) {
       </div>
 
       <div className="space-y-1 text-sm">
-        <div className={`font-medium ${match.winner === 'j1' ? 'text-emerald-700' : 'text-card-foreground'}`}>
-          {teamLabel(match, 1)}
+        <div
+          className={
+            match.winner === 'j1'
+              ? 'flex items-center gap-2 font-bold text-foreground'
+              : match.winner === 'j2'
+                ? 'font-medium text-muted-foreground'
+                : 'font-medium text-card-foreground'
+          }
+        >
+          {match.winner === 'j1' && <img src="/trophy.png" alt="Vainqueur" className="h-4 w-4" />}
+          {getTeamLabel(match, 1)}
         </div>
-        <div className={`font-medium ${match.winner === 'j2' ? 'text-emerald-700' : 'text-card-foreground'}`}>
-          {teamLabel(match, 2)}
+        <div
+          className={
+            match.winner === 'j2'
+              ? 'flex items-center gap-2 font-bold text-foreground'
+              : match.winner === 'j1'
+                ? 'font-medium text-muted-foreground'
+                : 'font-medium text-card-foreground'
+          }
+        >
+          {match.winner === 'j2' && <img src="/trophy.png" alt="Vainqueur" className="h-4 w-4" />}
+          {getTeamLabel(match, 2)}
         </div>
       </div>
 

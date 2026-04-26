@@ -132,6 +132,23 @@ export function decrementSuperTb(s: SuperTbSet, p: Player): SuperTbSet {
   return p === 'j1' ? { ...s, j1: s.j1 - 1 } : { ...s, j2: s.j2 - 1 };
 }
 
+/* ---------- Display helpers ---------- */
+
+export function getTeamLabel(m: LiveMatch, team: 1 | 2): string {
+  if (team === 1) {
+    const main = `${m.j1_prenom} ${m.j1_nom}`;
+    if (m.match_type === 'double' && m.j3_prenom && m.j3_nom) {
+      return `${main} / ${m.j3_prenom} ${m.j3_nom}`;
+    }
+    return main;
+  }
+  const main = `${m.j2_prenom} ${m.j2_nom}`;
+  if (m.match_type === 'double' && m.j4_prenom && m.j4_nom) {
+    return `${main} / ${m.j4_prenom} ${m.j4_nom}`;
+  }
+  return main;
+}
+
 /* ---------- LiveMatch-level helpers ---------- */
 
 export function getSet(m: LiveMatch, n: 1 | 2): NormalSet {

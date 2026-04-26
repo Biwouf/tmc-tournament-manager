@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { LiveMatch } from '../types';
-import { getMatchWinner } from '../liveScoreRules';
+import { getMatchWinner, getTeamLabel } from '../liveScoreRules';
 import LiveScoreEntry from '../components/LiveScoreEntry';
 
 function formatDate(iso: string): string {
@@ -184,10 +184,10 @@ export default function LiveMatchPage() {
           </p>
         </div>
 
-        {match.status === 'finished' && (
+        {match.status === 'finished' && match.winner && (
           <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="text-sm font-medium text-emerald-900">
-              Match terminé — vainqueur : {match.winner === 'j1' ? 'Équipe 1' : 'Équipe 2'}.
+              Match terminé — vainqueur : {getTeamLabel(match, match.winner === 'j1' ? 1 : 2)}.
             </p>
             <button
               onClick={handleCancelFinish}

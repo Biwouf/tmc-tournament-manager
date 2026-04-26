@@ -19,6 +19,7 @@ import {
   setNormalIntoMatch,
   setSuperTbIntoMatch,
   isSet3Needed,
+  getTeamLabel,
 } from '../liveScoreRules';
 
 interface Props {
@@ -66,11 +67,15 @@ function NormalSetRow({
   label,
   set,
   disabled,
+  team1Label,
+  team2Label,
   onChange,
 }: {
   label: string;
   set: NormalSet;
   disabled: boolean;
+  team1Label: string;
+  team2Label: string;
   onChange: (s: NormalSet) => void;
 }) {
   const inTb = isNormalSetInTiebreak(set);
@@ -86,7 +91,7 @@ function NormalSetRow({
           <h4 className="text-sm font-semibold">{label}</h4>
           {winner && (
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-              Set gagné par {winner === 'j1' ? 'Équipe 1' : 'Équipe 2'}
+              Set gagné par {winner === 'j1' ? team1Label : team2Label}
             </span>
           )}
         </div>
@@ -130,10 +135,14 @@ function NormalSetRow({
 function SuperTbRow({
   set,
   disabled,
+  team1Label,
+  team2Label,
   onChange,
 }: {
   set: SuperTbSet;
   disabled: boolean;
+  team1Label: string;
+  team2Label: string;
   onChange: (s: SuperTbSet) => void;
 }) {
   const canInc = !disabled && canIncrementSuperTb(set);
@@ -144,7 +153,7 @@ function SuperTbRow({
         <h4 className="text-sm font-semibold">Set 3 — Super Tiebreak</h4>
         {winner && (
           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-            Super TB gagné par {winner === 'j1' ? 'Équipe 1' : 'Équipe 2'}
+            Super TB gagné par {winner === 'j1' ? team1Label : team2Label}
           </span>
         )}
       </div>
@@ -193,9 +202,8 @@ export default function LiveScoreEntry({ match, onPatch }: Props) {
     onPatch(patch);
   };
 
-  // Column headers (team labels)
-  const team1Label = match.match_type === 'double' ? 'Équipe 1' : `${match.j1_prenom} ${match.j1_nom}`;
-  const team2Label = match.match_type === 'double' ? 'Équipe 2' : `${match.j2_prenom} ${match.j2_nom}`;
+  const team1Label = getTeamLabel(match, 1);
+  const team2Label = getTeamLabel(match, 2);
 
   return (
     <div className="space-y-4">
@@ -205,11 +213,20 @@ export default function LiveScoreEntry({ match, onPatch }: Props) {
         <span className="text-center">{team2Label}</span>
       </div>
 
-      <NormalSetRow label="Set 1" set={set1} disabled={readonly} onChange={handleSetNormal(1)} />
+      <NormalSetRow
+        label="Set 1"
+        set={set1}
+        disabled={readonly}
+        team1Label={team1Label}
+        team2Label={team2Label}
+        onChange={handleSetNormal(1)}
+      />
       <NormalSetRow
         label="Set 2"
         set={set2}
         disabled={readonly || !set1Won}
+        team1Label={team1Label}
+        team2Label={team2Label}
         onChange={handleSetNormal(2)}
       />
 
@@ -242,11 +259,19 @@ export default function LiveScoreEntry({ match, onPatch }: Props) {
           label="Set 3"
           set={getSet3Normal(match)}
           disabled={readonly}
+          team1Label={team1Label}
+          team2Label={team2Label}
           onChange={handleSetNormal(3)}
         />
       )}
       {set3Needed && match.set3_format === 'super_tiebreak' && (
-        <SuperTbRow set={getSet3SuperTb(match)} disabled={readonly} onChange={handleSuperTb} />
+        <SuperTbRow
+          set={getSet3SuperTb(match)}
+          disabled={readonly}
+          team1Label={team1Label}
+          team2Label={team2Label}
+          onChange={handleSuperTb}
+        />
       )}
     </div>
   );
