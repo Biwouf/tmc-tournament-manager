@@ -1,6 +1,6 @@
 # Spec — Module Actus (Back-office)
 
-> Statut : à implémenter
+> Statut : implémenté
 > Dernière mise à jour : 2026-04-26
 
 ---
@@ -16,7 +16,8 @@ Les actus publiées sont servies à la PWA CAC Tennis. À terme, une publication
 
 - Module back-office CRUD (liste + formulaire)
 - Stockage Supabase (table `actus` + bucket `actu-images`)
-- Flux JSON consommé par la PWA (lecture publique via rôle `anon`)
+- **Multi-images** : 0..N images facultatives par actu
+- Flux JSON consommé par la PWA (lecture publique via rôle `anon`, uniquement les actus publiées)
 
 Hors scope v1 : publication automatique sur Facebook.
 
@@ -24,78 +25,59 @@ Hors scope v1 : publication automatique sur Facebook.
 
 ## Modèle de données
 
-### Type TypeScript
+### Type TypeScript (`src/types.ts`)
 
 ```ts
 export interface Actu {
   id: string;
   titre: string;
   contenu: string;             // Markdown
-  image_url: string | null;
+  image_urls: string[];        // 0..N images
   published: boolean;          // false = brouillon, true = publié
-  published_at: string | null; // renseigné à la première publication, jamais écrasé
+  published_at: string | null; // première publication, jamais écrasé
   created_at: string;
   updated_at: string;
 }
 ```
 
-Ajouter ce type dans `src/types.ts`.
-
 ---
 
 ## Infrastructure Supabase
 
-### Migration SQL — table `actus`
+Migration : `supabase/migrations/20260426_actus.sql`.
+
+### Table `actus`
 
 ```sql
 CREATE TABLE actus (
   id           UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   titre        TEXT        NOT NULL,
   contenu      TEXT        NOT NULL,
-  image_url    TEXT,
+  image_urls   TEXT[]      NOT NULL DEFAULT '{}',
   published    BOOLEAN     NOT NULL DEFAULT false,
   published_at TIMESTAMPTZ,
   created_at   TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at   TIMESTAMPTZ DEFAULT now() NOT NULL
 );
-
--- Réutilise la fonction set_updated_at() déjà créée par la migration Events
-CREATE TRIGGER actus_updated_at
-  BEFORE UPDATE ON actus
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-ALTER TABLE actus ENABLE ROW LEVEL SECURITY;
-
--- Lecture publique (PWA) : uniquement les actus publiées
-CREATE POLICY "actus_anon_select"
-  ON actus FOR SELECT TO anon USING (published = true);
-
--- Lecture admin (BO) : toutes les actus, brouillons inclus
-CREATE POLICY "actus_authenticated_select"
-  ON actus FOR SELECT TO authenticated USING (true);
-CREATE POLICY "actus_insert"
-  ON actus FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "actus_update"
-  ON actus FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "actus_delete"
-  ON actus FOR DELETE TO authenticated USING (true);
 ```
+
+- Trigger `actus_updated_at` réutilise `set_updated_at()` créée par la migration Events.
+- RLS activé.
+
+### Policies RLS
+
+- `actus_anon_select` : lecture publique des actus `published = true` (PWA).
+- `actus_authenticated_select / insert / update / delete` : full access pour l'admin BO.
 
 ### Storage — bucket `actu-images`
 
-Même configuration que `event-images` (bucket public, JPEG/PNG, max 5 Mo).
+Bucket public, JPEG/PNG, max 5 Mo (validation côté client).
 
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('actu-images', 'actu-images', true);
+- `actu_images_read` : lecture publique
+- `actu_images_write` : insert pour `authenticated`
+- `actu_images_delete` : delete pour `authenticated`
 
-CREATE POLICY "actu_images_read"
-  ON storage.objects FOR SELECT USING (bucket_id = 'actu-images');
-CREATE POLICY "actu_images_write"
-  ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'actu-images');
-CREATE POLICY "actu_images_delete"
-  ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'actu-images');
-```
+Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
 
 ---
 
@@ -103,7 +85,7 @@ CREATE POLICY "actu_images_delete"
 
 ### Intégration dans l'app
 
-- Nouvelle carte sur `AppHomePage` (5ème carte) → label **"Actus"**, description **"Rédiger et publier les actualités du club."**
+- 5ème carte sur `AppHomePage` → label **« Actus »**, description **« Rédiger et publier les actualités du club. »**
 - Route principale : `/actus`
 - Pages : `src/pages/ActusPage.tsx` + `src/components/ActuForm.tsx`
 
@@ -113,17 +95,17 @@ CREATE POLICY "actu_images_delete"
 
 **Affichage :**
 - Toutes les actus (publiées + brouillons), triées par `created_at` DESC
-- Chaque carte affiche : titre, date de création, badge statut
-  - Badge **"Publié"** (vert) si `published = true`
-  - Badge **"Brouillon"** (gris) si `published = false`
+- Chaque carte affiche : titre, date de création, badge statut, nombre d'images si > 0
+  - Badge **« Publié »** (vert) si `published = true`
+  - Badge **« Brouillon »** (gris) si `published = false`
 
 **Actions sur chaque carte :**
 - **Modifier** → `/actus/:id/edit`
-- **Publier** (si `published = false`) → passe à `published = true` + renseigne `published_at = now()` **uniquement si `published_at` est null** (conserver la date de première publication)
-- **Dépublier** (si `published = true`) → passe à `published = false`, `published_at` inchangé
-- **Supprimer** → `window.confirm` → suppression en base + suppression du fichier dans le bucket si `image_url` renseigné
+- **Publier** (si `published = false`) → `published = true` ; renseigne `published_at = now()` **uniquement si `published_at` est null** (conserve la date de première publication)
+- **Dépublier** (si `published = true`) → `published = false` ; `published_at` inchangé
+- **Supprimer** → `window.confirm` → suppression en base + suppression de toutes les images du bucket (`image_urls`)
 
-**Bouton "Créer une actu"** : en haut à droite → `/actus/new`
+**Bouton « Créer une actu »** : en haut à droite → `/actus/new`.
 
 ---
 
@@ -138,28 +120,35 @@ CREATE POLICY "actu_images_delete"
 |---|---|---|---|
 | Titre | `<input type="text">` | Oui | |
 | Contenu | Textarea + onglet Aperçu | Oui | Markdown, même pattern que `EventForm` |
-| Image | Input file + aperçu + bouton supprimer | Non | JPEG/PNG, max 5 Mo, bucket `actu-images` |
+| Images | Input file multiple + grille d'aperçus + bouton retirer par image | Non (0..N) | JPEG/PNG, max 5 Mo / fichier, bucket `actu-images` |
 
-**Upload image :** même comportement que dans `EventForm` :
-1. Sélection → aperçu local via `URL.createObjectURL`
-2. À la soumission → upload vers bucket `actu-images`, récupère l'URL publique, stocke dans `image_url`
-3. Si une image existait (édition) → supprimer l'ancienne avant d'uploader la nouvelle
-4. Bouton "Supprimer l'image" → vide le champ + supprime du bucket si déjà uploadée
+**Gestion des images (multi) :**
 
-**Nommage des fichiers dans le bucket** : `{uuid-actu}/{timestamp}-{nom-sanitizé}.{ext}`
+- Sélection multiple via input file (`multiple`).
+- Aperçus :
+  - Images existantes (édition) : récupérées depuis `image_urls`, marquables pour suppression.
+  - Nouveaux fichiers : aperçu local via `URL.createObjectURL`, badge « Nouveau ».
+- Bouton **« Retirer »** par image :
+  - Sur image existante → marque pour suppression du bucket à la sauvegarde.
+  - Sur nouveau fichier → retire de la sélection avant upload.
+- À la soumission :
+  1. Upsert de l'actu (sans toucher `image_urls`).
+  2. Suppression dans le bucket des images marquées.
+  3. Upload des nouveaux fichiers.
+  4. Update de `image_urls` avec la liste finale (existantes restantes + nouvelles uploadées, dans l'ordre).
 
-**Boutons de soumission (deux boutons distincts) :**
-- **"Enregistrer en brouillon"** → sauvegarde avec `published = false`
-- **"Publier"** → sauvegarde avec `published = true` + `published_at = now()` si `published_at` est null
+**Boutons de soumission :**
+- **« Enregistrer en brouillon »** → `published = false`.
+- **« Publier »** → `published = true` + `published_at = now()` si `published_at` est null.
 
 **Validation côté client :**
-- Titre : non vide
-- Contenu : non vide
-- Image : JPEG/PNG uniquement, max 5 Mo
+- Titre : non vide.
+- Contenu : non vide.
+- Chaque image : JPEG/PNG, max 5 Mo (les fichiers invalides sont ignorés et un message d'erreur s'affiche).
 
 ---
 
-## Routes à ajouter dans `App.tsx`
+## Routes (App.tsx)
 
 ```tsx
 <Route path="/actus"          element={auth(<ActusPage />)} />
@@ -169,28 +158,19 @@ CREATE POLICY "actu_images_delete"
 
 ---
 
-## Arborescence de fichiers à créer
+## Fichiers livrés
 
 ```
 src/
-  pages/
-    ActusPage.tsx       # Liste avec badge brouillon/publié, actions publier/dépublier/supprimer
-  components/
-    ActuForm.tsx        # Formulaire création/édition avec upload image et deux boutons de soumission
-  types.ts              # Ajouter interface Actu (dans le fichier existant)
+  pages/ActusPage.tsx       # Liste + badge brouillon/publié, actions publier/dépublier/supprimer
+  components/ActuForm.tsx   # Formulaire création/édition + multi-images
+  types.ts                  # Interface Actu
+supabase/migrations/
+  20260426_actus.sql        # Table + RLS + bucket + policies
 ```
-
----
-
-## Notes d'implémentation
-
-- Utiliser le client Supabase existant (`src/lib/supabase.ts`)
-- Pas de state management global — state local React dans chaque composant
-- Réutiliser les patterns de `EventForm.tsx` pour l'upload image (même logique bucket)
-- Avant de commencer : exécuter la migration SQL ci-dessus dans le dashboard Supabase
 
 ---
 
 ## Évolutions futures
 
-- Bouton **"Publier sur Facebook"** dans le formulaire : déclenche un appel à l'API Facebook Graph via une Supabase Edge Function (le Page Access Token reste côté serveur, jamais exposé dans le client)
+- Bouton **« Publier sur Facebook »** dans le formulaire : déclenche un appel à l'API Facebook Graph via une Supabase Edge Function (le Page Access Token reste côté serveur, jamais exposé dans le client).

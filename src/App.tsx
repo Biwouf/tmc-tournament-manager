@@ -12,6 +12,8 @@ import EventForm from './components/EventForm';
 import LiveScorePage from './pages/LiveScorePage';
 import LiveMatchPage from './pages/LiveMatchPage';
 import LiveMatchForm from './components/LiveMatchForm';
+import ActusPage from './pages/ActusPage';
+import ActuForm from './components/ActuForm';
 
 function RedirectTournament() {
   const { id } = useParams();
@@ -51,6 +53,9 @@ function App() {
       <Route path="/live-score" element={auth(<LiveScorePage />)} />
       <Route path="/live-score/new" element={auth(<LiveMatchForm />)} />
       <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />
+      <Route path="/actus" element={auth(<ActusPage />)} />
+      <Route path="/actus/new" element={auth(<ActuForm />)} />
+      <Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
     </Routes>
   );
 }

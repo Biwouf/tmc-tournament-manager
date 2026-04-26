@@ -91,6 +91,17 @@ export interface ClubEvent {
   updated_at: string;
 }
 
+export interface Actu {
+  id: string;
+  titre: string;
+  contenu: string;             // Markdown
+  image_urls: string[];        // 0..N images
+  published: boolean;          // false = brouillon, true = publié
+  published_at: string | null; // first publication timestamp, never overwritten
+  created_at: string;
+  updated_at: string;
+}
+
 export type LiveMatchStatus = 'pending' | 'live' | 'finished';
 export type LiveMatchType = 'simple' | 'double';
 export type LiveSet3Format = 'normal' | 'super_tiebreak';

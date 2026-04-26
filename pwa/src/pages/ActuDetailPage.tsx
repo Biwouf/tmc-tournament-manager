@@ -49,8 +49,17 @@ export default function ActuDetailPage() {
         ← Retour
       </button>
 
-      {actu.image_url && (
-        <img src={actu.image_url} alt={actu.titre} className="w-full h-52 object-cover mt-4" />
+      {actu.image_urls.length > 0 && (
+        <div className="mt-4 flex flex-col gap-2">
+          {actu.image_urls.map((url, i) => (
+            <img
+              key={url}
+              src={url}
+              alt={`${actu.titre} — ${i + 1}`}
+              className="w-full h-52 object-cover"
+            />
+          ))}
+        </div>
       )}
 
       <div className="p-4 flex flex-col gap-3">

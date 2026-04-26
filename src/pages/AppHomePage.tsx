@@ -22,6 +22,11 @@ const features = [
     label: 'Live Score',
     description: 'Suivre et saisir le score des matchs en direct.',
   },
+  {
+    to: '/actus',
+    label: 'Actus',
+    description: 'Rédiger et publier les actualités du club.',
+  },
 ];
 
 export default function AppHomePage() {
