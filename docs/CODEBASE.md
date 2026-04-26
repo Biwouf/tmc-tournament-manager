@@ -110,3 +110,17 @@ Voir `docs/specs/` :
 
 - Table `events` + bucket `event-images` : migration `supabase/migrations/20260418_events.sql`
 - Table `live_matches` (+ enums + trigger updated_at réutilisé + Realtime) : migration `supabase/migrations/20260423_live_matches.sql`
+- Table `actus` + bucket `actu-images` : à créer (voir `docs/specs/ACTUS.md`)
+- Policies RLS `anon` (lecture publique pour PWA) : à ajouter sur `events`, `live_matches`, `actus` (voir `docs/specs/PWA.MD`)
+
+---
+
+## PWA — `pwa/`
+
+Projet Vite/React autonome dans le dossier `pwa/`. Consomme les tables Supabase en lecture via le rôle `anon`.
+
+Stack : React 19, TypeScript, Vite, Tailwind CSS v4, `vite-plugin-pwa`, TanStack Query, React Router v7, Supabase JS.
+
+Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
+
+Spec complète : `docs/specs/PWA.MD`
