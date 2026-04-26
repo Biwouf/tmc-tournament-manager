@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+/* ─── Tokens — identiques au BO ─────────────────────────────────────────── */
+:root {
+  --background: 0 0% 99%;
+  --foreground: 355 20% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 355 20% 15%;
+  --primary: 355 81% 50%;          /* #e51828 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 355 80% 73%;        /* #f1818a */
+  --secondary-foreground: 355 20% 15%;
+  --muted: 355 70% 94%;
+  --muted-foreground: 355 20% 45%;
+  --accent: 355 75% 88%;           /* #f9c9cd */
+  --accent-foreground: 355 60% 35%;
+  --border: 355 50% 88%;
+  --ring: 355 81% 50%;
+  --radius: 0.8rem;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--ring));
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Manrope", "Segoe UI", sans-serif;
+    /* Empêche le scroll horizontal sur mobile */
+    overflow-x: hidden;
+  }
+}
+
+/* ─── Layout PWA — espace pour header fixe + bottom nav fixe ────────────── */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.pwa-content {
+  padding-top: 56px;  /* hauteur du AppHeader */
+  padding-bottom: calc(56px + env(safe-area-inset-bottom)); /* hauteur BottomNav + safe area iOS */
+  flex: 1;
+}
+
+/* ─── Badge LIVE animé ───────────────────────────────────────────────────── */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.badge-live {
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
