@@ -9,6 +9,9 @@ import LoginPage from './pages/LoginPage';
 import ProgrammationImagePage from './pages/ProgrammationImagePage';
 import EventsPage from './pages/EventsPage';
 import EventForm from './components/EventForm';
+import LiveScorePage from './pages/LiveScorePage';
+import LiveMatchPage from './pages/LiveMatchPage';
+import LiveMatchForm from './components/LiveMatchForm';
 
 function RedirectTournament() {
   const { id } = useParams();
@@ -45,6 +48,9 @@ function App() {
       <Route path="/events" element={auth(<EventsPage />)} />
       <Route path="/events/new" element={auth(<EventForm />)} />
       <Route path="/events/:id/edit" element={auth(<EventForm />)} />
+      <Route path="/live-score" element={auth(<LiveScorePage />)} />
+      <Route path="/live-score/new" element={auth(<LiveMatchForm />)} />
+      <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />
     </Routes>
   );
 }
