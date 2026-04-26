@@ -70,7 +70,7 @@ export interface Actu {
   id: string;
   titre: string;
   contenu: string;             // Markdown
-  image_url: string | null;
+  image_urls: string[];        // 0..N images
   published: boolean;
   published_at: string | null;
   created_at: string;

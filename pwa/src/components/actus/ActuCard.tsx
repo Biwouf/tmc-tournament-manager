@@ -20,11 +20,12 @@ function excerpt(markdown: string, maxLength = 120): string {
 }
 
 export default function ActuCard({ actu }: Props) {
+  const cover = actu.image_urls[0];
   return (
     <Link to={`/actus/${actu.id}`} className="block bg-card rounded-xl overflow-hidden shadow-sm border border-border active:opacity-80 transition-opacity">
-      {actu.image_url && (
+      {cover && (
         <img
-          src={actu.image_url}
+          src={cover}
           alt={actu.titre}
           className="w-full h-40 object-cover"
         />

@@ -72,7 +72,7 @@ CREATE TABLE actus (
   id           UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   titre        TEXT        NOT NULL,
   contenu      TEXT        NOT NULL,
-  image_url    TEXT,
+  image_urls   TEXT[]      NOT NULL DEFAULT '{}',
   published    BOOLEAN     NOT NULL DEFAULT false,
   published_at TIMESTAMPTZ,
   created_at   TIMESTAMPTZ DEFAULT now() NOT NULL,
@@ -145,7 +145,7 @@ export interface Actu {
   id: string;
   titre: string;
   contenu: string;           // Markdown
-  image_url: string | null;
+  image_urls: string[];      // 0..N images
   published: boolean;
   published_at: string | null;
   created_at: string;
