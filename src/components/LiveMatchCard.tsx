@@ -37,17 +37,17 @@ function scoreSummary(m: LiveMatch): string[] {
   const parts: string[] = [];
   const s1 = getSet(m, 1);
   const str1 = renderSetScore(s1.j1, s1.j2, s1.tb_j1, s1.tb_j2);
-  if (str1) parts.push(`S1 ${str1}`);
+  if (str1) parts.push(str1);
   const s2 = getSet(m, 2);
   const str2 = renderSetScore(s2.j1, s2.j2, s2.tb_j1, s2.tb_j2);
-  if (str2) parts.push(`S2 ${str2}`);
+  if (str2) parts.push(str2);
   if (m.set3_format === 'super_tiebreak') {
     const s3 = getSet3SuperTb(m);
-    if (s3.j1 > 0 || s3.j2 > 0) parts.push(`STB ${s3.j1}/${s3.j2}`);
+    if (s3.j1 > 0 || s3.j2 > 0) parts.push(`${s3.j1}/${s3.j2}`);
   } else if (m.set3_format === 'normal') {
     const s3 = getSet3Normal(m);
     const str3 = renderSetScore(s3.j1, s3.j2, s3.tb_j1, s3.tb_j2);
-    if (str3) parts.push(`S3 ${str3}`);
+    if (str3) parts.push(str3);
   }
   return parts;
 }
