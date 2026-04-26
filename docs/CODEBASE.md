@@ -7,12 +7,13 @@
 
 ## Vue d'ensemble
 
-Application React/TypeScript pour gérer des tournois de tennis TMC (Tournoi Multi-Chances). Quatre modules indépendants :
+Application React/TypeScript pour gérer des tournois de tennis TMC (Tournoi Multi-Chances). Cinq modules indépendants :
 
 1. **TMC Planner** — configuration + génération automatique du planning multi-tournois
 2. **Programmation Image** — import d'une feuille FFT/TEN'UP (PDF ou CSV) → export affiche JPEG
 3. **Events** — CRUD backoffice d'événements du club (Supabase + Storage)
 4. **Live Score** — saisie en temps réel du score d'un match (Supabase + Realtime pour PWA future)
+5. **Actus** — CRUD backoffice des actualités du club (Markdown + multi-images, brouillon/publié)
 
 Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage), localStorage (persistance TMC), react-markdown.
 
@@ -24,7 +25,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 
 | Fichier | Rôle |
 |---|---|
-| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent`, `EventType`, `LiveMatch`, `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`) |
+| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent`, `EventType`, `LiveMatch`, `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`, `Actu`) |
 | `tmcLogic.ts` | Génère les matchs TMC pour 4, 8 ou 16 joueurs. Entrée : `TournamentConfig`. Sortie : `Match[]`. Pas d'effet de bord. |
 | `scheduler.ts` | Algorithme de planification : génère les créneaux horaires (`generateTimeSlots`) et distribue les matchs dessus (`generateSchedule`). Entrée : `GlobalConfig` + `Match[][]`. Sortie : `Schedule`. |
 | `moveMatch.ts` | Déplacement manuel d'un ou plusieurs matchs avec cascade automatique des tours suivants si la contrainte 4h est violée. Importe `generateTimeSlots` depuis `scheduler.ts`. |
@@ -44,6 +45,8 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `pages/LiveScorePage.tsx` | `/live-score` | Liste des matchs en 3 sections : En live / En attente / Terminés. Actions démarrer/reprendre/voir/supprimer. Badge "À supprimer" si finished + 2j. |
 | `pages/LiveMatchPage.tsx` | `/live-score/:id` | Saisie du score d'un match avec `LiveScoreEntry`. Détection auto de fin de match. Bouton "Annuler la fin de match" si finished. |
 | `components/LiveMatchForm.tsx` | `/live-score/new` | Formulaire création d'un match (simple/double, joueurs, event lié optionnel parmi les events des 30 derniers jours). |
+| `pages/ActusPage.tsx` | `/actus` | Liste des actus (brouillons + publiées) triées DESC, badges Brouillon/Publié, actions publier/dépublier/modifier/supprimer. |
+| `components/ActuForm.tsx` | `/actus/new`, `/actus/:id/edit` | Formulaire création/édition d'actu (markdown preview, multi-images optionnelles, deux boutons « Brouillon » / « Publier »). |
 
 ### Composants
 
@@ -105,8 +108,10 @@ Voir `docs/specs/` :
 - `GEN_PROG.md` — spec du module Programmation Image
 - `EVENTS.md` — spec du module Events (table Supabase `events`, bucket `event-images`, flux JSON)
 - `LIVE_SCORE.md` — spec du module Live Score (table Supabase `live_matches`, règles de score, UI back-office, préparation Realtime)
+- `ACTUS.md` — spec du module Actus (table Supabase `actus`, bucket `actu-images`, multi-images, brouillon/publié, lecture `anon` PWA)
 
 ## Infrastructure Supabase
 
 - Table `events` + bucket `event-images` : migration `supabase/migrations/20260418_events.sql`
 - Table `live_matches` (+ enums + trigger updated_at réutilisé + Realtime) : migration `supabase/migrations/20260423_live_matches.sql`
+- Table `actus` (image_urls TEXT[], published, published_at) + bucket `actu-images` + RLS `anon`/`authenticated` : migration `supabase/migrations/20260426_actus.sql`
