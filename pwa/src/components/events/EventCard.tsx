@@ -60,7 +60,7 @@ export default function EventCard({ event }: Props) {
   return (
     <Link
       to={`/evenements/${event.id}`}
-      className="flex bg-card rounded-xl overflow-hidden border border-border shadow-sm active:opacity-80 transition-opacity"
+      className="flex h-[130px] bg-card rounded-xl overflow-hidden border border-border shadow-sm active:opacity-80 transition-opacity"
     >
       <div className="w-24 flex-shrink-0 bg-muted">
         {event.image_url ? (
@@ -80,7 +80,7 @@ export default function EventCard({ event }: Props) {
         <p className="text-[13px] font-extrabold text-primary tracking-tight">
           {formatDate(event)}
         </p>
-        <h2 className="text-sm font-bold text-foreground leading-snug">{event.titre}</h2>
+        <h2 className="text-sm font-bold text-foreground leading-snug line-clamp-2">{event.titre}</h2>
         <div className="flex items-center gap-2 mt-auto">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TYPE_COLORS[event.type]}`}>
             {event.type}
