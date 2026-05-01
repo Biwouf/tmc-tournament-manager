@@ -12,6 +12,40 @@ const TYPE_COLORS: Record<EventType, string> = {
   Soirée:             'bg-pink-100 text-pink-700',
 };
 
+const TYPE_TONES: Record<EventType, { bg: string; text: string }> = {
+  Animation:          { bg: 'bg-blue-100',   text: 'text-blue-900'   },
+  Tournoi:            { bg: 'bg-purple-100', text: 'text-purple-900' },
+  'Match par équipe': { bg: 'bg-green-100',  text: 'text-green-900'  },
+  Sortie:             { bg: 'bg-orange-100', text: 'text-orange-900' },
+  Soirée:             { bg: 'bg-pink-100',   text: 'text-pink-900'   },
+};
+
+function formatPosterDate(dateISO: string): { weekday: string; jour: string; mois: string } {
+  const d = new Date(dateISO);
+  const weekday = d
+    .toLocaleDateString('fr-FR', { weekday: 'short' })
+    .replace('.', '')
+    .toUpperCase();
+  const jour = d.toLocaleDateString('fr-FR', { day: '2-digit' });
+  const mois = d
+    .toLocaleDateString('fr-FR', { month: 'short' })
+    .replace('.', '')
+    .toUpperCase();
+  return { weekday, jour, mois };
+}
+
+function EventPosterPlaceholder({ event }: { event: ClubEvent }) {
+  const { weekday, jour, mois } = formatPosterDate(event.date_debut);
+  const tone = TYPE_TONES[event.type];
+  return (
+    <div className={`w-full h-full flex flex-col items-center justify-center gap-0.5 ${tone.bg} ${tone.text}`}>
+      <span className="text-[10px] font-bold tracking-[0.12em] opacity-70">{weekday}</span>
+      <span className="text-[38px] font-extrabold leading-[0.9] tracking-tight">{jour}</span>
+      <span className="text-[11px] font-bold tracking-[0.12em]">{mois}</span>
+    </div>
+  );
+}
+
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
@@ -70,9 +104,7 @@ export default function EventCard({ event }: Props) {
             className="w-full h-full object-cover block"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-[10px] text-muted-foreground font-mono">sans affiche</span>
-          </div>
+          <EventPosterPlaceholder event={event} />
         )}
       </div>
 
