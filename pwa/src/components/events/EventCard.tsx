@@ -1,4 +1,4 @@
-// Carte d'un événement — badge type coloré, titre, dates, prix.
+// Carte d'un événement — vignette latérale + date renforcée (variante B1).
 // Clic → navigation vers /evenements/:id
 
 import { Link } from 'react-router-dom';
@@ -12,8 +12,42 @@ const TYPE_COLORS: Record<EventType, string> = {
   Soirée:             'bg-pink-100 text-pink-700',
 };
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function formatDate(event: ClubEvent): string {
+  const debut = new Date(event.date_debut);
+  const fin = event.date_fin ? new Date(event.date_fin) : null;
+
+  const sameDay =
+    fin !== null &&
+    debut.getFullYear() === fin.getFullYear() &&
+    debut.getMonth() === fin.getMonth() &&
+    debut.getDate() === fin.getDate();
+
+  if (!fin || sameDay) {
+    return capitalize(
+      debut.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+    );
+  }
+
+  const sameMonth =
+    debut.getFullYear() === fin.getFullYear() &&
+    debut.getMonth() === fin.getMonth();
+  if (sameMonth) {
+    const mois = debut.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    return `Du ${debut.getDate()} au ${fin.getDate()} ${mois}`;
+  }
+
+  const debutFmt = debut.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  const finFmt = fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  return `Du ${debutFmt} au ${finFmt}`;
 }
 
 interface Props {
@@ -24,22 +58,35 @@ export default function EventCard({ event }: Props) {
   const prix = !event.prix || event.prix === 0 ? 'Gratuit' : `${event.prix} €`;
 
   return (
-    <Link to={`/evenements/${event.id}`} className="block bg-card rounded-xl overflow-hidden shadow-sm border border-border active:opacity-80 transition-opacity">
-      {event.image_url && (
-        <img src={event.image_url} alt={event.titre} className="w-full h-36 object-cover" />
-      )}
-      <div className="p-4 flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_COLORS[event.type]}`}>
+    <Link
+      to={`/evenements/${event.id}`}
+      className="flex h-[130px] bg-card rounded-xl overflow-hidden border border-border shadow-sm active:opacity-80 transition-opacity"
+    >
+      <div className="w-24 flex-shrink-0 bg-muted">
+        {event.image_url ? (
+          <img
+            src={event.image_url}
+            alt={event.titre}
+            className="w-full h-full object-cover block"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-[10px] text-muted-foreground font-mono">sans affiche</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0 p-3 flex flex-col gap-1.5">
+        <p className="text-[13px] font-extrabold text-primary tracking-tight">
+          {formatDate(event)}
+        </p>
+        <h2 className="text-sm font-bold text-foreground leading-snug line-clamp-2">{event.titre}</h2>
+        <div className="flex items-center gap-2 mt-auto">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${TYPE_COLORS[event.type]}`}>
             {event.type}
           </span>
-          <span className="text-xs text-muted-foreground ml-auto">{prix}</span>
+          <span className="ml-auto text-[11px] text-muted-foreground">{prix}</span>
         </div>
-        <h2 className="font-semibold text-foreground text-base leading-snug">{event.titre}</h2>
-        <p className="text-sm text-muted-foreground">
-          {formatDate(event.date_debut)}
-          {event.date_fin && ` → ${formatDate(event.date_fin)}`}
-        </p>
       </div>
     </Link>
   );
