@@ -33,9 +33,9 @@ export default function EventsPage() {
       <h1 className="text-xl font-bold text-foreground">Événements</h1>
 
       {isLoading && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-muted rounded-xl h-36 animate-pulse" />
+            <div key={i} className="bg-muted rounded-xl h-[130px] animate-pulse" />
           ))}
         </div>
       )}
@@ -44,9 +44,13 @@ export default function EventsPage() {
         <p className="text-center text-muted-foreground py-8">Aucun événement à venir.</p>
       )}
 
-      {events?.map((event) => (
-        <EventCard key={event.id} event={event} />
-      ))}
+      {events && events.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {events.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

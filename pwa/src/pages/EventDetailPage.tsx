@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
+import { formatDate } from '../components/events/EventCard';
 import type { ClubEvent, EventType } from '../types';
 
 const TYPE_COLORS: Record<EventType, string> = {
@@ -40,8 +41,6 @@ export default function EventDetailPage() {
   }
 
   const prix = !event.prix || event.prix === 0 ? 'Gratuit' : `${event.prix} €`;
-  const dateDebut = new Date(event.date_debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  const dateFin = event.date_fin ? new Date(event.date_fin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
 
   return (
     <article className="flex flex-col">
@@ -53,7 +52,13 @@ export default function EventDetailPage() {
       </button>
 
       {event.image_url && (
-        <img src={event.image_url} alt={event.titre} className="w-full h-48 object-cover mt-4" />
+        <div className="bg-muted flex items-center justify-center px-4 py-4 mt-4">
+          <img
+            src={event.image_url}
+            alt={event.titre}
+            className="max-w-full max-h-[60vh] object-contain block rounded-md"
+          />
+        </div>
       )}
 
       <div className="p-4 flex flex-col gap-3">
@@ -64,9 +69,7 @@ export default function EventDetailPage() {
           <span className="text-sm text-muted-foreground ml-auto">{prix}</span>
         </div>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{event.titre}</h1>
-        <p className="text-sm text-muted-foreground">
-          {dateDebut}{dateFin && ` → ${dateFin}`}
-        </p>
+        <p className="text-sm text-muted-foreground">{formatDate(event)}</p>
         <div className="prose prose-sm max-w-none text-foreground mt-2">
           <ReactMarkdown>{event.description}</ReactMarkdown>
         </div>
