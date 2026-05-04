@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
 import { supabase } from '../lib/supabase';
 import { formatDate } from '../components/events/EventCard';
 import type { ClubEvent, EventType } from '../types';
@@ -75,7 +76,7 @@ export default function EventDetailPage() {
         <h1 className="text-2xl font-bold text-foreground leading-tight">{event.titre}</h1>
         <p className="text-sm text-muted-foreground">{formatDate(event)}</p>
         <div className="prose prose-sm max-w-none text-foreground mt-2">
-          <ReactMarkdown remarkPlugins={[remarkBreaks]}>{expandBlankLines(event.description)}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{expandBlankLines(event.description)}</ReactMarkdown>
         </div>
       </div>
     </article>
