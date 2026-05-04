@@ -1,9 +1,13 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import { supabase } from '../lib/supabase';
 import { formatDate } from '../components/events/EventCard';
 import type { ClubEvent, EventType } from '../types';
+
+const expandBlankLines = (md: string) =>
+  md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
 
 const TYPE_COLORS: Record<EventType, string> = {
   Animation:          'bg-blue-100 text-blue-700',
@@ -71,7 +75,7 @@ export default function EventDetailPage() {
         <h1 className="text-2xl font-bold text-foreground leading-tight">{event.titre}</h1>
         <p className="text-sm text-muted-foreground">{formatDate(event)}</p>
         <div className="prose prose-sm max-w-none text-foreground mt-2">
-          <ReactMarkdown>{event.description}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkBreaks]}>{expandBlankLines(event.description)}</ReactMarkdown>
         </div>
       </div>
     </article>

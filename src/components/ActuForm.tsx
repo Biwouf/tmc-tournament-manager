@@ -1,12 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import { supabase } from '../lib/supabase';
 import type { Actu } from '../types';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
 const STORAGE_BUCKET = 'actu-images';
+
+const expandBlankLines = (md: string) =>
+  md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
 
 function extractStoragePath(publicUrl: string): string | null {
   const marker = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
@@ -304,7 +308,7 @@ export default function ActuForm() {
             ) : (
               <div className="prose prose-sm mt-1 min-h-[14rem] max-w-none rounded-lg border border-border bg-background px-3 py-2">
                 {contenu.trim() ? (
-                  <ReactMarkdown>{contenu}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{expandBlankLines(contenu)}</ReactMarkdown>
                 ) : (
                   <p className="text-sm text-muted-foreground">Rien à prévisualiser.</p>
                 )}
