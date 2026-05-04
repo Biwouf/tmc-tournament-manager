@@ -29,7 +29,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `tmcLogic.ts` | Génère les matchs TMC pour 4, 8 ou 16 joueurs. Entrée : `TournamentConfig`. Sortie : `Match[]`. Pas d'effet de bord. |
 | `scheduler.ts` | Algorithme de planification : génère les créneaux horaires (`generateTimeSlots`) et distribue les matchs dessus (`generateSchedule`). Entrée : `GlobalConfig` + `Match[][]`. Sortie : `Schedule`. |
 | `moveMatch.ts` | Déplacement manuel d'un ou plusieurs matchs avec cascade automatique des tours suivants si la contrainte 4h est violée. Importe `generateTimeSlots` depuis `scheduler.ts`. |
-| `liveScoreRules.ts` | Règles pures de score tennis — état d'un set normal (ongoing/tiebreak/won), super tiebreak, incrément/décrément +/- et détection du vainqueur de match. Pas d'effet de bord. Consommé par `LiveScoreEntry` et `LiveMatchPage`. |
+| `liveScoreRules.ts` | Règles pures de score tennis — état d'un set normal (ongoing/tiebreak/won), super tiebreak, incrément/décrément +/- et détection du vainqueur de match. Pas d'effet de bord. Consommé par `LiveScoreEntry` et `LiveMatchPage`. **Existe en double dans `pwa/src/liveScoreRules.ts`** — à maintenir synchronisé. |
 
 ### Pages (React Router)
 
@@ -121,10 +121,35 @@ Voir `docs/specs/` :
 
 ## PWA — `pwa/`
 
-Projet Vite/React autonome dans le dossier `pwa/`. Consomme les tables Supabase en lecture via le rôle `anon`.
+Projet Vite/React autonome dans le dossier `pwa/`. Consomme les tables Supabase en lecture via le rôle `anon` ; bascule sur le rôle `authenticated` pour la gestion des lives (création de match, démarrage/saisie/suppression). Auth via `supabase.auth.signInWithPassword` (mêmes comptes que le BO).
 
 Stack : React 19, TypeScript, Vite, Tailwind CSS v4, `vite-plugin-pwa`, TanStack Query, React Router v7, Supabase JS.
 
 Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 
-Spec complète : `docs/specs/PWA.MD`
+### Structure `pwa/src/`
+
+| Fichier | Rôle |
+|---|---|
+| `App.tsx` | Routes + guard `RequireAuth` (redirige `/login` avec `state.from`) |
+| `lib/supabase.ts` | Client Supabase avec `persistSession: true` + `autoRefreshToken: true` (durée du JWT à régler dans le dashboard Supabase) |
+| `hooks/useAuth.ts` | Hook React partagé : retourne `{ user, loading }`, écoute `onAuthStateChange` |
+| `liveScoreRules.ts` | **Copie** de `src/liveScoreRules.ts` (BO). À synchroniser manuellement si les règles de score changent. |
+| `types.ts` | Types partagés copiés depuis le BO + type `Actu` PWA |
+| `pages/LoginPage.tsx` | Formulaire email/mot de passe → redirige sur `state.from ?? /matches` |
+| `pages/MatchesPage.tsx` | Liste des matchs (Realtime), bouton « Déconnexion », FAB « + » → `/matches/new` (visibles uniquement si auth) |
+| `pages/NewMatchPage.tsx` | Formulaire création de match (iso BO), `status='pending'`, `scored_by=null` |
+| `pages/LiveMatchPage.tsx` | Saisie du score (route `/matches/:id/score`). Garde l'accès : redirige avec flash si `pending` ou si live appartient à un autre user |
+| `components/matches/MatchCard.tsx` | Carte avec actions conditionnelles : Démarrer / Reprendre+Libérer / Voir+Supprimer (selon auth + ownership) |
+| `components/matches/LiveScoreEntry.tsx` | Composant +/- (adapté du BO, layout mobile) |
+
+### Routes PWA
+
+| Route | Auth | Rôle |
+|---|---|---|
+| `/login` | publique | Connexion |
+| `/actus`, `/evenements`, `/matches`, et leurs détails | publiques | Lecture `anon` |
+| `/matches/new` | requise | Création d'un match |
+| `/matches/:id/score` | requise (et ownership pour `live`) | Saisie / consultation d'un live |
+
+Spec fonctionnelle complète : `docs/specs/PWA.MD` et `docs/specs/PWA_LIVE_AUTH.md`.

@@ -36,7 +36,8 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Détection automatique du vainqueur (sets 1 et 2, avec set décisif normal ou super tiebreak)
 - Possibilité d'annuler la fin de match pour corriger une erreur de saisie
 - Badge « À supprimer » sur les matchs terminés depuis plus de 2 jours
-- Table `live_matches` exposée via Supabase Realtime (préparation PWA publique)
+- Table `live_matches` exposée via Supabase Realtime
+- Disponible aussi côté PWA : connexion avec un compte BO → création de match, démarrage/reprise/libération d'un live, suivi du score, suppression. Un live est verrouillé par l'utilisateur qui l'a démarré (champ `scored_by`) et n'est modifiable que par lui ; un autre utilisateur peut le reprendre uniquement après libération.
 
 ### Actus
 - Rédaction d'actualités du club avec contenu en Markdown (aperçu intégré)
