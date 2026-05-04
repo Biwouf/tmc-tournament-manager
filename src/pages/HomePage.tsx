@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { TournamentEntry } from '../types';
@@ -8,9 +8,12 @@ interface Props {
   user: User;
 }
 
-export default function HomePage({ user: _user }: Props) {
+export default function HomePage({ user }: Props) {
+  const navigate = useNavigate();
   const [tournaments, setTournaments] = useState<TournamentEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -32,6 +35,28 @@ export default function HomePage({ user: _user }: Props) {
   }, []);
 
   const handleLogout = () => supabase.auth.signOut();
+
+  const handleDuplicate = async (entry: TournamentEntry) => {
+    if (duplicatingId) return;
+    setDuplicatingId(entry.id);
+    setError(null);
+    try {
+      const newConfig = {
+        ...JSON.parse(JSON.stringify(entry.config)),
+        name: `Copie de ${entry.config.name}`,
+      };
+      const { data, error: insertError } = await supabase
+        .from('tournaments')
+        .insert({ config: newConfig, schedule: null, user_id: user.id })
+        .select('id')
+        .single();
+      if (insertError) throw insertError;
+      navigate(`/tmc-planning/${data.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      setDuplicatingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -67,6 +92,13 @@ export default function HomePage({ user: _user }: Props) {
           </Link>
         </div>
 
+        {error && (
+          <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
+            <strong className="font-bold">Erreur : </strong>
+            <span>{error}</span>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center text-muted-foreground py-12">Chargement...</div>
         ) : tournaments.length === 0 ? (
@@ -76,29 +108,39 @@ export default function HomePage({ user: _user }: Props) {
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {tournaments.map((entry) => (
-              <Link
+              <div
                 key={entry.id}
-                to={`/tmc-planning/${entry.id}`}
-                className="rounded-2xl border bg-card/90 p-6 shadow-sm transition hover:border-primary/30 hover:shadow-md"
+                className="flex flex-col rounded-2xl border bg-card/90 p-6 shadow-sm transition hover:border-primary/30 hover:shadow-md"
               >
-                <h3 className="text-lg font-semibold text-card-foreground">{entry.config.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {entry.config.startDate} → {entry.config.endDate}
-                </p>
-                <p className="mt-2 text-sm text-foreground">
-                  {entry.config.tournaments.length} tableau{entry.config.tournaments.length > 1 ? 'x' : ''}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {entry.config.tournaments.map((t) => (
-                    <span
-                      key={t.id}
-                      className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-                    >
-                      {t.gender === 'homme' ? 'H' : 'F'} {t.numberOfPlayers}j
-                    </span>
-                  ))}
+                <Link to={`/tmc-planning/${entry.id}`} className="block">
+                  <h3 className="text-lg font-semibold text-card-foreground">{entry.config.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {entry.config.startDate} → {entry.config.endDate}
+                  </p>
+                  <p className="mt-2 text-sm text-foreground">
+                    {entry.config.tournaments.length} tableau{entry.config.tournaments.length > 1 ? 'x' : ''}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {entry.config.tournaments.map((t) => (
+                      <span
+                        key={t.id}
+                        className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                      >
+                        {t.gender === 'homme' ? 'H' : 'F'} {t.numberOfPlayers}j
+                      </span>
+                    ))}
+                  </div>
+                </Link>
+                <div className="mt-4 flex pt-2">
+                  <button
+                    onClick={() => handleDuplicate(entry)}
+                    disabled={duplicatingId === entry.id}
+                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {duplicatingId === entry.id ? 'Duplication…' : 'Dupliquer'}
+                  </button>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
