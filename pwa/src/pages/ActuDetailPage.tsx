@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import rehypeRaw from 'rehype-raw';
 import { supabase } from '../lib/supabase';
 import type { Actu } from '../types';
 
@@ -70,7 +71,7 @@ export default function ActuDetailPage() {
         <p className="text-xs text-muted-foreground">{publishedDate}</p>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{actu.titre}</h1>
         <div className="prose prose-sm max-w-none text-foreground">
-          <ReactMarkdown remarkPlugins={[remarkBreaks]}>{expandBlankLines(actu.contenu)}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{expandBlankLines(actu.contenu)}</ReactMarkdown>
         </div>
       </div>
     </article>

@@ -59,6 +59,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `components/EventForm.tsx` | `EventsPage` / routes | Formulaire création/édition (voir ligne pages) |
 | `components/LiveMatchCard.tsx` | `LiveScorePage` | Carte d'un match dans la liste (statut, joueurs, score résumé, badge "À supprimer", actions primaire/supprimer) |
 | `components/LiveScoreEntry.tsx` | `LiveMatchPage` | Interface +/- par joueur pour saisir le score (sets 1-3, tiebreak auto à 6/6, choix format set 3). Désactivé si `status != 'live'`. |
+| `components/MarkdownEditor.tsx` | `ActuForm`, `EventForm` | Éditeur Markdown contrôlé (`value` / `onChange`) avec onglets Écrire/Aperçu, toolbar (Gras, Italique, Souligné via `<u>`, H1/H2/H3) et raccourcis Ctrl/Cmd+B / +I. Aperçu : `react-markdown` + `remark-breaks` + `rehype-raw` (pour le souligné HTML inline). Embarque le helper `expandBlankLines`. |
 
 ### Infra
 

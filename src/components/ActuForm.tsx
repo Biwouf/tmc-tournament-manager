@@ -1,16 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkBreaks from 'remark-breaks';
 import { supabase } from '../lib/supabase';
+import MarkdownEditor from './MarkdownEditor';
 import type { Actu } from '../types';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
 const STORAGE_BUCKET = 'actu-images';
-
-const expandBlankLines = (md: string) =>
-  md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
 
 function extractStoragePath(publicUrl: string): string | null {
   const marker = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
@@ -54,7 +50,6 @@ export default function ActuForm() {
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [contenuTab, setContenuTab] = useState<'write' | 'preview'>('write');
 
   const [titre, setTitre] = useState('');
   const [contenu, setContenu] = useState('');
@@ -278,42 +273,13 @@ export default function ActuForm() {
 
           {/* Contenu + Markdown preview */}
           <div>
-            <div className="flex items-center justify-between">
-              <label className="block text-sm font-medium text-foreground">Contenu * (Markdown)</label>
-              <div className="flex gap-1 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setContenuTab('write')}
-                  className={`rounded px-2 py-1 ${contenuTab === 'write' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
-                >
-                  Écrire
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContenuTab('preview')}
-                  className={`rounded px-2 py-1 ${contenuTab === 'preview' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
-                >
-                  Aperçu
-                </button>
-              </div>
-            </div>
-            {contenuTab === 'write' ? (
-              <textarea
-                value={contenu}
-                onChange={(e) => setContenu(e.target.value)}
-                rows={12}
-                placeholder="**gras**, *italique*, - liste, # titre..."
-                className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
-              />
-            ) : (
-              <div className="prose prose-sm mt-1 min-h-[14rem] max-w-none rounded-lg border border-border bg-background px-3 py-2">
-                {contenu.trim() ? (
-                  <ReactMarkdown remarkPlugins={[remarkBreaks]}>{expandBlankLines(contenu)}</ReactMarkdown>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Rien à prévisualiser.</p>
-                )}
-              </div>
-            )}
+            <label className="block text-sm font-medium text-foreground">Contenu * (Markdown)</label>
+            <MarkdownEditor
+              value={contenu}
+              onChange={setContenu}
+              rows={12}
+              placeholder="**gras**, *italique*, - liste, # titre..."
+            />
             {errors.contenu && <p className="mt-1 text-xs text-red-600">{errors.contenu}</p>}
           </div>
 
