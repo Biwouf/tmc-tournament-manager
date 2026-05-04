@@ -1,8 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import { supabase } from '../lib/supabase';
 import type { Actu } from '../types';
+
+const expandBlankLines = (md: string) =>
+  md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
 
 async function fetchActu(id: string): Promise<Actu> {
   const { data, error } = await supabase
@@ -66,7 +70,7 @@ export default function ActuDetailPage() {
         <p className="text-xs text-muted-foreground">{publishedDate}</p>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{actu.titre}</h1>
         <div className="prose prose-sm max-w-none text-foreground">
-          <ReactMarkdown>{actu.contenu}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkBreaks]}>{expandBlankLines(actu.contenu)}</ReactMarkdown>
         </div>
       </div>
     </article>
