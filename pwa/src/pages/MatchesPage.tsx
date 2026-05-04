@@ -1,8 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { LiveMatch } from '../types';
 import MatchCard from '../components/matches/MatchCard';
+import { useAuth } from '../hooks/useAuth';
 
 async function fetchMatches(): Promise<LiveMatch[]> {
   const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
@@ -16,7 +18,6 @@ async function fetchMatches(): Promise<LiveMatch[]> {
 
   if (error) throw error;
 
-  // Exclure les matchs finished dont la date est passée (avant aujourd'hui)
   return (data as LiveMatch[]).filter((m) => {
     if (m.status === 'finished' && m.match_date < today) return false;
     return true;
@@ -25,14 +26,16 @@ async function fetchMatches(): Promise<LiveMatch[]> {
 
 export default function MatchesPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [flash, setFlash] = useState<string | null>(null);
 
   const { data: matches, isLoading, isError } = useQuery({
     queryKey: ['matches'],
     queryFn: fetchMatches,
-    refetchInterval: 30_000, // Fallback : rafraîchissement toutes les 30s
+    refetchInterval: 30_000,
   });
 
-  // Abonnement Supabase Realtime → invalide le cache à chaque changement
   useEffect(() => {
     const channel = supabase
       .channel('live_matches_pwa')
@@ -44,6 +47,21 @@ export default function MatchesPage() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
+  // Lecture du flash venant d'une redirection (ex: /matches/:id/score → /matches)
+  useEffect(() => {
+    const stored = sessionStorage.getItem('matches:flash');
+    if (stored) {
+      setFlash(stored);
+      sessionStorage.removeItem('matches:flash');
+      const t = setTimeout(() => setFlash(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   if (isError) {
     return <div className="p-6 text-center text-muted-foreground">Impossible de charger les matchs.</div>;
   }
@@ -54,7 +72,31 @@ export default function MatchesPage() {
 
   return (
     <div className="p-4 flex flex-col gap-6">
-      <h1 className="text-xl font-bold text-foreground">Matches</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-foreground">Matches</h1>
+        {user ? (
+          <button
+            onClick={handleLogout}
+            className="text-xs font-medium text-muted-foreground hover:text-foreground transition"
+          >
+            Déconnexion
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            state={{ from: '/matches' }}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Connexion
+          </Link>
+        )}
+      </div>
+
+      {flash && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {flash}
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex flex-col gap-4">
@@ -71,22 +113,45 @@ export default function MatchesPage() {
       {liveMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-primary uppercase tracking-wide">En cours</h2>
-          {liveMatches.map((m) => <MatchCard key={m.id} match={m} />)}
+          {liveMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} />)}
         </section>
       )}
 
       {pendingMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">À venir</h2>
-          {pendingMatches.map((m) => <MatchCard key={m.id} match={m} />)}
+          {pendingMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} />)}
         </section>
       )}
 
       {finishedMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Terminés</h2>
-          {finishedMatches.map((m) => <MatchCard key={m.id} match={m} />)}
+          {finishedMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} />)}
         </section>
+      )}
+
+      {user && (
+        <button
+          type="button"
+          onClick={() => navigate('/matches/new')}
+          className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:brightness-95 active:scale-95"
+          style={{ bottom: 'calc(56px + 16px + env(safe-area-inset-bottom))' }}
+          aria-label="Créer un match"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-6 w-6"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       )}
     </div>
   );

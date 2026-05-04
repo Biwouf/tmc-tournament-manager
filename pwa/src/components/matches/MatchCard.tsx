@@ -1,11 +1,17 @@
 // Carte d'un match — gère les 3 statuts : pending, live, finished.
 // Score affiché à droite de chaque joueur sous forme de tuiles, comme un scoreboard ATP.
+// Boutons d'action conditionnels selon l'état d'authentification et l'ownership du live.
 
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
 import type { LiveMatch, LiveMatchWinner } from '../../types';
 import LiveBadge from './LiveBadge';
 
 interface Props {
   match: LiveMatch;
+  userId: string | null;
 }
 
 interface SetState {
@@ -13,7 +19,7 @@ interface SetState {
   j2: number;
   tbJ1: number | null;
   tbJ2: number | null;
-  winner: LiveMatchWinner | null; // null tant que le set est en cours
+  winner: LiveMatchWinner | null;
 }
 
 interface SetCell {
@@ -112,12 +118,136 @@ function PlayerRow({
   );
 }
 
-export default function MatchCard({ match }: Props) {
+export default function MatchCard({ match, userId }: Props) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const isLive = match.status === 'live';
   const isPending = match.status === 'pending';
   const isFinished = match.status === 'finished';
   const sets = buildSets(match);
   const showClassement = match.match_type === 'simple';
+
+  const isAuth = !!userId;
+  const isOwner = isAuth && match.scored_by === userId;
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['matches'] });
+
+  const handleStart = async () => {
+    if (!userId) return;
+    setBusy(true);
+    setActionError(null);
+    const { error } = await supabase
+      .from('live_matches')
+      .update({ status: 'live', scored_by: userId })
+      .eq('id', match.id);
+    if (error) {
+      setActionError(error.message);
+      setBusy(false);
+      return;
+    }
+    refresh();
+    navigate(`/matches/${match.id}/score`);
+  };
+
+  const handleResume = () => {
+    navigate(`/matches/${match.id}/score`);
+  };
+
+  const handleRelease = async () => {
+    if (!confirm('Libérer ce live ? Le match repassera en attente et pourra être repris par un autre utilisateur.')) {
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    const { error } = await supabase
+      .from('live_matches')
+      .update({ status: 'pending', scored_by: null })
+      .eq('id', match.id);
+    if (error) {
+      setActionError(error.message);
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    refresh();
+  };
+
+  const handleView = () => {
+    navigate(`/matches/${match.id}/score`);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Supprimer ce match ? Cette action est irréversible.')) return;
+    setBusy(true);
+    setActionError(null);
+    const { error } = await supabase.from('live_matches').delete().eq('id', match.id);
+    if (error) {
+      setActionError(error.message);
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    refresh();
+  };
+
+  let actions: React.ReactNode = null;
+  if (isPending && isAuth) {
+    actions = (
+      <button
+        type="button"
+        onClick={handleStart}
+        disabled={busy}
+        className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+      >
+        Démarrer le live
+      </button>
+    );
+  } else if (isLive && isOwner) {
+    actions = (
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={handleResume}
+          disabled={busy}
+          className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+        >
+          Reprendre le live
+        </button>
+        <button
+          type="button"
+          onClick={handleRelease}
+          disabled={busy}
+          className="min-h-11 ml-auto rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+        >
+          Libérer
+        </button>
+      </div>
+    );
+  } else if (isFinished && isAuth) {
+    actions = (
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={handleView}
+          disabled={busy}
+          className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+        >
+          Voir
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={busy}
+          className="min-h-11 ml-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+        >
+          Supprimer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={`bg-card rounded-xl p-4 shadow-sm border flex flex-col gap-3 ${isLive ? 'border-primary' : 'border-border'}`}>
@@ -150,6 +280,12 @@ export default function MatchCard({ match }: Props) {
           cells={cellsForSide(sets, 'j2')}
         />
       </div>
+
+      {actions && <div className="pt-1">{actions}</div>}
+
+      {actionError && (
+        <p className="text-xs text-red-600">{actionError}</p>
+      )}
     </div>
   );
 }
