@@ -4,6 +4,10 @@
 
 ## Projet — TMC Tournament Manager
 
+### Règle absolue — pas de développement via Cowork
+
+**Aucune modification de code via Cowork**, sauf si l'utilisateur le demande explicitement dans le message. Tout le développement se fait via Claude Code : l'utilisateur y crée la branche appropriée et choisit le modèle adapté.
+
 ### Règle absolue — branches Git
 
 **Ne jamais créer de nouvelle branche.** Toujours travailler directement sur la branche demandée par l'utilisateur (ex. `planning/ranking-order`). Ne pas utiliser de worktrees ou de branches "claude/xxx" — éditer les fichiers dans le répertoire principal du projet.

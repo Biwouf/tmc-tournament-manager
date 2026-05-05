@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { Actu } from '../types';
 import ActuCard from '../components/actus/ActuCard';
@@ -18,19 +17,15 @@ async function fetchActus(offset: number): Promise<Actu[]> {
 }
 
 export default function ActusPage() {
-  const [offset, setOffset] = useState(0);
-  const [allActus, setAllActus] = useState<Actu[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-
-  const { isFetching, isError } = useQuery({
-    queryKey: ['actus', offset],
-    queryFn: async () => {
-      const data = await fetchActus(offset);
-      setAllActus((prev) => offset === 0 ? data : [...prev, ...data]);
-      if (data.length < PAGE_SIZE) setHasMore(false);
-      return data;
-    },
+  const { data, fetchNextPage, isFetching, isError, hasNextPage } = useInfiniteQuery({
+    queryKey: ['actus'],
+    queryFn: ({ pageParam }) => fetchActus(pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < PAGE_SIZE ? undefined : allPages.length * PAGE_SIZE,
   });
+
+  const allActus = data?.pages.flat() ?? [];
 
   if (isError) {
     return <div className="p-6 text-center text-muted-foreground">Impossible de charger les actualités.</div>;
@@ -56,9 +51,9 @@ export default function ActusPage() {
         </div>
       )}
 
-      {hasMore && !isFetching && allActus.length > 0 && (
+      {hasNextPage && !isFetching && allActus.length > 0 && (
         <button
-          onClick={() => setOffset((prev) => prev + PAGE_SIZE)}
+          onClick={() => fetchNextPage()}
           className="w-full py-3 rounded-xl border border-border text-sm font-medium text-muted-foreground active:bg-muted transition-colors"
         >
           Voir plus
