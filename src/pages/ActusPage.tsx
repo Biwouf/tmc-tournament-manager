@@ -22,20 +22,23 @@ export default function ActusPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    setLoading(true);
+
     supabase
       .from('actus')
       .select('*')
       .order('created_at', { ascending: false })
+      .abortSignal(controller.signal)
       .then(({ data, error }) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         if (error) console.error(error);
         if (data) setActus(data as Actu[]);
         setLoading(false);
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [reloadKey]);
 
