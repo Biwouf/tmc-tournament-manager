@@ -64,6 +64,11 @@
   flex: 1;
 }
 
+/* Espace supplémentaire quand la bannière "Installer la PWA" est visible (~120px). */
+body.has-install-banner .pwa-content {
+  padding-bottom: calc(56px + 120px + env(safe-area-inset-bottom));
+}
+
 /* ─── Badge LIVE animé ───────────────────────────────────────────────────── */
 @keyframes live-pulse {
   0%, 100% { opacity: 1; }

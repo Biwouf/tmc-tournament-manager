@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppHeader from './components/layout/AppHeader';
 import BottomNav from './components/layout/BottomNav';
+import InstallBanner from './components/install/InstallBanner';
 import ActusPage from './pages/ActusPage';
 import ActuDetailPage from './pages/ActuDetailPage';
 import EventsPage from './pages/EventsPage';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/matches/:id/score" element={<RequireAuth><LiveMatchPage /></RequireAuth>} />
         </Routes>
       </main>
+      <InstallBanner />
       <BottomNav />
     </>
   );

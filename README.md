@@ -48,6 +48,13 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Actions sur la liste : modifier, publier, dépublier, supprimer
 - Table `actus` exposée en lecture publique au rôle `anon` (préparation PWA, uniquement les actus publiées)
 
+### PWA — bannière d'incitation à l'installation
+- Bannière fixe en bas (au-dessus de la barre de navigation) qui invite à installer l'app sur l'écran d'accueil
+- Variante Android Chrome/Edge : bouton « Installer » qui déclenche le prompt natif (`beforeinstallprompt`)
+- Variante iOS Safari : instructions visuelles « Touche [Partager] · puis [+] Sur l'écran d'accueil »
+- Masquée si l'app est déjà installée (mode standalone)
+- Fermeture (croix ou « Plus tard ») : reproposée 7 jours plus tard
+
 ### Général
 - Authentification via Supabase
 - Sauvegarde automatique avec localStorage (TMC) et Supabase (Events)

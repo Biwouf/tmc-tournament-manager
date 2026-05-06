@@ -135,7 +135,9 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 |---|---|
 | `App.tsx` | Routes + guard `RequireAuth` (redirige `/login` avec `state.from`) |
 | `lib/supabase.ts` | Client Supabase avec `persistSession: true` + `autoRefreshToken: true` (durée du JWT à régler dans le dashboard Supabase) |
+| `lib/pwa.ts` | Helper `isStandalone()` — détecte si l'app tourne en mode PWA installée (display-mode standalone ou iOS Safari `navigator.standalone`) |
 | `hooks/useAuth.ts` | Hook React partagé : retourne `{ user, loading }`, écoute `onAuthStateChange` |
+| `hooks/useInstallPrompt.ts` | Hook qui gère la bannière d'installation : capture `beforeinstallprompt` (Android), détecte iOS Safari, gère le dismiss 7 jours via `localStorage` (`cac:installPromptDismissedAt`). Retourne `{ variant, promptInstall, dismiss }`. |
 | `liveScoreRules.ts` | **Copie** de `src/liveScoreRules.ts` (BO). À synchroniser manuellement si les règles de score changent. |
 | `types.ts` | Types partagés copiés depuis le BO + type `Actu` PWA |
 | `pages/LoginPage.tsx` | Formulaire email/mot de passe → redirige sur `state.from ?? /matches` |
@@ -144,6 +146,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `pages/LiveMatchPage.tsx` | Saisie du score (route `/matches/:id/score`). Garde l'accès : redirige avec flash si `pending` ou si live appartient à un autre user |
 | `components/matches/MatchCard.tsx` | Carte avec actions conditionnelles : Démarrer / Reprendre+Libérer / Voir+Supprimer (selon auth + ownership) |
 | `components/matches/LiveScoreEntry.tsx` | Composant +/- (adapté du BO, layout mobile) |
+| `components/install/InstallBanner.tsx` | Bannière fixe au-dessus de la `BottomNav` qui invite à installer la PWA. Variante Android (CTA `beforeinstallprompt`) + variante iOS (instructions Partager → Sur l'écran d'accueil). Pose la classe `has-install-banner` sur `<body>` pour ajuster `padding-bottom` de `.pwa-content`. |
 
 ### Routes PWA
 
