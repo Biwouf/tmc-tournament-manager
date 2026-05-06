@@ -91,11 +91,17 @@ export interface ClubEvent {
   updated_at: string;
 }
 
+export interface ActuFocalPoint {
+  x: number; // 0–100
+  y: number; // 0–100
+}
+
 export interface Actu {
   id: string;
   titre: string;
   contenu: string;             // Markdown
   image_urls: string[];        // 0..N images
+  image_focal_points: (ActuFocalPoint | null)[]; // parallel array — same length as image_urls
   published: boolean;          // false = brouillon, true = publié
   published_at: string | null; // first publication timestamp, never overwritten
   created_at: string;

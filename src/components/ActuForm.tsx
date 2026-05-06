@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type MouseEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import MarkdownEditor from './MarkdownEditor';
-import type { Actu } from '../types';
+import type { Actu, ActuFocalPoint } from '../types';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
 const STORAGE_BUCKET = 'actu-images';
+const DEFAULT_FOCAL_POINT: ActuFocalPoint = { x: 50, y: 50 };
 
 function extractStoragePath(publicUrl: string): string | null {
   const marker = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
@@ -41,6 +42,18 @@ interface NewFile {
   localId: string;
   file: File;
   previewUrl: string;
+  focalPoint: ActuFocalPoint;
+}
+
+function clampPercent(v: number): number {
+  return Math.max(0, Math.min(100, v));
+}
+
+function computeFocalPoint(e: MouseEvent<HTMLDivElement>): ActuFocalPoint {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
+  return { x: clampPercent(x), y: clampPercent(y) };
 }
 
 export default function ActuForm() {
@@ -56,15 +69,19 @@ export default function ActuForm() {
 
   const [actu, setActu] = useState<Actu | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [existingFocalPoints, setExistingFocalPoints] = useState<ActuFocalPoint[]>([]);
   const [urlsToRemove, setUrlsToRemove] = useState<string[]>([]);
   const [newFiles, setNewFiles] = useState<NewFile[]>([]);
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const visibleExisting = useMemo(
-    () => existingImages.filter((u) => !urlsToRemove.includes(u)),
-    [existingImages, urlsToRemove]
+  const visibleExistingItems = useMemo(
+    () =>
+      existingImages
+        .map((url, i) => ({ url, focalPoint: existingFocalPoints[i] ?? DEFAULT_FOCAL_POINT }))
+        .filter(({ url }) => !urlsToRemove.includes(url)),
+    [existingImages, existingFocalPoints, urlsToRemove]
   );
 
   useEffect(() => {
@@ -90,7 +107,10 @@ export default function ActuForm() {
         setActu(a);
         setTitre(a.titre);
         setContenu(a.contenu);
-        setExistingImages(a.image_urls ?? []);
+        const urls = a.image_urls ?? [];
+        const fps = a.image_focal_points ?? [];
+        setExistingImages(urls);
+        setExistingFocalPoints(urls.map((_, i) => fps[i] ?? DEFAULT_FOCAL_POINT));
         setLoading(false);
       });
   }, [id, isEdit]);
@@ -113,6 +133,7 @@ export default function ActuForm() {
         localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         file,
         previewUrl: URL.createObjectURL(file),
+        focalPoint: { ...DEFAULT_FOCAL_POINT },
       });
     }
 
@@ -130,6 +151,22 @@ export default function ActuForm() {
       if (target) URL.revokeObjectURL(target.previewUrl);
       return prev.filter((f) => f.localId !== localId);
     });
+  };
+
+  const handleSetExistingFocalPoint = (url: string, fp: ActuFocalPoint) => {
+    setExistingFocalPoints((prev) => {
+      const idx = existingImages.indexOf(url);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = fp;
+      return next;
+    });
+  };
+
+  const handleSetNewFileFocalPoint = (localId: string, fp: ActuFocalPoint) => {
+    setNewFiles((prev) =>
+      prev.map((f) => (f.localId === localId ? { ...f, focalPoint: fp } : f))
+    );
   };
 
   const validate = (): FieldErrors => {
@@ -207,10 +244,17 @@ export default function ActuForm() {
         uploadedUrls.push(url);
       }
 
-      const finalUrls = [...visibleExisting, ...uploadedUrls];
+      const finalUrls = [
+        ...visibleExistingItems.map((item) => item.url),
+        ...uploadedUrls,
+      ];
+      const finalFocalPoints: (ActuFocalPoint | null)[] = [
+        ...visibleExistingItems.map((item) => item.focalPoint),
+        ...newFiles.map((f) => f.focalPoint),
+      ];
       const { error: imgErr } = await supabase
         .from('actus')
-        .update({ image_urls: finalUrls })
+        .update({ image_urls: finalUrls, image_focal_points: finalFocalPoints })
         .eq('id', targetId);
       if (imgErr) throw imgErr;
 
@@ -300,36 +344,33 @@ export default function ActuForm() {
             />
             {errors.image && <p className="mt-1 text-xs text-red-600">{errors.image}</p>}
 
-            {(visibleExisting.length > 0 || newFiles.length > 0) && (
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {visibleExisting.map((url) => (
-                  <div key={url} className="relative">
-                    <img src={url} alt="" className="h-32 w-full rounded-lg object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveExisting(url)}
-                      className="absolute right-1 top-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100"
-                    >
-                      Retirer
-                    </button>
-                  </div>
-                ))}
-                {newFiles.map((f) => (
-                  <div key={f.localId} className="relative">
-                    <img src={f.previewUrl} alt="" className="h-32 w-full rounded-lg object-cover" />
-                    <span className="absolute left-1 top-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                      Nouveau
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveNewFile(f.localId)}
-                      className="absolute right-1 top-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100"
-                    >
-                      Retirer
-                    </button>
-                  </div>
-                ))}
-              </div>
+            {(visibleExistingItems.length > 0 || newFiles.length > 0) && (
+              <>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Cliquez sur une image pour définir son point de focus (zone qui restera visible dans le cadrage PWA).
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {visibleExistingItems.map(({ url, focalPoint }) => (
+                    <FocalPointPreview
+                      key={url}
+                      src={url}
+                      focalPoint={focalPoint}
+                      onPick={(fp) => handleSetExistingFocalPoint(url, fp)}
+                      onRemove={() => handleRemoveExisting(url)}
+                    />
+                  ))}
+                  {newFiles.map((f) => (
+                    <FocalPointPreview
+                      key={f.localId}
+                      src={f.previewUrl}
+                      focalPoint={f.focalPoint}
+                      onPick={(fp) => handleSetNewFileFocalPoint(f.localId, fp)}
+                      onRemove={() => handleRemoveNewFile(f.localId)}
+                      badge="Nouveau"
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
@@ -365,6 +406,62 @@ export default function ActuForm() {
           </div>
         </form>
       </main>
+    </div>
+  );
+}
+
+interface FocalPointPreviewProps {
+  src: string;
+  focalPoint: ActuFocalPoint;
+  onPick: (fp: ActuFocalPoint) => void;
+  onRemove: () => void;
+  badge?: string;
+}
+
+function FocalPointPreview({ src, focalPoint, onPick, onRemove, badge }: FocalPointPreviewProps) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div className="relative">
+      <img
+        src={src}
+        alt=""
+        onLoad={() => setLoaded(true)}
+        className="h-32 w-full rounded-lg object-cover"
+        style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
+      />
+      {loaded && (
+        <div
+          role="presentation"
+          onClick={(e) => onPick(computeFocalPoint(e))}
+          className="absolute inset-0 cursor-crosshair rounded-lg"
+          title="Cliquez pour définir le point de focus"
+        />
+      )}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+        style={{
+          left: `${focalPoint.x}%`,
+          top: `${focalPoint.y}%`,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+        }}
+      />
+      {badge && (
+        <span className="pointer-events-none absolute left-1 top-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+          {badge}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        className="absolute right-1 top-1 z-10 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100"
+      >
+        Retirer
+      </button>
     </div>
   );
 }

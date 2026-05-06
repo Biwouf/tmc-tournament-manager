@@ -3,6 +3,7 @@
 
 import { Link } from 'react-router-dom';
 import type { Actu } from '../../types';
+import { focalPointStyle } from '../../utils/focalPoint';
 
 interface Props {
   actu: Actu;
@@ -28,6 +29,7 @@ export default function ActuCard({ actu }: Props) {
           src={cover}
           alt={actu.titre}
           className="w-full h-40 object-cover"
+          style={focalPointStyle(actu.image_focal_points?.[0])}
         />
       )}
       <div className="p-4 flex flex-col gap-1">
