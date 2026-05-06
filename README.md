@@ -12,6 +12,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Filtrage par classement de tennis (NC à 15)
 - Vue calendrier et vue tableau pour le planning
 - Déplacement des matches par glisser-déposer
+- Export du planning au format CSV (compatible Excel)
 
 ### Génération d'affiches de programmation
 - Import PDF depuis les feuilles de programmation FFT/TEN'UP
@@ -154,6 +155,7 @@ src/
 ├── tmcLogic.ts                     # Logique de génération des matches TMC
 ├── scheduler.ts                    # Algorithme de planification
 ├── moveMatch.ts                    # Logique de déplacement des matches
+├── exportScheduleCsv.ts            # Export du planning TMC en CSV
 ├── liveScoreRules.ts               # Règles de score tennis (sets, tiebreak, super TB)
 ├── App.tsx                         # Configuration du routeur
 └── main.tsx                        # Point d'entrée

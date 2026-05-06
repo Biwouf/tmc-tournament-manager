@@ -6,6 +6,7 @@ import ConfigurationForm from '../components/ConfigurationForm';
 import ScheduleView from '../components/ScheduleView';
 import { generateSchedule } from '../scheduler';
 import { moveMatches } from '../moveMatch';
+import { exportScheduleCsv } from '../exportScheduleCsv';
 import { supabase } from '../lib/supabase';
 
 interface Props {
@@ -159,6 +160,13 @@ export default function TournamentPage({ user }: Props) {
                 className="inline-flex items-center rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-card-foreground transition hover:bg-muted"
               >
                 Reconfigurer
+              </button>
+
+              <button
+                onClick={() => exportScheduleCsv(entry.schedule!, entry.config)}
+                className="inline-flex items-center rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-card-foreground transition hover:bg-muted"
+              >
+                Exporter CSV
               </button>
 
               {!confirmDelete ? (
