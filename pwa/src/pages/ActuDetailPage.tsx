@@ -5,6 +5,7 @@ import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import { supabase } from '../lib/supabase';
 import type { Actu } from '../types';
+import { focalPointStyle } from '../utils/focalPoint';
 
 const expandBlankLines = (md: string) =>
   md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
@@ -62,6 +63,7 @@ export default function ActuDetailPage() {
               src={url}
               alt={`${actu.titre} — ${i + 1}`}
               className="w-full h-52 object-cover"
+              style={focalPointStyle(actu.image_focal_points?.[i])}
             />
           ))}
         </div>

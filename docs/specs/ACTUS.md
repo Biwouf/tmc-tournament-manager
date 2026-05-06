@@ -1,7 +1,7 @@
 # Spec — Module Actus (Back-office)
 
 > Statut : implémenté
-> Dernière mise à jour : 2026-04-26
+> Dernière mise à jour : 2026-05-06
 
 ---
 
@@ -28,17 +28,25 @@ Hors scope v1 : publication automatique sur Facebook.
 ### Type TypeScript (`src/types.ts`)
 
 ```ts
+export interface ActuFocalPoint {
+  x: number; // 0–100
+  y: number; // 0–100
+}
+
 export interface Actu {
   id: string;
   titre: string;
   contenu: string;             // Markdown
   image_urls: string[];        // 0..N images
+  image_focal_points: (ActuFocalPoint | null)[]; // tableau parallèle à image_urls
   published: boolean;          // false = brouillon, true = publié
   published_at: string | null; // première publication, jamais écrasé
   created_at: string;
   updated_at: string;
 }
 ```
+
+`image_focal_points[i]` correspond à `image_urls[i]`. Chaque entrée est soit `null` (centre par défaut 50/50), soit `{ x, y }` en pourcentages 0–100. Voir `docs/specs/ACTUS_FOCAL_POINT.md` pour le détail.
 
 ---
 
@@ -50,14 +58,15 @@ Migration : `supabase/migrations/20260426_actus.sql`.
 
 ```sql
 CREATE TABLE actus (
-  id           UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  titre        TEXT        NOT NULL,
-  contenu      TEXT        NOT NULL,
-  image_urls   TEXT[]      NOT NULL DEFAULT '{}',
-  published    BOOLEAN     NOT NULL DEFAULT false,
-  published_at TIMESTAMPTZ,
-  created_at   TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at   TIMESTAMPTZ DEFAULT now() NOT NULL
+  id                   UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  titre                TEXT        NOT NULL,
+  contenu              TEXT        NOT NULL,
+  image_urls           TEXT[]      NOT NULL DEFAULT '{}',
+  image_focal_points   JSONB       NOT NULL DEFAULT '[]'::jsonb, -- patch 20260506
+  published            BOOLEAN     NOT NULL DEFAULT false,
+  published_at         TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at           TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 ```
 
@@ -120,7 +129,7 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
 |---|---|---|---|
 | Titre | `<input type="text">` | Oui | |
 | Contenu | Textarea + onglet Aperçu | Oui | Markdown, même pattern que `EventForm` |
-| Images | Input file multiple + grille d'aperçus + bouton retirer par image | Non (0..N) | JPEG/PNG, max 5 Mo / fichier, bucket `actu-images` |
+| Images | Input file multiple + grille d'aperçus + bouton retirer + clic pour définir le point de focus | Non (0..N) | JPEG/PNG, max 5 Mo / fichier, bucket `actu-images` |
 
 **Gestion des images (multi) :**
 
@@ -131,11 +140,12 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
 - Bouton **« Retirer »** par image :
   - Sur image existante → marque pour suppression du bucket à la sauvegarde.
   - Sur nouveau fichier → retire de la sélection avant upload.
+- **Point de focus par image** : chaque aperçu est cliquable (overlay `cursor-crosshair`). Le clic met à jour le focal point de l'image (coordonnées en pourcentages 0–100 par rapport au cadre de prévisualisation), un marqueur le matérialise et l'image est rendue en preview avec `object-position: x% y%`. Valeur par défaut à l'ajout : `{ x: 50, y: 50 }`. Les images existantes sans focal point en base sont initialisées à 50/50 dans l'état local.
 - À la soumission :
-  1. Upsert de l'actu (sans toucher `image_urls`).
+  1. Upsert de l'actu (sans toucher `image_urls` ni `image_focal_points`).
   2. Suppression dans le bucket des images marquées.
   3. Upload des nouveaux fichiers.
-  4. Update de `image_urls` avec la liste finale (existantes restantes + nouvelles uploadées, dans l'ordre).
+  4. Update de `image_urls` + `image_focal_points` avec les listes finales (existantes restantes + nouvelles uploadées, dans le même ordre).
 
 **Boutons de soumission :**
 - **« Enregistrer en brouillon »** → `published = false`.
@@ -163,10 +173,11 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
 ```
 src/
   pages/ActusPage.tsx       # Liste + badge brouillon/publié, actions publier/dépublier/supprimer
-  components/ActuForm.tsx   # Formulaire création/édition + multi-images
-  types.ts                  # Interface Actu
+  components/ActuForm.tsx   # Formulaire création/édition + multi-images + focal point
+  types.ts                  # Interfaces Actu, ActuFocalPoint
 supabase/migrations/
-  20260426_actus.sql        # Table + RLS + bucket + policies
+  20260426_actus.sql                # Table + RLS + bucket + policies
+  20260506_actus_focal_points.sql   # Ajout colonne image_focal_points (JSONB[])
 ```
 
 ---
