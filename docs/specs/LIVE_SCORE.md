@@ -18,7 +18,6 @@ Permettre à un utilisateur authentifié de saisir en temps réel le score d'un 
 - Anticipation Supabase Realtime pour la future PWA
 
 Hors scope (v2) :
-- Import de matchs depuis GEN_PROG
 - La PWA publique de consommation
 
 ---
@@ -380,6 +379,56 @@ src/
 
 ---
 
+---
+
+## Interface PWA
+
+> Consommé par `pwa/src/pages/MatchesPage.tsx` et `pwa/src/components/matches/MatchCard.tsx`.
+
+### Policy RLS à ajouter
+
+```sql
+CREATE POLICY "live_matches_anon_select"
+  ON live_matches FOR SELECT TO anon USING (true);
+```
+
+### Supabase Realtime
+
+Activer depuis le dashboard : Table Editor → `live_matches` → Enable Realtime.
+
+```ts
+const channel = supabase
+  .channel('live_matches_pwa')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'live_matches' }, () => {
+    queryClient.invalidateQueries({ queryKey: ['matches'] });
+  })
+  .subscribe();
+```
+
+### Requête Supabase
+
+```ts
+const today = new Date().toISOString().split('T')[0];
+const { data } = await supabase
+  .from('live_matches')
+  .select('*')
+  .gte('match_date', today)
+  .order('match_date', { ascending: true })
+  .order('start_time', { ascending: true });
+// Filtrer côté client : exclure les finished dont match_date < today
+```
+
+### Affichage par statut (`MatchCard.tsx`)
+
+- `live` → badge "LIVE" animé (pulse rouge), score set par set, carte mise en évidence (bordure rouge)
+- `pending` → heure prévue, joueurs, "Commence à HH:MM"
+- `finished` → score final, badge "Terminé"
+- Double : "Équipe 1 : Prenom Nom / Prenom Nom" vs "Équipe 2 : ..."
+
+Les matchs `finished` du jour restent affichés jusqu'à minuit (retirés à `match_date < today`).
+
+---
+
 ## Évolutions v2
 
-- **Import GEN_PROG** : ajouter dans `ProgrammationImagePage` un bouton par match pour le basculer dans `live_matches`. Les données (joueurs, clubs, classements, event) sont pré-remplies depuis le modèle `Match` de GEN_PROG. Le live ne démarre pas automatiquement : un bouton "Démarrer le live" reste nécessaire.
+- Auth admin dans la PWA pour la saisie du score directement depuis l'app publique.

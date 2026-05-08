@@ -46,7 +46,7 @@ export interface Actu {
 }
 ```
 
-`image_focal_points[i]` correspond à `image_urls[i]`. Chaque entrée est soit `null` (centre par défaut 50/50), soit `{ x, y }` en pourcentages 0–100. Voir `docs/specs/ACTUS_FOCAL_POINT.md` pour le détail.
+`image_focal_points[i]` correspond à `image_urls[i]`. Chaque entrée est soit `null` (centre par défaut 50/50), soit `{ x, y }` en pourcentages 0–100.
 
 ---
 
@@ -179,6 +179,110 @@ supabase/migrations/
   20260426_actus.sql                # Table + RLS + bucket + policies
   20260506_actus_focal_points.sql   # Ajout colonne image_focal_points (JSONB[])
 ```
+
+---
+
+## Feature : Focal Point
+
+> Scope : backoffice (`ActuForm.tsx`) + PWA (`ActuCard`, `ActuDetailPage`)
+> Approche : focal point CSS — stockage de coordonnées x/y, rendu via `object-position`
+
+### Problème
+
+Les images uploadées sont affichées avec `object-fit: cover` dans la PWA. Sans indication de point d'intérêt, le navigateur centre l'image par défaut, ce qui tronque les sujets décalés (visages en bord de cadre, texte en bas, etc.). Le problème est accentué sur la vue liste (miniatures format paysage ou carré).
+
+### Approche retenue
+
+Pas de recadrage de l'image originale. On stocke `{ x, y }` (pourcentages 0–100) par image et on l'applique via `object-position: {x}% {y}%`. Aucun re-upload, l'image originale est conservée intacte dans le bucket.
+
+### Backoffice — `ActuForm.tsx`
+
+Chaque aperçu d'image dans la grille contient :
+
+1. **L'image** avec `object-fit: cover` + `object-position: {x}% {y}%` (preview en temps réel)
+2. **Un overlay cliquable** (position absolute, `cursor: crosshair`) — au clic : `x = (e.offsetX / imgWidth) * 100`, `y = (e.offsetY / imgHeight) * 100`
+3. **Un marqueur** (cercle 12px, `mix-blend-mode: difference`) positionné aux coordonnées actuelles
+4. **Label discret** `"Point de focus"` pour signaler la fonctionnalité
+
+État local : `DEFAULT_FOCAL_POINT = { x: 50, y: 50 }` à l'ajout d'une image. Les actus existantes sans focal point sont initialisées à 50/50 dans l'état local.
+
+L'overlay ne doit pas interférer avec le bouton "Retirer" existant. Le désactiver si l'image est en cours de chargement.
+
+### Contraintes de synchronisation
+
+- `image_focal_points` et `image_urls` doivent rester en sync.
+- Retrait d'une image à l'index `i` → retirer aussi `image_focal_points[i]`.
+- Ajout d'une image → push `{ x: 50, y: 50 }` dans focal_points.
+
+### Hors scope v1
+
+- Crop manuel de l'image.
+- Focal point sur les images d'événements (`EventForm`).
+- Migration des actus existantes (le fallback `50% 50%` suffit).
+
+---
+
+## Interface PWA
+
+> Consommé par `pwa/src/pages/ActusPage.tsx` et `pwa/src/pages/ActuDetailPage.tsx`.
+
+### Type TypeScript (`pwa/src/types.ts`)
+
+Synchroniser avec `src/types.ts` :
+
+```ts
+export interface ActuFocalPoint { x: number; y: number; }
+
+export interface Actu {
+  id: string;
+  titre: string;
+  contenu: string;
+  image_urls: string[];
+  image_focal_points: (ActuFocalPoint | null)[];
+  published: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+### Requête Supabase (rôle `anon`)
+
+```ts
+const { data } = await supabase
+  .from('actus')
+  .select('*')
+  .eq('published', true)
+  .order('published_at', { ascending: false })
+  .range(offset, offset + 9);
+```
+
+### Pages
+
+**`ActusPage.tsx`** — flux vertical paginé (load more) par `published_at` DESC. Chaque carte : image, titre, extrait 2-3 lignes tronqué, date de publication formatée. État vide : "Aucune actualité pour l'instant".
+
+**`ActuDetailPage.tsx`** — titre, image full-width, date, contenu Markdown rendu via `react-markdown` + `rehype-raw` (pour le rendu `<u>` inséré par le MarkdownEditor). Bouton retour vers `/actus`.
+
+### Focal point (helper partagé)
+
+```ts
+// pwa/src/utils/focalPoint.ts
+export function focalPointStyle(fp: ActuFocalPoint | null | undefined): React.CSSProperties {
+  if (!fp) return { objectPosition: '50% 50%' };
+  return { objectPosition: `${fp.x}% ${fp.y}%` };
+}
+```
+
+Appliquer sur chaque `<img>` dans `ActuCard.tsx` et `ActuDetailPage.tsx` :
+
+```tsx
+<img
+  src={actu.image_urls[i]}
+  style={{ objectFit: 'cover', ...focalPointStyle(actu.image_focal_points?.[i]) }}
+/>
+```
+
+Les actus sans `image_focal_points` (existantes avant la migration) sont gérées par le `?.` guard + le fallback `50% 50%`.
 
 ---
 
