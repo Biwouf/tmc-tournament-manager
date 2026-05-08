@@ -261,3 +261,42 @@ src/
 - Pas de state management global — state local React dans `EventsPage` et `EventForm`
 - Pas de `useLocalStorage` pour les events (tout passe par Supabase)
 - Avant de commencer : créer la table `events` et le bucket `event-images` dans le dashboard Supabase
+
+---
+
+## Interface PWA
+
+> Consommé par `pwa/src/pages/EventsPage.tsx` et `pwa/src/pages/EventDetailPage.tsx`.
+
+### Policy RLS à ajouter
+
+```sql
+CREATE POLICY "events_anon_select"
+  ON events FOR SELECT TO anon USING (true);
+```
+
+### Requête Supabase (rôle `anon`)
+
+```ts
+const { data } = await supabase
+  .from('events')
+  .select('*')
+  .order('date_debut', { ascending: true });
+// Filtrer côté client : garder si (date_fin && date_fin >= now) || (!date_fin && date_debut >= now)
+```
+
+### Pages
+
+**`EventsPage.tsx`** — uniquement les événements à venir (filtre client sur `date_debut` / `date_fin`), triés par `date_debut` ASC. Chaque carte : badge type coloré, titre, dates, image (si présente), prix (ou "Gratuit"). État vide : "Aucun événement à venir".
+
+**`EventDetailPage.tsx`** — toutes les infos, `description` Markdown rendu via `react-markdown` + `rehype-raw` (pour le `<u>` du MarkdownEditor). Bouton retour vers `/evenements`.
+
+### Badges par type (cohérent avec le BO)
+
+| Type | Couleur |
+|---|---|
+| Animation | Bleu |
+| Tournoi | Violet |
+| Match par équipe | Vert |
+| Sortie | Orange |
+| Soirée | Rose |

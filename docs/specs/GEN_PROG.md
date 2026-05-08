@@ -213,9 +213,88 @@ Les téléchargements sont déclenchés séquentiellement.
 
 ## Basculement vers Live Score
 
-Spec dédiée : `docs/specs/GEN_PROG_TO_LIVE_SCORE.md`.
+### Contexte & objectif
 
-Une zone « Envoyer vers Live Score » s'affiche sous l'aperçu (uniquement si `matches.length > 0`). Elle propose un sélecteur d'événement (chargé depuis la table `events`, tri DESC sur `date_debut`) et un bouton qui insère tous les matchs dans `live_matches` (`status='pending'`, `match_type='simple'`, `j3..j4` à `null`) en un seul appel Supabase. Le bouton se désactive après succès et se réinitialise à chaque nouvelle importation (changement de la liste `matches`).
+Le module GEN_PROG structure les matchs en mémoire (joueurs, classements, clubs, horaires) mais les isole de Live Score, où la création est manuelle champ par champ. Ce bridge permet de basculer tous les matchs détectés vers Live Score en un clic.
+
+**Mesure de succès :** l'utilisateur transfère N matchs en moins de 30 secondes, sans aucune ressaisie.
+
+### Périmètre
+
+**In scope**
+- Basculement global (tous les matchs d'un coup).
+- Sélecteur d'événement optionnel avant confirmation.
+- Création des entrées `live_matches` avec `status = 'pending'`.
+- Feedback visuel après transfert (bouton désactivé "Ajoutés ✓").
+- `FAKE_CSV` avec date dynamique (`new Date().toISOString().split('T')[0]`) pour pouvoir tester sans modifier le CSV.
+
+**Out of scope**
+- Basculement match par match.
+- Création d'un événement à la volée.
+- Démarrage automatique du live.
+- Dé-duplication automatique, rollback.
+
+### Interface — zone "Envoyer vers Live Score"
+
+**Condition d'affichage :** `matches.length > 0`. Positionnée sous l'affiche, après le bouton "Télécharger".
+
+Composants :
+1. **Titre** "Envoyer vers Live Score"
+2. **`<select>` événement** — chargé au montage depuis `events` (tri `start_date` DESC). Option par défaut : "Aucun événement". Désactivé pendant le chargement et après transfert réussi.
+3. **Bouton** avec états :
+   - Idle : "Basculer N match(s) vers Live Score"
+   - Loading : "Envoi…" (désactivé)
+   - Done : "N match(s) ajouté(s) ✓" (désactivé, style succès)
+   - Error : label idle réactivé + message d'erreur inline
+
+L'état `transferStatus` se réinitialise à `'idle'` à chaque changement de la liste `matches` (nouveau PDF/CSV importé).
+
+### Mapping Match → LiveMatch
+
+Pour chaque `Match`, insérer dans `live_matches` :
+
+| Champ `live_matches` | Valeur |
+|---|---|
+| `match_date` | `match.date` |
+| `start_time` | `match.heure` (ou `null` si vide) |
+| `match_type` | `'simple'` |
+| `j1_*` / `j2_*` | depuis `match` |
+| `j1_club` / `j2_club` | `""` si absent (import CSV) |
+| `j3_*` / `j4_*` | tous `null` |
+| `event_id` | UUID sélectionné ou `null` |
+| `status` | `'pending'` |
+| `winner`, `scored_by`, `finished_at`, `set*` | tous `null` |
+
+**Stratégie :** `supabase.from('live_matches').insert([...allMatches])` — un seul appel pour tous les matchs.
+
+### Cas limites
+
+| Cas | Comportement |
+|---|---|
+| Erreur Supabase | Message d'erreur inline, bouton reste actif pour retry. |
+| Aucun événement disponible | `<select>` affiche "Aucun événement". Transfert possible sans `event_id`. |
+| Nouvelle importation après transfert | `transferStatus` repasse à `'idle'`. |
+| 0 match après import | La zone n'est pas affichée. |
+
+### Plan de tests
+
+| Scénario | Vérification |
+|---|---|
+| Import CSV date du jour | Zone apparaît, bouton indique le bon nombre |
+| Basculer sans événement | Matchs créés avec `event_id = null`, status `pending` |
+| Basculer avec événement | Matchs créés avec le bon `event_id` |
+| Vérif dans `/live-score` | Matchs en "En attente" avec bonnes données |
+| Nouvelle importation après transfer | Bouton repasse en idle |
+| Bouton "Charger données de test" | Matchs avec date du jour |
+| Erreur réseau simulée | Message d'erreur, bouton actif |
+
+### Points ouverts
+
+| # | Question |
+|---|---|
+| 1 | Erreur partielle : tout-ou-rien via un seul `insert([...])` — si Supabase rejette un item, toute la transaction échoue. À confirmer. |
+| 2 | Rien n'empêche de transférer deux fois la même affiche (doublons). Pas de dé-duplication en v1 — à surveiller. |
+| 3 | `type_tournoi` n'est pas stocké dans `live_matches`. Migration nécessaire si le besoin remonte. |
 
 ---
 
