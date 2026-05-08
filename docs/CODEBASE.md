@@ -40,7 +40,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `pages/AppHomePage.tsx` | `/` | Dashboard — accès aux deux modules |
 | `pages/HomePage.tsx` | `/tmc-planning` | Liste des configurations sauvegardées |
 | `pages/TournamentPage.tsx` | `/tmc-planning/:id` | Écran principal TMC Planner (config + schedule) |
-| `pages/ProgrammationImagePage.tsx` | `/programmation-image` | Import PDF/CSV → rendu affiche → export JPEG |
+| `pages/ProgrammationImagePage.tsx` | `/programmation-image` | Import PDF/CSV → rendu affiche → export JPEG. Bouton « Basculer vers Live Score » : insère tous les matchs détectés dans `live_matches` (status `pending`, match_type `simple`) avec un événement optionnel. |
 | `pages/EventsPage.tsx` | `/events` | Liste paginée des événements (toggle à venir / passés), actions modifier/dupliquer/supprimer |
 | `components/EventForm.tsx` | `/events/new`, `/events/:id/edit` | Formulaire création/édition d'événement (markdown preview, upload image Supabase Storage) |
 | `pages/LiveScorePage.tsx` | `/live-score` | Liste des matchs en 3 sections : En live / En attente / Terminés. Actions démarrer/reprendre/voir/supprimer. Badge "À supprimer" si finished + 2j. |
@@ -108,6 +108,7 @@ PDF (pdfjs-dist) ou CSV (texte brut)
 Voir `docs/specs/` :
 - `SCHEDULING_RULES.md` — règles de l'algo de planification (contraintes R1–R5)
 - `GEN_PROG.md` — spec du module Programmation Image
+- `GEN_PROG_TO_LIVE_SCORE.md` — basculement des matchs détectés depuis l'affiche vers Live Score (création en bloc dans `live_matches`)
 - `EVENTS.md` — spec du module Events (table Supabase `events`, bucket `event-images`, flux JSON)
 - `LIVE_SCORE.md` — spec du module Live Score (table Supabase `live_matches`, règles de score, UI back-office, préparation Realtime)
 - `ACTUS.md` — spec du module Actus (table Supabase `actus`, bucket `actu-images`, multi-images, brouillon/publié, lecture `anon` PWA)

@@ -103,7 +103,7 @@ date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_class
 
 > Le club n'est **pas** dans le schéma CSV. Les champs `j1_club` / `j2_club` resteront vides (`""`) pour les matchs importés via CSV.
 
-Un bouton « Charger des données de test » pré-remplit le textarea avec `FAKE_CSV` (8 matchs hardcodés).
+Un bouton « Charger des données de test » pré-remplit le textarea avec `FAKE_CSV` (8 matchs). La date des matchs de test est générée à l'exécution (`new Date().toISOString().split('T')[0]`) afin de pouvoir tester le basculement vers Live Score sans modifier le CSV manuellement.
 
 ---
 
@@ -203,6 +203,19 @@ Les téléchargements sont déclenchés séquentiellement.
 | `isGenerating` | `boolean` | Désactive le bouton pendant l'export |
 | `isParsing` | `boolean` | Désactive l'input pendant la lecture PDF |
 | `pdfError` | `string` | Message d'erreur PDF |
+| `events` | `{ id, titre, date_debut }[]` | Liste des événements pour le sélecteur de basculement |
+| `eventsLoading` | `boolean` | Désactive le `<select>` d'événement pendant le fetch |
+| `selectedEventId` | `string` | UUID de l'événement choisi (`""` = aucun) |
+| `transferStatus` | `'idle'\|'loading'\|'done'\|'error'` | État du bouton « Basculer vers Live Score » |
+| `transferError` | `string \| null` | Message d'erreur du transfert |
+
+---
+
+## Basculement vers Live Score
+
+Spec dédiée : `docs/specs/GEN_PROG_TO_LIVE_SCORE.md`.
+
+Une zone « Envoyer vers Live Score » s'affiche sous l'aperçu (uniquement si `matches.length > 0`). Elle propose un sélecteur d'événement (chargé depuis la table `events`, tri DESC sur `date_debut`) et un bouton qui insère tous les matchs dans `live_matches` (`status='pending'`, `match_type='simple'`, `j3..j4` à `null`) en un seul appel Supabase. Le bouton se désactive après succès et se réinitialise à chaque nouvelle importation (changement de la liste `matches`).
 
 ---
 

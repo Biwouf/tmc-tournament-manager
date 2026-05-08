@@ -20,6 +20,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Export en image JPEG (haute qualité, ratio 2×)
 - Mise en page A4 avec 8 matches par page (2 colonnes × 4 lignes)
 - Charte graphique CAC Tennis intégrée
+- **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
 
 ### Événements
 - Gestion des événements du club (Animations, Tournois, Matchs par équipe, Sorties, Soirées)
@@ -118,6 +119,13 @@ Deux méthodes disponibles :
 Une fois les matches chargés, cliquez sur "Télécharger" pour générer une image JPEG par page.
 - Chaque page contient jusqu'à 8 matches
 - Le format suit la charte graphique CAC Tennis
+
+#### 3. Basculer les matches vers Live Score
+
+Sous l'aperçu, la zone **« Envoyer vers Live Score »** permet de créer en un clic tous les matches détectés dans le module Live Score :
+- Sélection optionnelle d'un événement à associer aux matches
+- Tous les matches sont créés avec le statut « En attente » et devront être démarrés manuellement depuis `/live-score`
+- Le bouton se réinitialise dès qu'un nouveau PDF/CSV est importé
 
 ## Technologies
 

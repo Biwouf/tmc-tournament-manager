@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toJpeg } from 'html-to-image';
 import * as pdfjsLib from 'pdfjs-dist';
 import PDFWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { supabase } from '../lib/supabase';
+import type { ClubEvent } from '../types';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = PDFWorkerUrl;
 
@@ -28,15 +30,17 @@ interface Match {
 // Données de test
 // ---------------------------------------------------------------------------
 
+const TODAY = new Date().toISOString().split('T')[0];
+
 const FAKE_CSV = `date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_classement
-2026-05-30,09:00,Hommes 3ème série,Jean,Dupont,15/4,Pierre,Martin,15/2
-2026-05-30,09:00,Femmes 30/3 15/2,Marie,Leblanc,30,Sophie,Durand,30/1
-2026-05-30,10:30,Hommes 34ème série,Thomas,Leroy,30/5,Lucas,Petit,30/4
-2026-05-30,10:30,Femmes 30/3 15/2,Camille,Bernard,15/2,Julie,Robert,15/3
-2026-05-30,12:00,Hommes 4ème série,Antoine,Simon,NC,Maxime,Laurent,30/5
-2026-05-30,14:00,Hommes 4ème séire,Quentin, Le Bras,15/2,Maxime, Tresal-Mauroz,15/2
-2026-05-30,15:30,Femmes 30/3 15/2,Léa,Moreau,30/3,Emma,Garnier,30/2
-2026-05-30,17:00,Hommes 4ème série,Nicolas,Fontaine,30/1,Hugo,Blanc,30/1`;
+${TODAY},09:00,Hommes 3ème série,Jean,Dupont,15/4,Pierre,Martin,15/2
+${TODAY},09:00,Femmes 30/3 15/2,Marie,Leblanc,30,Sophie,Durand,30/1
+${TODAY},10:30,Hommes 34ème série,Thomas,Leroy,30/5,Lucas,Petit,30/4
+${TODAY},10:30,Femmes 30/3 15/2,Camille,Bernard,15/2,Julie,Robert,15/3
+${TODAY},12:00,Hommes 4ème série,Antoine,Simon,NC,Maxime,Laurent,30/5
+${TODAY},14:00,Hommes 4ème séire,Quentin, Le Bras,15/2,Maxime, Tresal-Mauroz,15/2
+${TODAY},15:30,Femmes 30/3 15/2,Léa,Moreau,30/3,Emma,Garnier,30/2
+${TODAY},17:00,Hommes 4ème série,Nicolas,Fontaine,30/1,Hugo,Blanc,30/1`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -352,6 +356,15 @@ function PosterPage({ matches, date }: { matches: Match[]; date: string }) {
 // Page principale
 // ---------------------------------------------------------------------------
 
+type TransferStatus = 'idle' | 'loading' | 'done' | 'error';
+
+function formatEventLabel(ev: Pick<ClubEvent, 'titre' | 'date_debut'>): string {
+  const d = new Date(ev.date_debut);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${ev.titre} — ${dd}/${mm}/${d.getFullYear()}`;
+}
+
 export default function ProgrammationImagePage() {
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
@@ -359,6 +372,67 @@ export default function ProgrammationImagePage() {
   const [isParsing, setIsParsing] = useState(false);
   const [pdfError, setPdfError] = useState('');
   const posterRef = useRef<HTMLDivElement>(null);
+
+  const [events, setEvents] = useState<Pick<ClubEvent, 'id' | 'titre' | 'date_debut'>[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [transferStatus, setTransferStatus] = useState<TransferStatus>('idle');
+  const [transferError, setTransferError] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('events')
+      .select('id, titre, date_debut')
+      .order('date_debut', { ascending: false })
+      .then(({ data, error }) => {
+        if (!error && data) setEvents(data);
+        setEventsLoading(false);
+      });
+  }, []);
+
+  // Reset le bouton de basculement à chaque nouvelle importation (PDF/CSV)
+  useEffect(() => {
+    setTransferStatus('idle');
+    setTransferError(null);
+  }, [matches]);
+
+  async function handleTransfer() {
+    if (matches.length === 0) return;
+    setTransferStatus('loading');
+    setTransferError(null);
+
+    const payload = matches.map((m) => ({
+      match_date: m.date,
+      start_time: m.heure || null,
+      match_type: 'simple' as const,
+      j1_prenom: m.j1_prenom,
+      j1_nom: m.j1_nom,
+      j1_classement: m.j1_classement,
+      j1_club: m.j1_club ?? '',
+      j2_prenom: m.j2_prenom,
+      j2_nom: m.j2_nom,
+      j2_classement: m.j2_classement,
+      j2_club: m.j2_club ?? '',
+      j3_prenom: null,
+      j3_nom: null,
+      j3_classement: null,
+      j3_club: null,
+      j4_prenom: null,
+      j4_nom: null,
+      j4_classement: null,
+      j4_club: null,
+      event_id: selectedEventId || null,
+      status: 'pending' as const,
+    }));
+
+    const { error } = await supabase.from('live_matches').insert(payload);
+    if (error) {
+      setTransferStatus('error');
+      setTransferError(error.message);
+      return;
+    }
+    setTransferStatus('done');
+  }
 
   function handleParse() {
     setMatches(parseCSV(csvText));
@@ -500,6 +574,55 @@ export default function ProgrammationImagePage() {
                   <PosterPage matches={pageMatches} date={date} />
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Basculer vers Live Score */}
+        {matches.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Envoyer vers Live Score</h2>
+            <p className="text-xs text-muted-foreground">
+              Crée les matchs en attente dans Live Score. Ils devront être démarrés manuellement.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground">
+                Événement lié <span className="text-muted-foreground">(optionnel)</span>
+              </label>
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                disabled={eventsLoading || transferStatus === 'loading' || transferStatus === 'done'}
+                className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60"
+              >
+                <option value="">{eventsLoading ? 'Chargement…' : 'Aucun événement'}</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {formatEventLabel(ev)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleTransfer}
+                disabled={transferStatus === 'loading' || transferStatus === 'done'}
+                className={
+                  transferStatus === 'done'
+                    ? 'rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-100'
+                    : 'rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40'
+                }
+              >
+                {transferStatus === 'loading' && 'Envoi…'}
+                {transferStatus === 'done' && `${matches.length} match${matches.length > 1 ? 's' : ''} ajouté${matches.length > 1 ? 's' : ''} ✓`}
+                {(transferStatus === 'idle' || transferStatus === 'error') &&
+                  `Basculer ${matches.length} match${matches.length > 1 ? 's' : ''} vers Live Score`}
+              </button>
+              {transferStatus === 'error' && transferError && (
+                <p className="text-sm text-destructive">{transferError}</p>
+              )}
             </div>
           </div>
         )}
