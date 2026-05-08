@@ -141,6 +141,7 @@ export interface LiveMatch {
 
   event_id: string | null;
   scored_by: string | null;
+  type_tournoi: string | null;
 
   status: LiveMatchStatus;
 

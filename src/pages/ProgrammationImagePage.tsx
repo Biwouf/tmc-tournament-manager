@@ -422,6 +422,7 @@ export default function ProgrammationImagePage() {
       j4_classement: null,
       j4_club: null,
       event_id: selectedEventId || null,
+      type_tournoi: m.type_tournoi || null,
       status: 'pending' as const,
     }));
 
