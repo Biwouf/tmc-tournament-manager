@@ -23,6 +23,15 @@ Les specs sont dans `docs/specs/` :
 - `GEN_PROG.md` — module Programmation Image
 - *(nouveaux modules → créer un fichier dédié dans ce dossier)*
 
+### Migrations Supabase
+
+Les migrations vivent dans `supabase/migrations/`. Convention de nommage :
+`YYYYMMDD_<nom_court>.sql` — ex. `20260423_live_matches.sql`.
+
+Application : via le dashboard Supabase (SQL Editor) ou `supabase db push` en CLI.
+Pour connaître le schéma actuel d'une table, lire la dernière migration qui la concerne
+— ne pas supposer depuis les types TypeScript.
+
 ### Maintenance de la documentation
 
 Après chaque changement fonctionnel, mettre à jour sans qu'on le demande :
@@ -50,6 +59,13 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- If the task involves a field described as "already existing" or "already wired",
+  verify it before starting: check the producer's insert payload, the TypeScript types
+  (BO + PWA), and the latest migration. A brief can be wrong about the current state
+  of the system.
+- If reading the code reveals that the brief rests on a false premise (a field that
+  doesn't exist, a column that was never added), stop and surface it before writing
+  any code — regardless of how narrow the stated scope is.
 
 ## 2. Simplicity First
 
@@ -78,6 +94,16 @@ When your changes create orphans:
 - Don't remove pre-existing dead code unless asked.
 
 The test: Every changed line should trace directly to the user's request.
+
+Adding a field to a Supabase table touches 4 layers — every one of them:
+1. Migration SQL (new column)
+2. TypeScript type(s) — BO `src/types.ts` and/or `pwa/src/types.ts`
+3. Producer(s) — the insert/update payload(s) that write the field
+4. Consumer(s) — the UI component(s) that read and display it
+
+If the brief only names the consumer, check whether the other layers are already in
+place before starting. If any layer is missing, flag it and confirm scope before
+expanding.
 
 ## 4. Goal-Driven Execution
 
