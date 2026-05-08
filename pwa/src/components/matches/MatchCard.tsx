@@ -251,7 +251,7 @@ export default function MatchCard({ match, userId }: Props) {
 
   return (
     <div className={`bg-card rounded-xl p-4 shadow-sm border flex flex-col gap-3 ${isLive ? 'border-primary' : 'border-border'}`}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         {isLive && <LiveBadge />}
         {isPending && match.start_time && (
           <span className="text-xs text-muted-foreground">
@@ -261,7 +261,12 @@ export default function MatchCard({ match, userId }: Props) {
         {isFinished && (
           <span className="text-xs text-muted-foreground font-medium">Terminé</span>
         )}
-        <span className="text-xs text-muted-foreground ml-auto">
+        {match.type_tournoi && (
+          <span className="text-xs text-muted-foreground truncate max-w-[40%] ml-auto">
+            {match.type_tournoi}
+          </span>
+        )}
+        <span className={`text-xs text-muted-foreground shrink-0 ${match.type_tournoi ? '' : 'ml-auto'}`}>
           {match.match_type === 'double' ? 'Double' : 'Simple'}
         </span>
       </div>

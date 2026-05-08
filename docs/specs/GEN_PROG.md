@@ -262,6 +262,7 @@ Pour chaque `Match`, insérer dans `live_matches` :
 | `j1_club` / `j2_club` | `""` si absent (import CSV) |
 | `j3_*` / `j4_*` | tous `null` |
 | `event_id` | UUID sélectionné ou `null` |
+| `type_tournoi` | `match.type_tournoi` (ou `null` si vide) |
 | `status` | `'pending'` |
 | `winner`, `scored_by`, `finished_at`, `set*` | tous `null` |
 
@@ -294,7 +295,6 @@ Pour chaque `Match`, insérer dans `live_matches` :
 |---|---|
 | 1 | Erreur partielle : tout-ou-rien via un seul `insert([...])` — si Supabase rejette un item, toute la transaction échoue. À confirmer. |
 | 2 | Rien n'empêche de transférer deux fois la même affiche (doublons). Pas de dé-duplication en v1 — à surveiller. |
-| 3 | `type_tournoi` n'est pas stocké dans `live_matches`. Migration nécessaire si le besoin remonte. |
 
 ---
 
