@@ -30,8 +30,6 @@ export default function EventsPage() {
 
   return (
     <div className="p-4 flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-foreground">Événements</h1>
-
       {isLoading && (
         <div className="flex flex-col gap-3">
           {[...Array(3)].map((_, i) => (

@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppHeader from './components/layout/AppHeader';
+import { HeaderActionProvider } from './components/layout/HeaderActionContext';
 import BottomNav from './components/layout/BottomNav';
 import InstallBanner from './components/install/InstallBanner';
 import ActusPage from './pages/ActusPage';
@@ -25,7 +26,7 @@ function RequireAuth({ children }: { children: ReactElement }) {
 
 export default function App() {
   return (
-    <>
+    <HeaderActionProvider>
       <AppHeader />
       <main className="pwa-content">
         <Routes>
@@ -42,6 +43,6 @@ export default function App() {
       </main>
       <InstallBanner />
       <BottomNav />
-    </>
+    </HeaderActionProvider>
   );
 }

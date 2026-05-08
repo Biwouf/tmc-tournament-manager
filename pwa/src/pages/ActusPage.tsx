@@ -33,8 +33,6 @@ export default function ActusPage() {
 
   return (
     <div className="p-4 flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-foreground">Actualités</h1>
-
       {allActus.length === 0 && !isFetching && (
         <p className="text-center text-muted-foreground py-8">Aucune actualité pour l'instant.</p>
       )}

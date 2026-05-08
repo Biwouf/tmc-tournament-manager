@@ -152,12 +152,6 @@ export default function LiveMatchPage() {
 
   return (
     <div className="p-4 flex flex-col gap-4">
-      <div>
-        <Link to="/matches" className="text-sm text-muted-foreground hover:underline">
-          ← Retour à la liste
-        </Link>
-      </div>
-
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-2 flex items-center gap-2">
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[match.status]}`}>
