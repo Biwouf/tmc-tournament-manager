@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { LiveMatch } from '../types';
 import MatchCard from '../components/matches/MatchCard';
 import { useAuth } from '../hooks/useAuth';
+import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
 async function fetchMatches(): Promise<LiveMatch[]> {
   const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
@@ -62,6 +63,15 @@ export default function MatchesPage() {
     await supabase.auth.signOut();
   };
 
+  useHeaderAction({
+    kind: 'text',
+    label: user ? 'Déconnexion' : 'Connexion',
+    onClick: () => {
+      if (user) void handleLogout();
+      else navigate('/login', { state: { from: '/matches' } });
+    },
+  });
+
   if (isError) {
     return <div className="p-6 text-center text-muted-foreground">Impossible de charger les matchs.</div>;
   }
@@ -72,26 +82,6 @@ export default function MatchesPage() {
 
   return (
     <div className="p-4 flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-foreground">Matches</h1>
-        {user ? (
-          <button
-            onClick={handleLogout}
-            className="text-xs font-medium text-muted-foreground hover:text-foreground transition"
-          >
-            Déconnexion
-          </button>
-        ) : (
-          <Link
-            to="/login"
-            state={{ from: '/matches' }}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            Connexion
-          </Link>
-        )}
-      </div>
-
       {flash && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           {flash}

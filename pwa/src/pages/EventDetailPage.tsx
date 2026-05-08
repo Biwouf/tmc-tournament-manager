@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
@@ -26,7 +26,6 @@ async function fetchEvent(id: string): Promise<ClubEvent> {
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
   const { data: event, isLoading, isError } = useQuery({
     queryKey: ['event', id],
@@ -49,15 +48,8 @@ export default function EventDetailPage() {
 
   return (
     <article className="flex flex-col">
-      <button
-        onClick={() => navigate(-1)}
-        className="mx-4 mt-4 self-start text-sm text-primary font-medium flex items-center gap-1 active:opacity-70"
-      >
-        ← Retour
-      </button>
-
       {event.image_url && (
-        <div className="bg-muted flex items-center justify-center px-4 py-4 mt-4">
+        <div className="bg-muted flex items-center justify-center px-4 py-4">
           <img
             src={event.image_url}
             alt={event.titre}

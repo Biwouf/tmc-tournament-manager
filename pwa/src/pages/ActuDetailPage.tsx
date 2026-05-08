@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
@@ -23,7 +23,6 @@ async function fetchActu(id: string): Promise<Actu> {
 
 export default function ActuDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
   const { data: actu, isLoading, isError } = useQuery({
     queryKey: ['actu', id],
@@ -48,15 +47,8 @@ export default function ActuDetailPage() {
 
   return (
     <article className="flex flex-col">
-      <button
-        onClick={() => navigate(-1)}
-        className="mx-4 mt-4 self-start text-sm text-primary font-medium flex items-center gap-1 active:opacity-70"
-      >
-        ← Retour
-      </button>
-
       {actu.image_urls.length > 0 && (
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {actu.image_urls.map((url, i) => (
             <img
               key={url}

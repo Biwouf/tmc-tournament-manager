@@ -150,6 +150,10 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `components/matches/MatchCard.tsx` | Carte avec actions conditionnelles : Démarrer / Reprendre+Libérer / Voir+Supprimer (selon auth + ownership) |
 | `components/matches/LiveScoreEntry.tsx` | Composant +/- (adapté du BO, layout mobile) |
 | `components/install/InstallBanner.tsx` | Bannière fixe au-dessus de la `BottomNav` qui invite à installer la PWA. Variante Android (CTA `beforeinstallprompt`) + variante iOS (instructions Partager → Sur l'écran d'accueil). Pose la classe `has-install-banner` sur `<body>` pour ajuster `padding-bottom` de `.pwa-content`. |
+| `components/layout/AppHeader.tsx` | Header fixe route-aware (56px). Mode `root` (tabs) : logo + titre. Mode `sub` : back button (libellé court sur iOS, icône seule sur Android via `navigator.userAgent`) + titre. Affiche optionnellement une action droite tirée de `HeaderActionContext`. |
+| `components/layout/BottomNav.tsx` | Navigation fixe basse — 3 onglets (Actus / Événements / Matches). |
+| `components/layout/headerConfig.ts` | Map des routes → `HeaderConfig` (`mode`, `title`, `backTo`, `backLabel`). Helper `resolveHeader(pathname)` consommé par `AppHeader`. Ajouter une route ici quand on en crée une. |
+| `components/layout/HeaderActionContext.tsx` | Provider + hook `useHeaderAction(action)` pour qu'une page pose une action droite dans le header (text / icon / accent). `onClick` lu via ref → pas besoin de mémoïsation côté appelant. |
 
 ### Routes PWA
 

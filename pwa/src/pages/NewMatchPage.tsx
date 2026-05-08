@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { ClubEvent, LiveMatchType } from '../types';
+import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
 interface FieldErrors {
   j1_prenom?: string;
@@ -89,8 +90,7 @@ export default function NewMatchPage() {
     return errs;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async () => {
     setSubmitError(null);
     const errs = validate();
     setErrors(errs);
@@ -136,16 +136,16 @@ export default function NewMatchPage() {
     navigate('/matches');
   };
 
+  useHeaderAction({
+    kind: 'text',
+    label: saving ? 'Création...' : 'Créer',
+    accent: true,
+    onClick: () => { void submit(); },
+  });
+
   return (
     <div className="p-4 flex flex-col gap-5">
-      <div>
-        <Link to="/matches" className="text-sm text-muted-foreground hover:underline">
-          ← Retour
-        </Link>
-        <h1 className="mt-1 text-xl font-bold text-foreground">Nouveau match</h1>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="space-y-5">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-foreground">Type de match *</label>
           <select
@@ -245,22 +245,6 @@ export default function NewMatchPage() {
             {submitError}
           </div>
         )}
-
-        <div className="flex gap-3 pt-2">
-          <Link
-            to="/matches"
-            className="min-h-11 flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-center text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Annuler
-          </Link>
-          <button
-            type="submit"
-            disabled={saving}
-            className="min-h-11 flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-          >
-            {saving ? 'Création...' : 'Créer'}
-          </button>
-        </div>
       </form>
     </div>
   );
