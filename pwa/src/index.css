@@ -69,6 +69,22 @@ body.has-install-banner .pwa-content {
   padding-bottom: calc(56px + 120px + env(safe-area-inset-bottom));
 }
 
+/* ─── Rendu Markdown (ActuDetailPage, EventDetailPage) ─────────────────── */
+.markdown-body ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.markdown-body li {
+  margin: 0.25rem 0;
+}
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 0.5rem 0;
+}
+
 /* ─── Badge LIVE animé ───────────────────────────────────────────────────── */
 @keyframes live-pulse {
   0%, 100% { opacity: 1; }
