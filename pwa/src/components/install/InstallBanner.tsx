@@ -16,7 +16,7 @@ export default function InstallBanner() {
 
   return (
     <div
-      className="fixed left-0 right-0 z-40 bg-card border-t border-border"
+      className="fixed left-0 right-0 z-40 bg-primary border-t border-primary"
       style={{
         bottom: 'calc(56px + env(safe-area-inset-bottom))',
         padding: '14px',
@@ -28,7 +28,7 @@ export default function InstallBanner() {
         type="button"
         onClick={dismiss}
         aria-label="Fermer"
-        className="absolute top-0 right-0 flex items-center justify-center text-muted-foreground"
+        className="absolute top-0 right-0 flex items-center justify-center text-primary-foreground/70"
         style={{ width: 28, height: 28, padding: 8 }}
       >
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -50,13 +50,13 @@ export default function InstallBanner() {
         />
         <div className="flex-1 min-w-0">
           <div
-            className="text-foreground"
+            className="text-primary-foreground"
             style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 14, lineHeight: 1.25 }}
           >
             Le CAC, toujours sur toi
           </div>
           <div
-            className="text-muted-foreground"
+            className="text-primary-foreground/80"
             style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 400, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}
           >
             {variant === 'android'
@@ -74,7 +74,7 @@ export default function InstallBanner() {
 function IosInstructions() {
   return (
     <div
-      className="bg-primary/10 flex items-center justify-center text-foreground"
+      className="bg-white/15 flex items-center justify-center text-primary-foreground"
       style={{
         marginTop: 10,
         borderRadius: 9,
@@ -108,7 +108,7 @@ function AndroidActions({
         onClick={() => {
           void onInstall();
         }}
-        className="bg-primary text-primary-foreground flex items-center justify-center"
+        className="bg-white text-primary flex items-center justify-center"
         style={{
           flex: 1,
           padding: '9px 0',
@@ -125,11 +125,11 @@ function AndroidActions({
       <button
         type="button"
         onClick={onLater}
-        className="text-muted-foreground"
+        className="text-primary-foreground"
         style={{
           padding: '9px 14px',
           borderRadius: 9,
-          border: '1px solid hsl(var(--border))',
+          border: '1px solid rgba(255,255,255,0.35)',
           background: 'transparent',
           fontFamily: 'Manrope, sans-serif',
           fontWeight: 600,
@@ -149,7 +149,7 @@ function ShareIcon() {
       height="13"
       viewBox="0 0 16 16"
       fill="none"
-      stroke="hsl(var(--primary))"
+      stroke="white"
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -169,7 +169,7 @@ function PlusBoxIcon() {
       height="13"
       viewBox="0 0 16 16"
       fill="none"
-      stroke="hsl(var(--primary))"
+      stroke="white"
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
