@@ -563,22 +563,6 @@ export default function ProgrammationImagePage() {
           </div>
         </div>
 
-        {/* Aperçu */}
-        {matches.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">
-              Aperçu — {matches.length} match{matches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
-            </h2>
-            <div ref={posterRef} className="space-y-6">
-              {pages.map((pageMatches, i) => (
-                <div key={i} className="shadow-xl rounded-sm overflow-hidden" style={{ width: W }}>
-                  <PosterPage matches={pageMatches} date={date} />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Basculer vers Live Score */}
         {matches.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
@@ -624,6 +608,22 @@ export default function ProgrammationImagePage() {
               {transferStatus === 'error' && transferError && (
                 <p className="text-sm text-destructive">{transferError}</p>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Aperçu */}
+        {matches.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold">
+              Aperçu — {matches.length} match{matches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
+            </h2>
+            <div ref={posterRef} className="space-y-6">
+              {pages.map((pageMatches, i) => (
+                <div key={i} className="shadow-xl rounded-sm overflow-hidden" style={{ width: W }}>
+                  <PosterPage matches={pageMatches} date={date} />
+                </div>
+              ))}
             </div>
           </div>
         )}

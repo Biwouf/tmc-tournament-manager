@@ -236,7 +236,7 @@ Le module GEN_PROG structure les matchs en mémoire (joueurs, classements, clubs
 
 ### Interface — zone "Envoyer vers Live Score"
 
-**Condition d'affichage :** `matches.length > 0`. Positionnée sous l'affiche, après le bouton "Télécharger".
+**Condition d'affichage :** `matches.length > 0`. Positionnée au-dessus de l'affiche, avant le rendu des pages.
 
 Composants :
 1. **Titre** "Envoyer vers Live Score"
