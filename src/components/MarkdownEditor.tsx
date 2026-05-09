@@ -3,6 +3,7 @@ import type { ReactNode, KeyboardEvent, MouseEvent as ReactMouseEvent } from 're
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
+import { supabase } from '../lib/supabase';
 
 export interface MarkdownEditorProps {
   value: string;
@@ -16,6 +17,15 @@ const expandBlankLines = (md: string) =>
 
 type InlineFormat = 'bold' | 'italic' | 'underline';
 type HeadingLevel = 1 | 2 | 3;
+type ImageMode = 'file' | 'url';
+
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
+const CONTENT_IMAGES_BUCKET = 'content-images';
+
+function sanitizeFilename(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/-+/g, '-');
+}
 
 const findLineStart = (text: string, pos: number): number => {
   const idx = text.lastIndexOf('\n', pos - 1);
@@ -32,9 +42,10 @@ interface ToolbarButtonProps {
   disabled?: boolean;
   title: string;
   children: ReactNode;
+  active?: boolean;
 }
 
-function ToolbarButton({ onClick, disabled, title, children }: ToolbarButtonProps) {
+function ToolbarButton({ onClick, disabled, title, children, active }: ToolbarButtonProps) {
   const handleMouseDown = (e: ReactMouseEvent<HTMLButtonElement>) => {
     // Empêche la perte de focus / sélection sur le textarea.
     e.preventDefault();
@@ -49,7 +60,9 @@ function ToolbarButton({ onClick, disabled, title, children }: ToolbarButtonProp
       className={`rounded px-2 py-0.5 text-xs font-medium transition ${
         disabled
           ? 'opacity-40 cursor-not-allowed text-muted-foreground'
-          : 'text-foreground hover:bg-muted'
+          : active
+            ? 'bg-muted text-foreground'
+            : 'text-foreground hover:bg-muted'
       }`}
     >
       {children}
@@ -65,8 +78,16 @@ export default function MarkdownEditor({
 }: MarkdownEditorProps) {
   const [tab, setTab] = useState<'write' | 'preview'>('write');
   const [hasSelection, setHasSelection] = useState(false);
+  const [imageFormOpen, setImageFormOpen] = useState(false);
+  const [imageMode, setImageMode] = useState<ImageMode>('file');
+  const [imageAlt, setImageAlt] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const imageFormRef = useRef<HTMLDivElement | null>(null);
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
+  const insertionPosRef = useRef<number | null>(null);
 
   useEffect(() => {
     const ta = textareaRef.current;
@@ -77,6 +98,18 @@ export default function MarkdownEditor({
     setHasSelection(pending.start !== pending.end);
     pendingSelectionRef.current = null;
   }, [value]);
+
+  useEffect(() => {
+    if (!imageFormOpen) return;
+    const handleClickOutside = (e: globalThis.MouseEvent) => {
+      const node = imageFormRef.current;
+      if (node && !node.contains(e.target as Node)) {
+        closeImageForm();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [imageFormOpen]);
 
   const refreshSelectionState = () => {
     const ta = textareaRef.current;
@@ -133,12 +166,15 @@ export default function MarkdownEditor({
     const line = value.substring(lineStart, lineEnd);
     const target = '#'.repeat(level) + ' ';
 
-    const match = line.match(/^(#{1,6}) /);
+    const headingMatch = line.match(/^(#{1,6}) /);
+    const bulletMatch = line.match(/^- /);
     let newLine: string;
-    if (match && match[1].length === level) {
-      newLine = line.substring(match[0].length);
-    } else if (match) {
-      newLine = target + line.substring(match[0].length);
+    if (headingMatch && headingMatch[1].length === level) {
+      newLine = line.substring(headingMatch[0].length);
+    } else if (headingMatch) {
+      newLine = target + line.substring(headingMatch[0].length);
+    } else if (bulletMatch) {
+      newLine = target + line.substring(bulletMatch[0].length);
     } else {
       newLine = target + line;
     }
@@ -147,6 +183,101 @@ export default function MarkdownEditor({
     const newCursor = lineStart + newLine.length;
     pendingSelectionRef.current = { start: newCursor, end: newCursor };
     onChange(newValue);
+  };
+
+  const applyBulletList = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const cursor = ta.selectionStart;
+    const lineStart = findLineStart(value, cursor);
+    const lineEnd = findLineEnd(value, cursor);
+    const line = value.substring(lineStart, lineEnd);
+
+    const bulletMatch = line.match(/^- /);
+    const headingMatch = line.match(/^(#{1,6}) /);
+    let newLine: string;
+    if (bulletMatch) {
+      newLine = line.substring(bulletMatch[0].length);
+    } else if (headingMatch) {
+      newLine = '- ' + line.substring(headingMatch[0].length);
+    } else {
+      newLine = '- ' + line;
+    }
+
+    const newValue = value.substring(0, lineStart) + newLine + value.substring(lineEnd);
+    const newCursor = lineStart + newLine.length;
+    pendingSelectionRef.current = { start: newCursor, end: newCursor };
+    onChange(newValue);
+  };
+
+  const insertImageMarkdown = (url: string, alt: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const pos = insertionPosRef.current ?? ta.selectionStart;
+    const before = value.substring(0, pos);
+    const after = value.substring(pos);
+    const needsLeadingNewline = before.length > 0 && !before.endsWith('\n');
+    const needsTrailingNewline = after.length > 0 && !after.startsWith('\n');
+    const block =
+      (needsLeadingNewline ? '\n' : '') +
+      `![${alt}](${url})` +
+      (needsTrailingNewline ? '\n' : '');
+    const newValue = before + block + after;
+    const newCursor = pos + block.length;
+    pendingSelectionRef.current = { start: newCursor, end: newCursor };
+    onChange(newValue);
+  };
+
+  const openImageForm = () => {
+    const ta = textareaRef.current;
+    insertionPosRef.current = ta ? ta.selectionStart : null;
+    setImageMode('file');
+    setImageAlt('');
+    setImageUrl('');
+    setImageError(null);
+    setImageFormOpen(true);
+  };
+
+  const closeImageForm = () => {
+    setImageFormOpen(false);
+    setImageError(null);
+    setUploading(false);
+    insertionPosRef.current = null;
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setImageError(null);
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setImageError('Format non supporté (JPEG ou PNG uniquement).');
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImageError('Fichier trop lourd (max 5 Mo).');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const path = `inline/${Date.now()}-${sanitizeFilename(file.name)}`;
+      const { error } = await supabase.storage.from(CONTENT_IMAGES_BUCKET).upload(path, file, {
+        contentType: file.type,
+        cacheControl: '3600',
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from(CONTENT_IMAGES_BUCKET).getPublicUrl(path);
+      insertImageMarkdown(data.publicUrl, imageAlt.trim());
+      closeImageForm();
+    } catch (err) {
+      console.error(err);
+      setImageError(err instanceof Error ? err.message : "Erreur lors de l'upload");
+      setUploading(false);
+    }
+  };
+
+  const handleInsertUrl = () => {
+    if (!imageUrl.trim()) return;
+    insertImageMarkdown(imageUrl.trim(), imageAlt.trim());
+    closeImageForm();
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -223,9 +354,110 @@ export default function MarkdownEditor({
             <ToolbarButton onClick={() => applyHeading(3)} title="Titre 3">
               H3
             </ToolbarButton>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <ToolbarButton onClick={applyBulletList} title="Liste à puces">
+              <span aria-hidden>•≡</span>
+            </ToolbarButton>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <ToolbarButton onClick={openImageForm} title="Insérer une image" active={imageFormOpen}>
+              <span aria-hidden>🖼</span>
+            </ToolbarButton>
           </div>
         )}
       </div>
+      {tab === 'write' && imageFormOpen && (
+        <div
+          ref={imageFormRef}
+          className="border-x border-b border-border bg-muted/20 px-3 py-2 text-sm"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setImageMode('file')}
+                className={`rounded px-2 py-0.5 text-xs font-medium transition ${
+                  imageMode === 'file'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Depuis ma machine
+              </button>
+              <button
+                type="button"
+                onClick={() => setImageMode('url')}
+                className={`rounded px-2 py-0.5 text-xs font-medium transition ${
+                  imageMode === 'url'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                Via une URL
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={closeImageForm}
+              className="rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+              title="Annuler"
+            >
+              ✕
+            </button>
+          </div>
+
+          {imageMode === 'file' ? (
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileUpload(file);
+                  e.target.value = '';
+                }}
+                className="block w-full text-xs"
+              />
+              {uploading && (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                  Upload en cours...
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 rounded border border-border bg-background px-2 py-1 text-xs"
+              />
+              <button
+                type="button"
+                onClick={handleInsertUrl}
+                disabled={!imageUrl.trim()}
+                className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground transition hover:brightness-95 disabled:opacity-50"
+              >
+                Insérer
+              </button>
+            </div>
+          )}
+
+          <input
+            type="text"
+            value={imageAlt}
+            onChange={(e) => setImageAlt(e.target.value)}
+            placeholder="description"
+            className="mt-2 block w-full rounded border border-border bg-background px-2 py-1 text-xs"
+          />
+
+          {imageError && (
+            <p className="mt-2 text-xs text-red-600">{imageError}</p>
+          )}
+        </div>
+      )}
       {tab === 'write' ? (
         <textarea
           ref={textareaRef}

@@ -64,7 +64,7 @@ export default function ActuDetailPage() {
       <div className="p-4 flex flex-col gap-3">
         <p className="text-xs text-muted-foreground">{publishedDate}</p>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{actu.titre}</h1>
-        <div className="prose prose-sm max-w-none text-foreground">
+        <div className="markdown-body text-foreground">
           <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{expandBlankLines(actu.contenu)}</ReactMarkdown>
         </div>
       </div>

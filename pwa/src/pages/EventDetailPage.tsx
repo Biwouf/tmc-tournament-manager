@@ -67,7 +67,7 @@ export default function EventDetailPage() {
         </div>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{event.titre}</h1>
         <p className="text-sm text-muted-foreground">{formatDate(event)}</p>
-        <div className="prose prose-sm max-w-none text-foreground mt-2">
+        <div className="markdown-body text-foreground mt-2">
           <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{expandBlankLines(event.description)}</ReactMarkdown>
         </div>
       </div>
