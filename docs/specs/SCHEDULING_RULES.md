@@ -55,51 +55,58 @@ Tour 4 : 1 finale (1re place)
 
 Classement final complet : 1→12.
 
-### 24 joueurs — 44 matchs (cas asymétrique)
+### 24 joueurs — 48 matchs (cas asymétrique)
 
-8 joueurs têtes de série entrent directement en 1/8 de finale ; les 16 autres jouent un tour supplémentaire (1/16). Le nombre de matchs par joueur dépend de son parcours :
+8 joueurs têtes de série entrent directement en 1/8 de finale ; les 16 autres jouent un tour supplémentaire (1/16).
 
-- Tête de série **perd en 1/8** : **3 matchs**
-- Tête de série **gagne son 1/8** : **4 matchs** (quel que soit son parcours ensuite)
-- Non-tête de série **perd en 1/16** : **3 matchs**
-- Non-tête de série **gagne son 1/16** : **4 matchs minimum** (jusqu'à 5 en cas de parcours jusqu'en finale)
+**Principe** : tout le monde joue au moins **4 matchs**, sauf les têtes de série qui perdent leur 1/8 (**3 matchs**). Pour éviter de forcer un 5e match aux non-têtes qui gagnent loin, on assume qu'ils s'arrêteront au 1/8 — s'ils continuent, le 5e (et éventuels suivants) est géré en direct (forfait possible).
+
+| Profil | Matchs |
+|---|---|
+| Tête de série, perd son 1/8 | **3** |
+| Tête de série, atteint le 1/4 ou plus | **4** |
+| Non-tête de série, perd son 1/16 | **4** (1/16 + 3 en consolante 17-24) |
+| Non-tête de série, gagne 1/16 et perd 1/8 | **4** (1/16 + 1/8 + 2 en consolante 9-16) |
+| Non-tête de série, atteint le 1/4 ou plus | **5** (géré en direct) |
 
 ```
-Tour 1 (1/16) : 8 matchs (16 non-têtes de série)
+Tour 1 (8 matchs) — 1/16 finales (16 non-têtes de série)
   → 8 vainqueurs → 1/8 de finale (T2, tableau principal)
-  → 8 perdants  → consolante A (T2 puis T3)
+  → 8 perdants   → consolante 17-24 (T2 → T4)
 
-Tour 2 : 8 matchs principaux (1/8 : 8 vainqueurs T1 + 8 têtes de série)
-          4 matchs consolante A — QF (8 perdants T1)
+Tour 2 (12 matchs)
+  - 8 matchs principaux : 1/8 de finale (8 vainqueurs T1 + 8 têtes de série)
+  - 4 matchs consolante 17-24 — QF (8 perdants T1)
   → 8 vainqueurs principaux → 1/4 de finale (T3)
-  → 8 perdants principaux  → consolante B (T3 puis T4)
-  → consolante A : 4 vainqueurs + 4 perdants → SF consolante A (T3)
+  → 8 perdants principaux   → consolante 9-16 (T3 → T4)
 
-Tour 3 : 4 matchs principaux (1/4 de finale)
-          4 matchs consolante B — QF (8 perdants 1/8)
-          4 matchs consolante A — SF (finales bracket A)
+Tour 3 (12 matchs)
+  - 4 matchs principaux : 1/4 de finale
+  - 4 matchs consolante 17-24 — SF (2 SF côté vainqueurs QF + 2 SF côté perdants QF)
+  - 4 matchs consolante 9-16 — QF (8 perdants 1/8)
   → 4 vainqueurs QF → 1/2 finale (T4)
-  → 4 perdants QF  → consolante C (T4 puis T5)
-  → consolante B : 4 vainqueurs + 4 perdants → SF consolante B (T4)
-  → consolante A terminée → places 17 à 24
+  → 4 perdants QF  → consolante 5-8 (T4 → T5)
 
-Tour 4 : 2 matchs principaux (1/2 finale)
-          2 matchs consolante C — QF (4 perdants QF)
-          4 matchs consolante B — SF (finales bracket B)
-  → 2 vainqueurs SF → finale (T5)
-  → 2 perdants SF  → match 3e place (T5)
-  → consolante C : 2 vainqueurs + 2 perdants → finales consolante C (T5)
-  → consolante B terminée → places 9 à 16
+Tour 4 (12 matchs)
+  - 2 matchs principaux : 1/2 finale
+  - 2 matchs consolante 5-8 — SF (4 perdants QF)
+  - 4 matchs consolante 9-16 — finales → places 9, 11, 13, 15
+  - 4 matchs consolante 17-24 — finales → places 17, 19, 21, 23
+  → 2 vainqueurs SF principale → finale (T5)
+  → 2 perdants SF principale   → match 3e place (T5)
+  → consolante 9-16 terminée   → places 9 à 16
+  → consolante 17-24 terminée  → places 17 à 24
 
-Tour 5 : 1 finale (1re et 2e place)
-          1 match 3e place
-          2 matchs consolante C (finales bracket C)
-  → consolante C terminée → places 5 à 8
+Tour 5 (4 matchs)
+  - 1 finale (1re et 2e place)
+  - 1 match 3e place
+  - 2 matchs consolante 5-8 — finales → places 5 et 7
+  → consolante 5-8 terminée → places 5 à 8
 ```
 
 Classement final complet : 1→24.
 
-> ⚠️ Le cas 24 joueurs est asymétrique : les têtes de série jouent un tour de moins que les non-têtes de série, entraînant un nombre de matchs variable selon le parcours.
+> ⚠️ Le cas 24 joueurs est asymétrique : les têtes de série jouent un tour de moins que les non-têtes de série. Le bracket de la consolante 9-16 est volontairement raccourci à 2 tours pour que les têtes de série perdantes du 1/8 ne jouent que 3 matchs au total.
 
 ### 16 joueurs — 32 matchs, chaque joueur joue 4 fois
 
@@ -156,9 +163,12 @@ Consolante 3-4 (perdants des 1/2 principales) — 1 match :
 - Aucun saut de tour n'est autorisé.
 
 ### R3 — Délai minimum entre deux tours du même tournoi
-- Entre la fin du dernier match d'un tour et le début du premier match du tour suivant du **même tournoi**, il doit y avoir **au moins 4 heures**.
+- Entre la fin du dernier match d'un tour et le début du premier match du tour suivant du **même tournoi et même bracket**, il doit y avoir **au moins 4 heures**.
 - Valeur codée : `MIN_HOURS_BETWEEN_MATCHES = 240 minutes`
-- Le premier tour d'un tournoi est exempt de cette contrainte.
+- Le délai est tracké par `(tournoi, bracket)` via le champ `Match.bracket` (`main`, `cons-5-8`, `cons-9-12`, `cons-9-16`, `cons-17-24`).
+- Le premier tour d'une consolante (qui prend ses joueurs du tableau principal) retombe sur la fin du dernier tour du `main` du même tournoi.
+- Le premier tour `main` d'un tournoi est exempt de la contrainte.
+- ⚠️ Cas asymétrique (12 et 24 joueurs) : sans ce tracking par bracket, la finale principale (qui ne dépend que de la SF principale) serait bloquée par la fin tardive d'une finale de consolante du même tour absolu.
 
 ### R4 — Les finales sont des matchs comme les autres
 - Les finales ne font l'objet d'aucun traitement spécial.
@@ -174,18 +184,22 @@ Consolante 3-4 (perdants des 1/2 principales) — 1 match :
 
 ## 5. Algorithme de planification (phase unique)
 
-L'objectif est de **répartir les matchs uniformément** sur les créneaux disponibles (éviter d'entasser tous les matchs au début). Tous les matchs — y compris les finales — sont traités de la même manière.
+Tous les matchs — y compris les finales — sont traités de la même manière. La stratégie de remplissage des créneaux est paramétrable via `GlobalConfig.slotFillingStrategy` (`'smooth'` par défaut, `'max'` au choix).
 
 Pour chaque créneau :
 1. Calculer combien de matchs peuvent/doivent être planifiés :
    - `mustScheduleNow` = matchs restants qu'on ne peut plus reporter (sinon on manque de créneaux)
-   - `smoothTarget` = cible lissée basée sur la progression dans les créneaux disponibles
-   - `allowedThisSlot = min(numberOfCourts, max(mustScheduleNow, smoothTarget))`
+   - **`smooth`** : `allowedThisSlot = min(numberOfCourts, max(mustScheduleNow, smoothTarget))` — étale les matchs uniformément (`smoothTarget` = progression linéaire dans les créneaux disponibles)
+   - **`max`** : `allowedThisSlot = numberOfCourts` — remplit chaque créneau à pleine capacité dans la limite des contraintes R1–R5
 2. Pour chaque groupe de matchs (trié par numéro de tour croissant) :
    - Ignorer si le tour n'est pas le suivant logique du tournoi (R2)
-   - Ignorer si le délai de 4h n'est pas respecté (R3)
-   - Planifier le match, mettre à jour l'heure de fin du tour pour ce tournoi
+   - Ignorer si le délai de 4h n'est pas respecté pour ce bracket (R3)
+   - Planifier le match, mettre à jour l'heure de fin du tour pour ce bracket
 3. Arrêter quand `allowedThisSlot` terrains sont remplis ou qu'il n'y a plus de matchs valides.
+
+### Retry des matchs non planifiés
+
+Si l'algorithme initial n'arrive pas à caser tous les matchs, l'utilisateur peut faire des ajustements manuels (drag-and-drop) puis cliquer sur **« Réessayer les matchs non planifiés »** dans le warning. La fonction `retryUnscheduledMatches(schedule, config)` ne déplace **aucun match déjà planifié** : elle parcourt les matchs non planifiés (par ordre de tour croissant) et tente de les insérer dans le premier créneau valide (capacité terrain + 4h par bracket respectées). Les matchs encore impossibles à caser restent dans `unscheduledMatches` pour permettre une nouvelle tentative.
 
 ---
 

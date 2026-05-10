@@ -1,4 +1,4 @@
-import type { ScheduledMatch, GlobalConfig } from './types';
+import type { ScheduledMatch, GlobalConfig, MatchBracket } from './types';
 import { generateTimeSlots, type TimeSlotInfo } from './scheduler';
 
 const MIN_HOURS_BETWEEN_MATCHES = 4 * 60;
@@ -13,6 +13,37 @@ function toAbsoluteMinutes(date: string, time: string, referenceDate: string): n
   const ref = new Date(referenceDate);
   const daysDiff = Math.floor((d.getTime() - ref.getTime()) / (1000 * 60 * 60 * 24));
   return daysDiff * 24 * 60 + timeToMinutes(time);
+}
+
+/**
+ * Find feeder matches for a given (tournament, bracket, round): the same
+ * bracket's matches with round < n if any, else fall back to main bracket's
+ * matches with round < n (since consolante R1 players come from the main
+ * bracket). Returns [] if there's no feeder yet (first absolute round).
+ */
+function findFeederMatches(
+  matches: ScheduledMatch[],
+  tournamentId: string,
+  bracket: MatchBracket,
+  round: number,
+  excludeIds: Set<string> = new Set()
+): ScheduledMatch[] {
+  const sameBracket = matches.filter(
+    (m) =>
+      m.match.tournamentId === tournamentId &&
+      m.match.bracket === bracket &&
+      m.match.round < round &&
+      !excludeIds.has(m.match.id)
+  );
+  if (sameBracket.length > 0) return sameBracket;
+  if (bracket === 'main') return [];
+  return matches.filter(
+    (m) =>
+      m.match.tournamentId === tournamentId &&
+      m.match.bracket === 'main' &&
+      m.match.round < round &&
+      !excludeIds.has(m.match.id)
+  );
 }
 
 /**
@@ -48,19 +79,15 @@ export function moveMatch(
   );
   if (targetSlotOthers.length >= config.numberOfCourts) return null;
 
-  // Check 4h constraint with previous round of same tournament
-  const { tournamentId, round } = movingMatch.match;
-  if (round > 1) {
-    const prevRoundMatches = scheduledMatches.filter(
-      m => m.match.tournamentId === tournamentId && m.match.round === round - 1
+  // Check 4h constraint with feeder bracket-round
+  const { tournamentId, bracket, round } = movingMatch.match;
+  const feederMatches = findFeederMatches(scheduledMatches, tournamentId, bracket, round);
+  if (feederMatches.length > 0) {
+    const feederEnd = Math.max(
+      ...feederMatches.map(m => toAbsoluteMinutes(m.date, m.endTime, referenceDate))
     );
-    if (prevRoundMatches.length > 0) {
-      const prevRoundEnd = Math.max(
-        ...prevRoundMatches.map(m => toAbsoluteMinutes(m.date, m.endTime, referenceDate))
-      );
-      const newStart = toAbsoluteMinutes(newDate, newStartTime, referenceDate);
-      if (newStart - prevRoundEnd < MIN_HOURS_BETWEEN_MATCHES) return null;
-    }
+    const newStart = toAbsoluteMinutes(newDate, newStartTime, referenceDate);
+    if (newStart - feederEnd < MIN_HOURS_BETWEEN_MATCHES) return null;
   }
 
   // Assign first available court at target slot
@@ -111,20 +138,17 @@ export function moveMatches(
   );
   if (targetSlotOthers.length + movingMatches.length > config.numberOfCourts) return null;
 
-  // Check 4h constraint with previous round for each moving match
+  // Check 4h constraint with feeder bracket-round for each moving match
+  const movingIds = new Set(matchIds);
   for (const movingMatch of movingMatches) {
-    const { tournamentId, round } = movingMatch.match;
-    if (round > 1) {
-      const prevRoundMatches = scheduledMatches.filter(
-        m => m.match.tournamentId === tournamentId && m.match.round === round - 1 && !matchIds.includes(m.match.id)
+    const { tournamentId, bracket, round } = movingMatch.match;
+    const feederMatches = findFeederMatches(scheduledMatches, tournamentId, bracket, round, movingIds);
+    if (feederMatches.length > 0) {
+      const feederEnd = Math.max(
+        ...feederMatches.map(m => toAbsoluteMinutes(m.date, m.endTime, referenceDate))
       );
-      if (prevRoundMatches.length > 0) {
-        const prevRoundEnd = Math.max(
-          ...prevRoundMatches.map(m => toAbsoluteMinutes(m.date, m.endTime, referenceDate))
-        );
-        const newStart = toAbsoluteMinutes(newDate, newStartTime, referenceDate);
-        if (newStart - prevRoundEnd < MIN_HOURS_BETWEEN_MATCHES) return null;
-      }
+      const newStart = toAbsoluteMinutes(newDate, newStartTime, referenceDate);
+      if (newStart - feederEnd < MIN_HOURS_BETWEEN_MATCHES) return null;
     }
   }
 
@@ -171,61 +195,71 @@ function cascadeForward(
   const maxRound = Math.max(...getTournamentMatches().map(m => m.match.round));
 
   for (let round = fromRound + 1; round <= maxRound; round++) {
-    const prevRoundMatches = getTournamentMatches().filter(m => m.match.round === round - 1);
-    if (prevRoundMatches.length === 0) continue;
-
-    const prevRoundEnd = Math.max(
-      ...prevRoundMatches.map(m => toAbsoluteMinutes(m.date, m.endTime, referenceDate))
-    );
-
     const thisRoundMatches = getTournamentMatches().filter(m => m.match.round === round);
-    const thisRoundEarliestStart = Math.min(
-      ...thisRoundMatches.map(m => toAbsoluteMinutes(m.date, m.startTime, referenceDate))
-    );
+    if (thisRoundMatches.length === 0) continue;
 
-    if (thisRoundEarliestStart - prevRoundEnd >= MIN_HOURS_BETWEEN_MATCHES) {
-      break; // no cascade needed beyond this point
+    // Group by bracket — the 4h gap is enforced per bracket lineage
+    const brackets = [...new Set(thisRoundMatches.map(m => m.match.bracket))];
+    let anyCascadedForBracket = false;
+
+    for (const bracket of brackets) {
+      const bracketMatches = thisRoundMatches.filter(m => m.match.bracket === bracket);
+      const feederMatches = findFeederMatches(matches, tournamentId, bracket, round);
+      if (feederMatches.length === 0) continue;
+
+      const feederEnd = Math.max(
+        ...feederMatches.map(m => toAbsoluteMinutes(m.date, m.endTime, referenceDate))
+      );
+      const earliestStart = Math.min(
+        ...bracketMatches.map(m => toAbsoluteMinutes(m.date, m.startTime, referenceDate))
+      );
+      if (earliestStart - feederEnd >= MIN_HOURS_BETWEEN_MATCHES) continue;
+
+      anyCascadedForBracket = true;
+      const minValidAbsoluteMinutes = feederEnd + MIN_HOURS_BETWEEN_MATCHES;
+
+      const sortedRoundMatches = [...bracketMatches].sort((a, b) =>
+        toAbsoluteMinutes(a.date, a.startTime, referenceDate) -
+        toAbsoluteMinutes(b.date, b.startTime, referenceDate)
+      );
+
+      let slotSearchStart = minValidAbsoluteMinutes;
+      for (const matchToMove of sortedRoundMatches) {
+        let placed = false;
+
+        for (const slot of allSlots) {
+          const slotAbs = toAbsoluteMinutes(slot.date, slot.startTime, referenceDate);
+          if (slotAbs < slotSearchStart) continue;
+
+          const occupiedAtSlot = matches.filter(
+            m => m.date === slot.date && m.startTime === slot.startTime && m.match.id !== matchToMove.match.id
+          );
+          if (occupiedAtSlot.length >= config.numberOfCourts) continue;
+
+          const occupiedCourts = new Set(occupiedAtSlot.map(m => m.court));
+          let court = 1;
+          while (occupiedCourts.has(court)) court++;
+
+          matches = matches.map(m =>
+            m.match.id === matchToMove.match.id
+              ? { ...m, date: slot.date, startTime: slot.startTime, endTime: slot.endTime, court }
+              : m
+          );
+
+          slotSearchStart = slotAbs;
+          placed = true;
+          break;
+        }
+
+        if (!placed) {
+          warnings.push(`⚠️ Le match "${matchToMove.match.description}" n'a pas pu être recalé (plus de créneaux disponibles).`);
+        }
+      }
     }
 
-    const minValidAbsoluteMinutes = prevRoundEnd + MIN_HOURS_BETWEEN_MATCHES;
-
-    const sortedRoundMatches = [...thisRoundMatches].sort((a, b) =>
-      toAbsoluteMinutes(a.date, a.startTime, referenceDate) -
-      toAbsoluteMinutes(b.date, b.startTime, referenceDate)
-    );
-
-    let slotSearchStart = minValidAbsoluteMinutes;
-    for (const matchToMove of sortedRoundMatches) {
-      let placed = false;
-
-      for (const slot of allSlots) {
-        const slotAbs = toAbsoluteMinutes(slot.date, slot.startTime, referenceDate);
-        if (slotAbs < slotSearchStart) continue;
-
-        const occupiedAtSlot = matches.filter(
-          m => m.date === slot.date && m.startTime === slot.startTime && m.match.id !== matchToMove.match.id
-        );
-        if (occupiedAtSlot.length >= config.numberOfCourts) continue;
-
-        const occupiedCourts = new Set(occupiedAtSlot.map(m => m.court));
-        let court = 1;
-        while (occupiedCourts.has(court)) court++;
-
-        matches = matches.map(m =>
-          m.match.id === matchToMove.match.id
-            ? { ...m, date: slot.date, startTime: slot.startTime, endTime: slot.endTime, court }
-            : m
-        );
-
-        slotSearchStart = slotAbs;
-        placed = true;
-        break;
-      }
-
-      if (!placed) {
-        warnings.push(`⚠️ Le match "${matchToMove.match.description}" n'a pas pu être recalé (plus de créneaux disponibles).`);
-      }
-    }
+    // If no bracket needed cascading at this round, subsequent rounds can't be
+    // tighter either (the move only pushes things forward), so we can stop.
+    if (!anyCascadedForBracket) break;
   }
 
   return matches;

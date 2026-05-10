@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import type { GlobalConfig, TournamentEntry } from '../types';
 import ConfigurationForm from '../components/ConfigurationForm';
 import ScheduleView from '../components/ScheduleView';
-import { generateSchedule } from '../scheduler';
+import { generateSchedule, retryUnscheduledMatches } from '../scheduler';
 import { moveMatches } from '../moveMatch';
 import { exportScheduleCsv } from '../exportScheduleCsv';
 import { supabase } from '../lib/supabase';
@@ -86,6 +86,13 @@ export default function TournamentPage({ user }: Props) {
     setEntry((prev) => prev ? { ...prev, schedule: updatedSchedule } : prev);
 
     // Persist
+    supabase.from('tournaments').update({ schedule: updatedSchedule }).eq('id', id!);
+  };
+
+  const handleRetryUnscheduled = () => {
+    if (!entry?.schedule) return;
+    const updatedSchedule = retryUnscheduledMatches(entry.schedule, entry.config);
+    setEntry((prev) => prev ? { ...prev, schedule: updatedSchedule } : prev);
     supabase.from('tournaments').update({ schedule: updatedSchedule }).eq('id', id!);
   };
 
@@ -200,6 +207,7 @@ export default function TournamentPage({ user }: Props) {
               config={entry.config}
               onConfigUpdate={handleConfigSubmit}
               onMoveMatch={handleMoveMatch}
+              onRetryUnscheduled={handleRetryUnscheduled}
             />
           </div>
         )}
