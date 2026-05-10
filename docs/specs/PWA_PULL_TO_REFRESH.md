@@ -41,7 +41,9 @@ function usePullToRefresh(options: {
 
 **Logique :**
 
-- Écoute `pointerdown`, `pointermove`, `pointerup` / `pointercancel` sur `containerRef.current`.
+- `pointerdown` est écouté **sur `containerRef.current`** (porte d'entrée du geste).
+- `pointermove` / `pointerup` / `pointercancel` sont écoutés **au niveau `document`** : insensible à un éventuel arrêt de propagation, drag natif sur enfants, pointer capture implicite, etc.
+- Un listener **`touchmove` non-passif (`{ passive: false }`)** est attaché sur `containerRef.current` et appelle `e.preventDefault()` quand `delta > 0`. Indispensable : sans ça, dès que le wrapper est scrollable (contenu plus grand que le wrapper), le moteur de scroll natif consomme le geste et émet un `pointercancel` qui tue notre séquence après ~10–15 px. Sur un wrapper non scrollable (peu de contenu), le bug n'apparaît pas, ce qui peut masquer la régression en dev.
 - Ne s'active que si :
   - `event.pointerType === 'touch'`
   - `containerRef.current.scrollTop === 0` au moment du `pointerdown`
@@ -53,6 +55,8 @@ function usePullToRefresh(options: {
 - Nettoyage des listeners au démontage.
 
 **Constante interne :** `THRESHOLD = 80` (pixels).
+
+**Note de signature :** le hook retourne aussi `isDragging: boolean`, utilisé par `PullToRefreshWrapper` pour couper la transition CSS pendant le tirage actif (et la garder pendant le snap-back / fin de rechargement).
 
 ---
 

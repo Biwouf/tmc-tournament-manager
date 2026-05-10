@@ -55,13 +55,15 @@
 #root {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100dvh;
 }
 
 .pwa-content {
   padding-top: 56px;  /* hauteur du AppHeader */
   padding-bottom: calc(56px + env(safe-area-inset-bottom)); /* hauteur BottomNav + safe area iOS */
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Espace supplémentaire quand la bannière "Installer la PWA" est visible (~120px). */

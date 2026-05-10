@@ -28,6 +28,7 @@ export default function ActuCard({ actu }: Props) {
         <img
           src={cover}
           alt={actu.titre}
+          draggable={false}
           className="w-full h-40 object-cover"
           style={focalPointStyle(actu.image_focal_points?.[0])}
         />

@@ -114,6 +114,7 @@ Voir `docs/specs/` :
 - `ACTUS.md` — spec du module Actus (table Supabase `actus`, bucket `actu-images`, multi-images, brouillon/publié, lecture `anon` PWA)
 - `ACTUS_FOCAL_POINT.md` — point de focus par image d'actu (colonne `image_focal_points`, overlay BO, helper CSS PWA `objectPosition`)
 - `ACTUS_FACEBOOK.md` — publication simultanée d'une actu sur la page Facebook du club via Edge Function `post-to-facebook` (checkboxes dans `ActuForm`, secrets `FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_ACCESS_TOKEN`)
+- `PWA_PULL_TO_REFRESH.md` — pull-to-refresh PWA sur Actus & Événements (`usePullToRefresh` + `PullToRefreshWrapper`)
 
 ## Edge Functions Supabase
 
@@ -147,6 +148,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `lib/pwa.ts` | Helper `isStandalone()` — détecte si l'app tourne en mode PWA installée (display-mode standalone ou iOS Safari `navigator.standalone`) |
 | `hooks/useAuth.ts` | Hook React partagé : retourne `{ user, loading }`, écoute `onAuthStateChange` |
 | `hooks/useInstallPrompt.ts` | Hook qui gère la bannière d'installation : capture `beforeinstallprompt` (Android), détecte iOS Safari, gère le dismiss 7 jours via `localStorage` (`cac:installPromptDismissedAt`). Retourne `{ variant, promptInstall, dismiss }`. |
+| `hooks/usePullToRefresh.ts` | Hook générique tirer-pour-rafraîchir basé sur Pointer Events. S'active uniquement sur `pointerType === 'touch'` quand `containerRef.scrollTop === 0`. Retourne `{ pullProgress, isDragging }`. Seuil interne de 80 px ; déclenche `onRefresh` au release si seuil atteint. |
 | `liveScoreRules.ts` | **Copie** de `src/liveScoreRules.ts` (BO). À synchroniser manuellement si les règles de score changent. |
 | `types.ts` | Types partagés copiés depuis le BO + types `Actu` / `ActuFocalPoint` PWA |
 | `utils/focalPoint.ts` | Helper `focalPointStyle(fp)` → renvoie `{ objectPosition: 'x% y%' }` (fallback `50% 50%` si null/undefined). Utilisé par `ActuCard` et `ActuDetailPage`. |
@@ -159,6 +161,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `components/install/InstallBanner.tsx` | Bannière fixe au-dessus de la `BottomNav` qui invite à installer la PWA. Variante Android (CTA `beforeinstallprompt`) + variante iOS (instructions Partager → Sur l'écran d'accueil). Pose la classe `has-install-banner` sur `<body>` pour ajuster `padding-bottom` de `.pwa-content`. |
 | `components/layout/AppHeader.tsx` | Header fixe route-aware (56px). Mode `root` (tabs) : logo + titre. Mode `sub` : back button (libellé court sur iOS, icône seule sur Android via `navigator.userAgent`) + titre. Affiche optionnellement une action droite tirée de `HeaderActionContext`. |
 | `components/layout/BottomNav.tsx` | Navigation fixe basse — 3 onglets (Actus / Événements / Matches). |
+| `components/layout/PullToRefreshWrapper.tsx` | Wrapper scrollable (`h-full overflow-y-auto`) consommé par `ActusPage` et `EventsPage`. Indicateur SVG inline (couleur `text-primary`) qui se translate et tourne pendant le tirage, `animate-spin` pendant le rechargement, transition `transform 0.2s ease` lors du snap-back. `overscroll-behavior-y: contain` pour neutraliser le PTR natif iOS/Android. Repose sur `usePullToRefresh`. |
 | `components/layout/headerConfig.ts` | Map des routes → `HeaderConfig` (`mode`, `title`, `backTo`, `backLabel`). Helper `resolveHeader(pathname)` consommé par `AppHeader`. Ajouter une route ici quand on en crée une. |
 | `components/layout/HeaderActionContext.tsx` | Provider + hook `useHeaderAction(action)` pour qu'une page pose une action droite dans le header (text / icon / accent). `onClick` lu via ref → pas besoin de mémoïsation côté appelant. |
 
