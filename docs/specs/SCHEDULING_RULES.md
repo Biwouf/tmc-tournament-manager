@@ -55,6 +55,52 @@ Tour 4 : 1 finale (1re place)
 
 Classement final complet : 1→12.
 
+### 24 joueurs — 44 matchs (cas asymétrique)
+
+8 joueurs têtes de série entrent directement en 1/8 de finale ; les 16 autres jouent un tour supplémentaire (1/16). Le nombre de matchs par joueur dépend de son parcours :
+
+- Tête de série **perd en 1/8** : **3 matchs**
+- Tête de série **gagne son 1/8** : **4 matchs** (quel que soit son parcours ensuite)
+- Non-tête de série **perd en 1/16** : **3 matchs**
+- Non-tête de série **gagne son 1/16** : **4 matchs minimum** (jusqu'à 5 en cas de parcours jusqu'en finale)
+
+```
+Tour 1 (1/16) : 8 matchs (16 non-têtes de série)
+  → 8 vainqueurs → 1/8 de finale (T2, tableau principal)
+  → 8 perdants  → consolante A (T2 puis T3)
+
+Tour 2 : 8 matchs principaux (1/8 : 8 vainqueurs T1 + 8 têtes de série)
+          4 matchs consolante A — QF (8 perdants T1)
+  → 8 vainqueurs principaux → 1/4 de finale (T3)
+  → 8 perdants principaux  → consolante B (T3 puis T4)
+  → consolante A : 4 vainqueurs + 4 perdants → SF consolante A (T3)
+
+Tour 3 : 4 matchs principaux (1/4 de finale)
+          4 matchs consolante B — QF (8 perdants 1/8)
+          4 matchs consolante A — SF (finales bracket A)
+  → 4 vainqueurs QF → 1/2 finale (T4)
+  → 4 perdants QF  → consolante C (T4 puis T5)
+  → consolante B : 4 vainqueurs + 4 perdants → SF consolante B (T4)
+  → consolante A terminée → places 17 à 24
+
+Tour 4 : 2 matchs principaux (1/2 finale)
+          2 matchs consolante C — QF (4 perdants QF)
+          4 matchs consolante B — SF (finales bracket B)
+  → 2 vainqueurs SF → finale (T5)
+  → 2 perdants SF  → match 3e place (T5)
+  → consolante C : 2 vainqueurs + 2 perdants → finales consolante C (T5)
+  → consolante B terminée → places 9 à 16
+
+Tour 5 : 1 finale (1re et 2e place)
+          1 match 3e place
+          2 matchs consolante C (finales bracket C)
+  → consolante C terminée → places 5 à 8
+```
+
+Classement final complet : 1→24.
+
+> ⚠️ Le cas 24 joueurs est asymétrique : les têtes de série jouent un tour de moins que les non-têtes de série, entraînant un nombre de matchs variable selon le parcours.
+
 ### 16 joueurs — 32 matchs, chaque joueur joue 4 fois
 
 ```
@@ -81,7 +127,7 @@ Consolante 3-4 (perdants des 1/2 principales) — 1 match :
 - Matchs par joueur = `log2(numberOfPlayers)`
 - Total matchs = `(numberOfPlayers × matchesPerPlayer) / 2`
 
-> ⚠️ Le cas 12 joueurs est asymétrique : la formule ne s'applique pas. Voir section dédiée ci-dessus.
+> ⚠️ Les cas 12 et 24 joueurs sont asymétriques : la formule ne s'applique pas. Voir sections dédiées ci-dessus.
 
 ---
 
@@ -122,7 +168,7 @@ Consolante 3-4 (perdants des 1/2 principales) — 1 match :
 ### R5 — Les matchs du dernier tour sont de préférence planifiés le dernier jour
 - Contrainte **souple** : les matchs du dernier tour de chaque tournoi (finale, petite finale, consolantes finales) sont réservés au dernier jour configuré.
 - **Exception (forçage)** : si le nombre de matchs restants ne peut plus tenir dans les créneaux restants (`mustScheduleNow > 0`), un match du dernier tour peut être planifié n'importe quel jour.
-- "Dernier tour" = tour avec le `roundIndex` maximum pour ce tournoi (tour 2 pour 4 joueurs, tour 3 pour 8 joueurs, tour 4 pour 16 joueurs).
+- "Dernier tour" = tour avec le `roundIndex` maximum pour ce tournoi (tour 2 pour 4 joueurs, tour 3 pour 8 joueurs, tour 4 pour 16 joueurs, tour 5 pour 24 joueurs).
 
 ---
 
@@ -162,7 +208,7 @@ Pour chaque créneau :
 | `numberOfCourts` | Terrains disponibles en parallèle |
 | `matchDuration` | Durée d'un match (minutes, défaut : 90) |
 | `dailyTimeSlots` | Par jour : `firstMatchStart`, `lastMatchStart` |
-| `tournaments[].numberOfPlayers` | 4, 8, 12 ou 16 joueurs |
+| `tournaments[].numberOfPlayers` | 4, 8, 12, 16 ou 24 joueurs |
 | `tournaments[].gender` | `"homme"` ou `"femme"` |
 | `tournaments[].minRanking` / `maxRanking` | Classement tennis (NC → 15) |
 
