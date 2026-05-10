@@ -101,6 +101,7 @@ export default function EventCard({ event }: Props) {
           <img
             src={event.image_url}
             alt={event.titre}
+            draggable={false}
             className="w-full h-full object-cover block"
           />
         ) : (
