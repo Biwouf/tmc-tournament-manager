@@ -102,6 +102,7 @@ export interface Actu {
   contenu: string;             // Markdown
   image_urls: string[];        // 0..N images
   image_focal_points: (ActuFocalPoint | null)[]; // parallel array — same length as image_urls
+  image_captions: string[];    // parallel array — caption Facebook par image (BO-only, jamais affichée PWA)
   published: boolean;          // false = brouillon, true = publié
   published_at: string | null; // first publication timestamp, never overwritten
   created_at: string;
