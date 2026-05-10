@@ -5,6 +5,7 @@ import type {
   DailyTimeSlot,
   Gender,
   TennisRanking,
+  SlotFillingStrategy,
 } from '../types';
 import { TENNIS_RANKINGS } from '../types';
 
@@ -19,6 +20,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
   const [endDate, setEndDate] = useState(initialConfig?.endDate ?? '');
   const [numberOfCourts, setNumberOfCourts] = useState(initialConfig?.numberOfCourts ?? 2);
   const [matchDuration, setMatchDuration] = useState(initialConfig?.matchDuration ?? 90);
+  const [slotFillingStrategy, setSlotFillingStrategy] = useState<SlotFillingStrategy>(initialConfig?.slotFillingStrategy ?? 'smooth');
   const [dailyTimeSlots, setDailyTimeSlots] = useState<DailyTimeSlot[]>(initialConfig?.dailyTimeSlots ?? []);
   const [tournaments, setTournaments] = useState<TournamentConfig[]>(initialConfig?.tournaments ?? []);
 
@@ -127,6 +129,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
       endDate,
       numberOfCourts,
       matchDuration,
+      slotFillingStrategy,
       dailyTimeSlots,
       tournaments,
     };
@@ -212,6 +215,34 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition outline-none focus-visible:ring-2 focus-visible:ring-ring"
               required
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-medium text-foreground">
+              Stratégie de remplissage des créneaux
+            </label>
+            <div className="flex flex-wrap gap-4 text-sm text-foreground">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="slotFillingStrategy"
+                  value="smooth"
+                  checked={slotFillingStrategy === 'smooth'}
+                  onChange={() => setSlotFillingStrategy('smooth')}
+                />
+                <span>Lissage&nbsp;<span className="text-muted-foreground">(répartit les matchs uniformément sur la période)</span></span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="slotFillingStrategy"
+                  value="max"
+                  checked={slotFillingStrategy === 'max'}
+                  onChange={() => setSlotFillingStrategy('max')}
+                />
+                <span>Remplissage maximal&nbsp;<span className="text-muted-foreground">(remplit chaque créneau à pleine capacité)</span></span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -349,6 +380,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
               <option value="8">8</option>
               <option value="12">12</option>
               <option value="16">16</option>
+              <option value="24">24</option>
             </select>
           </div>
 
@@ -427,6 +459,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
                         <option value="8">8 joueurs</option>
                         <option value="12">12 joueurs</option>
                         <option value="16">16 joueurs</option>
+                        <option value="24">24 joueurs</option>
                       </select>
                       <select
                         value={editTournament.minRanking}

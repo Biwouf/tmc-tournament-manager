@@ -8,9 +8,10 @@ interface Props {
   config: GlobalConfig;
   onConfigUpdate: (config: GlobalConfig) => void;
   onMoveMatch?: (matchIds: string[], newDate: string, newStartTime: string) => void;
+  onRetryUnscheduled?: () => void;
 }
 
-export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveMatch }: Props) {
+export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveMatch, onRetryUnscheduled }: Props) {
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('calendar');
   const [selectedTournamentIds, setSelectedTournamentIds] = useState<string[]>([]);
   const [draggingMatchId, setDraggingMatchId] = useState<string | null>(null);
@@ -132,7 +133,7 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="ml-3">
+            <div className="ml-3 flex-1">
               <h3 className="text-sm font-medium text-amber-900">
                 Avertissement
               </h3>
@@ -143,6 +144,15 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
                   ))}
                 </ul>
               </div>
+              {onRetryUnscheduled && schedule.unscheduledMatches && schedule.unscheduledMatches.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onRetryUnscheduled}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-amber-700"
+                >
+                  Réessayer les matchs non planifiés
+                </button>
+              )}
             </div>
           </div>
         </div>

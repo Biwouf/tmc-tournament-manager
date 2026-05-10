@@ -27,6 +27,8 @@ export interface TournamentConfig {
   maxRanking: TennisRanking;
 }
 
+export type SlotFillingStrategy = 'smooth' | 'max';
+
 export interface GlobalConfig {
   name: string;
   startDate: string; // ISO date string
@@ -35,6 +37,10 @@ export interface GlobalConfig {
   matchDuration: number; // Duration in minutes
   dailyTimeSlots: DailyTimeSlot[];
   tournaments: TournamentConfig[];
+  // Strategy for filling slots:
+  //  - 'smooth' (default): spreads matches evenly across the available period
+  //  - 'max': fills each slot to capacity (numberOfCourts) before moving on
+  slotFillingStrategy?: SlotFillingStrategy;
 }
 
 export type MatchType =
@@ -44,10 +50,22 @@ export type MatchType =
   | 'ranking-5-8'
   | 'ranking-3-4';
 
+// Bracket lineage. Used by the scheduler to enforce the 4-hour rule per
+// player path rather than per absolute round (otherwise the consolante
+// finales would block the main finale on asymmetric brackets).
+// First round of any consolante is fed by the main bracket — see scheduler.
+export type MatchBracket =
+  | 'main'
+  | 'cons-5-8'
+  | 'cons-9-12'
+  | 'cons-9-16'
+  | 'cons-17-24';
+
 export interface Match {
   id: string;
   tournamentId: string;
   matchType: MatchType;
+  bracket: MatchBracket;
   round: number;
   playerSlots: number[]; // Indices of players (to be filled)
   description: string; // e.g., "1/4 finale", "Finale", "Match pour la 3ème place"

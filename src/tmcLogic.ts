@@ -1,4 +1,4 @@
-import type { Match, TournamentConfig } from './types';
+import type { Match, MatchBracket, MatchType, TournamentConfig } from './types';
 
 /**
  * Generate all matches for a TMC tournament
@@ -21,13 +21,30 @@ export function generateTMCMatches(tournamentConfig: TournamentConfig): Match[] 
       return generateTMC12Players(tournamentConfig);
     case 16:
       return generateTMC16Players(tournamentConfig);
+    case 24:
+      return generateTMC24Players(tournamentConfig);
     default:
-      throw new Error(`Nombre de joueurs non supporté: ${numPlayers} (valeurs autorisées : 4, 8, 12, 16)`);
+      throw new Error(`Nombre de joueurs non supporté: ${numPlayers} (valeurs autorisées : 4, 8, 12, 16, 24)`);
   }
 }
 
 function isPowerOfTwo(n: number): boolean {
   return n > 0 && (n & (n - 1)) === 0;
+}
+
+function makePusher(config: TournamentConfig, matches: Match[]) {
+  let counter = 1;
+  return (matchType: MatchType, bracket: MatchBracket, round: number, description: string, playerSlots: number[] = []) => {
+    matches.push({
+      id: `${config.id}-match-${counter++}`,
+      tournamentId: config.id,
+      matchType,
+      bracket,
+      round,
+      playerSlots,
+      description,
+    });
+  };
 }
 
 /**
@@ -39,131 +56,42 @@ function isPowerOfTwo(n: number): boolean {
  */
 function generateTMC4Players(config: TournamentConfig): Match[] {
   const matches: Match[] = [];
-  let matchCounter = 1;
+  const push = makePusher(config, matches);
 
-  // Semi-finals (2 matches)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'semi-final',
-      round: 1,
-      playerSlots: [i * 2, i * 2 + 1],
-      description: `Demi-finale ${i + 1}`,
-    });
+    push('semi-final', 'main', 1, `Demi-finale ${i + 1}`, [i * 2, i * 2 + 1]);
   }
-
-  // Final
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'final',
-    round: 2,
-    playerSlots: [], // Winners of semi-finals
-    description: 'Finale',
-  });
-
-  // 3rd place match
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-3-4',
-    round: 2,
-    playerSlots: [], // Losers of semi-finals
-    description: 'Match pour la 3ème place',
-  });
+  push('final', 'main', 2, 'Finale');
+  push('ranking-3-4', 'main', 2, 'Match pour la 3ème place');
 
   return matches;
 }
 
 /**
  * Generate matches for 8 players TMC
- * - 4 quarter-finals
- * - 2 semi-finals
- * - 1 final
- * - 4 matches for places 5-8 (consolation bracket)
- * - 1 match for 3rd place
  * Total: 12 matches, each player plays 3 times
+ * Brackets: main (8 matches) + cons-5-8 (4 matches)
  */
 function generateTMC8Players(config: TournamentConfig): Match[] {
   const matches: Match[] = [];
-  let matchCounter = 1;
+  const push = makePusher(config, matches);
 
-  // Quarter-finals (4 matches)
+  // Main: QF (R1), SF (R2), F + 3e (R3)
   for (let i = 0; i < 4; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'quarter-final',
-      round: 1,
-      playerSlots: [i * 2, i * 2 + 1],
-      description: `Quart de finale ${i + 1}`,
-    });
+    push('quarter-final', 'main', 1, `Quart de finale ${i + 1}`, [i * 2, i * 2 + 1]);
   }
-
-  // Semi-finals (2 matches)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'semi-final',
-      round: 2,
-      playerSlots: [], // Winners of QF i*2 and i*2+1
-      description: `Demi-finale ${i + 1}`,
-    });
+    push('semi-final', 'main', 2, `Demi-finale ${i + 1}`);
   }
+  push('final', 'main', 3, 'Finale');
+  push('ranking-3-4', 'main', 3, 'Match pour la 3ème place');
 
-  // Final
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'final',
-    round: 3,
-    playerSlots: [], // Winners of semi-finals
-    description: 'Finale',
-  });
-
-  // 3rd place match
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-3-4',
-    round: 3,
-    playerSlots: [], // Losers of semi-finals
-    description: 'Match pour la 3ème place',
-  });
-
-  // Consolation bracket for places 5-8 (losers of quarter-finals)
-  // Round 1 of consolation: 4 losers play 2 matches
+  // Consolante 5-8: R2 (2 matches between QF losers), R3 (5e + 7e)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'ranking-5-8',
-      round: 2,
-      playerSlots: [], // Losers of QF i*2 and i*2+1
-      description: `Classement 5-8 (Match ${i + 1})`,
-    });
+    push('ranking-5-8', 'cons-5-8', 2, `Classement 5-8 (Match ${i + 1})`);
   }
-
-  // Round 2 of consolation: determining 5-6 and 7-8
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 3,
-    playerSlots: [], // Winners of consolation round 1
-    description: 'Match pour la 5ème place',
-  });
-
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 3,
-    playerSlots: [], // Losers of consolation round 1
-    description: 'Match pour la 7ème place',
-  });
+  push('ranking-5-8', 'cons-5-8', 3, 'Match pour la 5ème place');
+  push('ranking-5-8', 'cons-5-8', 3, 'Match pour la 7ème place');
 
   return matches;
 }
@@ -172,11 +100,8 @@ function generateTMC8Players(config: TournamentConfig): Match[] {
  * Generate matches for 12 players TMC (asymmetric bracket)
  *
  * 4 players are exempted from round 1; the other 8 play the 1/8 finals.
- * Structure (20 matches, 4 rounds):
- * - R1: 4 matches  — 1/8 finals (8 non-exempted)
- * - R2: 4 QF (4 winners + 4 exempted) + 2 SF consolante 9-12
- * - R3: 2 SF main draw + 2 matches (final + 3rd place consolante 9-12) + 2 SF consolante 5-8
- * - R4: 1 final + 1 3rd place + 2 matches (final + 3rd place consolante 5-8)
+ * Total: 20 matches, 4 rounds.
+ * Brackets: main (12) + cons-9-12 (4) + cons-5-8 (4)
  *
  * Matches per player varies (asymmetric):
  * - exempted, or non-exempted losing R1: 3 matches
@@ -184,121 +109,34 @@ function generateTMC8Players(config: TournamentConfig): Match[] {
  */
 function generateTMC12Players(config: TournamentConfig): Match[] {
   const matches: Match[] = [];
-  let matchCounter = 1;
+  const push = makePusher(config, matches);
 
-  // ===== ROUND 1: 1/8 finals (4 matches, slots 0..7 — non-exempted players) =====
+  // Main: 1/8 (R1), 1/4 (R2), 1/2 (R3), F + 3e (R4)
   for (let i = 0; i < 4; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'quarter-final',
-      round: 1,
-      playerSlots: [i * 2, i * 2 + 1],
-      description: `1/8 de finale ${i + 1}`,
-    });
+    push('quarter-final', 'main', 1, `1/8 de finale ${i + 1}`, [i * 2, i * 2 + 1]);
   }
-
-  // ===== ROUND 2: Main draw QF (4 winners R1 + 4 exempted) =====
   for (let i = 0; i < 4; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'quarter-final',
-      round: 2,
-      playerSlots: [],
-      description: `Quart de finale ${i + 1} (Tableau principal)`,
-    });
+    push('quarter-final', 'main', 2, `Quart de finale ${i + 1} (Tableau principal)`);
   }
-
-  // ===== ROUND 2: Consolante 9-12 — 1/2 finals (losers R1) =====
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'ranking-5-8',
-      round: 2,
-      playerSlots: [],
-      description: `Demi-finale consolante 9-12 (Match ${i + 1})`,
-    });
+    push('semi-final', 'main', 3, `Demi-finale ${i + 1} (Tableau principal)`);
   }
+  push('final', 'main', 4, 'Finale');
+  push('ranking-3-4', 'main', 4, 'Match pour la 3ème place');
 
-  // ===== ROUND 3: Main draw 1/2 finals =====
+  // Consolante 9-12: SF (R2), finales 9 + 11 (R3)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'semi-final',
-      round: 3,
-      playerSlots: [],
-      description: `Demi-finale ${i + 1} (Tableau principal)`,
-    });
+    push('ranking-5-8', 'cons-9-12', 2, `Demi-finale consolante 9-12 (Match ${i + 1})`);
   }
+  push('ranking-5-8', 'cons-9-12', 3, 'Match pour la 9ème place');
+  push('ranking-5-8', 'cons-9-12', 3, 'Match pour la 11ème place');
 
-  // ===== ROUND 3: Consolante 9-12 — final (9th) + 3rd place (11th) =====
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 3,
-    playerSlots: [],
-    description: 'Match pour la 9ème place',
-  });
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 3,
-    playerSlots: [],
-    description: 'Match pour la 11ème place',
-  });
-
-  // ===== ROUND 3: Consolante 5-8 — 1/2 finals (losers R2 QF) =====
+  // Consolante 5-8: SF (R3), finales 5 + 7 (R4)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'ranking-5-8',
-      round: 3,
-      playerSlots: [],
-      description: `Demi-finale consolante 5-8 (Match ${i + 1})`,
-    });
+    push('ranking-5-8', 'cons-5-8', 3, `Demi-finale consolante 5-8 (Match ${i + 1})`);
   }
-
-  // ===== ROUND 4: Main draw — final + 3rd place =====
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'final',
-    round: 4,
-    playerSlots: [],
-    description: 'Finale',
-  });
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-3-4',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 3ème place',
-  });
-
-  // ===== ROUND 4: Consolante 5-8 — final (5th) + 3rd place (7th) =====
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 5ème place',
-  });
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 7ème place',
-  });
+  push('ranking-5-8', 'cons-5-8', 4, 'Match pour la 5ème place');
+  push('ranking-5-8', 'cons-5-8', 4, 'Match pour la 7ème place');
 
   return matches;
 }
@@ -307,187 +145,120 @@ function generateTMC12Players(config: TournamentConfig): Match[] {
  * Generate matches for 16 players TMC
  * Total: 32 matches, each player plays 4 times
  *
- * Structure:
- * - Tableau principal (15 matches): 8×1/8, 4×1/4, 2×1/2, 1×finale
- * - Consolante 9-16 (12 matches): perdants des 1/8
- * - Consolante 5-8 (4 matches): perdants des 1/4 du tableau principal
- * - Consolante 3-4 (1 match): perdants des 1/2 du tableau principal
+ * Brackets:
+ * - main (16): 8×1/8 + 4×1/4 + 2×1/2 + 1×finale + 1×3e
+ * - cons-9-16 (12): 4 QF + 2 SF 9-12 + 2 SF 13-16 + 4 finales (9, 11, 13, 15)
+ * - cons-5-8 (4): 2 SF + 2 finales (5, 7)
  */
 function generateTMC16Players(config: TournamentConfig): Match[] {
   const matches: Match[] = [];
-  let matchCounter = 1;
+  const push = makePusher(config, matches);
 
-  // ===== TABLEAU PRINCIPAL (15 matches) =====
-
-  // Round 1: 1/8 de finale (8 matches)
+  // Main draw
   for (let i = 0; i < 8; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'quarter-final',
-      round: 1,
-      playerSlots: [i * 2, i * 2 + 1],
-      description: `1/8 de finale ${i + 1} (Tableau principal)`,
-    });
+    push('quarter-final', 'main', 1, `1/8 de finale ${i + 1} (Tableau principal)`, [i * 2, i * 2 + 1]);
   }
-
-  // Round 2: 1/4 de finale (4 matches)
   for (let i = 0; i < 4; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'quarter-final',
-      round: 2,
-      playerSlots: [],
-      description: `Quart de finale ${i + 1} (Tableau principal)`,
-    });
+    push('quarter-final', 'main', 2, `Quart de finale ${i + 1} (Tableau principal)`);
   }
-
-  // Round 3: 1/2 finale (2 matches)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'semi-final',
-      round: 3,
-      playerSlots: [],
-      description: `Demi-finale ${i + 1} (Tableau principal)`,
-    });
+    push('semi-final', 'main', 3, `Demi-finale ${i + 1} (Tableau principal)`);
   }
+  push('final', 'main', 4, 'Finale');
+  push('ranking-3-4', 'main', 4, 'Match pour la 3ème place');
 
-  // Round 4: Finale (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'final',
-    round: 4,
-    playerSlots: [],
-    description: 'Finale',
-  });
-
-  // ===== CONSOLANTE 9-16 (12 matches) - Perdants des 1/8 =====
-
-  // Round 2: 1/4 de finale consolante 9-16 (4 matches)
+  // Consolante 9-16
   for (let i = 0; i < 4; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'ranking-5-8',
-      round: 2,
-      playerSlots: [],
-      description: `Quart de finale consolante 9-16 (Match ${i + 1})`,
-    });
+    push('ranking-5-8', 'cons-9-16', 2, `Quart de finale consolante 9-16 (Match ${i + 1})`);
   }
-
-  // Round 3: 1/2 finale consolante 9-12 (2 matches)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'ranking-5-8',
-      round: 3,
-      playerSlots: [],
-      description: `Demi-finale consolante 9-12 (Match ${i + 1})`,
-    });
+    push('ranking-5-8', 'cons-9-16', 3, `Demi-finale consolante 9-12 (Match ${i + 1})`);
   }
-
-  // Round 3: Consolante 13-16 - Perdants des 1/4 consolante (4 matches)
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'ranking-5-8',
-      round: 3,
-      playerSlots: [],
-      description: `Demi-finale consolante 13-16 (Match ${i + 1})`,
-    });
+    push('ranking-5-8', 'cons-9-16', 3, `Demi-finale consolante 13-16 (Match ${i + 1})`);
   }
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 9ème place');
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 11ème place');
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 13ème place');
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 15ème place');
 
-  // Round 4: Finale consolante 9-10 (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 9ème place',
-  });
-
-  // Round 4: Match consolante 11-12 (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 11ème place',
-  });
-
-  // Round 4: Finale consolante 13-14 (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 13ème place',
-  });
-
-  // Round 4: Match consolante 15-16 (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 15ème place',
-  });
-
-  // ===== CONSOLANTE 5-8 (4 matches) - Perdants des 1/4 du tableau principal =====
-
-  // Round 3: 1/2 finale consolante 5-8 (2 matches)
+  // Consolante 5-8
   for (let i = 0; i < 2; i++) {
-    matches.push({
-      id: `${config.id}-match-${matchCounter++}`,
-      tournamentId: config.id,
-      matchType: 'ranking-5-8',
-      round: 3,
-      playerSlots: [],
-      description: `Demi-finale consolante 5-8 (Match ${i + 1})`,
-    });
+    push('ranking-5-8', 'cons-5-8', 3, `Demi-finale consolante 5-8 (Match ${i + 1})`);
   }
+  push('ranking-5-8', 'cons-5-8', 4, 'Match pour la 5ème place');
+  push('ranking-5-8', 'cons-5-8', 4, 'Match pour la 7ème place');
 
-  // Round 4: Finale consolante 5-6 (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 5ème place',
-  });
+  return matches;
+}
 
-  // Round 4: Match consolante 7-8 (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-5-8',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 7ème place',
-  });
+/**
+ * Generate matches for 24 players TMC (asymmetric bracket)
+ *
+ * 8 seeded players enter directly in the 1/8 finals; the 16 others play an
+ * additional 1/16 round. Total: 48 matches over 5 rounds.
+ *
+ * Principle: every player plays at least 4 matches, except seeds who lose
+ * their 1/8 (3 matches). To avoid forcing 5 matches on a non-seed who keeps
+ * winning, we assume they will lose at the 1/8 stage; if they end up reaching
+ * the main 1/4 or beyond, the 5th match is "managed live" (forfeit possible).
+ *
+ * Brackets:
+ * - main (24): 1/16, 1/8, 1/4, 1/2, finale + 3e
+ * - cons-17-24 (12): QF + SF + finales (17, 19, 21, 23)
+ * - cons-9-16 (8): QF + finales (9, 11, 13, 15)
+ * - cons-5-8 (4): SF + finales (5, 7)
+ */
+function generateTMC24Players(config: TournamentConfig): Match[] {
+  const matches: Match[] = [];
+  const push = makePusher(config, matches);
 
-  // ===== CONSOLANTE 3-4 (1 match) - Perdants des 1/2 du tableau principal =====
+  // Main draw: 1/16 (R1), 1/8 (R2), 1/4 (R3), 1/2 (R4), F + 3e (R5)
+  for (let i = 0; i < 8; i++) {
+    push('quarter-final', 'main', 1, `1/16 de finale ${i + 1}`, [i * 2, i * 2 + 1]);
+  }
+  for (let i = 0; i < 8; i++) {
+    push('quarter-final', 'main', 2, `1/8 de finale ${i + 1} (Tableau principal)`);
+  }
+  for (let i = 0; i < 4; i++) {
+    push('quarter-final', 'main', 3, `Quart de finale ${i + 1} (Tableau principal)`);
+  }
+  for (let i = 0; i < 2; i++) {
+    push('semi-final', 'main', 4, `Demi-finale ${i + 1} (Tableau principal)`);
+  }
+  push('final', 'main', 5, 'Finale');
+  push('ranking-3-4', 'main', 5, 'Match pour la 3ème place');
 
-  // Round 4: Match pour la 3ème place (1 match)
-  matches.push({
-    id: `${config.id}-match-${matchCounter++}`,
-    tournamentId: config.id,
-    matchType: 'ranking-3-4',
-    round: 4,
-    playerSlots: [],
-    description: 'Match pour la 3ème place',
-  });
+  // Consolante 17-24: QF (R2), SF (R3), finales (R4)
+  for (let i = 0; i < 4; i++) {
+    push('ranking-5-8', 'cons-17-24', 2, `Quart de finale consolante 17-24 (Match ${i + 1})`);
+  }
+  for (let i = 0; i < 2; i++) {
+    push('ranking-5-8', 'cons-17-24', 3, `Demi-finale consolante 17-20 (Match ${i + 1})`);
+  }
+  for (let i = 0; i < 2; i++) {
+    push('ranking-5-8', 'cons-17-24', 3, `Demi-finale consolante 21-24 (Match ${i + 1})`);
+  }
+  push('ranking-5-8', 'cons-17-24', 4, 'Match pour la 17ème place');
+  push('ranking-5-8', 'cons-17-24', 4, 'Match pour la 19ème place');
+  push('ranking-5-8', 'cons-17-24', 4, 'Match pour la 21ème place');
+  push('ranking-5-8', 'cons-17-24', 4, 'Match pour la 23ème place');
+
+  // Consolante 9-16: QF (R3), finales (R4)
+  for (let i = 0; i < 4; i++) {
+    push('ranking-5-8', 'cons-9-16', 3, `Quart de finale consolante 9-16 (Match ${i + 1})`);
+  }
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 9ème place');
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 11ème place');
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 13ème place');
+  push('ranking-5-8', 'cons-9-16', 4, 'Match pour la 15ème place');
+
+  // Consolante 5-8: SF (R4), finales (R5)
+  for (let i = 0; i < 2; i++) {
+    push('ranking-5-8', 'cons-5-8', 4, `Demi-finale consolante 5-8 (Match ${i + 1})`);
+  }
+  push('ranking-5-8', 'cons-5-8', 5, 'Match pour la 5ème place');
+  push('ranking-5-8', 'cons-5-8', 5, 'Match pour la 7ème place');
 
   return matches;
 }
@@ -499,6 +270,10 @@ export function calculateTotalMatches(numberOfPlayers: number): number {
   if (numberOfPlayers === 12) {
     // Asymmetric bracket — see generateTMC12Players
     return 20;
+  }
+  if (numberOfPlayers === 24) {
+    // Asymmetric bracket — see generateTMC24Players
+    return 48;
   }
   if (!isPowerOfTwo(numberOfPlayers)) {
     return 0;
@@ -514,9 +289,11 @@ export function calculateTotalMatches(numberOfPlayers: number): number {
  * Total number of rounds for a TMC tournament (used for display "Match R/N").
  * For power-of-2 brackets, equals log2(n) (also = matches per player).
  * For 12 players (asymmetric), returns 4.
+ * For 24 players (asymmetric), returns 5.
  */
 export function getTotalRounds(numberOfPlayers: number): number {
   if (numberOfPlayers === 12) return 4;
+  if (numberOfPlayers === 24) return 5;
   if (!isPowerOfTwo(numberOfPlayers)) return 0;
   return Math.log2(numberOfPlayers);
 }
