@@ -23,6 +23,8 @@ export default function TournamentPage({ user }: Props) {
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isNew) return;
@@ -82,18 +84,31 @@ export default function TournamentPage({ user }: Props) {
       warnings: result.warnings.length > 0 ? result.warnings : entry.schedule.warnings,
     };
 
-    // Optimistic update
     setEntry((prev) => prev ? { ...prev, schedule: updatedSchedule } : prev);
-
-    // Persist
-    supabase.from('tournaments').update({ schedule: updatedSchedule }).eq('id', id!);
+    setIsDirty(true);
   };
 
   const handleRetryUnscheduled = () => {
     if (!entry?.schedule) return;
     const updatedSchedule = retryUnscheduledMatches(entry.schedule, entry.config);
     setEntry((prev) => prev ? { ...prev, schedule: updatedSchedule } : prev);
-    supabase.from('tournaments').update({ schedule: updatedSchedule }).eq('id', id!);
+    setIsDirty(true);
+  };
+
+  const handleSave = async () => {
+    if (!entry?.schedule) return;
+    setSaving(true);
+    setError(null);
+    const { error: saveError } = await supabase
+      .from('tournaments')
+      .update({ schedule: entry.schedule })
+      .eq('id', id!);
+    setSaving(false);
+    if (saveError) {
+      setError(saveError.message);
+      return;
+    }
+    setIsDirty(false);
   };
 
   const handleDelete = async () => {
@@ -218,6 +233,21 @@ export default function TournamentPage({ user }: Props) {
           <p>Gestionnaire de Tournois TMC</p>
         </div>
       </footer>
+
+      {isDirty && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 shadow-lg backdrop-blur">
+          <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <p className="text-sm text-foreground">Modifications non sauvegardées</p>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
