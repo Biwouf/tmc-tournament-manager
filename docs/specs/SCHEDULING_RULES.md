@@ -150,6 +150,8 @@ Consolante 3-4 (perdants des 1/2 principales) — 1 match :
 > `firstMatchStart=09:00`, `lastMatchStart=18:00`, `matchDuration=90 min`
 > → Créneaux : 09:00, 10:30, 12:00, 13:30, 15:00, 16:30, 18:00
 
+La liste complète des créneaux générés est exposée dans `Schedule.allTimeSlots` afin que la vue calendrier puisse afficher les créneaux vides (drop zones persistantes après drag-and-drop).
+
 ---
 
 ## 4. Contraintes de planification
