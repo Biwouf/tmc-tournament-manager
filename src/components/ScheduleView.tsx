@@ -102,7 +102,14 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
     return acc;
   }, {} as Record<string, ScheduledMatch[]>);
 
-  const sortedDates = Object.keys(matchesByDate).sort();
+  // Union des dates : on inclut aussi les jours configurés sans match,
+  // pour que les créneaux vides restent affichés (drop zones).
+  const sortedDates = Array.from(
+    new Set([
+      ...Object.keys(matchesByDate),
+      ...(schedule.allTimeSlots ?? []).map((s) => s.date),
+    ])
+  ).sort();
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -295,18 +302,38 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
             </div>
           )}
           {sortedDates.map((date) => {
-            const dayMatches = matchesByDate[date];
-            // Group by time slot
-            const matchesByTimeSlot = dayMatches.reduce((acc, match) => {
-              const key = match.startTime;
-              if (!acc[key]) {
-                acc[key] = [];
-              }
-              acc[key].push(match);
-              return acc;
-            }, {} as Record<string, ScheduledMatch[]>);
+            const dayMatches = matchesByDate[date] ?? [];
 
-            const sortedTimeSlots = Object.keys(matchesByTimeSlot).sort();
+            // Union créneaux configurés + créneaux avec matches.
+            // Permet d'afficher les créneaux vides (drop zones) après D&D.
+            const slotsByStart = new Map<
+              string,
+              { startTime: string; endTime: string; matches: ScheduledMatch[] }
+            >();
+            (schedule.allTimeSlots ?? [])
+              .filter((s) => s.date === date)
+              .forEach((s) => {
+                slotsByStart.set(s.startTime, {
+                  startTime: s.startTime,
+                  endTime: s.endTime,
+                  matches: [],
+                });
+              });
+            dayMatches.forEach((m) => {
+              const existing = slotsByStart.get(m.startTime);
+              if (existing) {
+                existing.matches.push(m);
+              } else {
+                slotsByStart.set(m.startTime, {
+                  startTime: m.startTime,
+                  endTime: m.endTime,
+                  matches: [m],
+                });
+              }
+            });
+            const sortedSlots = Array.from(slotsByStart.values()).sort((a, b) =>
+              a.startTime.localeCompare(b.startTime)
+            );
 
             return (
               <div key={date} className="rounded-2xl border bg-card/90 p-6 shadow-sm">
@@ -315,8 +342,7 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
                 </h3>
 
                 <div className="space-y-4">
-                  {sortedTimeSlots.map((timeSlot) => {
-                    const slotMatches = matchesByTimeSlot[timeSlot];
+                  {sortedSlots.map(({ startTime: timeSlot, endTime, matches: slotMatches }) => {
                     return (
                       <div
                         key={timeSlot}
@@ -351,8 +377,13 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
                         }}
                       >
                         <div className="mb-2 font-semibold text-foreground">
-                          {timeSlot} - {slotMatches[0].endTime}
+                          {timeSlot} - {endTime}
                         </div>
+                        {slotMatches.length === 0 ? (
+                          <div className="text-sm text-muted-foreground italic">
+                            Aucun match — déposez un match ici
+                          </div>
+                        ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {slotMatches.map((scheduledMatch, idx) => {
                             const tournament = getTournamentInfo(
@@ -427,6 +458,7 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
                             );
                           })}
                         </div>
+                        )}
                       </div>
                     );
                   })}

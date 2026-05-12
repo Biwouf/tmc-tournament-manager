@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import type { GlobalConfig, TournamentEntry } from '../types';
 import ConfigurationForm from '../components/ConfigurationForm';
 import ScheduleView from '../components/ScheduleView';
-import { generateSchedule, retryUnscheduledMatches } from '../scheduler';
+import { generateSchedule, generateTimeSlots, retryUnscheduledMatches } from '../scheduler';
 import { moveMatches } from '../moveMatch';
 import { exportScheduleCsv } from '../exportScheduleCsv';
 import { supabase } from '../lib/supabase';
@@ -35,7 +35,14 @@ export default function TournamentPage({ user }: Props) {
       .single()
       .then(({ data, error }) => {
         if (!error && data) {
-          setEntry({ id: data.id, config: data.config, schedule: data.schedule });
+          // Backfill `allTimeSlots` pour les plannings sauvegardés avant l'ajout
+          // du champ (sinon les créneaux vides ne s'afficheraient pas tant qu'on
+          // n'a pas régénéré le planning).
+          const schedule = data.schedule;
+          if (schedule && !schedule.allTimeSlots) {
+            schedule.allTimeSlots = generateTimeSlots(data.config);
+          }
+          setEntry({ id: data.id, config: data.config, schedule });
         }
         setLoading(false);
       });

@@ -84,6 +84,9 @@ export interface Schedule {
   tournaments: TournamentConfig[];
   unscheduledMatches?: Match[]; // Matches that couldn't be scheduled
   warnings?: string[]; // Warning messages
+  // Tous les créneaux générés par la configuration — utilisés pour afficher
+  // les créneaux vides dans la vue calendrier (drop zones persistantes après D&D).
+  allTimeSlots?: Array<{ date: string; startTime: string; endTime: string }>;
 }
 
 export interface TournamentEntry {

@@ -47,6 +47,7 @@ export function generateSchedule(config: GlobalConfig): Schedule {
     tournaments: config.tournaments,
     unscheduledMatches: result.unscheduledMatches,
     warnings: warnings.length > 0 ? warnings : undefined,
+    allTimeSlots: timeSlots,
   };
 }
 
