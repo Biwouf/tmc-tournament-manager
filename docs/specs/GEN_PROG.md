@@ -166,6 +166,45 @@ Chaque cellule affiche :
 
 SVG inline entre les deux joueurs, avec effet "éclair" masqué.
 
+### Highlight par club
+
+Quand un PDF est importé, les matchs portent `j1_club` / `j2_club`. L'utilisateur peut sélectionner un club « hôte » dans un `<select>` (« Mettre en valeur un club ») positionné juste au-dessus de la zone « Envoyer vers Live Score ».
+
+**Condition d'affichage du sélecteur** : `availableClubs.length > 0`. Pour un import CSV, les clubs sont vides → le sélecteur n'apparaît pas.
+
+`availableClubs` est calculé via `useMemo` à partir des `j1_club` / `j2_club` non vides, dédupliqués puis triés alphabétiquement. La valeur `""` du sélecteur correspond à `highlightedClub = null` (option « Aucun »).
+
+À chaque changement de `matches` (nouveau PDF/CSV), `highlightedClub` est réinitialisé à `null` (même logique que `transferStatus`).
+
+#### Trois états par cellule
+
+Dans `MatchCell`, à partir de `highlightedClub` :
+
+```ts
+const j1Home = !!highlightedClub && match.j1_club === highlightedClub;
+const j2Home = !!highlightedClub && match.j2_club === highlightedClub;
+const bothHome = j1Home && j2Home;
+const anyHome  = j1Home || j2Home;
+```
+
+| Condition | Couronne d'étoiles | Ruban « CLUB » | Bandeau « DERBY » | ClubLabel rouge |
+|---|:---:|:---:|:---:|:---:|
+| Aucun joueur du club | — | — | — | — |
+| 1 joueur du club | ✓ | ✓ | — | Côté joueur local uniquement |
+| 2 joueurs du club (derby) | ✓ | — | ✓ | Les deux côtés |
+
+Les matchs hors club sélectionné restent strictement inchangés.
+
+#### Effets visuels
+
+- **Couronne d'étoiles** (`anyHome`) : 12 étoiles blanches `#ffffff` débordant à l'extérieur de la cellule, sur le fond rouge de l'affiche. Tailles : 11 px de base, 13 px pour les indices 0/3/6/9 (légère respiration). Opacités : 1 pour les indices 0/4/8, sinon 0.85. Positions : 4 coins, 4 milieux haut/bas (`32%` et `62%`), 4 milieux gauche/droite (`38%` et `68%`). Implémentation : composant `StarsRing` posé sur un **wrapper externe** `position: relative` (sans `overflow: hidden`) qui enveloppe la cellule. La cellule elle-même garde `overflow: hidden` pour clipper le ruban.
+- **Ruban diagonal « CLUB »** (`anyHome && !bothHome`) : `div` en `position: absolute` dans le coin supérieur droit de la cellule, `transform: rotate(45deg)`, fond `#C8102E`.
+- **Bandeau « ★ DERBY \<club\> ★ »** (`bothHome`) : `div` en `position: absolute` en pied de cellule, `left/right: 16`, `bottom: 6`, `height: 16`. Le padding bas de la cellule passe de `16` à `26` quand `bothHome` pour laisser la place. Le nom du club (`highlightedClub`) est inséré dans le texte.
+- **`ClubLabel`** accepte une prop `home?: boolean` : rouge `#C8102E`, `font-weight: 700`, `font-size: 9.5` quand `home`, sinon gris `#6b6b6b`.
+- **Box-shadow / bordure** : **aucun changement** entre cellule highlight et cellule standard. Le `box-shadow` reste constant (`5px 6px 0px rgba(200, 16, 46, 0.3)`). Une bordure rouge avait été envisagée mais se fond dans le fond rouge de l'affiche → écartée.
+
+Tous les effets sont du CSS / SVG pur → exportables par `html-to-image`.
+
 ### Pagination
 
 - **MAX_PER_PAGE = 8** (grille 2 colonnes × 4 lignes)
@@ -208,6 +247,7 @@ Les téléchargements sont déclenchés séquentiellement.
 | `selectedEventId` | `string` | UUID de l'événement choisi (`""` = aucun) |
 | `transferStatus` | `'idle'\|'loading'\|'done'\|'error'` | État du bouton « Basculer vers Live Score » |
 | `transferError` | `string \| null` | Message d'erreur du transfert |
+| `highlightedClub` | `string \| null` | Club sélectionné dans le sélecteur « Mettre en valeur un club ». `null` = aucun. Repassé à `null` à chaque changement de `matches`. |
 
 ---
 
