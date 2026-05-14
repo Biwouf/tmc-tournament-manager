@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toJpeg } from 'html-to-image';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -205,15 +205,62 @@ const GRID_GAP = 20;
 
 const MAX_PER_PAGE = 8; // 2 colonnes × 4 lignes
 
-// Affiche le club sous le classement. Taille fixe ; ellipsis si le club dépasse.
-function ClubLabel({ club }: { club: string }) {
+// Couronne d'étoiles blanches débordant à l'extérieur de la cellule highlight
+const STAR_POSITIONS: React.CSSProperties[] = [
+  { top: -8, left: -8 },
+  { top: -8, right: -8 },
+  { bottom: -8, left: -8 },
+  { bottom: -8, right: -8 },
+  { top: -6, left: '32%' },
+  { top: -6, left: '62%' },
+  { bottom: -6, left: '32%' },
+  { bottom: -6, left: '62%' },
+  { left: -6, top: '38%' },
+  { left: -6, top: '68%' },
+  { right: -6, top: '38%' },
+  { right: -6, top: '68%' },
+];
+
+function Star({ size, style }: { size: number; style: React.CSSProperties }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={style} aria-hidden>
+      <path
+        d="M12 2 L14.6 9.3 L22 9.6 L16.2 14.3 L18.2 21.5 L12 17.3 L5.8 21.5 L7.8 14.3 L2 9.6 L9.4 9.3 Z"
+        fill="#ffffff"
+      />
+    </svg>
+  );
+}
+
+function StarsRing() {
+  return (
+    <>
+      {STAR_POSITIONS.map((p, i) => (
+        <Star
+          key={i}
+          size={11 + (i % 3 === 0 ? 2 : 0)}
+          style={{
+            position: 'absolute',
+            ...p,
+            zIndex: 4,
+            opacity: i % 4 === 0 ? 1 : 0.85,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Affiche le club sous le classement. Style "home" (rouge, gras) quand le joueur appartient au club mis en valeur.
+function ClubLabel({ club, home = false }: { club: string; home?: boolean }) {
   if (!club) return null;
   return (
     <div
       style={{
-        color: '#6b6b6b',
-        fontSize: 9,
-        fontWeight: 500,
+        color: home ? '#C8102E' : '#6b6b6b',
+        fontSize: home ? 9.5 : 9,
+        fontWeight: home ? 700 : 500,
+        letterSpacing: home ? 0.3 : 0,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -225,75 +272,139 @@ function ClubLabel({ club }: { club: string }) {
   );
 }
 
-function MatchCell({ match }: { match: Match }) {
+function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: string | null }) {
+  const j1Home = !!highlightedClub && match.j1_club === highlightedClub;
+  const j2Home = !!highlightedClub && match.j2_club === highlightedClub;
+  const bothHome = j1Home && j2Home;
+  const anyHome = j1Home || j2Home;
+
   return (
-    <div
-      style={{
-        background: 'white',
-        borderRadius: 18,
-        padding: '12px 16px 16px',
-        boxShadow: '5px 6px 0px rgba(200, 16, 46, 0.3)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        minWidth: 0,
-      }}
-    >
-      {/* Heure + type */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span
-          style={{
-            background: '#C8102E',
-            color: 'white',
-            borderRadius: 999,
-            padding: '0 11px',
-            height: 24,
-            display: 'inline-block',
-            fontSize: 15,
-            fontWeight: 800,
-            letterSpacing: 0.2,
-            whiteSpace: 'nowrap',
-            lineHeight: '24px',
-          }}
-        >
-          {formatTime(match.heure)}
-        </span>
-        <span style={{ color: '#C8102E', fontWeight: 700, fontSize: 15 }}>
-          {match.type_tournoi}
-        </span>
-      </div>
+    // Wrapper externe : permet à la couronne d'étoiles de déborder en dehors de la cellule
+    <div style={{ position: 'relative', minWidth: 0 }}>
+      {anyHome && <StarsRing />}
 
-      {/* Adversaires */}
-      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-        <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
-          <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_prenom}</div>
-          <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_nom}</div>
-          <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
-          <ClubLabel club={match.j1_club} />
+      {/* Cellule : overflow:hidden pour clipper le ruban d'angle aux coins arrondis */}
+      <div
+        style={{
+          background: 'white',
+          borderRadius: 18,
+          padding: bothHome ? '12px 16px 26px' : '12px 16px 16px',
+          boxShadow: '5px 6px 0px rgba(200, 16, 46, 0.3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          minWidth: 0,
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Heure + type */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span
+            style={{
+              background: '#C8102E',
+              color: 'white',
+              borderRadius: 999,
+              padding: '0 11px',
+              height: 24,
+              display: 'inline-block',
+              fontSize: 15,
+              fontWeight: 800,
+              letterSpacing: 0.2,
+              whiteSpace: 'nowrap',
+              lineHeight: '24px',
+            }}
+          >
+            {formatTime(match.heure)}
+          </span>
+          <span style={{ color: '#C8102E', fontWeight: 700, fontSize: 15 }}>
+            {match.type_tournoi}
+          </span>
         </div>
 
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none" style={{ height: 44, width: 44, flexShrink: 0, marginTop: 4, alignSelf: 'flex-start' }}>
-          <defs>
-            <mask id="bolt">
-              <rect width="300" height="200" fill="white"/>
-              <path d="M112,8 L122,0 L134,8 L168,95 L184,80 L210,192 L216,200 L204,192 L178,108 L162,122 Z" fill="black"/>
-            </mask>
-          </defs>
-          <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill="#C8102E" mask="url(#bolt)">VS</text>
-        </svg>
+        {/* Adversaires */}
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
+            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_prenom}</div>
+            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_nom}</div>
+            <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
+            <ClubLabel club={match.j1_club} home={j1Home} />
+          </div>
 
-        <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
-          <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_prenom}</div>
-          <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_nom}</div>
-          <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
-          <ClubLabel club={match.j2_club} />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none" style={{ height: 44, width: 44, flexShrink: 0, marginTop: 4, alignSelf: 'flex-start' }}>
+            <defs>
+              <mask id="bolt">
+                <rect width="300" height="200" fill="white"/>
+                <path d="M112,8 L122,0 L134,8 L168,95 L184,80 L210,192 L216,200 L204,192 L178,108 L162,122 Z" fill="black"/>
+              </mask>
+            </defs>
+            <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill="#C8102E" mask="url(#bolt)">VS</text>
+          </svg>
+
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
+            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_prenom}</div>
+            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_nom}</div>
+            <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
+            <ClubLabel club={match.j2_club} home={j2Home} />
+          </div>
         </div>
+
+        {/* Ruban diagonal "CLUB" — cas standard (1 joueur du club) */}
+        {anyHome && !bothHome && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: -42,
+              width: 140,
+              transform: 'rotate(45deg)',
+              background: '#C8102E',
+              color: 'white',
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: 1.5,
+              textAlign: 'center',
+              padding: '4px 0',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+              zIndex: 3,
+            }}
+          >
+            CLUB
+          </div>
+        )}
+
+        {/* Bandeau "★ DERBY <CLUB> ★" — cas derby (2 joueurs du club) */}
+        {bothHome && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: 6,
+              height: 16,
+              borderRadius: 4,
+              background: '#C8102E',
+              color: 'white',
+              fontSize: 9,
+              fontWeight: 800,
+              letterSpacing: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 3,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+            }}
+          >
+            ★ DERBY {highlightedClub} ★
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function PosterPage({ matches, date }: { matches: Match[]; date: string }) {
+function PosterPage({ matches, date, highlightedClub }: { matches: Match[]; date: string; highlightedClub: string | null }) {
   return (
     <div
       data-page
@@ -345,7 +456,7 @@ function PosterPage({ matches, date }: { matches: Match[]; date: string }) {
         }}
       >
         {matches.map((m, i) => (
-          <MatchCell key={i} match={m} />
+          <MatchCell key={i} match={m} highlightedClub={highlightedClub} />
         ))}
       </div>
     </div>
@@ -378,6 +489,16 @@ export default function ProgrammationImagePage() {
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [transferStatus, setTransferStatus] = useState<TransferStatus>('idle');
   const [transferError, setTransferError] = useState<string | null>(null);
+  const [highlightedClub, setHighlightedClub] = useState<string | null>(null);
+
+  const availableClubs = useMemo(() => {
+    const clubs = new Set<string>();
+    matches.forEach((m) => {
+      if (m.j1_club) clubs.add(m.j1_club);
+      if (m.j2_club) clubs.add(m.j2_club);
+    });
+    return [...clubs].sort();
+  }, [matches]);
 
   useEffect(() => {
     supabase
@@ -390,10 +511,11 @@ export default function ProgrammationImagePage() {
       });
   }, []);
 
-  // Reset le bouton de basculement à chaque nouvelle importation (PDF/CSV)
+  // Reset le bouton de basculement et le highlight à chaque nouvelle importation (PDF/CSV)
   useEffect(() => {
     setTransferStatus('idle');
     setTransferError(null);
+    setHighlightedClub(null);
   }, [matches]);
 
   async function handleTransfer() {
@@ -563,6 +685,25 @@ export default function ProgrammationImagePage() {
           </div>
         </div>
 
+        {/* Mise en valeur d'un club */}
+        {availableClubs.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Mettre en valeur un club</h2>
+            <select
+              value={highlightedClub ?? ''}
+              onChange={(e) => setHighlightedClub(e.target.value || null)}
+              className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Aucun</option>
+              {availableClubs.map((club) => (
+                <option key={club} value={club}>
+                  {club}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Basculer vers Live Score */}
         {matches.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
@@ -621,7 +762,7 @@ export default function ProgrammationImagePage() {
             <div ref={posterRef} className="space-y-6">
               {pages.map((pageMatches, i) => (
                 <div key={i} className="shadow-xl rounded-sm overflow-hidden" style={{ width: W }}>
-                  <PosterPage matches={pageMatches} date={date} />
+                  <PosterPage matches={pageMatches} date={date} highlightedClub={highlightedClub} />
                 </div>
               ))}
             </div>
