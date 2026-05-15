@@ -25,7 +25,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 
 | Fichier | Rôle |
 |---|---|
-| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match` — inclut `bracket: MatchBracket`, `MatchBracket`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent`, `EventType`, `LiveMatch`, `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`, `Actu` — inclut `image_captions` (légendes affichées en PWA), `ActuFocalPoint`) |
+| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match` — inclut `bracket: MatchBracket`, `MatchBracket`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent` — inclut `team_matches: TeamMatch[] \| null`, `EventType`, `TeamMatch`, `TeamMatchGender`, `TeamMatchType`, `LiveMatch`, `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`, `Actu` — inclut `image_captions` (légendes affichées en PWA), `ActuFocalPoint`) |
 | `tmcLogic.ts` | Génère les matchs TMC pour 4, 8, 12, 16 ou 24 joueurs. Entrée : `TournamentConfig`. Sortie : `Match[]`. Pas d'effet de bord. |
 | `scheduler.ts` | Algorithme de planification : génère les créneaux horaires (`generateTimeSlots`), distribue les matchs (`generateSchedule`) et tente de placer les matchs non planifiés après ajustement manuel (`retryUnscheduledMatches`). La contrainte 4h est trackée par `(tournoi, bracket)`. La stratégie de remplissage est contrôlée par `GlobalConfig.slotFillingStrategy` (`'smooth'` ou `'max'`). |
 | `moveMatch.ts` | Déplacement manuel d'un ou plusieurs matchs avec cascade automatique des tours suivants si la contrainte 4h est violée. Le check feeder utilise le bracket du match (helper `findFeederMatches`). Importe `generateTimeSlots` depuis `scheduler.ts`. |
@@ -61,6 +61,11 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `components/LiveMatchCard.tsx` | `LiveScorePage` | Carte d'un match dans la liste (statut, joueurs, score résumé, badge "À supprimer", actions primaire/supprimer) |
 | `components/LiveScoreEntry.tsx` | `LiveMatchPage` | Interface +/- par joueur pour saisir le score (sets 1-3, tiebreak auto à 6/6, choix format set 3). Désactivé si `status != 'live'`. |
 | `components/MarkdownEditor.tsx` | `ActuForm`, `EventForm` | Éditeur Markdown contrôlé (`value` / `onChange`) avec onglets Écrire/Aperçu, toolbar (Gras, Italique, Souligné via `<u>`, H1/H2/H3) et raccourcis Ctrl/Cmd+B / +I. Aperçu : `react-markdown` + `remark-breaks` + `rehype-raw` (pour le souligné HTML inline). Embarque le helper `expandBlankLines`. |
+| `components/TeamMatchImagePreview.tsx` | `EventForm` | Rendu DOM de l'affiche 1414×2000 pour les events `'Match par équipe'`. Cellules Bandeau auto-adaptatives. Monté hors viewport et exporté en JPEG via `html-to-image`. |
+| `components/teamMatch/MatchSection.tsx` | `EventForm` | Conteneur de la liste de matchs (header N/8, bouton "+ Ajouter", max 8). Expose `makeTeamMatch()`. |
+| `components/teamMatch/MatchRow.tsx` | `MatchSection` | Carte d'un match : champs gender/matchType/teamNumber/opponent/location/date/time, boutons ↑ ↓ ✕, badge "À compléter". |
+| `components/teamMatch/Segmented.tsx` | `MatchRow` | Boutons groupés générique (Genre, Lieu). |
+| `components/teamMatch/NumberPicker.tsx` | `MatchRow` | Sélecteur numéroté 1·2·3 (teamNumber). |
 
 ### Infra
 
@@ -124,7 +129,7 @@ Voir `docs/specs/` :
 
 ## Infrastructure Supabase
 
-- Table `events` + bucket `event-images` : migration `supabase/migrations/20260418_events.sql`
+- Table `events` + bucket `event-images` : migration `supabase/migrations/20260418_events.sql` puis `supabase/migrations/20260515_event_team_matches.sql` (ajout colonne `team_matches JSONB`)
 - Table `live_matches` (+ enums + trigger updated_at réutilisé + Realtime) : migration `supabase/migrations/20260423_live_matches.sql`
 - Table `actus` (`image_urls TEXT[]`, `image_focal_points JSONB`, `image_captions TEXT[]`, `published`, `published_at`) + bucket `actu-images` + RLS `anon`/`authenticated` : migrations `supabase/migrations/20260426_actus.sql` puis `supabase/migrations/20260426_actus_image_urls.sql` (patch `image_url` → `image_urls`) puis `supabase/migrations/20260506_actus_focal_points.sql` (ajout `image_focal_points` parallèle à `image_urls`) puis `supabase/migrations/20260510_actus_image_captions.sql` (ajout `image_captions` — légendes Facebook par photo, BO-only)
 - Policies RLS `anon` (lecture publique pour PWA) : à ajouter sur `events` et `live_matches` (voir `docs/specs/PWA.MD`). Déjà en place sur `actus`.

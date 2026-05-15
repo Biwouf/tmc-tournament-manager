@@ -46,10 +46,48 @@ export interface ClubEvent {
   date_fin: string | null;     // Obligatoire si type === 'Tournoi', sinon optionnel
   image_url: string | null;    // URL publique Supabase Storage (optionnelle)
   prix: number | null;         // En euros. null ou 0 = gratuit
+  team_matches: TeamMatch[] | null; // Voir section "Match par équipe" ci-dessous
   created_at: string;          // Géré par Supabase
   updated_at: string;          // Géré par Supabase (trigger)
 }
 ```
+
+### Type "Match par équipe" — extension
+
+Quand `type === 'Match par équipe'`, le formulaire fait apparaître une section
+"Matchs par équipe" (max 8 entrées) et un bouton "Générer l'affiche". Les
+matchs saisis sont sérialisés dans la colonne `team_matches` (JSONB) ; pour
+tout autre type, la colonne reste `NULL`.
+
+```ts
+export type TeamMatchGender = 'Masculin' | 'Féminin';
+
+export type TeamMatchType =
+  | 'Seniors'
+  | 'Seniors +35'
+  | 'Jeunes 15/16 ans'
+  | 'Jeunes 13/14 ans'
+  | 'Jeunes 11/12 ans';
+
+export interface TeamMatch {
+  id: string;                  // UUID local — keys React et réordonnancement
+  gender: TeamMatchGender;
+  matchType: TeamMatchType;
+  teamNumber: 1 | 2 | 3;
+  opponent: string;            // Champ libre (club adverse)
+  location: 'home' | 'away';   // home = Au club, away = Chez l'adversaire
+  date: string;                // "YYYY-MM-DD"
+  time: string;                // "HH:MM"
+}
+```
+
+**Validation côté client** (à la soumission, uniquement si type = `'Match par équipe'`) :
+- Au moins 1 match
+- Pour chaque match : `opponent` non vide, `date` et `time` renseignés
+
+Aucune contrainte côté DB — JSONB libre.
+
+Migration : `supabase/migrations/20260515_event_team_matches.sql`.
 
 ### Règles de validation
 
@@ -201,6 +239,48 @@ CREATE POLICY "event_images_delete" ON storage.objects
 - Bloquer si `date_fin` absent et `type === 'Tournoi'`
 - Bloquer si `date_fin` < `date_debut`
 - Bloquer si fichier image > 5 Mo ou format non supporté
+- Si `type === 'Match par équipe'` : bloquer si la liste de matchs est vide ou
+  si un match n'a pas de club adverse, date ou heure (cf. `validateTeamMatches`
+  dans `EventForm.tsx`)
+
+### Section "Matchs par équipe" (UI)
+
+Visible uniquement si `type === 'Match par équipe'`.
+
+- Conteneur rouge pâle, header "N / 8", bouton "+ Ajouter un match" (désactivé à 8).
+- Chaque ligne de match : `MatchRow` avec en-tête live `"{gender} {matchType} · Équipe {teamNumber}"`, badge orange "À compléter" si club adverse / date / heure absents, boutons ↑ ↓ ✕.
+- Champs par match : Genre (`Segmented`), Catégorie (`<select>`), Équipe (`NumberPicker` 1·2·3), Club adverse (input texte), Lieu (`Segmented` Au club / Chez l'adversaire), Date (`<input type="date">`), Heure (`<input type="time">`).
+- Composants : `src/components/teamMatch/MatchSection.tsx`, `MatchRow.tsx`, `Segmented.tsx`, `NumberPicker.tsx`.
+
+### Section "Générer l'affiche"
+
+Visible uniquement si `type === 'Match par équipe'`.
+
+| État | Bouton | Notes |
+|---|---|---|
+| `idle` | "Générer l'affiche" (plein rouge) | Désactivé si 0 match |
+| `loading` | "Génération en cours…" + spinner | Désactivé |
+| `done` | "Régénérer l'affiche" (bordure rouge, fond blanc) | Aperçu 110×156 + lien "Télécharger l'image" + lien "Annuler la génération" |
+| `error` | "Réessayer" + message rouge | Bouton réactivé |
+
+**Disponible dès la création** (avant que l'event soit enregistré). Le rendu DOM ne dépend pas de l'`id` Supabase.
+
+**Auto-reset** : si la liste de matchs change après une génération `done`, le status repasse à `idle` et le `dataUrl` est purgé (sinon il serait stale au moment du submit).
+
+**Flux de génération** (à la volée, **sans I/O réseau**) :
+1. `html-to-image#toJpeg` sur le composant `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`)
+2. Le `dataUrl` produit est conservé dans le state local (utilisé pour l'aperçu et le téléchargement direct)
+
+**Flux d'upload** (au submit du formulaire — voir `handleSubmit`) :
+1. INSERT (si création) ou UPDATE (si édition) du payload de l'event → on récupère l'`id`
+2. Si un `generatedDataUrl` est en attente : suppression de l'image actuelle du bucket, conversion data URL → Blob, upload sous `{eventId}/{timestamp}-affiche-matchs.jpg`, UPDATE `image_url`
+3. Précédence des sources d'image : **affiche générée > fichier uploadé > suppression > image existante conservée**
+
+**Composant** : `src/components/TeamMatchImagePreview.tsx` (1414 × 2000, variante Bandeau, fond `#c8102e` + overlay `/template_event.png`, cellules auto-adaptatives selon le nombre de matchs, font `'Prompt'` chargée dans `index.html`). Template image : `public/template_event.png`.
+
+**Annuler la génération** : purge le `dataUrl` en mémoire. Si aucune autre source d'image n'est sélectionnée, l'image existante (cas édition) est conservée telle quelle.
+
+**Télécharger l'image** : `<a download>` direct sur le `dataUrl`, pas de re-fetch réseau.
 
 ---
 

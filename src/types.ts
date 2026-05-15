@@ -99,6 +99,34 @@ export type EventType = 'Animation' | 'Tournoi' | 'Match par équipe' | 'Sortie'
 
 export const EVENT_TYPES: EventType[] = ['Animation', 'Tournoi', 'Match par équipe', 'Sortie', 'Soirée'];
 
+export type TeamMatchGender = 'Masculin' | 'Féminin';
+
+export type TeamMatchType =
+  | 'Seniors'
+  | 'Seniors +35'
+  | 'Jeunes 15/16 ans'
+  | 'Jeunes 13/14 ans'
+  | 'Jeunes 11/12 ans';
+
+export const TEAM_MATCH_TYPES: TeamMatchType[] = [
+  'Seniors',
+  'Seniors +35',
+  'Jeunes 15/16 ans',
+  'Jeunes 13/14 ans',
+  'Jeunes 11/12 ans',
+];
+
+export interface TeamMatch {
+  id: string;                // local uuid, used for React keys and reordering
+  gender: TeamMatchGender;
+  matchType: TeamMatchType;
+  teamNumber: 1 | 2 | 3;
+  opponent: string;
+  location: 'home' | 'away'; // home = Au club, away = Chez l'adversaire
+  date: string;              // "YYYY-MM-DD"
+  time: string;              // "HH:MM"
+}
+
 export interface ClubEvent {
   id: string;
   type: EventType;
@@ -108,6 +136,7 @@ export interface ClubEvent {
   date_fin: string | null;
   image_url: string | null;
   prix: number | null;
+  team_matches: TeamMatch[] | null; // null si type !== 'Match par équipe'
   created_at: string;
   updated_at: string;
 }

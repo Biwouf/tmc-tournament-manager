@@ -1,8 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { toJpeg } from 'html-to-image';
 import { supabase } from '../lib/supabase';
 import MarkdownEditor from './MarkdownEditor';
-import { EVENT_TYPES, type ClubEvent, type EventType } from '../types';
+import MatchSection from './teamMatch/MatchSection';
+import TeamMatchImagePreview from './TeamMatchImagePreview';
+import { EVENT_TYPES, type ClubEvent, type EventType, type TeamMatch } from '../types';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
@@ -30,6 +33,21 @@ function sanitizeFilename(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/-+/g, '-');
 }
 
+function hydrateTeamMatches(raw: TeamMatch[] | null | undefined): TeamMatch[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((m) => ({ ...m, id: m.id || crypto.randomUUID() }));
+}
+
+function validateTeamMatches(matches: TeamMatch[]): string | null {
+  if (matches.length === 0) return 'Ajoutez au moins un match.';
+  for (const [i, m] of matches.entries()) {
+    if (!m.opponent.trim()) return `Match ${i + 1} : club adverse manquant.`;
+    if (!m.date) return `Match ${i + 1} : date manquante.`;
+    if (!m.time) return `Match ${i + 1} : heure manquante.`;
+  }
+  return null;
+}
+
 interface FieldErrors {
   titre?: string;
   description?: string;
@@ -38,6 +56,8 @@ interface FieldErrors {
   image?: string;
   prix?: string;
 }
+
+type ImageGenStatus = 'idle' | 'loading' | 'done' | 'error';
 
 export default function EventForm() {
   const { id } = useParams();
@@ -57,6 +77,17 @@ export default function EventForm() {
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
+
+  const [teamMatches, setTeamMatches] = useState<TeamMatch[]>([]);
+  const [matchesError, setMatchesError] = useState<string | null>(null);
+
+  // Generated poster state — upload is deferred to submit time.
+  // The data URL is the in-memory render produced by html-to-image.
+  const [imageGenStatus, setImageGenStatus] = useState<ImageGenStatus>('idle');
+  const [generatedDataUrl, setGeneratedDataUrl] = useState<string | null>(null);
+  const [generatedFileName, setGeneratedFileName] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const posterRef = useRef<HTMLDivElement>(null);
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -96,9 +127,21 @@ export default function EventForm() {
         setDateFin(isoToLocalInput(ev.date_fin));
         setPrix(ev.prix === null ? '' : String(ev.prix));
         setExistingImageUrl(ev.image_url);
+        setTeamMatches(hydrateTeamMatches(ev.team_matches));
         setLoading(false);
       });
   }, [id, isEdit]);
+
+  // Invalidate the generated poster as soon as the matches list changes:
+  // the in-memory data URL would otherwise be stale at submit time.
+  useEffect(() => {
+    if (imageGenStatus === 'done') {
+      setImageGenStatus('idle');
+      setGeneratedDataUrl(null);
+      setGeneratedFileName(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamMatches]);
 
   const handleImageChange = (file: File | null) => {
     if (!file) {
@@ -116,6 +159,10 @@ export default function EventForm() {
     setErrors((e) => ({ ...e, image: undefined }));
     setImageFile(file);
     setRemoveExistingImage(false);
+    // An uploaded file takes over from any pending generated poster.
+    setGeneratedDataUrl(null);
+    setGeneratedFileName(null);
+    setImageGenStatus('idle');
   };
 
   const handleRemoveImage = () => {
@@ -156,12 +203,52 @@ export default function EventForm() {
     if (path) await supabase.storage.from(STORAGE_BUCKET).remove([path]);
   };
 
+  const handleGeneratePoster = async () => {
+    setGenerateError(null);
+    setImageGenStatus('loading');
+    try {
+      const node = posterRef.current;
+      if (!node) throw new Error('Aperçu non monté');
+
+      const dataUrl = await toJpeg(node, { quality: 0.92, pixelRatio: 2 });
+      const filename = `${Date.now()}-affiche-matchs.jpg`;
+
+      // A generated poster takes precedence over the regular image inputs.
+      setImageFile(null);
+      setRemoveExistingImage(false);
+
+      setGeneratedDataUrl(dataUrl);
+      setGeneratedFileName(filename);
+      setImageGenStatus('done');
+    } catch (err) {
+      console.error(err);
+      setGenerateError(err instanceof Error ? err.message : 'Erreur inconnue');
+      setImageGenStatus('error');
+    }
+  };
+
+  const handleDetachImage = () => {
+    setGeneratedDataUrl(null);
+    setGeneratedFileName(null);
+    setImageGenStatus('idle');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
+    setMatchesError(null);
+
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
+
+    if (type === 'Match par équipe') {
+      const matchesErr = validateTeamMatches(teamMatches);
+      if (matchesErr) {
+        setMatchesError(matchesErr);
+        return;
+      }
+    }
 
     setSaving(true);
     try {
@@ -172,34 +259,17 @@ export default function EventForm() {
         date_debut: localInputToIso(dateDebut),
         date_fin: dateFin ? localInputToIso(dateFin) : null,
         prix: prix === '' ? null : Number(prix),
+        team_matches: type === 'Match par équipe' ? teamMatches : null,
       };
 
       let targetId = id;
-      let finalImageUrl = existingImageUrl;
 
       if (isEdit && targetId) {
-        // Update first (without image change) to ensure the row exists
         const { error: updateErr } = await supabase
           .from('events')
           .update(basePayload)
           .eq('id', targetId);
         if (updateErr) throw updateErr;
-
-        if (removeExistingImage && existingImageUrl) {
-          await deleteStorageFile(existingImageUrl);
-          finalImageUrl = null;
-        }
-        if (imageFile) {
-          if (existingImageUrl) await deleteStorageFile(existingImageUrl);
-          finalImageUrl = await uploadImage(imageFile, targetId);
-        }
-        if (finalImageUrl !== existingImageUrl) {
-          const { error: imgErr } = await supabase
-            .from('events')
-            .update({ image_url: finalImageUrl })
-            .eq('id', targetId);
-          if (imgErr) throw imgErr;
-        }
       } else {
         const { data, error: insertErr } = await supabase
           .from('events')
@@ -208,14 +278,37 @@ export default function EventForm() {
           .single();
         if (insertErr || !data) throw insertErr ?? new Error('Insert failed');
         targetId = data.id;
-        if (imageFile && targetId) {
-          finalImageUrl = await uploadImage(imageFile, targetId);
-          const { error: imgErr } = await supabase
-            .from('events')
-            .update({ image_url: finalImageUrl })
-            .eq('id', targetId);
-          if (imgErr) throw imgErr;
-        }
+      }
+
+      if (!targetId) throw new Error('Identifiant événement manquant');
+
+      // Image precedence: generated poster > uploaded file > remove > keep.
+      let finalImageUrl = existingImageUrl;
+
+      if (generatedDataUrl && generatedFileName) {
+        if (existingImageUrl) await deleteStorageFile(existingImageUrl);
+        const blob = await (await fetch(generatedDataUrl)).blob();
+        const path = `${targetId}/${generatedFileName}`;
+        const { error: upErr } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .upload(path, blob, { contentType: 'image/jpeg' });
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+        finalImageUrl = pub.publicUrl;
+      } else if (imageFile) {
+        if (existingImageUrl) await deleteStorageFile(existingImageUrl);
+        finalImageUrl = await uploadImage(imageFile, targetId);
+      } else if (removeExistingImage && existingImageUrl) {
+        await deleteStorageFile(existingImageUrl);
+        finalImageUrl = null;
+      }
+
+      if (finalImageUrl !== existingImageUrl) {
+        const { error: imgErr } = await supabase
+          .from('events')
+          .update({ image_url: finalImageUrl })
+          .eq('id', targetId);
+        if (imgErr) throw imgErr;
       }
 
       navigate('/events');
@@ -234,6 +327,19 @@ export default function EventForm() {
   }
 
   const tournoiDateFinRequired = type === 'Tournoi';
+  const isTeamMatchEvent = type === 'Match par équipe';
+
+  const generateBtnLabel =
+    imageGenStatus === 'loading'
+      ? 'Génération en cours…'
+      : imageGenStatus === 'done'
+        ? "Régénérer l'affiche"
+        : imageGenStatus === 'error'
+          ? 'Réessayer'
+          : "Générer l'affiche";
+
+  const generateBtnDisabled =
+    imageGenStatus === 'loading' || teamMatches.length === 0;
 
   return (
     <div className="min-h-screen">
@@ -363,6 +469,108 @@ export default function EventForm() {
             {errors.prix && <p className="mt-1 text-xs text-red-600">{errors.prix}</p>}
           </div>
 
+          {/* Section Matchs par équipe — uniquement si type = Match par équipe */}
+          {isTeamMatchEvent && (
+            <>
+              <MatchSection matches={teamMatches} onChange={setTeamMatches} />
+
+              {/* Section Génération affiche */}
+              <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-start gap-2.5">
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-base">
+                    🎨
+                  </span>
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground">Affiche de l'événement</h3>
+                    <p className="text-xs text-muted-foreground">
+                      L'image générée remplacera l'image de l'événement à l'enregistrement.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleGeneratePoster}
+                    disabled={generateBtnDisabled}
+                    title={!isEdit ? "Enregistrez l'événement avant de générer l'affiche." : undefined}
+                    className={
+                      'inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-bold transition disabled:opacity-50 ' +
+                      (imageGenStatus === 'done'
+                        ? 'border-[1.5px] border-primary bg-card text-primary hover:bg-primary/5'
+                        : 'bg-primary text-primary-foreground shadow-sm hover:brightness-95')
+                    }
+                  >
+                    {imageGenStatus === 'loading' && (
+                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    )}
+                    {generateBtnLabel}
+                  </button>
+
+                  {imageGenStatus === 'done' && (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
+                      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[10px] text-white">
+                        ✓
+                      </span>
+                      Image générée — sera enregistrée à la soumission
+                    </span>
+                  )}
+
+                  {imageGenStatus === 'error' && generateError && (
+                    <span className="text-sm font-semibold text-red-600">
+                      Échec : {generateError}
+                    </span>
+                  )}
+
+                  {teamMatches.length === 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      Ajoutez au moins un match pour activer.
+                    </span>
+                  )}
+                </div>
+
+                {imageGenStatus === 'done' && generatedDataUrl && (
+                  <div className="mt-4 flex items-start gap-3.5 rounded-xl border border-dashed border-border bg-background p-3">
+                    <img
+                      src={generatedDataUrl}
+                      alt="Affiche générée"
+                      style={{ width: 110, height: 156 }}
+                      className="rounded-md object-cover shadow"
+                    />
+                    <div className="text-xs text-muted-foreground">
+                      <div className="mb-1 font-semibold text-foreground">{generatedFileName}</div>
+                      <div>1414 × 2000 px · JPEG q=0.92 · Sera uploadée à l'enregistrement</div>
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        {generatedFileName && (
+                          <a
+                            href={generatedDataUrl}
+                            download={generatedFileName}
+                            className="text-xs font-semibold text-primary hover:underline"
+                          >
+                            Télécharger l'image
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleDetachImage}
+                          className="bg-transparent p-0 text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          Annuler la génération
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+
+          {matchesError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {matchesError}
+            </div>
+          )}
+
           {submitError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {submitError}
@@ -386,6 +594,15 @@ export default function EventForm() {
           </div>
         </form>
       </main>
+
+      {/* Off-screen poster — required for html-to-image */}
+      {isTeamMatchEvent && (
+        <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>
+          <div ref={posterRef}>
+            <TeamMatchImagePreview matches={teamMatches} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
