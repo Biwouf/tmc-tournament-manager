@@ -25,7 +25,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 
 | Fichier | Rôle |
 |---|---|
-| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match` — inclut `bracket: MatchBracket`, `MatchBracket`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent`, `EventType`, `LiveMatch`, `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`, `Actu` — inclut `image_captions` BO-only, `ActuFocalPoint`) |
+| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match` — inclut `bracket: MatchBracket`, `MatchBracket`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent`, `EventType`, `LiveMatch`, `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`, `Actu` — inclut `image_captions` (légendes affichées en PWA), `ActuFocalPoint`) |
 | `tmcLogic.ts` | Génère les matchs TMC pour 4, 8, 12, 16 ou 24 joueurs. Entrée : `TournamentConfig`. Sortie : `Match[]`. Pas d'effet de bord. |
 | `scheduler.ts` | Algorithme de planification : génère les créneaux horaires (`generateTimeSlots`), distribue les matchs (`generateSchedule`) et tente de placer les matchs non planifiés après ajustement manuel (`retryUnscheduledMatches`). La contrainte 4h est trackée par `(tournoi, bracket)`. La stratégie de remplissage est contrôlée par `GlobalConfig.slotFillingStrategy` (`'smooth'` ou `'max'`). |
 | `moveMatch.ts` | Déplacement manuel d'un ou plusieurs matchs avec cascade automatique des tours suivants si la contrainte 4h est violée. Le check feeder utilise le bracket du match (helper `findFeederMatches`). Importe `generateTimeSlots` depuis `scheduler.ts`. |
