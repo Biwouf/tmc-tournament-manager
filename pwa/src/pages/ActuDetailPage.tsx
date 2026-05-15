@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import { supabase } from '../lib/supabase';
@@ -9,6 +9,27 @@ import { focalPointStyle } from '../utils/focalPoint';
 
 const expandBlankLines = (md: string) =>
   md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
+
+const markdownComponents: Components = {
+  p: ({ node, children, ...props }) => {
+    const onlyChild = node?.children.length === 1 ? node.children[0] : null;
+    if (onlyChild && onlyChild.type === 'element' && onlyChild.tagName === 'img') {
+      return <>{children}</>;
+    }
+    return <p {...props}>{children}</p>;
+  },
+  img: ({ alt, src, ...props }) => {
+    if (alt) {
+      return (
+        <figure>
+          <img alt={alt} src={src} {...props} />
+          <figcaption>{alt}</figcaption>
+        </figure>
+      );
+    }
+    return <img alt={alt} src={src} {...props} />;
+  },
+};
 
 async function fetchActu(id: string): Promise<Actu> {
   const { data, error } = await supabase
@@ -49,15 +70,24 @@ export default function ActuDetailPage() {
     <article className="flex flex-col">
       {actu.image_urls.length > 0 && (
         <div className="flex flex-col gap-2">
-          {actu.image_urls.map((url, i) => (
-            <img
-              key={url}
-              src={url}
-              alt={`${actu.titre} — ${i + 1}`}
-              className="w-full h-52 object-cover"
-              style={focalPointStyle(actu.image_focal_points?.[i])}
-            />
-          ))}
+          {actu.image_urls.map((url, i) => {
+            const caption = actu.image_captions?.[i];
+            return (
+              <figure key={url}>
+                <img
+                  src={url}
+                  alt={`${actu.titre} — ${i + 1}`}
+                  className="w-full h-52 object-cover"
+                  style={focalPointStyle(actu.image_focal_points?.[i])}
+                />
+                {caption && (
+                  <figcaption className="px-3 pt-1 text-xs text-muted-foreground italic">
+                    {caption}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          })}
         </div>
       )}
 
@@ -65,7 +95,13 @@ export default function ActuDetailPage() {
         <p className="text-xs text-muted-foreground">{publishedDate}</p>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{actu.titre}</h1>
         <div className="markdown-body text-foreground">
-          <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>{expandBlankLines(actu.contenu)}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkBreaks]}
+            rehypePlugins={[rehypeRaw]}
+            components={markdownComponents}
+          >
+            {expandBlankLines(actu.contenu)}
+          </ReactMarkdown>
         </div>
       </div>
     </article>

@@ -474,7 +474,7 @@ export default function MarkdownEditor({
         />
       ) : (
         <div
-          className="prose prose-sm max-w-none rounded-b-lg border border-t-0 border-border bg-background px-3 py-2"
+          className="markdown-body rounded-b-lg border border-t-0 border-border bg-background px-3 py-2"
           style={{ minHeight: `${rows * 1.5}rem` }}
         >
           {value.trim() ? (
