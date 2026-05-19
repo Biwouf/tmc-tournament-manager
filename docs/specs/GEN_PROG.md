@@ -338,6 +338,50 @@ Pour chaque `Match`, insérer dans `live_matches` :
 
 ---
 
+## Matchs à adversaire unique (PDF)
+
+Certains blocs du PDF Ten'Up ne contiennent qu'un seul joueur identifié — l'adversaire n'est pas encore désigné. Cette section décrit la gestion de ces blocs de bout en bout.
+
+### Cas couverts
+
+| Cas | Exemple PDF (page 5–6) | Comportement |
+|---|---|---|
+| **j1 connu, j2 absent** | LE BRAS Quentin (16:30) | Conserver le match, j2 laissé vide |
+| **j2 connu, j1 absent** | TRESAL MAUROZ Maxime (16:30), DAUZAT Eliott (18:00) | Conserver le match, normaliser (voir ci-dessous) |
+| **0 joueur connu** | "Places 17/18" (18:00) | Ignorer le bloc entièrement |
+
+Les blocs "Places 17/18" sont sans joueur mais ont quand même un ancre `N° Court` — ils doivent être filtrés après parsing.
+
+### Parsing PDF — changements
+
+**Condition de validité d'un bloc** : passer de « j1 ET j2 présents » à « au moins un joueur présent » (`j1_nom !== "" || j2_nom !== ""`).
+
+**Normalisation** : si seulement j2 est renseigné (données présentes à `Ync+23`/`Ync+37` mais absentes à `Ync−7`/`Ync+7`), permuter j1 et j2 avant de pousser le match dans la liste. Résultat : le joueur connu est **toujours en position j1**. j2_* reste vide.
+
+### Modèle de données
+
+Aucun changement d'interface. Un match incomplet est simplement un `Match` avec `j2_nom === ""` (et `j2_prenom`, `j2_classement`, `j2_club` également vides). Pas de champ `incomplete` supplémentaire.
+
+### Rendu `MatchCell`
+
+Quand `match.j2_nom === ""` :
+
+- **Côté j2** : afficher le texte `"À déterminer"` à la place du bloc joueur (prénom + nom + classement). Style : gris muted, taille identique au prénom, non gras.
+- **Icône VS** : conservée entre j1 et le côté "À déterminer".
+- **Club j2** : rien (champ vide, comportement déjà existant pour l'import CSV).
+- **Highlight club** : le match incomplet ne peut pas être un derby. Si `j1_club === highlightedClub`, les effets club s'appliquent côté j1 normalement. Côté j2, aucun effet (pas de ruban, pas de `ClubLabel` coloré).
+
+### Basculement vers Live Score
+
+Les matchs incomplets (`j2_nom === ""`) sont **exclus** du transfert. Seuls les matchs avec deux joueurs identifiés sont envoyés à Supabase.
+
+Conséquences :
+- Le compteur du bouton (`"Basculer N match(s) vers Live Score"`) ne compte que les matchs complets.
+- Le payload `insert` ne contient que les matchs complets.
+- Si tous les matchs sont incomplets, le bouton affiche `"Basculer 0 match(s) vers Live Score"` et peut rester désactivé.
+
+---
+
 ## Points ouverts / évolutions possibles
 
 - Stratégie de pagination alternative : par type de tournoi ou par moment de la journée (vs. découpage séquentiel actuel)
