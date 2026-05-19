@@ -74,6 +74,8 @@ export interface LiveMatch {
 
   event_id: string | null;         // FK → events.id (nullable)
 
+  court: string | null;            // Terrain — saisi au démarrage du live (optionnel)
+
   scored_by: string | null;        // auth.users.id — renseigné au démarrage du live
 
   status: LiveMatchStatus;
@@ -111,6 +113,11 @@ export interface LiveMatch {
 - **set3_format = 'super_tiebreak'** : `set3_j1` / `set3_j2` stockent directement le score du super tiebreak (premier à 10, 2 points d'écart). Les colonnes `set3_tb_*` ne sont pas utilisées dans ce cas.
 - **set3_format = 'normal'** : `set3_j1` / `set3_j2` sont des jeux (comme les sets 1 et 2). `set3_tb_j1` / `set3_tb_j2` ne sont renseignés qu'en cas de tiebreak (6/6).
 - `j1_club`, `j2_club` (et les doublistes) peuvent être vides (`""`). Rien n'est affiché dans ce cas.
+- `court` est `null` tant que le live n'a pas démarré. Il est saisi via un dialog au clic sur « Démarrer le live » (champ optionnel) et affiché sur les cartes BO et PWA.
+
+### Migrations complémentaires
+
+- `supabase/migrations/20260519_live_matches_court.sql` — ajoute la colonne `court TEXT` (nullable, sans défaut).
 
 ---
 
@@ -215,7 +222,7 @@ supabase
   .subscribe();
 ```
 
-Le back-office lui-même n'a pas besoin de s'abonner en v1 — mais les mises à jour doivent toujours passer par `supabase.from('live_matches').update(...)` pour que Realtime fonctionne côté PWA.
+`LiveScorePage` (back-office) s'abonne au canal `live_matches_bo` et re-fetch la liste à chaque événement — la page se met à jour sans refresh. Les mises à jour passent toujours par `supabase.from('live_matches').update(...)` pour que Realtime fonctionne côté BO et PWA.
 
 ---
 
@@ -229,7 +236,7 @@ Le back-office lui-même n'a pas besoin de s'abonner en v1 — mais les mises à
 - Triés par `match_date` + `start_time` ASC dans chaque section
 
 **Actions sur chaque carte :**
-- Bouton **"Démarrer le live"** (status=`pending`) → passe status à `live`, assigne `scored_by = auth.uid()`, redirige vers `/live-score/:id`
+- Bouton **"Démarrer le live"** (status=`pending`) → ouvre un dialog « Démarrer le live » avec un champ texte *Court (optionnel)*. À la confirmation : passe status à `live`, assigne `scored_by = auth.uid()` et `court`, redirige vers `/live-score/:id`
 - Bouton **"Reprendre"** (status=`live`) → redirige vers `/live-score/:id`
 - Bouton **"Voir"** (status=`finished`) → redirige vers `/live-score/:id` (lecture seule)
 - Bouton **"Supprimer"** → `window.confirm` → suppression définitive en base

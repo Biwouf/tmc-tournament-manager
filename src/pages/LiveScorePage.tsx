@@ -8,44 +8,53 @@ export default function LiveScorePage() {
   const navigate = useNavigate();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [courtDialog, setCourtDialog] = useState<{ matchId: string; value: string } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    supabase
+  const fetchMatches = async () => {
+    const { data, error } = await supabase
       .from('live_matches')
       .select('*')
       .order('match_date', { ascending: true })
-      .order('start_time', { ascending: true, nullsFirst: true })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (!error && data) setMatches(data as LiveMatch[]);
-        else if (error) console.error(error);
-        setLoading(false);
-      });
+      .order('start_time', { ascending: true, nullsFirst: true });
+    if (error) console.error(error);
+    else if (data) setMatches(data as LiveMatch[]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchMatches();
+
+    const channel = supabase
+      .channel('live_matches_bo')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_matches' }, () => {
+        fetchMatches();
+      })
+      .subscribe();
+
     return () => {
-      cancelled = true;
+      supabase.removeChannel(channel);
     };
-  }, [reloadKey]);
+  }, []);
 
-  const reload = () => setReloadKey((k) => k + 1);
-
-  const handleStart = async (m: LiveMatch) => {
+  const confirmStart = async () => {
+    if (!courtDialog) return;
+    const { matchId, value } = courtDialog;
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData.session?.user.id ?? null;
     const { error } = await supabase
       .from('live_matches')
-      .update({ status: 'live', scored_by: uid })
-      .eq('id', m.id);
+      .update({ status: 'live', scored_by: uid, court: value.trim() || null })
+      .eq('id', matchId);
     if (error) {
       alert(`Erreur : ${error.message}`);
       return;
     }
-    navigate(`/live-score/${m.id}`);
+    setCourtDialog(null);
+    navigate(`/live-score/${matchId}`);
   };
 
   const handlePrimary = (m: LiveMatch) => {
-    if (m.status === 'pending') handleStart(m);
+    if (m.status === 'pending') setCourtDialog({ matchId: m.id, value: '' });
     else navigate(`/live-score/${m.id}`);
   };
 
@@ -58,7 +67,7 @@ export default function LiveScorePage() {
       alert(`Erreur suppression : ${error.message}`);
       return;
     }
-    reload();
+    fetchMatches();
   };
 
   const handleLogout = () => supabase.auth.signOut();
@@ -132,6 +141,46 @@ export default function LiveScorePage() {
           </>
         )}
       </main>
+
+      {courtDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setCourtDialog(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold tracking-tight">Démarrer le live</h3>
+            <label className="mt-4 block text-sm font-medium text-card-foreground">
+              Court (optionnel)
+              <input
+                type="text"
+                autoFocus
+                value={courtDialog.value}
+                onChange={(e) => setCourtDialog({ ...courtDialog, value: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && confirmStart()}
+                placeholder="ex: Court 1, Court central"
+                className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary"
+              />
+            </label>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setCourtDialog(null)}
+                className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmStart}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
+              >
+                Démarrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
