@@ -261,12 +261,21 @@ export default function MatchCard({ match, userId }: Props) {
         {isFinished && (
           <span className="text-xs text-muted-foreground font-medium">Terminé</span>
         )}
+        {match.court && (
+          <span className="text-xs text-muted-foreground shrink-0 ml-auto">
+            Court : {match.court}
+          </span>
+        )}
         {match.type_tournoi && (
-          <span className="text-xs text-muted-foreground truncate max-w-[40%] ml-auto">
+          <span className={`text-xs text-muted-foreground truncate max-w-[40%] ${match.court ? '' : 'ml-auto'}`}>
             {match.type_tournoi}
           </span>
         )}
-        <span className={`text-xs text-muted-foreground shrink-0 ${match.type_tournoi ? '' : 'ml-auto'}`}>
+        <span
+          className={`text-xs text-muted-foreground shrink-0 ${
+            match.court || match.type_tournoi ? '' : 'ml-auto'
+          }`}
+        >
           {match.match_type === 'double' ? 'Double' : 'Simple'}
         </span>
       </div>

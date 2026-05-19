@@ -43,7 +43,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `pages/ProgrammationImagePage.tsx` | `/programmation-image` | Import PDF/CSV → rendu affiche → export JPEG. Bouton « Basculer vers Live Score » : insère tous les matchs détectés dans `live_matches` (status `pending`, match_type `simple`) avec un événement optionnel. |
 | `pages/EventsPage.tsx` | `/events` | Liste paginée des événements (toggle à venir / passés), actions modifier/dupliquer/supprimer |
 | `components/EventForm.tsx` | `/events/new`, `/events/:id/edit` | Formulaire création/édition d'événement (markdown preview, upload image Supabase Storage) |
-| `pages/LiveScorePage.tsx` | `/live-score` | Liste des matchs en 3 sections : En live / En attente / Terminés. Actions démarrer/reprendre/voir/supprimer. Badge "À supprimer" si finished + 2j. |
+| `pages/LiveScorePage.tsx` | `/live-score` | Liste des matchs en 3 sections : En live / En attente / Terminés. Abonnement Supabase Realtime sur `live_matches` (re-fetch auto). Actions démarrer/reprendre/voir/supprimer. Démarrer ouvre un dialog pour saisir le court (optionnel). Badge "À supprimer" si finished + 2j. |
 | `pages/LiveMatchPage.tsx` | `/live-score/:id` | Saisie du score d'un match avec `LiveScoreEntry`. Détection auto de fin de match. Bouton "Annuler la fin de match" si finished. |
 | `components/LiveMatchForm.tsx` | `/live-score/new` | Formulaire création d'un match (simple/double, joueurs, event lié optionnel parmi les events des 30 derniers jours). |
 | `pages/ActusPage.tsx` | `/actus` | Liste des actus (brouillons + publiées) triées DESC, badges Brouillon/Publié, actions publier/dépublier/modifier/supprimer. |
@@ -58,7 +58,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `components/ConfigDropdown.tsx` | `TournamentPage` | Sélecteur de configurations prédéfinies |
 | `components/EventCard.tsx` | `EventsPage` | Carte d'un événement dans la liste (badge type, dates, prix, actions) |
 | `components/EventForm.tsx` | `EventsPage` / routes | Formulaire création/édition (voir ligne pages) |
-| `components/LiveMatchCard.tsx` | `LiveScorePage` | Carte d'un match dans la liste (statut, joueurs, score résumé, badge "À supprimer", actions primaire/supprimer) |
+| `components/LiveMatchCard.tsx` | `LiveScorePage` | Carte d'un match dans la liste (statut, joueurs, score en tuiles façon scoreboard ATP — set gagné en fond sombre, court, badge "À supprimer", actions primaire/supprimer) |
 | `components/LiveScoreEntry.tsx` | `LiveMatchPage` | Interface +/- par joueur pour saisir le score (sets 1-3, tiebreak auto à 6/6, choix format set 3). Désactivé si `status != 'live'`. |
 | `components/MarkdownEditor.tsx` | `ActuForm`, `EventForm` | Éditeur Markdown contrôlé (`value` / `onChange`) avec onglets Écrire/Aperçu, toolbar (Gras, Italique, Souligné via `<u>`, H1/H2/H3) et raccourcis Ctrl/Cmd+B / +I. Aperçu : `react-markdown` + `remark-breaks` + `rehype-raw` (pour le souligné HTML inline). Embarque le helper `expandBlankLines`. |
 | `components/TeamMatchImagePreview.tsx` | `EventForm` | Rendu DOM de l'affiche 1414×2000 pour les events `'Match par équipe'`. Cellules Bandeau auto-adaptatives. Monté hors viewport et exporté en JPEG via `html-to-image`. |
@@ -130,7 +130,7 @@ Voir `docs/specs/` :
 ## Infrastructure Supabase
 
 - Table `events` + bucket `event-images` : migration `supabase/migrations/20260418_events.sql` puis `supabase/migrations/20260515_event_team_matches.sql` (ajout colonne `team_matches JSONB`)
-- Table `live_matches` (+ enums + trigger updated_at réutilisé + Realtime) : migration `supabase/migrations/20260423_live_matches.sql`
+- Table `live_matches` (+ enums + trigger updated_at réutilisé + Realtime) : migration `supabase/migrations/20260423_live_matches.sql` puis `supabase/migrations/20260519_live_matches_court.sql` (ajout colonne `court TEXT` nullable — terrain saisi au démarrage du live)
 - Table `actus` (`image_urls TEXT[]`, `image_focal_points JSONB`, `image_captions TEXT[]`, `published`, `published_at`) + bucket `actu-images` + RLS `anon`/`authenticated` : migrations `supabase/migrations/20260426_actus.sql` puis `supabase/migrations/20260426_actus_image_urls.sql` (patch `image_url` → `image_urls`) puis `supabase/migrations/20260506_actus_focal_points.sql` (ajout `image_focal_points` parallèle à `image_urls`) puis `supabase/migrations/20260510_actus_image_captions.sql` (ajout `image_captions` — légendes Facebook par photo, BO-only)
 - Policies RLS `anon` (lecture publique pour PWA) : à ajouter sur `events` et `live_matches` (voir `docs/specs/PWA.MD`). Déjà en place sur `actus`.
 

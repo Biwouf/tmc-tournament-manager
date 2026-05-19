@@ -45,6 +45,7 @@ export interface LiveMatch {
   event_id: string | null;
   scored_by: string | null;
   type_tournoi: string | null;
+  court: string | null;
   status: LiveMatchStatus;
   set1_j1: number | null;
   set1_j2: number | null;
