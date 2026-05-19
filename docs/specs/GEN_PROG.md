@@ -354,9 +354,11 @@ Les blocs "Places 17/18" sont sans joueur mais ont quand même un ancre `N° Cou
 
 ### Parsing PDF — changements
 
-**Condition de validité d'un bloc** : passer de « j1 ET j2 présents » à « au moins un joueur présent » (`j1_nom !== "" || j2_nom !== ""`).
+**Condition de validité d'un bloc** : passer de « j1 ET j2 présents » à « au moins un joueur présent ». En pratique : un bloc est conservé dès qu'il porte au moins un nom à `y≈150` ; les blocs « Places X/Y » n'en ont aucun et sont ignorés.
 
-**Normalisation** : si seulement j2 est renseigné (données présentes à `Ync+23`/`Ync+37` mais absentes à `Ync−7`/`Ync+7`), permuter j1 et j2 avant de pousser le match dans la liste. Résultat : le joueur connu est **toujours en position j1**. j2_* reste vide.
+**Repérage des joueurs** : dans la colonne-match ancrée par `N° Court`, le créneau j1 est à `nc.x − 6` et le créneau j2 à `nc.x + 24`. Un nom est rattaché à j1 si `x < nc.x + 9`, sinon à j2. Classement et club suivent le même découpage ; avec un seul joueur, ils lui reviennent intégralement.
+
+**Normalisation** : si seul le créneau j2 est renseigné, permuter j1 et j2 avant de pousser le match dans la liste. Résultat : le joueur connu est **toujours en position j1**. j2_* reste vide.
 
 ### Modèle de données
 

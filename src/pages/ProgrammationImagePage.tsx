@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toJpeg } from 'html-to-image';
 import * as pdfjsLib from 'pdfjs-dist';
-import PDFWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import PdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
 import { supabase } from '../lib/supabase';
 import type { ClubEvent } from '../types';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = PDFWorkerUrl;
+// Worker fourni en tant qu'instance (workerPort) : Vite le bundle correctement
+// et pdfjs n'a pas à le charger via un import dynamique d'URL (échec en dev).
+pdfjsLib.GlobalWorkerOptions.workerPort = new PdfjsWorker();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -150,31 +152,56 @@ async function parsePDF(file: File): Promise<Match[]> {
       const categoryItem = nonTime[0];
       const typeItem = nonTime[1];
 
-      if (!timeItem || names.length < 2 || rankings.length < 2) continue;
+      // Un bloc valide a au moins un joueur identifié. Les blocs "Places X/Y"
+      // n'ont aucun nom à y≈150 → ignorés.
+      if (!timeItem || names.length === 0) continue;
 
-      // Clubs : items en majuscules à y≈150, entre les deux noms (J1) ou après (J2).
-      // Peuvent être éclatés en plusieurs tokens (noms longs) → on concatène.
+      // Dans la colonne-match, j1 ≈ nc.x − 6 et j2 ≈ nc.x + 24 (même bande Y).
+      const slotSplit = nc.x + 9;
+      const j1NameItem = names.find(it => it.x < slotSplit) ?? null;
+      const j2NameItem = names.find(it => it.x >= slotSplit) ?? null;
+      const bothPlayers = !!j1NameItem && !!j2NameItem;
+
+      // Clubs : items en majuscules à y≈150. Peuvent être éclatés en plusieurs
+      // tokens (noms longs) → on concatène.
       const clubTokens = col
         .filter(it => Math.abs(it.y - 150) <= Y_TOL && !hasMixedCase(it.str))
         .sort((a, b) => a.x - b.x);
-      const j1_club = clubTokens.filter(it => it.x > names[0].x && it.x < names[1].x).map(it => it.str).join(' ');
-      const j2_club = clubTokens.filter(it => it.x > names[1].x).map(it => it.str).join(' ');
 
-      const p1 = parseFullName(names[0].str);
-      const p2 = parseFullName(names[1].str);
+      // Frontière X entre les deux joueurs (nom de j2). Avec un seul joueur,
+      // classement et club lui reviennent intégralement.
+      const splitX = j2NameItem?.x ?? 0;
+      const buildSide = (nameItem: PdfItem | null, isJ1: boolean) => {
+        if (!nameItem) return { prenom: '', nom: '', classement: '', club: '' };
+        const { nom, prenom } = parseFullName(nameItem.str);
+        const inSlot = (it: PdfItem) =>
+          !bothPlayers || (isJ1 ? it.x < splitX : it.x >= splitX);
+        return {
+          prenom,
+          nom,
+          classement: rankings.find(inSlot)?.str ?? '',
+          club: clubTokens.filter(inSlot).map(it => it.str).join(' '),
+        };
+      };
+
+      let j1 = buildSide(j1NameItem, true);
+      let j2 = buildSide(j2NameItem, false);
+
+      // Normalisation : le joueur connu est toujours en position j1.
+      if (!j1.nom && j2.nom) [j1, j2] = [j2, j1];
 
       allMatches.push({
         date,
         heure: timeItem.str,
         type_tournoi: [categoryItem?.str, typeItem?.str].filter(Boolean).join(' '),
-        j1_prenom: p1.prenom,
-        j1_nom: p1.nom,
-        j1_classement: rankings[0].str,
-        j1_club,
-        j2_prenom: p2.prenom,
-        j2_nom: p2.nom,
-        j2_classement: rankings[1].str,
-        j2_club,
+        j1_prenom: j1.prenom,
+        j1_nom: j1.nom,
+        j1_classement: j1.classement,
+        j1_club: j1.club,
+        j2_prenom: j2.prenom,
+        j2_nom: j2.nom,
+        j2_classement: j2.classement,
+        j2_club: j2.club,
       });
     }
   }
@@ -342,10 +369,18 @@ function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: 
           </svg>
 
           <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
-            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_prenom}</div>
-            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_nom}</div>
-            <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
-            <ClubLabel club={match.j2_club} home={j2Home} />
+            {match.j2_nom === '' ? (
+              <div style={{ fontSize: 20, fontWeight: 400, lineHeight: 1.3, color: '#6b6b6b' }}>
+                À déterminer
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_prenom}</div>
+                <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_nom}</div>
+                <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
+                <ClubLabel club={match.j2_club} home={j2Home} />
+              </>
+            )}
           </div>
         </div>
 
@@ -500,6 +535,12 @@ export default function ProgrammationImagePage() {
     return [...clubs].sort();
   }, [matches]);
 
+  // Seuls les matchs aux deux joueurs identifiés peuvent partir vers Live Score.
+  const transferableMatches = useMemo(
+    () => matches.filter((m) => m.j2_nom !== ''),
+    [matches],
+  );
+
   useEffect(() => {
     supabase
       .from('events')
@@ -519,11 +560,11 @@ export default function ProgrammationImagePage() {
   }, [matches]);
 
   async function handleTransfer() {
-    if (matches.length === 0) return;
+    if (transferableMatches.length === 0) return;
     setTransferStatus('loading');
     setTransferError(null);
 
-    const payload = matches.map((m) => ({
+    const payload = transferableMatches.map((m) => ({
       match_date: m.date,
       start_time: m.heure || null,
       match_type: 'simple' as const,
@@ -734,7 +775,11 @@ export default function ProgrammationImagePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleTransfer}
-                disabled={transferStatus === 'loading' || transferStatus === 'done'}
+                disabled={
+                  transferStatus === 'loading' ||
+                  transferStatus === 'done' ||
+                  transferableMatches.length === 0
+                }
                 className={
                   transferStatus === 'done'
                     ? 'rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-100'
@@ -742,9 +787,9 @@ export default function ProgrammationImagePage() {
                 }
               >
                 {transferStatus === 'loading' && 'Envoi…'}
-                {transferStatus === 'done' && `${matches.length} match${matches.length > 1 ? 's' : ''} ajouté${matches.length > 1 ? 's' : ''} ✓`}
+                {transferStatus === 'done' && `${transferableMatches.length} match${transferableMatches.length > 1 ? 's' : ''} ajouté${transferableMatches.length > 1 ? 's' : ''} ✓`}
                 {(transferStatus === 'idle' || transferStatus === 'error') &&
-                  `Basculer ${matches.length} match${matches.length > 1 ? 's' : ''} vers Live Score`}
+                  `Basculer ${transferableMatches.length} match${transferableMatches.length > 1 ? 's' : ''} vers Live Score`}
               </button>
               {transferStatus === 'error' && transferError && (
                 <p className="text-sm text-destructive">{transferError}</p>
