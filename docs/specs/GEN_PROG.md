@@ -155,6 +155,10 @@ Chaque cellule affiche :
    - Classement (rouge, gras)
    - **Club** — affiché sous le classement
 
+Le prénom et le nom occupent **une ligne chacun** (`white-space: nowrap`), soit
+**deux lignes maximum** ; tout débordement est tronqué par une ellipse (`…`).
+Cela garde une hauteur de cellule constante quels que soient les noms longs.
+
 #### Affichage du club
 
 - Position : sous le classement, dans la continuité de la fiche joueur
@@ -335,6 +339,52 @@ Pour chaque `Match`, insérer dans `live_matches` :
 |---|---|
 | 1 | Erreur partielle : tout-ou-rien via un seul `insert([...])` — si Supabase rejette un item, toute la transaction échoue. À confirmer. |
 | 2 | Rien n'empêche de transférer deux fois la même affiche (doublons). Pas de dé-duplication en v1 — à surveiller. |
+
+---
+
+## Matchs à adversaire unique (PDF)
+
+Certains blocs du PDF Ten'Up ne contiennent qu'un seul joueur identifié — l'adversaire n'est pas encore désigné. Cette section décrit la gestion de ces blocs de bout en bout.
+
+### Cas couverts
+
+| Cas | Exemple PDF (page 5–6) | Comportement |
+|---|---|---|
+| **j1 connu, j2 absent** | LE BRAS Quentin (16:30) | Conserver le match, j2 laissé vide |
+| **j2 connu, j1 absent** | TRESAL MAUROZ Maxime (16:30), DAUZAT Eliott (18:00) | Conserver le match, normaliser (voir ci-dessous) |
+| **0 joueur connu** | "Places 17/18" (18:00) | Ignorer le bloc entièrement |
+
+Les blocs "Places 17/18" sont sans joueur mais ont quand même un ancre `N° Court` — ils doivent être filtrés après parsing.
+
+### Parsing PDF — changements
+
+**Condition de validité d'un bloc** : passer de « j1 ET j2 présents » à « au moins un joueur présent ». En pratique : un bloc est conservé dès qu'il porte au moins un nom à `y≈150` ; les blocs « Places X/Y » n'en ont aucun et sont ignorés.
+
+**Repérage des joueurs** : dans la colonne-match ancrée par `N° Court`, le créneau j1 est à `nc.x − 6` et le créneau j2 à `nc.x + 24`. Un nom est rattaché à j1 si `x < nc.x + 9`, sinon à j2. Classement et club suivent le même découpage ; avec un seul joueur, ils lui reviennent intégralement.
+
+**Normalisation** : si seul le créneau j2 est renseigné, permuter j1 et j2 avant de pousser le match dans la liste. Résultat : le joueur connu est **toujours en position j1**. j2_* reste vide.
+
+### Modèle de données
+
+Aucun changement d'interface. Un match incomplet est simplement un `Match` avec `j2_nom === ""` (et `j2_prenom`, `j2_classement`, `j2_club` également vides). Pas de champ `incomplete` supplémentaire.
+
+### Rendu `MatchCell`
+
+Quand `match.j2_nom === ""` :
+
+- **Côté j2** : afficher le texte `"À déterminer"` à la place du bloc joueur (prénom + nom + classement). Style : gris muted, taille identique au prénom, non gras.
+- **Icône VS** : conservée entre j1 et le côté "À déterminer".
+- **Club j2** : rien (champ vide, comportement déjà existant pour l'import CSV).
+- **Highlight club** : le match incomplet ne peut pas être un derby. Si `j1_club === highlightedClub`, les effets club s'appliquent côté j1 normalement. Côté j2, aucun effet (pas de ruban, pas de `ClubLabel` coloré).
+
+### Basculement vers Live Score
+
+Les matchs incomplets (`j2_nom === ""`) sont **exclus** du transfert. Seuls les matchs avec deux joueurs identifiés sont envoyés à Supabase.
+
+Conséquences :
+- Le compteur du bouton (`"Basculer N match(s) vers Live Score"`) ne compte que les matchs complets.
+- Le payload `insert` ne contient que les matchs complets.
+- Si tous les matchs sont incomplets, le bouton affiche `"Basculer 0 match(s) vers Live Score"` et peut rester désactivé.
 
 ---
 
