@@ -299,6 +299,16 @@ function ClubLabel({ club, home = false }: { club: string; home?: boolean }) {
   );
 }
 
+// Nom / prénom : une ligne chacun, tronqué par ellipse si trop long → 2 lignes max.
+const NAME_LINE: React.CSSProperties = {
+  fontSize: 20,
+  fontWeight: 600,
+  lineHeight: 1.3,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+
 function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: string | null }) {
   const j1Home = !!highlightedClub && match.j1_club === highlightedClub;
   const j2Home = !!highlightedClub && match.j2_club === highlightedClub;
@@ -352,8 +362,8 @@ function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: 
         {/* Adversaires */}
         <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
           <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
-            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_prenom}</div>
-            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j1_nom}</div>
+            <div style={NAME_LINE}>{match.j1_prenom}</div>
+            <div style={NAME_LINE}>{match.j1_nom}</div>
             <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
             <ClubLabel club={match.j1_club} home={j1Home} />
           </div>
@@ -375,8 +385,8 @@ function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: 
               </div>
             ) : (
               <>
-                <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_prenom}</div>
-                <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{match.j2_nom}</div>
+                <div style={NAME_LINE}>{match.j2_prenom}</div>
+                <div style={NAME_LINE}>{match.j2_nom}</div>
                 <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
                 <ClubLabel club={match.j2_club} home={j2Home} />
               </>

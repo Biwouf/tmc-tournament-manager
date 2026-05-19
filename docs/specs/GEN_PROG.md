@@ -155,6 +155,10 @@ Chaque cellule affiche :
    - Classement (rouge, gras)
    - **Club** — affiché sous le classement
 
+Le prénom et le nom occupent **une ligne chacun** (`white-space: nowrap`), soit
+**deux lignes maximum** ; tout débordement est tronqué par une ellipse (`…`).
+Cela garde une hauteur de cellule constante quels que soient les noms longs.
+
 #### Affichage du club
 
 - Position : sous le classement, dans la continuité de la fiche joueur
