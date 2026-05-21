@@ -230,18 +230,27 @@ supabase
 
 ### Page liste — `LiveScorePage.tsx` (`/live-score`)
 
+Vue conçue pour projection sur TV en club (V1 « TV Board »). Header `← Accueil / Live Score` avec, si des lives sont en cours, un badge rouge pulsant **« N en cours »**. Boutons header à droite : **« + Créer un match »** (CTA primaire) et **« Se déconnecter »** (secondaire). Container `max-w-[1400px] mx-auto px-8 py-8`.
+
 **Affichage :**
-- Trois sections dans la liste : **En live** (status=`live`), **En attente** (status=`pending`), **Terminés** (status=`finished`)
-- Les matchs terminés depuis plus de 2 jours (`finished_at + 2j < now()`) affichent un badge **"À supprimer"** rouge
+- Trois sections empilées : **En live** (status=`live`), **En attente** (status=`pending`), **Terminés** (status=`finished`)
+- Header de section : titre uppercase + badge compteur coloré (rouge / slate / emerald) + ligne de séparation
+- Grid `grid-cols-1 lg:grid-cols-2 gap-4` (2 colonnes max — cartes plus larges, score plus gros pour la TV)
+- Les matchs terminés depuis plus de 2 jours (`finished_at + 2j < now()`) affichent un badge **« À supprimer »** rouge dans le hero bar de la carte
 - Triés par `match_date` + `start_time` ASC dans chaque section
 
-**Actions sur chaque carte :**
-- Bouton **"Démarrer le live"** (status=`pending`) → ouvre un dialog « Démarrer le live » avec un champ texte *Court (optionnel)*. À la confirmation : passe status à `live`, assigne `scored_by = auth.uid()` et `court`, redirige vers `/live-score/:id`
-- Bouton **"Reprendre"** (status=`live`) → redirige vers `/live-score/:id`
-- Bouton **"Voir"** (status=`finished`) → redirige vers `/live-score/:id` (lecture seule)
-- Bouton **"Supprimer"** → `window.confirm` → suppression définitive en base
+**Anatomie carte (`LiveMatchCard.tsx`) :**
+- **Hero bar** : bloc *Court* à gauche (background contextuel — rouge LIVE / sombre Finished / ambre Pending, label `Court` + valeur ou `— non assigné —`). À droite : chip `type_tournoi` (sombre), chip Simple/Double (slate clair), indicateur statut compact (point coloré + label, ou `LivePulse` + « en direct » pour LIVE), puis menu kebab (•••).
+- **Scoreboard** : 2 lignes joueurs séparées par un divider. Pour chaque joueur : icône trophée si vainqueur, nom (bold si vainqueur, semibold sinon), classement en chip slate et club en texte muté · cellules de score 48×48 (set gagné en fond sombre, perdu en slate clair, tiebreak en exposant absolu).
+- **Footer** : date + heure (tabular-nums) à gauche · à droite « Live · en cours » (rouge) si LIVE, « Vainqueur : Prénom NOM » (emerald) si finished.
 
-**Bouton "Créer un match" :** en haut à droite → ouvre `LiveMatchForm` (modale ou page dédiée)
+**Menu kebab (•••)** — popover ancré à droite, fermeture au clic extérieur. Items :
+- **Bouton primaire** selon statut : « Démarrer » (pending) / « Reprendre » (live) / « Voir » (finished)
+  - « Démarrer » ouvre le dialog *« Démarrer le live »* (champ texte *Court (optionnel)*) ; à la confirmation : status `live`, `scored_by = auth.uid()`, `court` enregistré, redirection vers `/live-score/:id`
+  - « Reprendre » / « Voir » → redirection directe vers `/live-score/:id`
+- **Supprimer** (rouge) → `window.confirm` → suppression définitive. La confirmation et l'appel Supabase vivent dans `LiveScorePage.tsx` ; la carte appelle juste la prop `onDelete()`.
+
+Le composant `LivePulse` (`src/components/LivePulse.tsx`) factorise le point rouge pulsant — utilisé dans le badge header et l'indicateur LIVE des cartes.
 
 ---
 

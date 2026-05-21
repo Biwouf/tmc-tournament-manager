@@ -3,6 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { LiveMatch } from '../types';
 import LiveMatchCard from '../components/LiveMatchCard';
+import LivePulse from '../components/LivePulse';
+
+type SectionAccent = 'live' | 'pending' | 'finished';
+
+const SECTION_ACCENT: Record<SectionAccent, string> = {
+  live: 'bg-red-100 text-red-700',
+  pending: 'bg-slate-200 text-slate-700',
+  finished: 'bg-emerald-100 text-emerald-700',
+};
 
 export default function LiveScorePage() {
   const navigate = useNavigate();
@@ -76,15 +85,28 @@ export default function LiveScorePage() {
   const pending = matches.filter((m) => m.status === 'pending');
   const finished = matches.filter((m) => m.status === 'finished');
 
-  const renderSection = (title: string, list: LiveMatch[], emptyText: string) => (
-    <section className="mb-10">
-      <h2 className="mb-4 text-xl font-semibold tracking-tight">{title}</h2>
+  const renderSection = (
+    title: string,
+    accent: SectionAccent,
+    list: LiveMatch[],
+    emptyText: string,
+  ) => (
+    <section className="mb-8">
+      <div className="mb-4 flex items-center gap-3">
+        <h2 className="text-base font-bold tracking-wide uppercase text-slate-900">{title}</h2>
+        <span
+          className={`inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-bold ${SECTION_ACCENT[accent]}`}
+        >
+          {list.length}
+        </span>
+        <div className="flex-1 h-px bg-slate-200" />
+      </div>
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
           {emptyText}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {list.map((m) => (
             <LiveMatchCard
               key={m.id}
@@ -100,44 +122,49 @@ export default function LiveScorePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
+      <header className="bg-white border-b border-slate-200">
+        <div className="px-8 py-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
             <Link
               to="/"
-              className="mb-2 inline-flex items-center text-sm text-muted-foreground transition hover:text-foreground"
+              className="text-sm text-slate-500 hover:text-slate-800 transition"
             >
               ← Accueil
             </Link>
-            <h1 className="text-3xl font-semibold tracking-tight">Live Score</h1>
-            <p className="mt-2 text-muted-foreground">Suivre et saisir le score des matchs en direct.</p>
+            <span className="text-slate-300">/</span>
+            <h1 className="text-2xl font-bold tracking-tight">Live Score</h1>
+            {live.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 ml-2 text-[11px] font-semibold uppercase tracking-wider text-red-600">
+                <LivePulse />
+                {live.length} en cours
+              </span>
+            )}
           </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/live-score/new"
+              className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold shadow-sm transition hover:brightness-95"
+            >
+              + Créer un match
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-slate-200 text-slate-600 text-sm px-3 py-2 hover:bg-slate-50 transition"
+            >
+              Se déconnecter
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex justify-end">
-          <Link
-            to="/live-score/new"
-            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
-          >
-            Créer un match
-          </Link>
-        </div>
-
+      <main className="px-8 py-8 max-w-[1400px] mx-auto">
         {loading ? (
           <div className="py-12 text-center text-muted-foreground">Chargement...</div>
         ) : (
           <>
-            {renderSection('En live', live, 'Aucun match en cours.')}
-            {renderSection('En attente', pending, 'Aucun match en attente.')}
-            {renderSection('Terminés', finished, 'Aucun match terminé.')}
+            {renderSection('En live', 'live', live, 'Aucun match en cours.')}
+            {renderSection('En attente', 'pending', pending, 'Aucun match en attente.')}
+            {renderSection('Terminés', 'finished', finished, 'Aucun match terminé.')}
           </>
         )}
       </main>
