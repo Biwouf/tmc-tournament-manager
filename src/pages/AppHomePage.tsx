@@ -1,38 +1,35 @@
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-const features = [
+const SECTIONS = [
   {
-    to: '/tmc-planning',
-    label: 'Gestion planning',
-    description: 'Créer et gérer les tournois, planifier les matchs.',
+    id: 'club',
+    label: 'Actus du club',
+    hint: 'Contenu publié pour les adhérents',
+    items: [
+      { to: '/actus', label: 'Actus', description: 'Rédiger et publier les actualités du club.' },
+      { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.' },
+      { to: '/live-score', label: 'Live Score', description: 'Suivre et saisir le score des matchs en direct.' },
+    ],
   },
   {
-    to: '/programmation-image',
-    label: 'Affiche programmation',
-    description: 'Générer une image de la programmation à afficher.',
+    id: 'tools',
+    label: 'Outils',
+    hint: 'Générateurs et planning sportif',
+    items: [
+      { to: '/programmation-image', label: 'Affiche programmation', description: 'Générer une image de la programmation à afficher.' },
+      { to: '/tmc-planning', label: 'Gestion planning', description: 'Créer et gérer les tournois, planifier les matchs.' },
+    ],
   },
   {
-    to: '/events',
-    label: 'Événements',
-    description: 'Créer et gérer les événements du club.',
+    id: 'admin',
+    label: 'Admin',
+    hint: 'Réservé aux administrateurs',
+    items: [
+      { to: '/admin/invite', label: 'Inviter un utilisateur', description: 'Envoyer un lien d’invitation au back-office.' },
+    ],
   },
-  {
-    to: '/live-score',
-    label: 'Live Score',
-    description: 'Suivre et saisir le score des matchs en direct.',
-  },
-  {
-    to: '/actus',
-    label: 'Actus',
-    description: 'Rédiger et publier les actualités du club.',
-  },
-  {
-    to: '/admin/invite',
-    label: 'Inviter un utilisateur',
-    description: 'Envoyer un lien d’invitation au back-office.',
-  },
-];
+] as const;
 
 export default function AppHomePage() {
   const handleLogout = () => supabase.auth.signOut();
@@ -58,16 +55,32 @@ export default function AppHomePage() {
       </header>
 
       <main className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => (
-            <Link
-              key={f.to}
-              to={f.to}
-              className="rounded-2xl border bg-card/90 p-8 shadow-sm transition hover:border-primary/30 hover:shadow-md"
-            >
-              <h2 className="text-xl font-semibold text-card-foreground">{f.label}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{f.description}</p>
-            </Link>
+        <div className="flex flex-col gap-9">
+          {SECTIONS.map((section) => (
+            <section key={section.id}>
+              <div className="flex items-baseline gap-3.5 mb-3.5">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary m-0">
+                  {section.label}
+                </h2>
+                <span
+                  className="flex-1 h-px"
+                  style={{ background: 'linear-gradient(to right, hsl(var(--border)), transparent)' }}
+                />
+                <span className="hidden md:inline text-xs text-muted-foreground">{section.hint}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {section.items.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className="rounded-2xl border bg-card/90 p-8 shadow-sm transition hover:border-primary/30 hover:shadow-md"
+                  >
+                    <h3 className="text-xl font-semibold text-card-foreground">{item.label}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">{item.description}</p>
+                  </Link>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </main>
