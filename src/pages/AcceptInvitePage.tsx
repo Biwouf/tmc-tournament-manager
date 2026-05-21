@@ -9,6 +9,7 @@ export default function AcceptInvitePage() {
   const [status, setStatus] = useState<Status>('checking');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,11 +86,21 @@ export default function AcceptInvitePage() {
             )}
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">
-                Mot de passe
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-sm font-medium text-foreground">
+                  Mot de passe
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? 'Masquer' : 'Afficher'}
+                </button>
+              </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
@@ -104,7 +115,7 @@ export default function AcceptInvitePage() {
                 Confirmer le mot de passe
               </label>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
