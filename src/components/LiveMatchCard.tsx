@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import type { LiveMatch, LiveMatchWinner } from '../types';
+import LivePulse from './LivePulse';
 
 interface Props {
   match: LiveMatch;
-  onPrimary: () => void; // "Démarrer le live" / "Reprendre" / "Voir"
+  onPrimary: () => void; // "Démarrer" / "Reprendre" / "Voir"
   onDelete: () => void;
 }
 
@@ -18,6 +20,13 @@ interface SetCell {
   value: number;
   tb: number | null;
   emphasized: boolean;
+}
+
+interface TeamMember {
+  prenom: string;
+  nom: string;
+  classement: string | null;
+  club: string | null;
 }
 
 function formatDate(iso: string): string {
@@ -65,53 +74,33 @@ function cellsForSide(sets: SetState[], side: LiveMatchWinner): SetCell[] {
   }));
 }
 
-function playerLabel(match: LiveMatch, side: LiveMatchWinner): string {
-  const main = `${match[`${side}_prenom`]} ${match[`${side}_nom`]}`;
-  if (match.match_type === 'simple') return main;
-  const partnerSide = side === 'j1' ? 'j3' : 'j4';
-  const partner = match[`${partnerSide}_prenom`]
-    ? `${match[`${partnerSide}_prenom`]} ${match[`${partnerSide}_nom`]}`
-    : '';
-  return partner ? `${main} / ${partner}` : main;
-}
-
-function ScoreCell({ value, tb, emphasized }: SetCell) {
-  return (
-    <span
-      className={`inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-md text-sm font-bold tabular-nums ${
-        emphasized ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
-      }`}
-    >
-      {value}
-      {tb !== null && <sup className="ml-0.5 text-[9px] font-semibold opacity-80">{tb}</sup>}
-    </span>
-  );
-}
-
-function PlayerRow({
-  name,
-  isWinner,
-  cells,
-}: {
-  name: string;
-  isWinner: boolean;
-  cells: SetCell[];
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-1.5 min-w-0">
-        {isWinner && <img src="/trophy.png" alt="Vainqueur" className="h-4 w-4 shrink-0" />}
-        <span className={`text-sm text-foreground truncate ${isWinner ? 'font-bold' : 'font-medium'}`}>
-          {name}
-        </span>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        {cells.map((c, i) => (
-          <ScoreCell key={i} {...c} />
-        ))}
-      </div>
-    </div>
-  );
+function teamMembers(match: LiveMatch, side: LiveMatchWinner): TeamMember[] {
+  if (side === 'j1') {
+    const members: TeamMember[] = [
+      { prenom: match.j1_prenom, nom: match.j1_nom, classement: match.j1_classement, club: match.j1_club },
+    ];
+    if (match.match_type === 'double' && match.j3_prenom && match.j3_nom) {
+      members.push({
+        prenom: match.j3_prenom,
+        nom: match.j3_nom,
+        classement: match.j3_classement,
+        club: match.j3_club,
+      });
+    }
+    return members;
+  }
+  const members: TeamMember[] = [
+    { prenom: match.j2_prenom, nom: match.j2_nom, classement: match.j2_classement, club: match.j2_club },
+  ];
+  if (match.match_type === 'double' && match.j4_prenom && match.j4_nom) {
+    members.push({
+      prenom: match.j4_prenom,
+      nom: match.j4_nom,
+      classement: match.j4_classement,
+      club: match.j4_club,
+    });
+  }
+  return members;
 }
 
 function needsDeletionBadge(m: LiveMatch): boolean {
@@ -120,75 +109,248 @@ function needsDeletionBadge(m: LiveMatch): boolean {
   return Date.now() - new Date(m.finished_at).getTime() > twoDaysMs;
 }
 
-export default function LiveMatchCard({ match, onPrimary, onDelete }: Props) {
-  const primaryLabel =
-    match.status === 'pending' ? 'Démarrer le live' : match.status === 'live' ? 'Reprendre' : 'Voir';
+function winnerName(match: LiveMatch): string {
+  if (match.winner === 'j1') return `${match.j1_prenom} ${match.j1_nom}`;
+  if (match.winner === 'j2') return `${match.j2_prenom} ${match.j2_nom}`;
+  return '';
+}
 
-  const statusStyles: Record<LiveMatch['status'], string> = {
-    pending: 'bg-slate-100 text-slate-700',
-    live: 'bg-red-100 text-red-700 animate-pulse',
-    finished: 'bg-emerald-100 text-emerald-700',
-  };
-  const statusLabels: Record<LiveMatch['status'], string> = {
-    pending: 'En attente',
-    live: 'LIVE',
-    finished: 'Terminé',
-  };
+function TrophyIcon() {
+  return (
+    <svg className="w-5 h-5 text-amber-500 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M5 4h14v3a5 5 0 01-4 4.9V14h2v2H7v-2h2v-2.1A5 5 0 015 7V4zm2 2v1a3 3 0 002.4 2.94L10 10V6H7zm10 0h-3v4l.6-.06A3 3 0 0017 7V6zM6 18h12v2H6v-2z" />
+    </svg>
+  );
+}
 
-  const sets = buildSets(match);
-  const toDelete = needsDeletionBadge(match);
+function KebabIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}
+
+function ScoreCell({ value, tb, emphasized }: SetCell) {
+  return (
+    <span
+      className={`relative inline-flex items-center justify-center w-12 h-12 rounded-lg text-2xl font-bold tabular-nums ${
+        emphasized ? 'bg-foreground text-background shadow-sm' : 'bg-slate-100 text-slate-700'
+      }`}
+    >
+      {value}
+      {tb !== null && (
+        <sup className="absolute top-1.5 right-1.5 text-[10px] font-bold opacity-80 leading-none">{tb}</sup>
+      )}
+    </span>
+  );
+}
+
+function PlayerLine({ member, isWinner }: { member: TeamMember; isWinner: boolean }) {
+  return (
+    <div className="flex items-baseline gap-2 min-w-0">
+      <span
+        className={`text-lg truncate text-foreground ${isWinner ? 'font-bold' : 'font-semibold'}`}
+      >
+        {member.prenom} {member.nom}
+      </span>
+      {member.classement && (
+        <span className="text-[11px] font-semibold text-slate-500 px-1.5 py-0.5 bg-slate-100 rounded shrink-0">
+          {member.classement}
+        </span>
+      )}
+      {member.club && (
+        <span className="text-xs text-slate-500 truncate shrink-0">· {member.club}</span>
+      )}
+    </div>
+  );
+}
+
+function TeamBlock({
+  members,
+  isWinner,
+  cells,
+}: {
+  members: TeamMember[];
+  isWinner: boolean;
+  cells: SetCell[];
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {isWinner ? <TrophyIcon /> : <span className="w-5 h-5 shrink-0" />}
+        <div className="flex flex-col gap-1 min-w-0">
+          {members.map((m, i) => (
+            <PlayerLine key={i} member={m} isWinner={isWinner} />
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {cells.map((c, i) => (
+          <ScoreCell key={i} {...c} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KebabMenu({
+  status,
+  onPrimary,
+  onDelete,
+}: {
+  status: LiveMatch['status'];
+  onPrimary: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const primaryLabel = status === 'pending' ? 'Démarrer' : status === 'live' ? 'Reprendre' : 'Voir';
 
   return (
-    <div className="flex flex-col rounded-2xl border bg-card/90 p-6 shadow-sm transition hover:shadow-md">
-      <div className="mb-3 flex items-center gap-2">
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[match.status]}`}>
-          {statusLabels[match.status]}
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+        aria-label="Options"
+      >
+        <KebabIcon />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-10 z-20 w-44 rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm">
+            <button
+              onClick={() => {
+                setOpen(false);
+                onPrimary();
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-slate-50 font-medium text-slate-800"
+            >
+              {primaryLabel}
+            </button>
+            <button
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600"
+            >
+              Supprimer
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function LiveMatchCard({ match, onPrimary, onDelete }: Props) {
+  const isLive = match.status === 'live';
+  const isFinished = match.status === 'finished';
+  const isPending = match.status === 'pending';
+
+  const sets = buildSets(match);
+  const cellsJ1 = cellsForSide(sets, 'j1');
+  const cellsJ2 = cellsForSide(sets, 'j2');
+  const toDelete = needsDeletionBadge(match);
+
+  const cardClass = isLive
+    ? 'border-red-200 shadow-[0_0_0_1px_rgba(229,24,40,0.12),0_8px_30px_rgba(229,24,40,0.08)]'
+    : 'border-slate-200 shadow-sm';
+
+  const courtClass = isLive
+    ? 'bg-red-600 text-white'
+    : isFinished
+      ? 'bg-slate-800 text-white'
+      : 'bg-amber-100 text-amber-900 border border-amber-200';
+
+  return (
+    <article
+      className={`relative rounded-2xl border bg-white overflow-hidden transition hover:shadow-md ${cardClass}`}
+    >
+      {/* HERO BAR : court · type · status · kebab */}
+      <div className="flex items-stretch border-b border-slate-100">
+        <div
+          className={`flex flex-col items-start justify-center px-5 py-3 min-w-[140px] ${courtClass}`}
+        >
+          <span className="text-[10px] font-semibold tracking-[0.18em] uppercase opacity-80">
+            Court
+          </span>
+          <span className="text-xl font-bold leading-tight">
+            {match.court ?? <span className="opacity-60">— non assigné —</span>}
+          </span>
+        </div>
+        <div className="flex-1 flex items-center justify-between px-5 py-3 gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            {match.type_tournoi && (
+              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase bg-slate-900 text-white">
+                {match.type_tournoi}
+              </span>
+            )}
+            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase bg-slate-100 text-slate-600">
+              {match.match_type === 'double' ? 'Double' : 'Simple'}
+            </span>
+            {toDelete && (
+              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase bg-red-100 text-red-700">
+                À supprimer
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {isLive && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-red-600">
+                <LivePulse />
+                en direct
+              </span>
+            )}
+            {isPending && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-700">
+                <span className="h-2 w-2 rounded-full bg-slate-400" />
+                En attente
+              </span>
+            )}
+            {isFinished && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Terminé
+              </span>
+            )}
+            <KebabMenu status={match.status} onPrimary={onPrimary} onDelete={onDelete} />
+          </div>
+        </div>
+      </div>
+
+      {/* SCOREBOARD */}
+      <div className="px-5 py-2 divide-y divide-slate-100">
+        <TeamBlock
+          members={teamMembers(match, 'j1')}
+          isWinner={match.winner === 'j1'}
+          cells={cellsJ1}
+        />
+        <TeamBlock
+          members={teamMembers(match, 'j2')}
+          isWinner={match.winner === 'j2'}
+          cells={cellsJ2}
+        />
+      </div>
+
+      {/* FOOTER */}
+      <div className="flex items-center justify-between px-5 py-2.5 bg-slate-50/70 border-t border-slate-100 text-xs text-slate-500 gap-3">
+        <span className="tabular-nums">
+          {formatDate(match.match_date)}
+          {match.start_time && ` · ${match.start_time.slice(0, 5)}`}
         </span>
-        <span className="text-xs font-medium text-muted-foreground">
-          {match.match_type === 'double' ? 'Double' : 'Simple'}
-        </span>
-        {toDelete && (
-          <span className="ml-auto rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
-            À supprimer
+        {isLive && (
+          <span className="font-semibold text-red-600 truncate">Live · en cours</span>
+        )}
+        {isFinished && match.winner && (
+          <span className="font-semibold text-emerald-700 truncate">
+            Vainqueur : {winnerName(match)}
           </span>
         )}
       </div>
-
-      <div className="flex flex-col gap-2">
-        <PlayerRow
-          name={playerLabel(match, 'j1')}
-          isWinner={match.winner === 'j1'}
-          cells={cellsForSide(sets, 'j1')}
-        />
-        <PlayerRow
-          name={playerLabel(match, 'j2')}
-          isWinner={match.winner === 'j2'}
-          cells={cellsForSide(sets, 'j2')}
-        />
-      </div>
-
-      <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-        <span>
-          {formatDate(match.match_date)}
-          {match.start_time && ` — ${match.start_time.slice(0, 5)}`}
-        </span>
-        {match.court && <span>Court : {match.court}</span>}
-      </p>
-
-      <div className="mt-4 flex gap-2 pt-2">
-        <button
-          onClick={onPrimary}
-          className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
-        >
-          {primaryLabel}
-        </button>
-        <button
-          onClick={onDelete}
-          className="ml-auto rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
-        >
-          Supprimer
-        </button>
-      </div>
-    </div>
+    </article>
   );
 }
