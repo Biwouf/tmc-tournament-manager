@@ -27,6 +27,11 @@ const features = [
     label: 'Actus',
     description: 'Rédiger et publier les actualités du club.',
   },
+  {
+    to: '/admin/invite',
+    label: 'Inviter un utilisateur',
+    description: 'Envoyer un lien d’invitation au back-office.',
+  },
 ];
 
 export default function AppHomePage() {

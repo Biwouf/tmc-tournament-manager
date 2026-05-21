@@ -48,6 +48,8 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `components/LiveMatchForm.tsx` | `/live-score/new` | Formulaire création d'un match (simple/double, joueurs, event lié optionnel parmi les events des 30 derniers jours). |
 | `pages/ActusPage.tsx` | `/actus` | Liste des actus (brouillons + publiées) triées DESC, badges Brouillon/Publié, actions publier/dépublier/modifier/supprimer. |
 | `components/ActuForm.tsx` | `/actus/new`, `/actus/:id/edit` | Formulaire création/édition d'actu (markdown preview, multi-images optionnelles avec sélection du point de focus par clic sur l'aperçu, deux boutons « Brouillon » / « Publier »). Au clic sur « Publier », une option « Publier aussi sur Facebook » (+ sous-option « Mode debug ») déclenche l'appel à l'Edge Function `post-to-facebook` ; le résultat (lien vers le post ou erreur) est affiché inline et la navigation vers `/actus` est suspendue jusqu'au retour. |
+| `pages/InvitePage.tsx` | `/admin/invite` | Formulaire admin pour inviter un nouvel utilisateur au BO. Deux actions : « Envoyer l'invitation » (email via Supabase) ou « Générer un lien à copier (sans email) » — fallback utile en cas de rate limit SMTP ou pour partage manuel. Route protégée par le guard auth. |
+| `pages/AcceptInvitePage.tsx` | `/accept-invite` | Page publique d'activation de compte. Supabase JS parse automatiquement le hash `#access_token=...&type=invite` (`detectSessionInUrl: true`). L'invité choisit son mot de passe via `supabase.auth.updateUser({ password })` puis est redirigé vers `/`. |
 
 ### Composants
 
@@ -126,6 +128,7 @@ Voir `docs/specs/` :
 | Fonction | Rôle |
 |---|---|
 | `supabase/functions/post-to-facebook/index.ts` | Publie une actu sur la page Facebook du club. Appelée depuis `ActuForm` quand la case « Publier aussi sur Facebook » est cochée. Utilise les secrets `FACEBOOK_PAGE_ID` et `FACEBOOK_PAGE_ACCESS_TOKEN`. |
+| `supabase/functions/invite-user/index.ts` | Envoie une invitation par email à un nouvel utilisateur via `auth.admin.inviteUserByEmail`, ou — si `action: 'generate-link'` — retourne juste le lien d'invitation via `auth.admin.generateLink` sans envoyer d'email (fallback rate limit). Vérifie d'abord que l'appelant est authentifié (JWT). Le `redirectTo` est fourni par le client (`window.location.origin + '/accept-invite'`) — la whitelist Auth → URL Configuration côté dashboard Supabase fait foi pour la sécurité. Appelée depuis `InvitePage`. |
 
 ## Infrastructure Supabase
 
