@@ -14,6 +14,9 @@ const CORS_HEADERS = {
 interface RequestBody {
   email?: string;
   redirectTo?: string;
+  // 'send' (défaut) : envoie l'email d'invitation via Supabase.
+  // 'generate-link' : ne déclenche pas d'email, retourne juste le lien à copier.
+  action?: 'send' | 'generate-link';
 }
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -75,16 +78,50 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(400, { success: false, error: 'Email manquant.' });
   }
   const redirectTo = body.redirectTo?.trim();
+  const action = body.action ?? 'send';
 
   // --- Invitation via service role ---
   // Supabase rejette les redirectTo absents de la whitelist (Auth → URL Configuration),
   // c'est la whitelist côté dashboard qui fait foi pour la sécurité.
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+  if (action === 'generate-link') {
+    // Bypass de l'email (rate limit du SMTP par défaut, ou partage manuel).
+    const { data, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: redirectTo ? { redirectTo } : undefined,
+    });
+    if (linkErr || !data?.properties?.action_link) {
+      console.error('[invite-user] generateLink error', {
+        email,
+        redirectTo,
+        message: linkErr?.message,
+        status: (linkErr as { status?: number } | null)?.status,
+      });
+      return jsonResponse(400, {
+        success: false,
+        error: linkErr?.message ?? 'Génération du lien impossible.',
+      });
+    }
+    return jsonResponse(200, {
+      success: true,
+      action_link: data.properties.action_link,
+    });
+  }
+
   const { error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
     email,
     redirectTo ? { redirectTo } : undefined,
   );
   if (inviteErr) {
+    console.error('[invite-user] inviteUserByEmail error', {
+      email,
+      redirectTo,
+      message: inviteErr.message,
+      status: (inviteErr as { status?: number }).status,
+      name: inviteErr.name,
+    });
     return jsonResponse(400, { success: false, error: inviteErr.message });
   }
 
