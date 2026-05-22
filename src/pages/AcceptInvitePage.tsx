@@ -7,6 +7,8 @@ type Status = 'checking' | 'ready' | 'invalid';
 export default function AcceptInvitePage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>('checking');
+  const [prenom, setPrenom] = useState('');
+  const [nom, setNom] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -30,6 +32,12 @@ export default function AcceptInvitePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const trimmedPrenom = prenom.trim();
+    const trimmedNom = nom.trim();
+    if (!trimmedPrenom || !trimmedNom) {
+      setError('Prénom et nom obligatoires.');
+      return;
+    }
     if (password.length < 6) {
       setError('Mot de passe trop court (6 caractères minimum).');
       return;
@@ -39,12 +47,27 @@ export default function AcceptInvitePage() {
       return;
     }
     setLoading(true);
+
     const { error: updateErr } = await supabase.auth.updateUser({ password });
-    setLoading(false);
     if (updateErr) {
+      setLoading(false);
       setError(updateErr.message);
       return;
     }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, prenom: trimmedPrenom, nom: trimmedNom });
+      if (profileErr) {
+        setLoading(false);
+        setError(`Profil non enregistré : ${profileErr.message}`);
+        return;
+      }
+    }
+
+    setLoading(false);
     navigate('/', { replace: true });
   };
 
@@ -55,7 +78,7 @@ export default function AcceptInvitePage() {
           Activer votre compte
         </h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          Choisissez le mot de passe que vous utiliserez pour vous connecter.
+          Renseignez votre identité et choisissez le mot de passe que vous utiliserez pour vous connecter.
         </p>
 
         {status === 'checking' && (
@@ -84,6 +107,34 @@ export default function AcceptInvitePage() {
                 {error}
               </div>
             )}
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Prénom
+              </label>
+              <input
+                type="text"
+                value={prenom}
+                onChange={(e) => setPrenom(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+                required
+                autoComplete="given-name"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Nom
+              </label>
+              <input
+                type="text"
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+                required
+                autoComplete="family-name"
+              />
+            </div>
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">

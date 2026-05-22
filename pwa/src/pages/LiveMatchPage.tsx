@@ -84,6 +84,21 @@ export default function LiveMatchPage() {
     return () => { cancelled = true; };
   }, [id, user, authLoading, navigate]);
 
+  useEffect(() => {
+    if (!id || !user) return;
+    const channel = supabase
+      .channel(`live_match_pwa_${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${id}` },
+        (payload) => {
+          setMatch(payload.new as LiveMatch);
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id, user]);
+
   const applyPatch = async (patch: Partial<LiveMatch>) => {
     if (!match) return;
     const merged: LiveMatch = { ...match, ...patch };
@@ -191,7 +206,23 @@ export default function LiveMatchPage() {
         </div>
       )}
 
-      <LiveScoreEntry match={match} onPatch={applyPatch} />
+      {(() => {
+        const hasLostControl =
+          match.status === 'live' &&
+          user !== null &&
+          match.scored_by !== null &&
+          match.scored_by !== user.id;
+        return (
+          <>
+            {hasLostControl && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                Ce live a été repris par quelqu'un d'autre. Vous êtes en lecture seule.
+              </div>
+            )}
+            <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl} />
+          </>
+        );
+      })()}
 
       {savingError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

@@ -159,6 +159,12 @@ export interface Actu {
   updated_at: string;
 }
 
+export interface Profile {
+  id: string;
+  prenom: string;
+  nom: string;
+}
+
 export type LiveMatchStatus = 'pending' | 'live' | 'finished';
 export type LiveMatchType = 'simple' | 'double';
 export type LiveSet3Format = 'normal' | 'super_tiebreak';

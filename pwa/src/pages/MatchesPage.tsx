@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import type { LiveMatch } from '../types';
+import type { LiveMatch, Profile } from '../types';
 import MatchCard from '../components/matches/MatchCard';
 import { useAuth } from '../hooks/useAuth';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
@@ -36,6 +36,27 @@ export default function MatchesPage() {
     queryFn: fetchMatches,
     refetchInterval: 30_000,
   });
+
+  const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
+
+  useEffect(() => {
+    if (!matches) return;
+    const ids = [...new Set(matches.filter((m) => m.scored_by).map((m) => m.scored_by!))];
+    if (ids.length === 0) {
+      setProfilesMap({});
+      return;
+    }
+    supabase
+      .from('profiles')
+      .select('*')
+      .in('id', ids)
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, Profile> = {};
+        for (const p of data as Profile[]) map[p.id] = p;
+        setProfilesMap(map);
+      });
+  }, [matches]);
 
   useEffect(() => {
     const channel = supabase
@@ -103,21 +124,21 @@ export default function MatchesPage() {
       {liveMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-primary uppercase tracking-wide">En cours</h2>
-          {liveMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} />)}
+          {liveMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} profilesMap={profilesMap} />)}
         </section>
       )}
 
       {pendingMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">À venir</h2>
-          {pendingMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} />)}
+          {pendingMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} profilesMap={profilesMap} />)}
         </section>
       )}
 
       {finishedMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Terminés</h2>
-          {finishedMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} />)}
+          {finishedMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} profilesMap={profilesMap} />)}
         </section>
       )}
 

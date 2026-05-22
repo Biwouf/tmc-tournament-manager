@@ -4,7 +4,8 @@ import LivePulse from './LivePulse';
 
 interface Props {
   match: LiveMatch;
-  onPrimary: () => void; // "Démarrer" / "Reprendre" / "Voir"
+  isOwnLive: boolean;
+  onPrimary: () => void; // "Démarrer" / "Reprendre" / "Prendre le contrôle" / "Voir"
   onDelete: () => void;
 }
 
@@ -198,15 +199,24 @@ function TeamBlock({
 
 function KebabMenu({
   status,
+  isOwnLive,
   onPrimary,
   onDelete,
 }: {
   status: LiveMatch['status'];
+  isOwnLive: boolean;
   onPrimary: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const primaryLabel = status === 'pending' ? 'Démarrer' : status === 'live' ? 'Reprendre' : 'Voir';
+  const primaryLabel =
+    status === 'pending'
+      ? 'Démarrer'
+      : status === 'live'
+        ? isOwnLive
+          ? 'Reprendre'
+          : 'Prendre le contrôle'
+        : 'Voir';
 
   return (
     <div className="relative">
@@ -246,7 +256,7 @@ function KebabMenu({
   );
 }
 
-export default function LiveMatchCard({ match, onPrimary, onDelete }: Props) {
+export default function LiveMatchCard({ match, isOwnLive, onPrimary, onDelete }: Props) {
   const isLive = match.status === 'live';
   const isFinished = match.status === 'finished';
   const isPending = match.status === 'pending';
@@ -317,7 +327,12 @@ export default function LiveMatchCard({ match, onPrimary, onDelete }: Props) {
                 Terminé
               </span>
             )}
-            <KebabMenu status={match.status} onPrimary={onPrimary} onDelete={onDelete} />
+            <KebabMenu
+              status={match.status}
+              isOwnLive={isOwnLive}
+              onPrimary={onPrimary}
+              onDelete={onDelete}
+            />
           </div>
         </div>
       </div>
