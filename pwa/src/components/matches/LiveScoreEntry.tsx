@@ -25,6 +25,7 @@ import {
 interface Props {
   match: LiveMatch;
   onPatch: (patch: Partial<LiveMatch>) => void;
+  forceDisabled?: boolean;
 }
 
 function PlusMinusCell({
@@ -171,8 +172,8 @@ function SuperTbRow({
   );
 }
 
-export default function LiveScoreEntry({ match, onPatch }: Props) {
-  const readonly = match.status !== 'live';
+export default function LiveScoreEntry({ match, onPatch, forceDisabled = false }: Props) {
+  const readonly = match.status !== 'live' || forceDisabled;
 
   const set1 = getSet(match, 1);
   const set2 = getSet(match, 2);

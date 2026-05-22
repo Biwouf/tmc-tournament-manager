@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { LiveMatch } from '../types';
+import type { LiveMatch, Profile } from '../types';
 import LiveMatchCard from '../components/LiveMatchCard';
 import LivePulse from '../components/LivePulse';
 
@@ -18,6 +18,9 @@ export default function LiveScorePage() {
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [courtDialog, setCourtDialog] = useState<{ matchId: string; value: string } | null>(null);
+  const [takeoverDialog, setTakeoverDialog] = useState<{ matchId: string } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
 
   const fetchMatches = async () => {
     const { data, error } = await supabase
@@ -25,12 +28,32 @@ export default function LiveScorePage() {
       .select('*')
       .order('match_date', { ascending: true })
       .order('start_time', { ascending: true, nullsFirst: true });
-    if (error) console.error(error);
-    else if (data) setMatches(data as LiveMatch[]);
+    if (error) {
+      console.error(error);
+      setLoading(false);
+      return;
+    }
+    const list = (data as LiveMatch[]) ?? [];
+    setMatches(list);
     setLoading(false);
+
+    const ids = [...new Set(list.filter((m) => m.scored_by).map((m) => m.scored_by!))];
+    if (ids.length === 0) {
+      setProfilesMap({});
+      return;
+    }
+    const { data: profiles } = await supabase.from('profiles').select('*').in('id', ids);
+    if (!profiles) return;
+    const map: Record<string, Profile> = {};
+    for (const p of profiles as Profile[]) map[p.id] = p;
+    setProfilesMap(map);
   };
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setCurrentUserId(data.session?.user.id ?? null);
+    });
+
     fetchMatches();
 
     const channel = supabase
@@ -63,8 +86,30 @@ export default function LiveScorePage() {
   };
 
   const handlePrimary = (m: LiveMatch) => {
-    if (m.status === 'pending') setCourtDialog({ matchId: m.id, value: '' });
-    else navigate(`/live-score/${m.id}`);
+    if (m.status === 'pending') {
+      setCourtDialog({ matchId: m.id, value: '' });
+      return;
+    }
+    if (m.status === 'live' && m.scored_by && m.scored_by !== currentUserId) {
+      setTakeoverDialog({ matchId: m.id });
+      return;
+    }
+    navigate(`/live-score/${m.id}`);
+  };
+
+  const confirmTakeover = async () => {
+    if (!takeoverDialog || !currentUserId) return;
+    const { error } = await supabase
+      .from('live_matches')
+      .update({ scored_by: currentUserId })
+      .eq('id', takeoverDialog.matchId);
+    if (error) {
+      alert(`Erreur : ${error.message}`);
+      return;
+    }
+    const matchId = takeoverDialog.matchId;
+    setTakeoverDialog(null);
+    navigate(`/live-score/${matchId}`);
   };
 
   const handleDelete = async (m: LiveMatch) => {
@@ -111,6 +156,7 @@ export default function LiveScorePage() {
             <LiveMatchCard
               key={m.id}
               match={m}
+              isOwnLive={m.status === 'live' && m.scored_by === currentUserId}
               onPrimary={() => handlePrimary(m)}
               onDelete={() => handleDelete(m)}
             />
@@ -168,6 +214,48 @@ export default function LiveScorePage() {
           </>
         )}
       </main>
+
+      {takeoverDialog && (() => {
+        const m = matches.find((x) => x.id === takeoverDialog.matchId);
+        const profile = m?.scored_by ? profilesMap[m.scored_by] : null;
+        const managerName =
+          profile && (profile.prenom || profile.nom)
+            ? `${profile.prenom} ${profile.nom}`.trim()
+            : 'un autre utilisateur';
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setTakeoverDialog(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold tracking-tight">Prendre le contrôle du live ?</h3>
+              <p className="mt-3 text-sm text-card-foreground">
+                Ce live est actuellement géré par <strong>{managerName}</strong>.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Si vous prenez le contrôle, cette personne passera en lecture seule.
+              </p>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  onClick={() => setTakeoverDialog(null)}
+                  className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={confirmTakeover}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                >
+                  Prendre le contrôle
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {courtDialog && (
         <div

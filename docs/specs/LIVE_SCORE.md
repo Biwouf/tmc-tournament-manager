@@ -445,6 +445,41 @@ Les matchs `finished` du jour restent affichés jusqu'à minuit (retirés à `ma
 
 ---
 
+## Prise de contrôle forcée (BO + PWA)
+
+Un live est rattaché à un gestionnaire via `scored_by`. Un autre utilisateur authentifié peut **prendre le contrôle** après confirmation — pas besoin que le premier libère.
+
+### Table `profiles`
+
+Migration `supabase/migrations/20260521_profiles.sql` :
+
+```sql
+CREATE TABLE profiles (
+  id     UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  prenom TEXT NOT NULL DEFAULT '',
+  nom    TEXT NOT NULL DEFAULT ''
+);
+```
+
+RLS : lecture libre `authenticated` + `anon` (noms affichés dans les warnings BO et PWA), écriture uniquement sur son propre profil. Trigger `on_auth_user_created` qui crée un profil vide à chaque nouvel `auth.users`. Les profils des users existants sont à insérer manuellement après application de la migration. Fallback : si le profil est vide ou absent, on affiche *« un autre utilisateur »*.
+
+**Renseignement du profil à l'activation du compte** — `AcceptInvitePage` (BO, route `/accept-invite`) demande désormais à l'invité **prénom + nom** en plus du mot de passe ; à la validation, `upsert` sur `profiles` avec l'`id` de l'user courant. Le profil vide créé par le trigger à l'invitation est donc renseigné dès l'activation, sans intervention admin.
+
+### BO
+
+- **`LiveScorePage`** charge le user courant + batch-fetch des profils (`scored_by` distincts non-null) et les passe au menu kebab des cartes (`isOwnLive`). Au clic sur *Reprendre* d'un live qui ne nous appartient pas, un dialog *« Prendre le contrôle du live ? »* affiche le nom du gestionnaire actuel ; à la confirmation, `scored_by` est mis à `auth.uid()` puis redirection vers `/live-score/:id`.
+- **`LiveScoreEntry`** accepte une prop `forceDisabled?: boolean` qui s'ajoute au `readonly` interne (basé sur `status !== 'live'`).
+- **`LiveMatchPage`** s'abonne au Realtime (filtre `id=eq.${id}`). Si `scored_by` change vers un autre user, bandeau d'alerte *« Ce live a été repris par quelqu'un d'autre. Vous êtes en lecture seule. »* + `forceDisabled` passé au `LiveScoreEntry`.
+
+### PWA
+
+- **`MatchesPage`** batch-fetch les profils après le chargement TanStack Query des matchs, passe `profilesMap` à chaque `MatchCard`.
+- **`MatchCard`** : nouvelle branche d'actions `isLive && isAuth && !isOwner` → bouton *« Prendre le contrôle »* (rouge clair) qui ouvre une modale de confirmation avec le nom du gestionnaire actuel ; `handleTakeover` met `scored_by = userId` et redirige vers `/matches/:id/score`.
+- **`LiveScoreEntry`** accepte `forceDisabled?: boolean`.
+- **`LiveMatchPage`** : guard initial **inchangé** (redirige avec flash si live appartient à un autre user lors d'un accès direct par URL). Nouveau : abonnement Realtime filtré sur l'ID du match → bandeau *« lecture seule »* + `forceDisabled` si `scored_by` change pendant qu'on est sur la page.
+
+---
+
 ## Évolutions v2
 
 - Auth admin dans la PWA pour la saisie du score directement depuis l'app publique.

@@ -48,6 +48,13 @@ export default function LiveMatchPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingError, setSavingError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setCurrentUserId(data.session?.user.id ?? null);
+    });
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -65,6 +72,21 @@ export default function LiveMatchPage() {
         setMatch(data as LiveMatch);
         setLoading(false);
       });
+
+    const channel = supabase
+      .channel(`live_match_bo_${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${id}` },
+        (payload) => {
+          setMatch(payload.new as LiveMatch);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id]);
 
   const applyPatch = async (patch: Partial<LiveMatch>) => {
@@ -204,7 +226,23 @@ export default function LiveMatchPage() {
           </div>
         )}
 
-        <LiveScoreEntry match={match} onPatch={applyPatch} />
+        {(() => {
+          const hasLostControl =
+            match.status === 'live' &&
+            currentUserId !== null &&
+            match.scored_by !== null &&
+            match.scored_by !== currentUserId;
+          return (
+            <>
+              {hasLostControl && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                  ⚠️ Ce live a été repris par quelqu'un d'autre. Vous êtes en lecture seule.
+                </div>
+              )}
+              <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl} />
+            </>
+          );
+        })()}
 
         {savingError && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

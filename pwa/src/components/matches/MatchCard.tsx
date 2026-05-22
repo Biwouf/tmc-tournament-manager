@@ -6,12 +6,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
-import type { LiveMatch, LiveMatchWinner } from '../../types';
+import type { LiveMatch, LiveMatchWinner, Profile } from '../../types';
 import LiveBadge from './LiveBadge';
 
 interface Props {
   match: LiveMatch;
   userId: string | null;
+  profilesMap: Record<string, Profile>;
 }
 
 interface SetState {
@@ -118,11 +119,12 @@ function PlayerRow({
   );
 }
 
-export default function MatchCard({ match, userId }: Props) {
+export default function MatchCard({ match, userId, profilesMap }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showTakeoverModal, setShowTakeoverModal] = useState(false);
 
   const isLive = match.status === 'live';
   const isPending = match.status === 'pending';
@@ -179,6 +181,24 @@ export default function MatchCard({ match, userId }: Props) {
     navigate(`/matches/${match.id}/score`);
   };
 
+  const handleTakeover = async () => {
+    if (!userId) return;
+    setBusy(true);
+    setActionError(null);
+    const { error } = await supabase
+      .from('live_matches')
+      .update({ scored_by: userId })
+      .eq('id', match.id);
+    if (error) {
+      setActionError(error.message);
+      setBusy(false);
+      return;
+    }
+    setShowTakeoverModal(false);
+    refresh();
+    navigate(`/matches/${match.id}/score`);
+  };
+
   const handleDelete = async () => {
     if (!confirm('Supprimer ce match ? Cette action est irréversible.')) return;
     setBusy(true);
@@ -225,6 +245,17 @@ export default function MatchCard({ match, userId }: Props) {
           Libérer
         </button>
       </div>
+    );
+  } else if (isLive && isAuth && !isOwner) {
+    actions = (
+      <button
+        type="button"
+        onClick={() => setShowTakeoverModal(true)}
+        disabled={busy}
+        className="min-h-11 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+      >
+        Prendre le contrôle
+      </button>
     );
   } else if (isFinished && isAuth) {
     actions = (
@@ -300,6 +331,44 @@ export default function MatchCard({ match, userId }: Props) {
       {actionError && (
         <p className="text-xs text-red-600">{actionError}</p>
       )}
+
+      {showTakeoverModal && (() => {
+        const profile = match.scored_by ? profilesMap[match.scored_by] : null;
+        const managerName =
+          profile && (profile.prenom || profile.nom)
+            ? `${profile.prenom} ${profile.nom}`.trim()
+            : 'un autre utilisateur';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl flex flex-col gap-4">
+              <h2 className="text-base font-semibold text-foreground">Prendre le contrôle ?</h2>
+              <p className="text-sm text-muted-foreground">
+                Ce live est actuellement géré par{' '}
+                <span className="font-medium text-foreground">{managerName}</span>.
+                Si vous prenez le contrôle, cette personne passera en lecture seule.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleTakeover}
+                  disabled={busy}
+                  className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  Prendre le contrôle
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTakeoverModal(false)}
+                  disabled={busy}
+                  className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
