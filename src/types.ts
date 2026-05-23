@@ -220,6 +220,7 @@ export interface LiveMatch {
   set3_tb_j2: number | null;
 
   winner: LiveMatchWinner | null;
+  retired_player: LiveMatchWinner | null;
   started_at: string | null;
   finished_at: string | null;
   created_at: string;

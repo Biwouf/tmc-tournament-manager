@@ -100,6 +100,7 @@ export interface LiveMatch {
   set3_tb_j2: number | null;
 
   winner: LiveMatchWinner | null;
+  retired_player: LiveMatchWinner | null; // 'j1' | 'j2' si le match s'est terminé par un abandon — sinon null
 
   started_at: string | null;           // ISO 8601 — renseigné au passage en `live` (sert au tri "En live" — plus récent d'abord)
   finished_at: string | null;          // ISO 8601 — renseigné à la fin du match (pour la règle des 2 jours)
@@ -121,6 +122,7 @@ export interface LiveMatch {
 
 - `supabase/migrations/20260519_live_matches_court.sql` — ajoute la colonne `court TEXT` (nullable, sans défaut).
 - `supabase/migrations/20260523_live_matches_started_at.sql` — ajoute la colonne `started_at TIMESTAMPTZ` (nullable, sans défaut).
+- `supabase/migrations/20260523_live_matches_retired_player.sql` — ajoute la colonne `retired_player live_match_winner` (nullable). Renseignée lors d'un abandon ; le vainqueur (`winner`) reste défini comme pour une fin de match normale.
 
 ---
 
@@ -311,8 +313,13 @@ Set 2 :  [−] [0] [+]           [−] [0] [+]
 - Si oui : status passe à `finished`, `winner` et `finished_at` sont renseignés. Un message de confirmation s'affiche à l'écran.
 
 **Bouton "Annuler la fin de match"** (visible uniquement si `status = 'finished'`) :
-- Remet le match en `status = 'live'`, vide `winner` et `finished_at`.
-- Permet à l'opérateur de corriger une erreur de saisie.
+- Remet le match en `status = 'live'`, vide `winner`, `finished_at` et `retired_player`.
+- Permet à l'opérateur de corriger une erreur de saisie (y compris un abandon mal déclaré).
+
+**Abandon d'un joueur** (visible uniquement si `status = 'live'` et que l'opérateur est bien le gestionnaire courant) :
+- Sous le `LiveScoreEntry`, un bouton secondaire ambre **« Abandon d'un joueur »** ouvre un panneau inline (état local `showRetireConfirm`) : *« Quel joueur abandonne ? »* + deux boutons nommés (via `getTeamLabel`) + un bouton « Annuler ».
+- Au clic sur un joueur, le match passe en `status = 'finished'` avec `winner` = adversaire, `retired_player` = joueur ayant abandonné, `finished_at` = maintenant. Le score est figé à l'état courant — aucun set/point n'est modifié.
+- Les cartes (BO `LiveMatchCard`, PWA `MatchCard`) affichent un badge **« Abandon »** (fond `amber-100` / texte `amber-800`) sur les matchs terminés par abandon, à côté du libellé vainqueur.
 
 ---
 

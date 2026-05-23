@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { LiveMatch } from '../types';
+import type { LiveMatch, LiveMatchWinner } from '../types';
 import { getMatchWinner, getTeamLabel } from '../liveScoreRules';
 import LiveScoreEntry from '../components/matches/LiveScoreEntry';
 import { useAuth } from '../hooks/useAuth';
@@ -49,6 +49,7 @@ export default function LiveMatchPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingError, setSavingError] = useState<string | null>(null);
+  const [showRetireConfirm, setShowRetireConfirm] = useState(false);
 
   useEffect(() => {
     if (!id || authLoading) return;
@@ -132,6 +133,22 @@ export default function LiveMatchPage() {
       status: 'live',
       winner: null,
       finished_at: null,
+      retired_player: null,
+    };
+    setMatch({ ...match, ...patch });
+    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id);
+    if (error) setSavingError(error.message);
+    else setSavingError(null);
+  };
+
+  const handleRetire = async (retiredPlayer: LiveMatchWinner) => {
+    if (!match) return;
+    const winner: LiveMatchWinner = retiredPlayer === 'j1' ? 'j2' : 'j1';
+    const patch: Partial<LiveMatch> = {
+      status: 'finished',
+      winner,
+      retired_player: retiredPlayer,
+      finished_at: new Date().toISOString(),
     };
     setMatch({ ...match, ...patch });
     const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id);
@@ -212,6 +229,7 @@ export default function LiveMatchPage() {
           user !== null &&
           match.scored_by !== null &&
           match.scored_by !== user.id;
+        const canRetire = match.status === 'live' && !hasLostControl;
         return (
           <>
             {hasLostControl && (
@@ -220,6 +238,46 @@ export default function LiveMatchPage() {
               </div>
             )}
             <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl} />
+            {canRetire && (
+              !showRetireConfirm ? (
+                <button
+                  onClick={() => setShowRetireConfirm(true)}
+                  className="min-h-11 self-start rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
+                >
+                  Abandon d'un joueur
+                </button>
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-medium text-amber-900">Quel joueur abandonne ?</p>
+                  <div className="mt-2 flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        handleRetire('j1');
+                        setShowRetireConfirm(false);
+                      }}
+                      className="min-h-11 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
+                    >
+                      {getTeamLabel(match, 1)} abandonne
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleRetire('j2');
+                        setShowRetireConfirm(false);
+                      }}
+                      className="min-h-11 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
+                    >
+                      {getTeamLabel(match, 2)} abandonne
+                    </button>
+                    <button
+                      onClick={() => setShowRetireConfirm(false)}
+                      className="min-h-11 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
           </>
         );
       })()}
