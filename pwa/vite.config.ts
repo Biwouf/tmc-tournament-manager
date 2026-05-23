@@ -25,12 +25,15 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => url.hostname.includes('supabase.co'),
+            urlPattern: ({ url }) =>
+              url.hostname.includes('supabase.co') &&
+              url.pathname.startsWith('/storage/v1/object/public/'),
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'supabase-api',
+              cacheName: 'supabase-storage',
               expiration: { maxAgeSeconds: 60 * 5 },
             },
           },

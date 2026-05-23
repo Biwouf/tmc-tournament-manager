@@ -149,6 +149,8 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS v4, `vite-plugin-pwa`, TanStack
 
 Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 
+> **Service Worker** — Le `runtimeCaching` de `VitePWA` (cf. `pwa/vite.config.ts`) ne couvre **que les assets Supabase Storage** (`/storage/v1/object/public/...`, buckets `actu-images` et `event-images`). L'API REST (`/rest/v1/...`), l'auth (`/auth/v1/...`) et Realtime ne sont **jamais** cachés par le SW — sinon les GET `live_matches` (et autres tables) seraient servis périmés après un PATCH, et la mise à jour live ne se verrait qu'au prochain event Realtime. Ne pas réintroduire de pattern large type `url.hostname.includes('supabase.co')`.
+
 ### Structure `pwa/src/`
 
 | Fichier | Rôle |
