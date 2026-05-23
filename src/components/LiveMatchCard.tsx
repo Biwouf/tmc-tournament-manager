@@ -361,8 +361,15 @@ export default function LiveMatchCard({ match, isOwnLive, onPrimary, onDelete }:
           <span className="font-semibold text-red-600 truncate">Live · en cours</span>
         )}
         {isFinished && match.winner && (
-          <span className="font-semibold text-emerald-700 truncate">
-            Vainqueur : {winnerName(match)}
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="font-semibold text-emerald-700 truncate">
+              Vainqueur : {winnerName(match)}
+            </span>
+            {match.retired_player !== null && (
+              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase bg-amber-100 text-amber-800 shrink-0">
+                Abandon
+              </span>
+            )}
           </span>
         )}
       </div>

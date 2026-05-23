@@ -299,6 +299,11 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
         {isFinished && (
           <span className="text-xs text-muted-foreground font-medium">Terminé</span>
         )}
+        {isFinished && match.retired_player !== null && (
+          <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-amber-100 text-amber-800">
+            Abandon
+          </span>
+        )}
         {match.court && (
           <span className="text-xs text-muted-foreground shrink-0 ml-auto">
             Court : {match.court}
