@@ -1,0 +1,1 @@
+ALTER TABLE live_matches ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
