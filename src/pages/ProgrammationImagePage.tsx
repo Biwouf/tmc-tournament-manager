@@ -26,6 +26,7 @@ interface Match {
   j2_nom: string;
   j2_classement: string;
   j2_club: string;
+  wo: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -48,13 +49,21 @@ ${TODAY},17:00,Hommes 4ème série,Nicolas,Fontaine,30/1,Hugo,Blanc,30/1`;
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Colonne `wo` CSV (optionnelle). Accepte WO / wo / 1 / true / oui (insensible à
+// la casse). Tout le reste, y compris colonne absente, vaut false.
+function parseWoCell(s: string | undefined): boolean {
+  if (!s) return false;
+  const v = s.trim().toLowerCase();
+  return v === 'wo' || v === '1' || v === 'true' || v === 'oui';
+}
+
 function parseCSV(text: string): Match[] {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
   return lines.slice(1).map(line => {
-    const [date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j2_prenom, j2_nom, j2_classement] =
+    const [date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j2_prenom, j2_nom, j2_classement, wo] =
       line.split(',').map(s => s.trim());
-    return { date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j1_club: '', j2_prenom, j2_nom, j2_classement, j2_club: '' };
+    return { date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j1_club: '', j2_prenom, j2_nom, j2_classement, j2_club: '', wo: parseWoCell(wo) };
   });
 }
 
@@ -156,6 +165,11 @@ async function parsePDF(file: File): Promise<Match[]> {
       // n'ont aucun nom à y≈150 → ignorés.
       if (!timeItem || names.length === 0) continue;
 
+      // Walkover : le token "WO" remplace les "... / ..." dans la zone score
+      // (y≈668 sur les PDF observés). On scanne toute la colonne — "WO"
+      // n'apparaît jamais ailleurs.
+      const wo = col.some(it => it.str.trim().toUpperCase() === 'WO');
+
       // Dans la colonne-match, j1 ≈ nc.x − 6 et j2 ≈ nc.x + 24 (même bande Y).
       const slotSplit = nc.x + 9;
       const j1NameItem = names.find(it => it.x < slotSplit) ?? null;
@@ -202,6 +216,7 @@ async function parsePDF(file: File): Promise<Match[]> {
         j2_nom: j2.nom,
         j2_classement: j2.classement,
         j2_club: j2.club,
+        wo,
       });
     }
   }
@@ -536,6 +551,7 @@ export default function ProgrammationImagePage() {
   const [transferError, setTransferError] = useState<string | null>(null);
   const [highlightedClub, setHighlightedClub] = useState<string | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [listExpanded, setListExpanded] = useState(false);
 
   const availableClubs = useMemo(() => {
     const clubs = new Set<string>();
@@ -546,11 +562,15 @@ export default function ProgrammationImagePage() {
     return [...clubs].sort();
   }, [matches]);
 
-  // Seuls les matchs aux deux joueurs identifiés peuvent partir vers Live Score.
+  // Seuls les matchs aux deux joueurs identifiés et non-WO peuvent partir vers Live Score.
   const transferableMatches = useMemo(
-    () => matches.filter((m) => m.j2_nom !== ''),
+    () => matches.filter((m) => !m.wo && m.j2_nom !== ''),
     [matches],
   );
+
+  // Matchs affichés sur l'affiche : on exclut les WO (forfait, aucun match à jouer).
+  // L'état `matches` source conserve tout — ce filtrage est purement applicatif.
+  const displayMatches = useMemo(() => matches.filter((m) => !m.wo), [matches]);
 
   useEffect(() => {
     supabase
@@ -569,7 +589,8 @@ export default function ProgrammationImagePage() {
     setTransferStatus('idle');
     setTransferError(null);
     setHighlightedClub(null);
-    const completeCount = matches.filter((m) => m.j2_nom !== '').length;
+    setListExpanded(false);
+    const completeCount = matches.filter((m) => !m.wo && m.j2_nom !== '').length;
     setSelectedIndices(new Set(Array.from({ length: completeCount }, (_, i) => i)));
   }, [matches]);
 
@@ -679,12 +700,12 @@ export default function ProgrammationImagePage() {
     setIsGenerating(false);
   }
 
-  const date = matches[0]?.date ?? '';
+  const date = displayMatches[0]?.date ?? '';
 
-  // Découpage en pages de MAX_PER_PAGE matches
+  // Découpage en pages de MAX_PER_PAGE matches (basé sur les matchs affichables, WO exclus)
   const pages: Match[][] = [];
-  for (let i = 0; i < matches.length; i += MAX_PER_PAGE) {
-    pages.push(matches.slice(i, i + MAX_PER_PAGE));
+  for (let i = 0; i < displayMatches.length; i += MAX_PER_PAGE) {
+    pages.push(displayMatches.slice(i, i + MAX_PER_PAGE));
   }
 
   return (
@@ -736,7 +757,7 @@ export default function ProgrammationImagePage() {
             </button>
           </div>
           <p className="text-xs text-muted-foreground font-mono">
-            Format attendu : date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_classement
+            Format attendu : date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_classement[,wo]
           </p>
           <textarea
             className="w-full rounded-lg border border-border bg-background p-3 text-sm font-mono h-36 resize-y focus:outline-none focus:ring-2 focus:ring-ring"
@@ -811,37 +832,48 @@ export default function ProgrammationImagePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected;
-                  }}
-                  checked={allSelected}
-                  disabled={selectionLocked}
-                  onChange={toggleMaster}
-                />
-                Tout sélectionner
-              </label>
-              <ul className="rounded-lg border border-border divide-y divide-border bg-background">
-                {transferableMatches.map((m, i) => (
-                  <li key={i}>
-                    <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none">
-                      <input
-                        type="checkbox"
-                        checked={selectedIndices.has(i)}
-                        disabled={selectionLocked}
-                        onChange={() => toggleOne(i)}
-                      />
-                      <span className="text-sm flex-1 min-w-0">
-                        <span className="font-medium">{m.heure || '—'}</span>
-                        <span className="text-muted-foreground"> · {m.type_tournoi || '—'} · </span>
-                        {m.j1_prenom} {m.j1_nom} vs {m.j2_prenom} {m.j2_nom}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected;
+                    }}
+                    checked={allSelected}
+                    disabled={selectionLocked}
+                    onChange={toggleMaster}
+                  />
+                  Tout sélectionner ({transferableMatches.length})
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setListExpanded((v) => !v)}
+                  className="text-sm text-muted-foreground underline hover:text-foreground"
+                >
+                  {listExpanded ? 'Masquer le détail' : 'Voir le détail'}
+                </button>
+              </div>
+              {listExpanded && (
+                <ul className="rounded-lg border border-border divide-y divide-border bg-background">
+                  {transferableMatches.map((m, i) => (
+                    <li key={i}>
+                      <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none">
+                        <input
+                          type="checkbox"
+                          checked={selectedIndices.has(i)}
+                          disabled={selectionLocked}
+                          onChange={() => toggleOne(i)}
+                        />
+                        <span className="text-sm flex-1 min-w-0">
+                          <span className="font-medium">{m.heure || '—'}</span>
+                          <span className="text-muted-foreground"> · {m.type_tournoi || '—'} · </span>
+                          {m.j1_prenom} {m.j1_nom} vs {m.j2_prenom} {m.j2_nom}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -867,10 +899,10 @@ export default function ProgrammationImagePage() {
         )}
 
         {/* Aperçu */}
-        {matches.length > 0 && (
+        {displayMatches.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">
-              Aperçu — {matches.length} match{matches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
+              Aperçu — {displayMatches.length} match{displayMatches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
             </h2>
             <div ref={posterRef} className="space-y-6">
               {pages.map((pageMatches, i) => (
