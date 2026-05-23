@@ -40,7 +40,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `pages/AppHomePage.tsx` | `/` | Dashboard — accès aux deux modules |
 | `pages/HomePage.tsx` | `/tmc-planning` | Liste des configurations sauvegardées |
 | `pages/TournamentPage.tsx` | `/tmc-planning/:id` | Écran principal TMC Planner (config + schedule) |
-| `pages/ProgrammationImagePage.tsx` | `/programmation-image` | Import PDF/CSV → rendu affiche → export JPEG. Bouton « Basculer vers Live Score » : insère tous les matchs détectés dans `live_matches` (status `pending`, match_type `simple`) avec un événement optionnel. |
+| `pages/ProgrammationImagePage.tsx` | `/programmation-image` | Import PDF/CSV → rendu affiche → export JPEG. Le `Match` local porte un flag `wo: boolean` (walkover) ; les matchs WO sont conservés dans l'état source mais exclus de `displayMatches` (rendu/pagination) et de `transferableMatches` (compteur + payload). Détection PDF : token `"WO"` dans la slice X de la colonne-match ; détection CSV : colonne `wo` optionnelle (valeurs `WO`/`wo`/`1`/`true`/`oui`). Bouton « Basculer vers Live Score » : insère tous les matchs détectés dans `live_matches` (status `pending`, match_type `simple`) avec un événement optionnel. |
 | `pages/EventsPage.tsx` | `/events` | Liste paginée des événements (toggle à venir / passés), actions modifier/dupliquer/supprimer |
 | `components/EventForm.tsx` | `/events/new`, `/events/:id/edit` | Formulaire création/édition d'événement (markdown preview, upload image Supabase Storage) |
 | `pages/LiveScorePage.tsx` | `/live-score` | Vue projetée sur TV en club (V1 TV Board). Header `← Accueil / Live Score` avec badge "N en cours" (rouge pulsant) si lives. 3 sections (En live / En attente / Terminés) en grid 2 colonnes ; header de section avec compteur coloré. Abonnement Supabase Realtime sur `live_matches`. Démarrer ouvre un dialog pour saisir le court. Batch-fetch des profils des gestionnaires actuels (`scored_by`) pour afficher leur nom dans le dialog *« Prendre le contrôle »* (warning quand l'opérateur clique sur le live d'un autre user). Container `max-w-[1400px]`. |
@@ -117,6 +117,7 @@ Voir `docs/specs/` :
 - `SCHEDULING_RULES.md` — règles de l'algo de planification (contraintes R1–R5)
 - `GEN_PROG.md` — spec du module Programmation Image
 - `GEN_PROG_TO_LIVE_SCORE.md` — basculement des matchs détectés depuis l'affiche vers Live Score (création en bloc dans `live_matches`)
+- `GEN_PROG_WO_FILTER.md` — exclusion des matchs walkover (WO) du rendu de l'affiche et du transfert Live Score (flag `wo` sur le `Match` local, détection PDF dans la slice de colonne + colonne CSV optionnelle)
 - `EVENTS.md` — spec du module Events (table Supabase `events`, bucket `event-images`, flux JSON)
 - `LIVE_SCORE.md` — spec du module Live Score (table Supabase `live_matches`, règles de score, UI back-office, préparation Realtime)
 - `ACTUS.md` — spec du module Actus (table Supabase `actus`, bucket `actu-images`, multi-images, brouillon/publié, lecture `anon` PWA)
