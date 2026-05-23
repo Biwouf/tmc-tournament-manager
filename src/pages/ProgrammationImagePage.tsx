@@ -551,6 +551,7 @@ export default function ProgrammationImagePage() {
   const [transferError, setTransferError] = useState<string | null>(null);
   const [highlightedClub, setHighlightedClub] = useState<string | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [listExpanded, setListExpanded] = useState(false);
 
   const availableClubs = useMemo(() => {
     const clubs = new Set<string>();
@@ -588,6 +589,7 @@ export default function ProgrammationImagePage() {
     setTransferStatus('idle');
     setTransferError(null);
     setHighlightedClub(null);
+    setListExpanded(false);
     const completeCount = matches.filter((m) => !m.wo && m.j2_nom !== '').length;
     setSelectedIndices(new Set(Array.from({ length: completeCount }, (_, i) => i)));
   }, [matches]);
@@ -830,37 +832,48 @@ export default function ProgrammationImagePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  ref={(el) => {
-                    if (el) el.indeterminate = someSelected;
-                  }}
-                  checked={allSelected}
-                  disabled={selectionLocked}
-                  onChange={toggleMaster}
-                />
-                Tout sélectionner
-              </label>
-              <ul className="rounded-lg border border-border divide-y divide-border bg-background">
-                {transferableMatches.map((m, i) => (
-                  <li key={i}>
-                    <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none">
-                      <input
-                        type="checkbox"
-                        checked={selectedIndices.has(i)}
-                        disabled={selectionLocked}
-                        onChange={() => toggleOne(i)}
-                      />
-                      <span className="text-sm flex-1 min-w-0">
-                        <span className="font-medium">{m.heure || '—'}</span>
-                        <span className="text-muted-foreground"> · {m.type_tournoi || '—'} · </span>
-                        {m.j1_prenom} {m.j1_nom} vs {m.j2_prenom} {m.j2_nom}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected;
+                    }}
+                    checked={allSelected}
+                    disabled={selectionLocked}
+                    onChange={toggleMaster}
+                  />
+                  Tout sélectionner ({transferableMatches.length})
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setListExpanded((v) => !v)}
+                  className="text-sm text-muted-foreground underline hover:text-foreground"
+                >
+                  {listExpanded ? 'Masquer le détail' : 'Voir le détail'}
+                </button>
+              </div>
+              {listExpanded && (
+                <ul className="rounded-lg border border-border divide-y divide-border bg-background">
+                  {transferableMatches.map((m, i) => (
+                    <li key={i}>
+                      <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none">
+                        <input
+                          type="checkbox"
+                          checked={selectedIndices.has(i)}
+                          disabled={selectionLocked}
+                          onChange={() => toggleOne(i)}
+                        />
+                        <span className="text-sm flex-1 min-w-0">
+                          <span className="font-medium">{m.heure || '—'}</span>
+                          <span className="text-muted-foreground"> · {m.type_tournoi || '—'} · </span>
+                          {m.j1_prenom} {m.j1_nom} vs {m.j2_prenom} {m.j2_nom}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
