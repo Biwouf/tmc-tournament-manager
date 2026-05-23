@@ -535,6 +535,7 @@ export default function ProgrammationImagePage() {
   const [transferStatus, setTransferStatus] = useState<TransferStatus>('idle');
   const [transferError, setTransferError] = useState<string | null>(null);
   const [highlightedClub, setHighlightedClub] = useState<string | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
   const availableClubs = useMemo(() => {
     const clubs = new Set<string>();
@@ -562,19 +563,46 @@ export default function ProgrammationImagePage() {
       });
   }, []);
 
-  // Reset le bouton de basculement et le highlight à chaque nouvelle importation (PDF/CSV)
+  // Reset le bouton de basculement, le highlight et la sélection à chaque nouvelle importation (PDF/CSV).
+  // La sélection est ré-initialisée à « tout coché » sur les matchs complets.
   useEffect(() => {
     setTransferStatus('idle');
     setTransferError(null);
     setHighlightedClub(null);
+    const completeCount = matches.filter((m) => m.j2_nom !== '').length;
+    setSelectedIndices(new Set(Array.from({ length: completeCount }, (_, i) => i)));
   }, [matches]);
 
+  const allSelected =
+    transferableMatches.length > 0 && selectedIndices.size === transferableMatches.length;
+  const noneSelected = selectedIndices.size === 0;
+  const someSelected = !allSelected && !noneSelected;
+  const selectionLocked = transferStatus === 'loading' || transferStatus === 'done';
+
+  function toggleMaster() {
+    if (noneSelected) {
+      setSelectedIndices(new Set(transferableMatches.map((_, i) => i)));
+    } else {
+      setSelectedIndices(new Set());
+    }
+  }
+
+  function toggleOne(i: number) {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
   async function handleTransfer() {
-    if (transferableMatches.length === 0) return;
+    const selected = transferableMatches.filter((_, i) => selectedIndices.has(i));
+    if (selected.length === 0) return;
     setTransferStatus('loading');
     setTransferError(null);
 
-    const payload = transferableMatches.map((m) => ({
+    const payload = selected.map((m) => ({
       match_date: m.date,
       start_time: m.heure || null,
       match_type: 'simple' as const,
@@ -756,7 +784,7 @@ export default function ProgrammationImagePage() {
         )}
 
         {/* Basculer vers Live Score */}
-        {matches.length > 0 && (
+        {transferableMatches.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <h2 className="text-lg font-semibold">Envoyer vers Live Score</h2>
             <p className="text-xs text-muted-foreground">
@@ -770,7 +798,7 @@ export default function ProgrammationImagePage() {
               <select
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(e.target.value)}
-                disabled={eventsLoading || transferStatus === 'loading' || transferStatus === 'done'}
+                disabled={eventsLoading || selectionLocked}
                 className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60"
               >
                 <option value="">{eventsLoading ? 'Chargement…' : 'Aucun événement'}</option>
@@ -782,14 +810,44 @@ export default function ProgrammationImagePage() {
               </select>
             </div>
 
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected;
+                  }}
+                  checked={allSelected}
+                  disabled={selectionLocked}
+                  onChange={toggleMaster}
+                />
+                Tout sélectionner
+              </label>
+              <ul className="rounded-lg border border-border divide-y divide-border bg-background">
+                {transferableMatches.map((m, i) => (
+                  <li key={i}>
+                    <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 select-none">
+                      <input
+                        type="checkbox"
+                        checked={selectedIndices.has(i)}
+                        disabled={selectionLocked}
+                        onChange={() => toggleOne(i)}
+                      />
+                      <span className="text-sm flex-1 min-w-0">
+                        <span className="font-medium">{m.heure || '—'}</span>
+                        <span className="text-muted-foreground"> · {m.type_tournoi || '—'} · </span>
+                        {m.j1_prenom} {m.j1_nom} vs {m.j2_prenom} {m.j2_nom}
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             <div className="flex items-center gap-3">
               <button
                 onClick={handleTransfer}
-                disabled={
-                  transferStatus === 'loading' ||
-                  transferStatus === 'done' ||
-                  transferableMatches.length === 0
-                }
+                disabled={selectionLocked || selectedIndices.size === 0}
                 className={
                   transferStatus === 'done'
                     ? 'rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-100'
@@ -797,9 +855,9 @@ export default function ProgrammationImagePage() {
                 }
               >
                 {transferStatus === 'loading' && 'Envoi…'}
-                {transferStatus === 'done' && `${transferableMatches.length} match${transferableMatches.length > 1 ? 's' : ''} ajouté${transferableMatches.length > 1 ? 's' : ''} ✓`}
+                {transferStatus === 'done' && `${selectedIndices.size} match(s) ajouté(s) ✓`}
                 {(transferStatus === 'idle' || transferStatus === 'error') &&
-                  `Basculer ${transferableMatches.length} match${transferableMatches.length > 1 ? 's' : ''} vers Live Score`}
+                  `Basculer ${selectedIndices.size} match(s) vers Live Score`}
               </button>
               {transferStatus === 'error' && transferError && (
                 <p className="text-sm text-destructive">{transferError}</p>
