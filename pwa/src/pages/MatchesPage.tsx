@@ -97,7 +97,14 @@ export default function MatchesPage() {
     return <div className="p-6 text-center text-muted-foreground">Impossible de charger les matchs.</div>;
   }
 
-  const liveMatches    = matches?.filter((m) => m.status === 'live')     ?? [];
+  const liveMatches    = matches
+    ?.filter((m) => m.status === 'live')
+    .sort((a, b) => {
+      if (a.started_at && b.started_at) return b.started_at.localeCompare(a.started_at);
+      if (a.started_at) return -1;
+      if (b.started_at) return 1;
+      return b.created_at.localeCompare(a.created_at);
+    }) ?? [];
   const pendingMatches = matches?.filter((m) => m.status === 'pending')  ?? [];
   const finishedMatches = matches?.filter((m) => m.status === 'finished') ?? [];
 

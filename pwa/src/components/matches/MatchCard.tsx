@@ -144,7 +144,12 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
     setActionError(null);
     const { error } = await supabase
       .from('live_matches')
-      .update({ status: 'live', scored_by: userId, court })
+      .update({
+        status: 'live',
+        scored_by: userId,
+        court,
+        started_at: new Date().toISOString(),
+      })
       .eq('id', match.id);
     if (error) {
       setActionError(error.message);

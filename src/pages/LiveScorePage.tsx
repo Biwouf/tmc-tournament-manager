@@ -75,7 +75,12 @@ export default function LiveScorePage() {
     const uid = sessionData.session?.user.id ?? null;
     const { error } = await supabase
       .from('live_matches')
-      .update({ status: 'live', scored_by: uid, court: value.trim() || null })
+      .update({
+        status: 'live',
+        scored_by: uid,
+        court: value.trim() || null,
+        started_at: new Date().toISOString(),
+      })
       .eq('id', matchId);
     if (error) {
       alert(`Erreur : ${error.message}`);
@@ -126,7 +131,14 @@ export default function LiveScorePage() {
 
   const handleLogout = () => supabase.auth.signOut();
 
-  const live = matches.filter((m) => m.status === 'live');
+  const live = matches
+    .filter((m) => m.status === 'live')
+    .sort((a, b) => {
+      if (a.started_at && b.started_at) return b.started_at.localeCompare(a.started_at);
+      if (a.started_at) return -1;
+      if (b.started_at) return 1;
+      return b.created_at.localeCompare(a.created_at);
+    });
   const pending = matches.filter((m) => m.status === 'pending');
   const finished = matches.filter((m) => m.status === 'finished');
 

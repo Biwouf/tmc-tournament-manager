@@ -101,6 +101,7 @@ export interface LiveMatch {
 
   winner: LiveMatchWinner | null;
 
+  started_at: string | null;           // ISO 8601 — renseigné au passage en `live` (sert au tri "En live" — plus récent d'abord)
   finished_at: string | null;          // ISO 8601 — renseigné à la fin du match (pour la règle des 2 jours)
   created_at: string;
   updated_at: string;
@@ -114,10 +115,12 @@ export interface LiveMatch {
 - **set3_format = 'normal'** : `set3_j1` / `set3_j2` sont des jeux (comme les sets 1 et 2). `set3_tb_j1` / `set3_tb_j2` ne sont renseignés qu'en cas de tiebreak (6/6).
 - `j1_club`, `j2_club` (et les doublistes) peuvent être vides (`""`). Rien n'est affiché dans ce cas.
 - `court` est `null` tant que le live n'a pas démarré. Il est saisi via un dialog au clic sur « Démarrer le live » (champ optionnel) et affiché sur les cartes BO et PWA.
+- `started_at` est `null` tant que le live n'a pas démarré. Renseigné côté client (`new Date().toISOString()`) dans le même `update()` que le passage en `status='live'`, par les producteurs BO (`LiveScorePage.confirmStart`) et PWA (`MatchCard.handleStart`). Ne PAS le re-écrire au « Annuler la fin de match » — l'horodatage du démarrage initial doit être préservé.
 
 ### Migrations complémentaires
 
 - `supabase/migrations/20260519_live_matches_court.sql` — ajoute la colonne `court TEXT` (nullable, sans défaut).
+- `supabase/migrations/20260523_live_matches_started_at.sql` — ajoute la colonne `started_at TIMESTAMPTZ` (nullable, sans défaut).
 
 ---
 
@@ -237,7 +240,8 @@ Vue conçue pour projection sur TV en club (V1 « TV Board »). Header `← Accu
 - Header de section : titre uppercase + badge compteur coloré (rouge / slate / emerald) + ligne de séparation
 - Grid `grid-cols-1 lg:grid-cols-2 gap-4` (2 colonnes max — cartes plus larges, score plus gros pour la TV)
 - Les matchs terminés depuis plus de 2 jours (`finished_at + 2j < now()`) affichent un badge **« À supprimer »** rouge dans le hero bar de la carte
-- Triés par `match_date` + `start_time` ASC dans chaque section
+- **En attente** et **Terminés** : triés par `match_date` + `start_time` ASC (ordre par défaut de la requête Supabase)
+- **En live** : tri client par `started_at` DESC (le plus récemment démarré en premier), fallback `created_at` DESC quand `started_at` est null. Tri côté client volontaire : à chaque UPDATE de score, le trigger `updated_at` réordonne la ligne dans le heap Postgres ; un tri DB par démarrage stable garde l'ordre figé. Logique répliquée à l'identique dans `pwa/src/pages/MatchesPage.tsx`.
 
 **Anatomie carte (`LiveMatchCard.tsx`) :**
 - **Hero bar** : bloc *Court* à gauche (background contextuel — rouge LIVE / sombre Finished / ambre Pending, label `Court` + valeur ou `— non assigné —`). À droite : chip `type_tournoi` (sombre), chip Simple/Double (slate clair), indicateur statut compact (point coloré + label, ou `LivePulse` + « en direct » pour LIVE), puis menu kebab (•••).
