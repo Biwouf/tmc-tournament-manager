@@ -61,6 +61,16 @@
   }
 }
 
+/* ─── Live Score — halo pulsant sur incrément d'une cellule de jeu ──────── */
+@keyframes scoreCellRingPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(229, 24, 40, 0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(229, 24, 40, 0); }
+}
+
+.animate-score-cell-ring {
+  animation: scoreCellRingPulse 700ms ease-out;
+}
+
 /* ─── Rendu Markdown (preview MarkdownEditor) ──────────────────────────── */
 .markdown-body ul {
   list-style: disc;

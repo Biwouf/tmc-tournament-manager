@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import type { LiveMatch, LiveMatchWinner, Profile } from '../../types';
 import LiveBadge from './LiveBadge';
+import AnimatedScoreCell from './AnimatedScoreCell';
 
 interface Props {
   match: LiveMatch;
@@ -27,6 +28,7 @@ interface SetCell {
   value: number;
   tb: number | null;
   emphasized: boolean;
+  animate: boolean;
 }
 
 function computeSetWinner(j1: number, j2: number, isSuperTb: boolean): LiveMatchWinner | null {
@@ -58,11 +60,12 @@ function buildSets(match: LiveMatch): SetState[] {
     }));
 }
 
-function cellsForSide(sets: SetState[], side: LiveMatchWinner): SetCell[] {
-  return sets.map((s) => ({
+function cellsForSide(sets: SetState[], side: LiveMatchWinner, activeSetIndex: number): SetCell[] {
+  return sets.map((s, i) => ({
     value: side === 'j1' ? s.j1 : s.j2,
     tb: side === 'j1' ? s.tbJ1 : s.tbJ2,
     emphasized: s.winner === side,
+    animate: i === activeSetIndex,
   }));
 }
 
@@ -76,16 +79,17 @@ function playerLabel(match: LiveMatch, side: LiveMatchWinner): string {
   return partner ? `${main} / ${partner}` : main;
 }
 
-function ScoreCell({ value, tb, emphasized }: SetCell) {
+function ScoreCell({ value, tb, emphasized, animate }: SetCell) {
   return (
-    <span
-      className={`inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-md text-sm font-bold tabular-nums ${
+    <AnimatedScoreCell
+      value={value}
+      tb={tb}
+      animate={animate}
+      className={`min-w-7 h-7 px-1.5 rounded-md text-sm font-bold tabular-nums ${
         emphasized ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
       }`}
-    >
-      {value}
-      {tb !== null && <sup className="ml-0.5 text-[9px] font-semibold opacity-80">{tb}</sup>}
-    </span>
+      tbClassName="absolute top-0 right-0.5 text-[8px] font-semibold opacity-80 leading-none"
+    />
   );
 }
 
@@ -131,6 +135,7 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
   const isPending = match.status === 'pending';
   const isFinished = match.status === 'finished';
   const sets = buildSets(match);
+  const activeSetIndex = isLive ? sets.findIndex((s) => s.winner === null) : -1;
   const showClassement = match.match_type === 'simple';
 
   const isAuth = !!userId;
@@ -328,13 +333,13 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
           name={playerLabel(match, 'j1')}
           classement={showClassement ? match.j1_classement : null}
           isWinner={match.winner === 'j1'}
-          cells={cellsForSide(sets, 'j1')}
+          cells={cellsForSide(sets, 'j1', activeSetIndex)}
         />
         <PlayerRow
           name={playerLabel(match, 'j2')}
           classement={showClassement ? match.j2_classement : null}
           isWinner={match.winner === 'j2'}
-          cells={cellsForSide(sets, 'j2')}
+          cells={cellsForSide(sets, 'j2', activeSetIndex)}
         />
       </div>
 

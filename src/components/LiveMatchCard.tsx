@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { LiveMatch, LiveMatchWinner } from '../types';
 import LivePulse from './LivePulse';
+import AnimatedScoreCell from './AnimatedScoreCell';
 
 interface Props {
   match: LiveMatch;
@@ -21,6 +22,7 @@ interface SetCell {
   value: number;
   tb: number | null;
   emphasized: boolean;
+  animate: boolean;
 }
 
 interface TeamMember {
@@ -67,11 +69,12 @@ function buildSets(match: LiveMatch): SetState[] {
     }));
 }
 
-function cellsForSide(sets: SetState[], side: LiveMatchWinner): SetCell[] {
-  return sets.map((s) => ({
+function cellsForSide(sets: SetState[], side: LiveMatchWinner, activeSetIndex: number): SetCell[] {
+  return sets.map((s, i) => ({
     value: side === 'j1' ? s.j1 : s.j2,
     tb: side === 'j1' ? s.tbJ1 : s.tbJ2,
     emphasized: s.winner === side,
+    animate: i === activeSetIndex,
   }));
 }
 
@@ -134,18 +137,17 @@ function KebabIcon() {
   );
 }
 
-function ScoreCell({ value, tb, emphasized }: SetCell) {
+function ScoreCell({ value, tb, emphasized, animate }: SetCell) {
   return (
-    <span
-      className={`relative inline-flex items-center justify-center w-12 h-12 rounded-lg text-2xl font-bold tabular-nums ${
+    <AnimatedScoreCell
+      value={value}
+      tb={tb}
+      animate={animate}
+      className={`w-12 h-12 rounded-lg text-2xl font-bold tabular-nums ${
         emphasized ? 'bg-foreground text-background shadow-sm' : 'bg-slate-100 text-slate-700'
       }`}
-    >
-      {value}
-      {tb !== null && (
-        <sup className="absolute top-1.5 right-1.5 text-[10px] font-bold opacity-80 leading-none">{tb}</sup>
-      )}
-    </span>
+      tbClassName="absolute top-1.5 right-1.5 text-[10px] font-bold opacity-80 leading-none"
+    />
   );
 }
 
@@ -262,8 +264,9 @@ export default function LiveMatchCard({ match, isOwnLive, onPrimary, onDelete }:
   const isPending = match.status === 'pending';
 
   const sets = buildSets(match);
-  const cellsJ1 = cellsForSide(sets, 'j1');
-  const cellsJ2 = cellsForSide(sets, 'j2');
+  const activeSetIndex = isLive ? sets.findIndex((s) => s.winner === null) : -1;
+  const cellsJ1 = cellsForSide(sets, 'j1', activeSetIndex);
+  const cellsJ2 = cellsForSide(sets, 'j2', activeSetIndex);
   const toDelete = needsDeletionBadge(match);
 
   const cardClass = isLive
