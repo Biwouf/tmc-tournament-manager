@@ -21,6 +21,7 @@ import {
   isSet3Needed,
   getTeamLabel,
 } from '../liveScoreRules';
+import AnimatedScoreCell from './AnimatedScoreCell';
 
 interface Props {
   match: LiveMatch;
@@ -32,12 +33,14 @@ function PlusMinusCell({
   value,
   canInc,
   canDec,
+  animate,
   onInc,
   onDec,
 }: {
   value: number;
   canInc: boolean;
   canDec: boolean;
+  animate: boolean;
   onInc: () => void;
   onDec: () => void;
 }) {
@@ -51,7 +54,11 @@ function PlusMinusCell({
       >
         −
       </button>
-      <div className="w-10 text-center font-mono text-2xl font-semibold tabular-nums">{value}</div>
+      <AnimatedScoreCell
+        value={value}
+        animate={animate}
+        className="h-10 w-10 rounded-lg font-mono text-2xl font-semibold tabular-nums"
+      />
       <button
         type="button"
         onClick={onInc}
@@ -84,6 +91,7 @@ function NormalSetRow({
   const showTb = inTb || ((set.j1 === 7 && set.j2 === 6) || (set.j2 === 7 && set.j1 === 6));
 
   const canInc = !disabled && canIncrementNormal(set);
+  const animate = !disabled && winner === null;
 
   return (
     <div className="rounded-xl border border-border bg-background/60 p-4">
@@ -102,6 +110,7 @@ function NormalSetRow({
           value={set.j1}
           canInc={canInc}
           canDec={!disabled && canDecrementNormal(set, 'j1')}
+          animate={animate}
           onInc={() => onChange(incrementNormal(set, 'j1'))}
           onDec={() => onChange(decrementNormal(set, 'j1'))}
         />
@@ -109,6 +118,7 @@ function NormalSetRow({
           value={set.j2}
           canInc={canInc}
           canDec={!disabled && canDecrementNormal(set, 'j2')}
+          animate={animate}
           onInc={() => onChange(incrementNormal(set, 'j2'))}
           onDec={() => onChange(decrementNormal(set, 'j2'))}
         />
@@ -148,6 +158,7 @@ function SuperTbRow({
 }) {
   const canInc = !disabled && canIncrementSuperTb(set);
   const winner = getSuperTbWinner(set);
+  const animate = !disabled && winner === null;
   return (
     <div className="rounded-xl border border-border bg-background/60 p-4">
       <div className="flex items-center gap-3">
@@ -163,6 +174,7 @@ function SuperTbRow({
           value={set.j1}
           canInc={canInc}
           canDec={!disabled && canDecrementSuperTb(set, 'j1')}
+          animate={animate}
           onInc={() => onChange(incrementSuperTb(set, 'j1'))}
           onDec={() => onChange(decrementSuperTb(set, 'j1'))}
         />
@@ -170,6 +182,7 @@ function SuperTbRow({
           value={set.j2}
           canInc={canInc}
           canDec={!disabled && canDecrementSuperTb(set, 'j2')}
+          animate={animate}
           onInc={() => onChange(incrementSuperTb(set, 'j2'))}
           onDec={() => onChange(decrementSuperTb(set, 'j2'))}
         />
