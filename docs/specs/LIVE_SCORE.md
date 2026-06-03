@@ -454,6 +454,37 @@ const { data } = await supabase
 
 Les matchs `finished` du jour restent affichés jusqu'à minuit (retirés à `match_date < today`).
 
+### Dialog de saisie du court au démarrage (PWA — `MatchCard.tsx`)
+
+Au clic sur « Démarrer le live », un dialog de saisie du court est affiché **avant** la mise à jour Supabase — identique au comportement BO.
+
+**État :** `const [courtInput, setCourtInput] = useState<string | null>(null);` — `null` = dialog fermé.
+
+**Flux :**
+1. Clic « Démarrer le live » → `setCourtInput('')`
+2. Dialog : titre *« Quel court ? »*, sous-titre *« Laissez vide si le court n'est pas encore défini. »*, champ texte autofocus, bouton **Démarrer** (primaire), bouton **Annuler**
+3. Entrée ou clic Démarrer → `handleStart(courtInput.trim() || null)`, dialog fermé
+4. Annuler → `setCourtInput(null)`, aucune mise à jour
+
+**`handleStart` :**
+```ts
+const handleStart = async (court: string | null) => {
+  if (!userId) return;
+  setBusy(true);
+  const { error } = await supabase
+    .from('live_matches')
+    .update({ status: 'live', scored_by: userId, court })
+    .eq('id', match.id);
+  if (error) { setActionError(error.message); setBusy(false); return; }
+  setCourtInput(null);
+  refresh();
+  navigate(`/matches/${match.id}/score`);
+};
+```
+
+**Ne pas toucher :** `handleTakeover` (le court est déjà assigné), `handleRelease`, `handleDelete`, `handleResume`.
+La colonne `court` existe depuis `supabase/migrations/20260519_live_matches_court.sql`.
+
 ---
 
 ## Prise de contrôle forcée (BO + PWA)

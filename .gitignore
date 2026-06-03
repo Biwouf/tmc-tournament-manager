@@ -25,3 +25,9 @@ dist-ssr
 
 # PDF de test local (contient des données personnelles, non versionné)
 public/template_pdf.pdf
+
+# Outils locaux et exports (non versionnés)
+tools/
+
+# Briefs de feature/correctif (contexte local, non versionné)
+docs/briefs/

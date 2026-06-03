@@ -1,14 +1,14 @@
-# Spec — Module Actus (Back-office)
+# Spec — Module Actus
 
 > Statut : implémenté
-> Dernière mise à jour : 2026-05-06
+> Dernière mise à jour : 2026-06-03
 
 ---
 
 ## Objectif
 
 Permettre aux admins de rédiger et publier des actualités du club depuis le back-office.
-Les actus publiées sont servies à la PWA CAC Tennis. À terme, une publication vers la page Facebook du club pourra être ajoutée.
+Les actus publiées sont servies à la PWA CAC Tennis. Une publication vers la page Facebook du club est disponible depuis le formulaire.
 
 ---
 
@@ -16,10 +16,9 @@ Les actus publiées sont servies à la PWA CAC Tennis. À terme, une publication
 
 - Module back-office CRUD (liste + formulaire)
 - Stockage Supabase (table `actus` + bucket `actu-images`)
-- **Multi-images** : 0..N images facultatives par actu
+- **Multi-images** : 0..N images facultatives par actu, avec point de focus et légende Facebook par image
 - Flux JSON consommé par la PWA (lecture publique via rôle `anon`, uniquement les actus publiées)
-
-Hors scope v1 : publication automatique sur Facebook.
+- Publication optionnelle vers la page Facebook du club (Supabase Edge Function `post-to-facebook`)
 
 ---
 
@@ -39,6 +38,7 @@ export interface Actu {
   contenu: string;             // Markdown
   image_urls: string[];        // 0..N images
   image_focal_points: (ActuFocalPoint | null)[]; // tableau parallèle à image_urls
+  image_captions: string[];    // tableau parallèle à image_urls (légendes Facebook)
   published: boolean;          // false = brouillon, true = publié
   published_at: string | null; // première publication, jamais écrasé
   created_at: string;
@@ -48,11 +48,17 @@ export interface Actu {
 
 `image_focal_points[i]` correspond à `image_urls[i]`. Chaque entrée est soit `null` (centre par défaut 50/50), soit `{ x, y }` en pourcentages 0–100.
 
+`image_captions[i]` correspond à `image_urls[i]`. Une chaîne vide `""` = pas de légende envoyée à Facebook.
+
 ---
 
 ## Infrastructure Supabase
 
-Migration : `supabase/migrations/20260426_actus.sql`.
+### Migrations
+
+- `supabase/migrations/20260426_actus.sql` — table + RLS + bucket
+- `supabase/migrations/20260506_actus_focal_points.sql` — colonne `image_focal_points` (JSONB)
+- `supabase/migrations/YYYYMMDD_actus_image_captions.sql` — colonne `image_captions` (TEXT[])
 
 ### Table `actus`
 
@@ -62,7 +68,8 @@ CREATE TABLE actus (
   titre                TEXT        NOT NULL,
   contenu              TEXT        NOT NULL,
   image_urls           TEXT[]      NOT NULL DEFAULT '{}',
-  image_focal_points   JSONB       NOT NULL DEFAULT '[]'::jsonb, -- patch 20260506
+  image_focal_points   JSONB       NOT NULL DEFAULT '[]'::jsonb,
+  image_captions       TEXT[]      NOT NULL DEFAULT '{}',
   published            BOOLEAN     NOT NULL DEFAULT false,
   published_at         TIMESTAMPTZ,
   created_at           TIMESTAMPTZ DEFAULT now() NOT NULL,
@@ -98,6 +105,14 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
 - Route principale : `/actus`
 - Pages : `src/pages/ActusPage.tsx` + `src/components/ActuForm.tsx`
 
+### Routes (`App.tsx`)
+
+```tsx
+<Route path="/actus"          element={auth(<ActusPage />)} />
+<Route path="/actus/new"      element={auth(<ActuForm />)} />
+<Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
+```
+
 ---
 
 ### Page liste — `ActusPage.tsx` (`/actus`)
@@ -110,9 +125,9 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
 
 **Actions sur chaque carte :**
 - **Modifier** → `/actus/:id/edit`
-- **Publier** (si `published = false`) → `published = true` ; renseigne `published_at = now()` **uniquement si `published_at` est null** (conserve la date de première publication)
+- **Publier** (si `published = false`) → `published = true` ; renseigne `published_at = now()` **uniquement si `published_at` est null**
 - **Dépublier** (si `published = true`) → `published = false` ; `published_at` inchangé
-- **Supprimer** → `window.confirm` → suppression en base + suppression de toutes les images du bucket (`image_urls`)
+- **Supprimer** → `window.confirm` → suppression en base + suppression de toutes les images du bucket
 
 **Bouton « Créer une actu »** : en haut à droite → `/actus/new`.
 
@@ -128,97 +143,154 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
 | Champ | Composant | Obligatoire | Notes |
 |---|---|---|---|
 | Titre | `<input type="text">` | Oui | |
-| Contenu | Textarea + onglet Aperçu | Oui | Markdown, même pattern que `EventForm` |
-| Images | Input file multiple + grille d'aperçus + bouton retirer + clic pour définir le point de focus | Non (0..N) | JPEG/PNG, max 5 Mo / fichier, bucket `actu-images` |
+| Contenu | `MarkdownEditor` | Oui | Markdown |
+| Images | Input file multiple + grille d'aperçus + bouton retirer + focal point + légende Facebook | Non (0..N) | JPEG/PNG, max 5 Mo |
 
 **Gestion des images (multi) :**
 
 - Sélection multiple via input file (`multiple`).
-- Aperçus :
-  - Images existantes (édition) : récupérées depuis `image_urls`, marquables pour suppression.
-  - Nouveaux fichiers : aperçu local via `URL.createObjectURL`, badge « Nouveau ».
-- Bouton **« Retirer »** par image :
-  - Sur image existante → marque pour suppression du bucket à la sauvegarde.
-  - Sur nouveau fichier → retire de la sélection avant upload.
-- **Point de focus par image** : chaque aperçu est cliquable (overlay `cursor-crosshair`). Le clic met à jour le focal point de l'image (coordonnées en pourcentages 0–100 par rapport au cadre de prévisualisation), un marqueur le matérialise et l'image est rendue en preview avec `object-position: x% y%`. Valeur par défaut à l'ajout : `{ x: 50, y: 50 }`. Les images existantes sans focal point en base sont initialisées à 50/50 dans l'état local.
+- Aperçus : images existantes (marquables pour suppression) + nouveaux fichiers (badge « Nouveau »).
+- Bouton **« Retirer »** par image.
+- **Point de focus** : overlay cliquable `cursor-crosshair`, marqueur, preview `object-position: x% y%`. Valeur par défaut : `{ x: 50, y: 50 }`.
+- **Légende Facebook** : `<textarea>` 2-3 lignes sous chaque vignette, placeholder « Légende Facebook (optionnelle) », hint « Visible uniquement quand l'image est ouverte en plein écran sur Facebook ». Lié à un état parallèle `image_captions`.
 - À la soumission :
-  1. Upsert de l'actu (sans toucher `image_urls` ni `image_focal_points`).
+  1. Upsert de l'actu (sans toucher `image_urls`, `image_focal_points`, `image_captions`).
   2. Suppression dans le bucket des images marquées.
   3. Upload des nouveaux fichiers.
-  4. Update de `image_urls` + `image_focal_points` avec les listes finales (existantes restantes + nouvelles uploadées, dans le même ordre).
+  4. Update de `image_urls` + `image_focal_points` + `image_captions` avec les listes finales.
+
+**Validation côté client :**
+- Titre : non vide.
+- Contenu : non vide.
+- Chaque image : JPEG/PNG, max 5 Mo.
 
 **Boutons de soumission :**
 - **« Enregistrer en brouillon »** → `published = false`.
 - **« Publier »** → `published = true` + `published_at = now()` si `published_at` est null.
 
-**Validation côté client :**
-- Titre : non vide.
-- Contenu : non vide.
-- Chaque image : JPEG/PNG, max 5 Mo (les fichiers invalides sont ignorés et un message d'erreur s'affiche).
-
----
-
-## Routes (App.tsx)
-
-```tsx
-<Route path="/actus"          element={auth(<ActusPage />)} />
-<Route path="/actus/new"      element={auth(<ActuForm />)} />
-<Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
-```
-
----
-
-## Fichiers livrés
+**Options de publication Facebook** (bloc visible en permanence, désactivé si `published = true`) :
 
 ```
-src/
-  pages/ActusPage.tsx       # Liste + badge brouillon/publié, actions publier/dépublier/supprimer
-  components/ActuForm.tsx   # Formulaire création/édition + multi-images + focal point
-  types.ts                  # Interfaces Actu, ActuFocalPoint
-supabase/migrations/
-  20260426_actus.sql                # Table + RLS + bucket + policies
-  20260506_actus_focal_points.sql   # Ajout colonne image_focal_points (JSONB[])
+☐  Publier aussi sur Facebook
+   └─ (visible uniquement si la case ci-dessus est cochée)
+      ☐  Mode debug (post caché — visible uniquement par les admins de la page)
 ```
+
+- Les deux cases sont décochées par défaut ; ignorées si on clique « Enregistrer en brouillon ».
+- Flux à la soumission ("Publier") :
+  1. Sauvegarde normale de l'actu (flux existant inchangé).
+  2. Si « Publier aussi sur Facebook » coché : appel à l'Edge Function `post-to-facebook` avec `{ actu_id, debug }`.
+  3. Affichage d'un état de chargement inline, puis message vert (lien vers le post) ou rouge (erreur détaillée).
+  4. Navigation vers `/actus` seulement après le retour de l'Edge Function.
 
 ---
 
 ## Feature : Focal Point
 
-> Scope : backoffice (`ActuForm.tsx`) + PWA (`ActuCard`, `ActuDetailPage`)
 > Approche : focal point CSS — stockage de coordonnées x/y, rendu via `object-position`
-
-### Problème
-
-Les images uploadées sont affichées avec `object-fit: cover` dans la PWA. Sans indication de point d'intérêt, le navigateur centre l'image par défaut, ce qui tronque les sujets décalés (visages en bord de cadre, texte en bas, etc.). Le problème est accentué sur la vue liste (miniatures format paysage ou carré).
-
-### Approche retenue
-
-Pas de recadrage de l'image originale. On stocke `{ x, y }` (pourcentages 0–100) par image et on l'applique via `object-position: {x}% {y}%`. Aucun re-upload, l'image originale est conservée intacte dans le bucket.
 
 ### Backoffice — `ActuForm.tsx`
 
-Chaque aperçu d'image dans la grille contient :
+Chaque aperçu contient :
+1. L'image avec `object-fit: cover` + `object-position: {x}% {y}%`
+2. Un overlay cliquable `cursor: crosshair` — clic : `x = (e.offsetX / imgWidth) * 100`, idem Y
+3. Un marqueur (cercle 12px, `mix-blend-mode: difference`)
+4. Label discret `"Point de focus"`
 
-1. **L'image** avec `object-fit: cover` + `object-position: {x}% {y}%` (preview en temps réel)
-2. **Un overlay cliquable** (position absolute, `cursor: crosshair`) — au clic : `x = (e.offsetX / imgWidth) * 100`, `y = (e.offsetY / imgHeight) * 100`
-3. **Un marqueur** (cercle 12px, `mix-blend-mode: difference`) positionné aux coordonnées actuelles
-4. **Label discret** `"Point de focus"` pour signaler la fonctionnalité
-
-État local : `DEFAULT_FOCAL_POINT = { x: 50, y: 50 }` à l'ajout d'une image. Les actus existantes sans focal point sont initialisées à 50/50 dans l'état local.
-
-L'overlay ne doit pas interférer avec le bouton "Retirer" existant. Le désactiver si l'image est en cours de chargement.
+`DEFAULT_FOCAL_POINT = { x: 50, y: 50 }`. Actus existantes sans focal point initialisées à 50/50 localement.
 
 ### Contraintes de synchronisation
 
-- `image_focal_points` et `image_urls` doivent rester en sync.
-- Retrait d'une image à l'index `i` → retirer aussi `image_focal_points[i]`.
-- Ajout d'une image → push `{ x: 50, y: 50 }` dans focal_points.
+- `image_focal_points`, `image_urls` et `image_captions` doivent rester en sync.
+- Retrait à l'index `i` → retirer aussi `image_focal_points[i]` et `image_captions[i]`.
+- Ajout → push `{ x: 50, y: 50 }` dans focal_points, `""` dans captions.
 
-### Hors scope v1
+---
 
-- Crop manuel de l'image.
-- Focal point sur les images d'événements (`EventForm`).
-- Migration des actus existantes (le fallback `50% 50%` suffit).
+## Supabase Edge Function — `post-to-facebook`
+
+### Fichier
+
+`supabase/functions/post-to-facebook/index.ts`
+
+### Variables d'environnement (Supabase Secrets)
+
+| Clé | Valeur |
+|---|---|
+| `FACEBOOK_PAGE_ID` | ID numérique de la page Facebook |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | Page Access Token longue durée |
+
+### Input (POST body JSON)
+
+```ts
+{ actu_id: string; debug: boolean; }
+```
+
+### Authentification
+
+L'Edge Function vérifie `Authorization: Bearer {supabase_jwt}`. Rejeter avec 401 si absent.
+
+### Algorithme
+
+**1.** Récupérer l'actu :
+```ts
+const { data: actu } = await supabaseAdmin
+  .from('actus')
+  .select('titre, contenu, image_urls, image_captions')
+  .eq('id', actu_id)
+  .single();
+```
+
+**2.** Construire le message texte — seul `contenu` est envoyé, dépouillé du Markdown (images inline, HTML, marqueurs MD). Conserver les sauts de ligne.
+
+**3.** Collecter toutes les images :
+- Sources : `actu.image_urls` + images inline extraites du contenu Markdown via `/!\[.*?\]\((https?:\/\/[^)]+)\)/g`
+- Dédupliquer (conserver l'ordre).
+
+**4.** Construire une `Map<url, caption>` :
+1. `image_captions[i]` pour les URLs de `image_urls` (saisie BO).
+2. Texte alternatif des images inline Markdown `![alt](url)`.
+
+**5.** Uploader les images sur Facebook :
+```
+POST https://graph.facebook.com/v19.0/me/photos
+  ?published=false&url={image_url}&caption={caption}&access_token=...
+```
+Ajouter `caption` uniquement si non vide. En cas d'échec → stopper et renvoyer l'erreur.
+
+**6.** Créer le post :
+```json
+POST https://graph.facebook.com/v19.0/me/feed
+{
+  "message": "{message texte}",
+  "published": !debug,
+  "attached_media": [{ "media_fbid": "..." }, ...],
+  "access_token": "..."
+}
+```
+Si aucune image : omettre `attached_media`.
+
+> Note : utiliser `/me/` (pas `/{page_id}/`) avec un Page Access Token — contourne le bug FB `(#200) Unpublished posts must be posted to a page as the page itself`.
+
+### Réponse
+
+Succès : `{ "success": true, "post_id": "...", "post_url": "https://www.facebook.com/{page_id}/posts/{post_id}" }`
+Erreur : `{ "success": false, "error": "...", "detail": { ... } }`
+
+### Gestion des erreurs
+
+| Cas | Message |
+|---|---|
+| Actu introuvable | `"Actu introuvable (id: {actu_id})"` |
+| Non authentifié | `"Erreur d'authentification — reconnectez-vous."` |
+| Échec upload image | `"Erreur lors de l'upload de l'image {url} : {msg} (code {code})"` |
+| Échec création post | `"Erreur lors de la création du post Facebook : {msg} (code {code})"` |
+| Token expiré (code 190) | `"Le token Facebook a expiré — veuillez le renouveler dans les variables d'environnement Supabase."` |
+| Erreur réseau | `"Erreur réseau lors de la communication avec Facebook."` |
+
+### Mode debug
+
+Quand `debug = true` : le post Facebook est créé avec `published: false` (visible uniquement par les admins de la page). Le message de succès BO précise : `"Post publié en mode caché (visible uniquement par les admins de la page)."`.
 
 ---
 
@@ -227,8 +299,6 @@ L'overlay ne doit pas interférer avec le bouton "Retirer" existant. Le désacti
 > Consommé par `pwa/src/pages/ActusPage.tsx` et `pwa/src/pages/ActuDetailPage.tsx`.
 
 ### Type TypeScript (`pwa/src/types.ts`)
-
-Synchroniser avec `src/types.ts` :
 
 ```ts
 export interface ActuFocalPoint { x: number; y: number; }
@@ -239,6 +309,7 @@ export interface Actu {
   contenu: string;
   image_urls: string[];
   image_focal_points: (ActuFocalPoint | null)[];
+  image_captions: string[];
   published: boolean;
   published_at: string | null;
   created_at: string;
@@ -259,9 +330,9 @@ const { data } = await supabase
 
 ### Pages
 
-**`ActusPage.tsx`** — flux vertical paginé (load more) par `published_at` DESC. Chaque carte : image, titre, extrait 2-3 lignes tronqué, date de publication formatée. État vide : "Aucune actualité pour l'instant".
+**`ActusPage.tsx`** — flux vertical paginé (load more) par `published_at` DESC. Chaque carte : image, titre, extrait 2-3 lignes, date de publication. État vide : "Aucune actualité pour l'instant".
 
-**`ActuDetailPage.tsx`** — titre, image full-width, date, contenu Markdown rendu via `react-markdown` + `rehype-raw` (pour le rendu `<u>` inséré par le MarkdownEditor). Bouton retour vers `/actus`.
+**`ActuDetailPage.tsx`** — titre, image full-width, date, contenu Markdown rendu via `react-markdown` + `rehype-raw`. Bouton retour vers `/actus`.
 
 ### Focal point (helper partagé)
 
@@ -273,8 +344,6 @@ export function focalPointStyle(fp: ActuFocalPoint | null | undefined): React.CS
 }
 ```
 
-Appliquer sur chaque `<img>` dans `ActuCard.tsx` et `ActuDetailPage.tsx` :
-
 ```tsx
 <img
   src={actu.image_urls[i]}
@@ -282,10 +351,46 @@ Appliquer sur chaque `<img>` dans `ActuCard.tsx` et `ActuDetailPage.tsx` :
 />
 ```
 
-Les actus sans `image_focal_points` (existantes avant la migration) sont gérées par le `?.` guard + le fallback `50% 50%`.
+---
+
+## Fichiers
+
+```
+src/
+  pages/ActusPage.tsx
+  components/ActuForm.tsx
+  types.ts
+
+pwa/src/
+  pages/ActusPage.tsx
+  pages/ActuDetailPage.tsx
+  components/actus/ActuCard.tsx
+  utils/focalPoint.ts
+  types.ts
+
+supabase/
+  migrations/
+    20260426_actus.sql
+    20260506_actus_focal_points.sql
+    YYYYMMDD_actus_image_captions.sql
+  functions/
+    post-to-facebook/index.ts
+```
+
+---
+
+## Notes d'implémentation
+
+- API Graph Facebook version `v19.0` (constante centralisée).
+- `supabaseAdmin` dans l'Edge Function utilise la `SERVICE_ROLE_KEY` (auto via `Deno.env`).
+- Ne pas stocker le `post_id` Facebook en base (hors scope).
+- La sauvegarde doit précéder l'appel à l'Edge Function (besoin de l'UUID).
+- `image_captions` n'est pas affiché côté PWA ni en consultation BO — uniquement métadonnée Facebook.
 
 ---
 
 ## Évolutions futures
 
-- Bouton **« Publier sur Facebook »** dans le formulaire : déclenche un appel à l'API Facebook Graph via une Supabase Edge Function (le Page Access Token reste côté serveur, jamais exposé dans le client).
+- Republication / suppression d'un post Facebook existant.
+- Analytics Facebook.
+- Publication automatique sans action manuelle.

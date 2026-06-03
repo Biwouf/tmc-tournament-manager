@@ -21,7 +21,16 @@ Avant toute intervention sur le code, lire **`docs/CODEBASE.md`** pour avoir la 
 Les specs sont dans `docs/specs/` :
 - `SCHEDULING_RULES.md` — règles de l'algo de planification
 - `GEN_PROG.md` — module Programmation Image
+- `LIVE_SCORE.md` — module Live Score (BO + PWA)
+- `PWA.md` — PWA CAC Tennis (architecture, fonctionnalités, PTR)
+- `ACTUS.md` — module Actus (BO + PWA + publication Facebook)
+- `EVENTS.md` — module Événements
+- `SHARED_COMPONENTS.md` — composants partagés
 - *(nouveaux modules → créer un fichier dédié dans ce dossier)*
+
+### Briefs de feature et de correctif
+
+Tout brief de feature ou de correctif (contexte, objectif, périmètre) doit être déposé dans **`docs/briefs/`** avant de commencer le développement. Ce dossier est dans le `.gitignore` — les briefs ne sont pas versionnés.
 
 ### Migrations Supabase
 
