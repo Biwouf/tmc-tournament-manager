@@ -86,7 +86,7 @@ Copier-coller d'un CSV dans une zone de texte, puis clic sur « Générer l'aper
 **Schéma attendu** (ligne d'en-tête obligatoire) :
 
 ```
-date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_classement
+date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_classement[,wo]
 ```
 
 | Colonne | Format | Exemple |
@@ -100,10 +100,11 @@ date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_class
 | `j2_prenom` | Texte | `Pierre` |
 | `j2_nom` | Texte | `Martin` |
 | `j2_classement` | Classement FFT | `15/2` |
+| `wo` | Optionnelle | `"WO"`, `"wo"`, `"1"`, `"true"`, `"oui"` → `true` ; sinon → `false` |
 
 > Le club n'est **pas** dans le schéma CSV. Les champs `j1_club` / `j2_club` resteront vides (`""`) pour les matchs importés via CSV.
 
-Un bouton « Charger des données de test » pré-remplit le textarea avec `FAKE_CSV` (8 matchs). La date des matchs de test est générée à l'exécution (`new Date().toISOString().split('T')[0]`) afin de pouvoir tester le basculement vers Live Score sans modifier le CSV manuellement.
+Un bouton « Charger des données de test » pré-remplit le textarea avec `FAKE_CSV` (8 matchs). La date des matchs de test est générée à l'exécution (`new Date().toISOString().split('T')[0]`) afin de pouvoir tester le basculement vers Live Score sans modifier le CSV manuellement. Le `FAKE_CSV` n'inclut pas de matchs WO.
 
 ---
 
@@ -122,8 +123,25 @@ interface Match {
   j2_nom: string;
   j2_classement: string;
   j2_club: string;        // vide si import CSV
+  wo: boolean;            // true si walkover — défaut false
 }
 ```
+
+Un match incomplet = `Match` avec `j2_nom === ""`. Pas de champ `incomplete` supplémentaire.
+
+---
+
+## Filtrage avant rendu
+
+```ts
+// Matchs non-WO uniquement (avant pagination)
+const displayMatches = matches.filter(m => !m.wo);
+
+// Matchs transférables vers Live Score (complets + non-WO)
+const transferableMatches = matches.filter(m => !m.wo && m.j2_nom !== "");
+```
+
+`matches` (état React) conserve tous les matchs parsés, WO inclus.
 
 ---
 
@@ -252,6 +270,7 @@ Les téléchargements sont déclenchés séquentiellement.
 | `transferStatus` | `'idle'\|'loading'\|'done'\|'error'` | État du bouton « Basculer vers Live Score » |
 | `transferError` | `string \| null` | Message d'erreur du transfert |
 | `highlightedClub` | `string \| null` | Club sélectionné dans le sélecteur « Mettre en valeur un club ». `null` = aucun. Repassé à `null` à chaque changement de `matches`. |
+| `selectedMatchIndices` | `Set<number>` | Indices dans `transferableMatches` sélectionnés. Initialisé avec tous les indices. Réinitialisé à chaque changement de `matches`. |
 
 ---
 
@@ -280,22 +299,37 @@ Le module GEN_PROG structure les matchs en mémoire (joueurs, classements, clubs
 
 ### Interface — zone "Envoyer vers Live Score"
 
-**Condition d'affichage :** `matches.length > 0`. Positionnée au-dessus de l'affiche, avant le rendu des pages.
+**Condition d'affichage :** `transferableMatches.length > 0`. Positionnée au-dessus de l'affiche.
 
-Composants :
+Composants (dans l'ordre) :
 1. **Titre** "Envoyer vers Live Score"
-2. **`<select>` événement** — chargé au montage depuis `events` (tri `start_date` DESC). Option par défaut : "Aucun événement". Désactivé pendant le chargement et après transfert réussi.
-3. **Bouton** avec états :
-   - Idle : "Basculer N match(s) vers Live Score"
-   - Loading : "Envoi…" (désactivé)
-   - Done : "N match(s) ajouté(s) ✓" (désactivé, style succès)
-   - Error : label idle réactivé + message d'erreur inline
+2. **`<select>` événement** — chargé au montage depuis `events` (tri `start_date` DESC). Option par défaut : "Aucun événement". Désactivé après transfert réussi.
+3. **Liste de sélection des matchs** (composant inline, pas de modale)
+4. **Bouton de transfert**
 
-L'état `transferStatus` se réinitialise à `'idle'` à chaque changement de la liste `matches` (nouveau PDF/CSV importé).
+### Liste de sélection
+
+**En-tête** : case à cocher maître (`indeterminate` si sélection partielle) + libellé "Tout sélectionner".
+- Coché ou indéterminé → clic déselectionne tout.
+- Décoché → clic sélectionne tout.
+
+**Lignes** : une par match de `transferableMatches`. Chaque ligne : case individuelle · heure · type de tournoi · joueurs (`j1_prenom j1_nom vs j2_prenom j2_nom`). Clic sur la ligne entière → toggle.
+
+### Bouton de transfert
+
+| État | Libellé |
+|---|---|
+| Idle, N > 0 | `"Basculer N match(s) vers Live Score"` |
+| Idle, N = 0 | `"Basculer 0 match(s) vers Live Score"` (désactivé) |
+| Loading | `"Envoi…"` (désactivé) |
+| Done | `"N match(s) ajouté(s) ✓"` (désactivé, style succès) |
+| Error | Libellé idle réactivé + message d'erreur inline |
+
+L'état `transferStatus` et `selectedMatchIndices` se réinitialisent à chaque changement de `matches`.
 
 ### Mapping Match → LiveMatch
 
-Pour chaque `Match`, insérer dans `live_matches` :
+Pour chaque `Match` sélectionné (`transferableMatches.filter((_, i) => selectedMatchIndices.has(i))`), insérer dans `live_matches` :
 
 | Champ `live_matches` | Valeur |
 |---|---|
@@ -342,6 +376,14 @@ Pour chaque `Match`, insérer dans `live_matches` :
 
 ---
 
+## Détection WO (PDF)
+
+Sur un match WO, le token `"WO"` remplace les scores habituels. Calibré sur `public/feuille_de_pointage_wo.pdf` : token `"WO"` à y ≈ 668, dans la slice X `[nc.x - 15, nc.x + 50]`. Scanner tous les items de la slice — `wo: true` si l'un est `"WO"` (insensible à la casse). Aucune contrainte Y supplémentaire.
+
+Les matchs WO sont conservés dans `matches` mais exclus de `displayMatches` (affiche) et de `transferableMatches` (Live Score).
+
+---
+
 ## Matchs à adversaire unique (PDF)
 
 Certains blocs du PDF Ten'Up ne contiennent qu'un seul joueur identifié — l'adversaire n'est pas encore désigné. Cette section décrit la gestion de ces blocs de bout en bout.
@@ -379,7 +421,7 @@ Quand `match.j2_nom === ""` :
 
 ### Basculement vers Live Score
 
-Les matchs incomplets (`j2_nom === ""`) sont **exclus** du transfert. Seuls les matchs avec deux joueurs identifiés sont envoyés à Supabase.
+Les matchs WO et les matchs incomplets (`j2_nom === ""`) sont **exclus** du transfert. Seuls les matchs avec deux joueurs identifiés sont envoyés à Supabase.
 
 Conséquences :
 - Le compteur du bouton (`"Basculer N match(s) vers Live Score"`) ne compte que les matchs complets.

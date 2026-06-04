@@ -424,6 +424,114 @@ VitePWA({
 
 ---
 
+## Feature : Pull-to-Refresh (Actus & Événements)
+
+> Module PWA · `pwa/src/`
+
+### Objectif
+
+Geste "tirer pour rafraîchir" sur `/actus` et `/evenements`. Implémenté via un hook natif (Pointer Events) — aucune librairie externe.
+
+### Comportement
+
+1. Tirer vers le bas depuis le haut de la liste (scroll à 0).
+2. Spinner apparaît progressivement en haut de la zone.
+3. Seuil atteint (~80 px) → spinner se fixe, rechargement déclenché.
+4. Données rechargées → spinner disparaît.
+5. Tirage partiel → snap-back sans rechargement.
+6. Rechargement en cours → geste ignoré.
+7. Desktop (souris) → aucun effet.
+
+### Fichiers à créer / modifier
+
+#### `pwa/src/hooks/usePullToRefresh.ts` — nouveau
+
+```ts
+function usePullToRefresh(options: {
+  onRefresh: () => Promise<void>;
+  isRefreshing: boolean;
+  containerRef: React.RefObject<HTMLElement>;
+}): { pullProgress: number; isDragging: boolean }
+```
+
+**Logique :**
+- `pointerdown` sur `containerRef.current` ; `pointermove / pointerup / pointercancel` sur `document`.
+- Listener `touchmove` **non-passif** sur `containerRef.current` avec `e.preventDefault()` quand `delta > 0` — indispensable pour éviter que le scroll natif consomme le geste (envoie un `pointercancel` après ~10-15 px).
+- S'active uniquement si `pointerType === 'touch'`, `scrollTop === 0` au `pointerdown`, `isRefreshing === false`.
+- `THRESHOLD = 80` px. `pullProgress = Math.min(deltaY / THRESHOLD, 1)`.
+- Au `pointerup` : si `pullProgress === 1` → appelle `onRefresh()` ; sinon → reset.
+- `isDragging` : couper la transition CSS pendant le tirage actif.
+
+#### `pwa/src/components/layout/PullToRefreshWrapper.tsx` — nouveau
+
+```ts
+interface Props {
+  onRefresh: () => Promise<void>;
+  isRefreshing: boolean;
+  children: React.ReactNode;
+}
+```
+
+Structure : `<div ref={containerRef} className="overflow-y-auto h-full relative">` avec indicateur spinner en `absolute`.
+
+**Comportement visuel :**
+- Repos : `translateY(-48px)` (caché). Seuil atteint : `translateY(12px)`.
+- Rotation : `rotate(${pullProgress * 360}deg)` pendant tirage ; `spin` CSS continu pendant `isRefreshing`.
+- Transition `transform 0.2s ease` uniquement pendant snap-back (pas pendant tirage actif).
+- `children` se translate de `translateY(${pullProgress * 60}px)` pendant tirage.
+- Spinner : SVG inline (cercle arc manquant), couleur `text-primary`.
+
+#### `pwa/src/pages/ActusPage.tsx` — modification
+
+```tsx
+const { data, fetchNextPage, isFetching, isFetchingNextPage, isError, hasNextPage, refetch } =
+  useInfiniteQuery({ ... });
+
+const isRefreshing = isFetching && !isFetchingNextPage;
+
+return (
+  <PullToRefreshWrapper onRefresh={async () => { await refetch(); }} isRefreshing={isRefreshing}>
+    {/* contenu existant inchangé */}
+  </PullToRefreshWrapper>
+);
+```
+
+#### `pwa/src/pages/EventsPage.tsx` — modification
+
+```tsx
+const { data: events, isLoading, isError, isFetching, refetch } = useQuery({ ... });
+
+return (
+  <PullToRefreshWrapper onRefresh={async () => { await refetch(); }} isRefreshing={isFetching}>
+    {/* contenu existant inchangé */}
+  </PullToRefreshWrapper>
+);
+```
+
+### Ce qui ne change pas
+
+- `AppHeader`, `BottomNav`, routing.
+- `ActuCard`, `EventCard`.
+- Aucune dépendance npm ajoutée.
+- Comportement "Voir plus" de `ActusPage`.
+
+### Contraintes
+
+- `PullToRefreshWrapper` prend `100%` de la hauteur et gère le scroll vertical.
+- Ne pas interférer avec le scroll horizontal ni les swipes React Router.
+- Tester sur iOS Safari (PWA installée) et Android Chrome — désactiver `overscroll-behavior-y: contain` si conflit avec PTR natif du navigateur.
+
+### Critères de succès
+
+- [ ] Tirage déclenche rechargement visible sur Actus et Événements
+- [ ] Tirage partiel < seuil → snap-back, pas de rechargement
+- [ ] Rechargement en cours → pas de second déclenchement
+- [ ] Spinner disparaît dès les données rechargées
+- [ ] Desktop (souris) → aucun effet
+- [ ] Pas de conflit avec PTR natif iOS/Android
+
+---
+
 ## Évolutions futures (hors scope v1 — ne pas implémenter)
 
 - Notifications push (service worker déjà prêt via `vite-plugin-pwa`)
