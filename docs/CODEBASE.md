@@ -139,6 +139,33 @@ Voir `docs/specs/` :
 - Table `profiles` (id/prenom/nom, FK `auth.users(id)`, RLS lecture libre `authenticated` + `anon`, écriture sur son propre profil, trigger `on_auth_user_created` qui crée un profil vide à chaque nouveau user) : migration `supabase/migrations/20260521_profiles.sql`. Utilisée pour afficher le nom du gestionnaire actuel dans le warning *« Prendre le contrôle »* (BO + PWA). Les profils existants sont à insérer manuellement après application de la migration. |
 - Table `actus` (`image_urls TEXT[]`, `image_focal_points JSONB`, `image_captions TEXT[]`, `published`, `published_at`) + bucket `actu-images` + RLS `anon`/`authenticated` : migrations `supabase/migrations/20260426_actus.sql` puis `supabase/migrations/20260426_actus_image_urls.sql` (patch `image_url` → `image_urls`) puis `supabase/migrations/20260506_actus_focal_points.sql` (ajout `image_focal_points` parallèle à `image_urls`) puis `supabase/migrations/20260510_actus_image_captions.sql` (ajout `image_captions` — légendes Facebook par photo, BO-only)
 - Policies RLS `anon` (lecture publique pour PWA) : à ajouter sur `events` et `live_matches` (voir `docs/specs/PWA.MD`). Déjà en place sur `actus`.
+- GRANTs explicites par rôle sur les 4 tables existantes (`events`, `live_matches`, `actus`, `profiles`) : migration `supabase/migrations/20260603_grant_public_tables.sql`. Voir section *Migrations Supabase* ci-dessous.
+
+---
+
+## Migrations Supabase
+
+Les migrations vivent dans `supabase/migrations/`, nommées `YYYYMMDD_<nom_court>.sql`. Application via le dashboard Supabase (SQL Editor) ou `supabase db push`.
+
+### Convention GRANTs (obligatoire à partir d'oct. 2026)
+
+À partir du 30 octobre 2026, Supabase n'expose plus automatiquement les tables du schéma `public` à l'API Data : un `GRANT` explicite par rôle est requis. **Chaque `CREATE TABLE` dans `public` doit donc être immédiatement suivi de ses `GRANT`**, alignés sur les policies RLS prévues.
+
+Template :
+
+```sql
+CREATE TABLE IF NOT EXISTS ma_table (...);
+ALTER TABLE ma_table ENABLE ROW LEVEL SECURITY;
+
+-- Policies RLS
+-- CREATE POLICY ... ON ma_table ...
+
+-- GRANTs (à aligner sur les rôles cités dans les policies)
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ma_table TO authenticated;
+GRANT SELECT                         ON TABLE public.ma_table TO anon;
+```
+
+Règle pratique : ne grant que ce que la RLS autorise (principe du moindre privilège). Si une table n'est pas exposée à la PWA publique, retirer la ligne `anon`.
 
 ---
 
