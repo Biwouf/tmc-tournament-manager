@@ -144,8 +144,10 @@ export default function TeamMatchLineModal({
 
           {/* Joueurs adverses */}
           <fieldset className="space-y-3 rounded-xl border border-border bg-background/60 p-4">
-            <legend className="px-2 text-sm font-semibold">Joueurs adverses</legend>
-            <p className="px-1 text-xs text-muted-foreground">Club : {clubAdverse}</p>
+            <legend className="px-2 text-sm font-semibold">
+              Joueurs adverses
+              <span className="ml-1.5 font-normal text-muted-foreground">· {clubAdverse}</span>
+            </legend>
             {adverse.map((j, i) => (
               <JoueurFields
                 key={i}
