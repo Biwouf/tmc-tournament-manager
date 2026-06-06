@@ -7,13 +7,14 @@
 
 ## Vue d'ensemble
 
-Application React/TypeScript pour gérer des tournois de tennis TMC (Tournoi Multi-Chances). Cinq modules indépendants :
+Application React/TypeScript pour gérer des tournois de tennis TMC (Tournoi Multi-Chances). Six modules indépendants :
 
 1. **TMC Planner** — configuration + génération automatique du planning multi-tournois
 2. **Programmation Image** — import d'une feuille FFT/TEN'UP (PDF ou CSV) → export affiche JPEG
 3. **Events** — CRUD backoffice d'événements du club (Supabase + Storage)
 4. **Live Score** — saisie en temps réel du score d'un match (Supabase + Realtime pour PWA future)
 5. **Actus** — CRUD backoffice des actualités du club (Markdown + multi-images, brouillon/publié)
+6. **Matches par équipe** — gestion des rencontres interclubs (référentiel saisons/compétitions/équipes, rencontres, score, photos, bascule Live Score)
 
 Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage), localStorage (persistance TMC), react-markdown.
 
@@ -25,7 +26,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 
 | Fichier | Rôle |
 |---|---|
-| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match` — inclut `bracket: MatchBracket`, `MatchBracket`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent` — inclut `team_matches: TeamMatch[] \| null`, `EventType`, `TeamMatch`, `TeamMatchGender`, `TeamMatchType`, `LiveMatch` — inclut `started_at: string \| null` (horodatage du démarrage, sert au tri "En live") et `retired_player: LiveMatchWinner \| null` (renseigné en cas d'abandon), `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`, `Profile` (id/prenom/nom — gestionnaires de lives), `Actu` — inclut `image_captions` (légendes affichées en PWA), `ActuFocalPoint`) |
+| `types.ts` | Tous les types TypeScript du projet (`GlobalConfig`, `TournamentConfig`, `Match` — inclut `bracket: MatchBracket`, `MatchBracket`, `ScheduledMatch`, `Schedule`, `TournamentEntry`, `DailyTimeSlot`, `TennisRanking`, `Gender`, `ClubEvent` — inclut `team_matches: TeamMatch[] \| null`, `EventType`, `TeamMatch`, `TeamMatchGender`, `TeamMatchType`, `LiveMatch` — inclut `started_at: string \| null` (horodatage du démarrage, sert au tri "En live") et `retired_player: LiveMatchWinner \| null` (renseigné en cas d'abandon), `LiveMatchStatus`, `LiveMatchType`, `LiveSet3Format`, `LiveMatchWinner`, `Profile` (id/prenom/nom — gestionnaires de lives), `Actu` — inclut `image_captions` (légendes affichées en PWA), `ActuFocalPoint`, et les types du module Matches par équipe : `TeamSaison`, `TeamCompetition` (+ `TeamCompetitionNom`, `TeamType`, `TeamGenre`, `TeamCategorie`, `TeamFormat`), `TeamEquipe` (+ `TeamDivision`, `TeamStadeFinale`), `TeamEtape`, `TeamRencontre`, `TeamMatchLine` (+ `TeamJoueur`, `TeamMatchLineType`, `TeamMatchGagnant`)) |
 | `tmcLogic.ts` | Génère les matchs TMC pour 4, 8, 12, 16 ou 24 joueurs. Entrée : `TournamentConfig`. Sortie : `Match[]`. Pas d'effet de bord. |
 | `scheduler.ts` | Algorithme de planification : génère les créneaux horaires (`generateTimeSlots`), distribue les matchs (`generateSchedule`) et tente de placer les matchs non planifiés après ajustement manuel (`retryUnscheduledMatches`). La contrainte 4h est trackée par `(tournoi, bracket)`. La stratégie de remplissage est contrôlée par `GlobalConfig.slotFillingStrategy` (`'smooth'` ou `'max'`). |
 | `moveMatch.ts` | Déplacement manuel d'un ou plusieurs matchs avec cascade automatique des tours suivants si la contrainte 4h est violée. Le check feeder utilise le bracket du match (helper `findFeederMatches`). Importe `generateTimeSlots` depuis `scheduler.ts`. |
@@ -37,7 +38,7 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | Fichier | Route | Rôle |
 |---|---|---|
 | `pages/LoginPage.tsx` | `/login` | Auth Supabase |
-| `pages/AppHomePage.tsx` | `/` | Dashboard — accès aux deux modules |
+| `pages/AppHomePage.tsx` | `/` | Dashboard — cartes d'accès aux modules (Actus, Événements, Live Score, Matches par équipe, Affiche, Planning, Admin) |
 | `pages/HomePage.tsx` | `/tmc-planning` | Liste des configurations sauvegardées |
 | `pages/TournamentPage.tsx` | `/tmc-planning/:id` | Écran principal TMC Planner (config + schedule) |
 | `pages/ProgrammationImagePage.tsx` | `/programmation-image` | Import PDF/CSV → rendu affiche → export JPEG. Le `Match` local porte un flag `wo: boolean` (walkover) ; les matchs WO sont conservés dans l'état source mais exclus de `displayMatches` (rendu/pagination) et de `transferableMatches` (compteur + payload). Détection PDF : token `"WO"` dans la slice X de la colonne-match ; détection CSV : colonne `wo` optionnelle (valeurs `WO`/`wo`/`1`/`true`/`oui`). Bouton « Basculer vers Live Score » : insère tous les matchs détectés dans `live_matches` (status `pending`, match_type `simple`) avec un événement optionnel. |
@@ -47,7 +48,12 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `pages/LiveMatchPage.tsx` | `/live-score/:id` | Saisie du score d'un match avec `LiveScoreEntry`. Détection auto de fin de match. Bouton "Annuler la fin de match" si finished. Abonnement Realtime filtré sur l'ID du match : si `scored_by` change vers un autre user, bandeau d'alerte *« Vous êtes en lecture seule »* + `forceDisabled` passé au `LiveScoreEntry`. |
 | `components/LiveMatchForm.tsx` | `/live-score/new` | Formulaire création d'un match (simple/double, joueurs, event lié optionnel parmi les events des 30 derniers jours). |
 | `pages/ActusPage.tsx` | `/actus` | Liste des actus (brouillons + publiées) triées DESC, badges Brouillon/Publié, actions publier/dépublier/modifier/supprimer. |
-| `components/ActuForm.tsx` | `/actus/new`, `/actus/:id/edit` | Formulaire création/édition d'actu (markdown preview, multi-images optionnelles avec sélection du point de focus par clic sur l'aperçu, deux boutons « Brouillon » / « Publier »). Au clic sur « Publier », une option « Publier aussi sur Facebook » (+ sous-option « Mode debug ») déclenche l'appel à l'Edge Function `post-to-facebook` ; le résultat (lien vers le post ou erreur) est affiché inline et la navigation vers `/actus` est suspendue jusqu'au retour. |
+| `components/ActuForm.tsx` | `/actus/new`, `/actus/:id/edit` | Formulaire création/édition d'actu (markdown preview, multi-images optionnelles avec sélection du point de focus par clic sur l'aperçu, deux boutons « Brouillon » / « Publier »). En création, lit `location.state = { titre?, image_urls? }` pour préremplir (utilisé par le bouton « Créer une actu » d'une rencontre par équipe). Au clic sur « Publier », une option « Publier aussi sur Facebook » (+ sous-option « Mode debug ») déclenche l'appel à l'Edge Function `post-to-facebook` ; le résultat (lien vers le post ou erreur) est affiché inline et la navigation vers `/actus` est suspendue jusqu'au retour. |
+| `pages/TeamMatchesPage.tsx` | `/team-matches` | Liste des équipes du club (filtres saison/compétition), badges de progression (poule Jx/N, éliminée, phase finale), création d'équipe (génère les étapes de poule J1..JN). Bouton « Admin » dans le header. |
+| `pages/TeamMatchesAdminPage.tsx` | `/team-matches/admin` | Admin du référentiel : CRUD saisons (une seule active à la fois) + CRUD compétitions (nom/type/genre/catégorie/format, genre & catégorie filtrés selon le type). |
+| `pages/TeamEquipePage.tsx` | `/team-matches/equipe/:id` | Détail d'une équipe : phase de poule (table des journées) + phase finale (table des stades). Bouton « Qualifier » (modale qualifiée/éliminée + stade de départ → génère les étapes de finale). |
+| `pages/TeamRencontrePage.tsx` | `/team-matches/rencontre/:id` | Suivi d'une rencontre : matches individuels (`TeamMatchLineModal`), score (`TeamScoreSection`), photos (`TeamPhotosSection`). Bascule chaque match vers `live_matches` (mapping équipe 1 = `j1`+`j3` = club, équipe 2 = `j2`+`j4` = adverse, `type_tournoi` = « compétition — étape »). À l'ouverture : `syncFromLive()` requête les lives liés et met à jour `gagnant` + recalcule le score si un live est terminé. |
+| `components/teamMatches/TeamRencontreForm.tsx` | `/team-matches/rencontre/new`, `/team-matches/rencontre/:id/edit` | Formulaire création/édition d'une rencontre (club adverse, date/heure, lieu). Contexte (compétition/étape/équipe) affiché en lecture seule. |
 | `pages/InvitePage.tsx` | `/admin/invite` | Formulaire admin pour inviter un nouvel utilisateur au BO. Deux actions : « Envoyer l'invitation » (email via Supabase) ou « Générer un lien à copier (sans email) » — fallback utile en cas de rate limit SMTP ou pour partage manuel. Route protégée par le guard auth. |
 | `pages/AcceptInvitePage.tsx` | `/accept-invite` | Page publique d'activation de compte. Supabase JS parse automatiquement le hash `#access_token=...&type=invite` (`detectSessionInUrl: true`). L'invité saisit son **prénom + nom** et son mot de passe ; à la validation, `supabase.auth.updateUser({ password })` puis `upsert` sur `profiles` (RLS `auth.uid() = id` autorise l'écriture de son propre profil), puis redirection vers `/`. |
 
@@ -69,6 +75,12 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `components/teamMatch/MatchRow.tsx` | `MatchSection` | Carte d'un match : champs gender/matchType/teamNumber/opponent/location/date/time, boutons ↑ ↓ ✕, badge "À compléter". |
 | `components/teamMatch/Segmented.tsx` | `MatchRow` | Boutons groupés générique (Genre, Lieu). |
 | `components/teamMatch/NumberPicker.tsx` | `MatchRow` | Sélecteur numéroté 1·2·3 (teamNumber). |
+| `components/teamMatches/teamMatchLabels.ts` | Pages/composants `teamMatches/` | Module helper (pas de React) du module Matches par équipe : libellés d'affichage (type/genre/catégorie/format/stade), contraintes genre/catégorie selon le type, `FORMAT_SPECS` (nb simples/doubles + points du double), helpers `competitionLabel` / `etapeLabel` / `stadesFromDepart` / `computeScore`. |
+| `components/teamMatches/TeamMatchesHeader.tsx` | Pages `teamMatches/` | Header partagé (back link + titre + sous-titre + actions + déconnexion). |
+| `components/teamMatches/TeamEquipeCard.tsx` | `TeamMatchesPage` | Carte d'une équipe (compétition, division, n°, saison, badge de statut, actions Voir/Supprimer). |
+| `components/teamMatches/TeamMatchLineModal.tsx` | `TeamRencontrePage` | Modale de saisie d'un match individuel (simple/double, joueurs club + adverses, prénom/nom/classement). |
+| `components/teamMatches/TeamScoreSection.tsx` | `TeamRencontrePage` | Section score final : saisie manuelle (2 inputs) si aucun live, sinon score calculé depuis les `gagnant` + bouton « Recalculer ». |
+| `components/teamMatches/TeamPhotosSection.tsx` | `TeamRencontrePage` | Upload multiple de photos (bucket `team-match-photos`, max 10 Mo), grille supprimable, bouton « Créer une actu » (navigation `/actus/new` avec `location.state = { titre, image_urls }`). |
 
 ### Infra
 
@@ -123,6 +135,7 @@ Voir `docs/specs/` :
 - `ACTUS.md` — spec du module Actus (table Supabase `actus`, bucket `actu-images`, multi-images, brouillon/publié, lecture `anon` PWA)
 - `ACTUS_FOCAL_POINT.md` — point de focus par image d'actu (colonne `image_focal_points`, overlay BO, helper CSS PWA `objectPosition`)
 - `ACTUS_FACEBOOK.md` — publication simultanée d'une actu sur la page Facebook du club via Edge Function `post-to-facebook` (checkboxes dans `ActuForm`, secrets `FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_ACCESS_TOKEN`)
+- `TEAM_MATCHES.md` — module Matches par équipe (référentiel saisons/compétitions/équipes/étapes, rencontres, matches individuels, bascule Live Score, photos → actu)
 - `PWA_PULL_TO_REFRESH.md` — pull-to-refresh PWA sur Actus & Événements (`usePullToRefresh` + `PullToRefreshWrapper`)
 
 ## Edge Functions Supabase
@@ -140,6 +153,7 @@ Voir `docs/specs/` :
 - Table `actus` (`image_urls TEXT[]`, `image_focal_points JSONB`, `image_captions TEXT[]`, `published`, `published_at`) + bucket `actu-images` + RLS `anon`/`authenticated` : migrations `supabase/migrations/20260426_actus.sql` puis `supabase/migrations/20260426_actus_image_urls.sql` (patch `image_url` → `image_urls`) puis `supabase/migrations/20260506_actus_focal_points.sql` (ajout `image_focal_points` parallèle à `image_urls`) puis `supabase/migrations/20260510_actus_image_captions.sql` (ajout `image_captions` — légendes Facebook par photo, BO-only)
 - Policies RLS `anon` (lecture publique pour PWA) : à ajouter sur `events` et `live_matches` (voir `docs/specs/PWA.MD`). Déjà en place sur `actus`.
 - GRANTs explicites par rôle sur les 4 tables existantes (`events`, `live_matches`, `actus`, `profiles`) : migration `supabase/migrations/20260603_grant_public_tables.sql`. Voir section *Migrations Supabase* ci-dessous.
+- Module **Matches par équipe** : tables `team_saisons`, `team_competitions`, `team_equipes`, `team_etapes`, `team_rencontres` (trigger `updated_at` réutilisant `set_updated_at()`), `team_match_lines` (`joueurs_club`/`joueurs_adverse` en JSONB, `live_match_id` FK → `live_matches`) + bucket public `team-match-photos` : migration `supabase/migrations/20260606_team_matches.sql`. RLS `authenticated` ALL sur chaque table (pas d'exposition `anon` — back-office uniquement). Aucune migration depuis `events`.
 
 ---
 

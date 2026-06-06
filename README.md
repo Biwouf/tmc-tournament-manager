@@ -49,6 +49,15 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Actions sur la liste : modifier, publier, dépublier, supprimer
 - Table `actus` exposée en lecture publique au rôle `anon` (préparation PWA, uniquement les actus publiées)
 
+### Matches par équipe
+- Gestion des **rencontres interclubs** du club (back-office), indépendamment des événements
+- **Admin** : saisons (une seule active à la fois) et compétitions (nom, type adultes/jeunes, genre, catégorie, format)
+- **Équipes** par compétition : division, nombre de journées de poule (les journées sont générées automatiquement)
+- **Phase de poule** puis **phases finales** : qualification d'une équipe avec stade de départ (les stades 1/16 → finale sont générés automatiquement)
+- **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
+- **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
+- **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
+
 ### PWA — bannière d'incitation à l'installation
 - Bannière fixe en bas (au-dessus de la barre de navigation) qui invite à installer l'app sur l'écran d'accueil
 - Variante Android Chrome/Edge : bouton « Installer » qui déclenche le prompt natif (`beforeinstallprompt`)

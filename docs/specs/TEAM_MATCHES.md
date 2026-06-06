@@ -1,7 +1,20 @@
 # Spec — Module Matches par équipe
 
-> Statut : prêt pour intégration
+> Statut : intégré (back-office)
 > Dernière mise à jour : 2026-06-06
+
+## Écarts d'implémentation vs spec initiale
+
+- **Live Score** : le payload `live_matches` a été corrigé (`j1`…`j4` au lieu de
+  `player1`…`player4`) — voir section *Intégration Live Score*.
+- **Trigger `updated_at`** : la migration réutilise la fonction partagée `set_updated_at()`
+  (définie dans `20260418_events.sql`) au lieu de redéfinir `set_updated_at_team_rencontres()`.
+- **Routes** : `/team-matches/rencontre/new` est servie par `TeamRencontreForm` (création),
+  `/team-matches/rencontre/:id` par `TeamRencontrePage` (suivi). La spec initiale mappait `new`
+  vers `TeamRencontrePage`, ce qui contredisait la section *Formulaire de rencontre*.
+- **Nommage** : la page détail d'équipe est `TeamEquipePage.tsx` (cohérent avec l'arborescence
+  et les routes), pas `TeamMatcheEquipePage.tsx`.
+- Le bucket `team-match-photos` et ses policies sont inclus dans la migration SQL.
 
 ---
 
@@ -432,8 +445,8 @@ Route : `/team-matches/equipe/:id`
 
 Tableau des journées (J1 à JN). Chaque ligne affiche :
 - Numéro de journée (ex. "J3")
-- Si une rencontre est créée : club adverse, date, lieu (domicile/extérieur), score final (si saisi) ou badge "À jouer"
-- Si aucune rencontre : bouton "+ Créer la rencontre"
+- Si une rencontre est créée : club adverse, date, lieu (domicile/extérieur), score final (si saisi) ou badge "À jouer" + bouton **Supprimer** (supprime la rencontre et ses matches en cascade ; la ligne repasse à l'état vide)
+- Si aucune rencontre : bouton "+ Créer la rencontre" + bouton **Supprimer** (supprime la journée). À la suppression : renumérotation des journées restantes (1..M) et mise à jour de `nb_journees_poule`. La dernière journée ne peut pas être supprimée (min. 1). Les stades de phase finale ne sont pas supprimables individuellement.
 
 **Bouton "Qualifier pour les phases finales"** (visible uniquement si toutes les journées ont une rencontre ET `qualifiee` est null) :
 - Ouvre une modale avec :
@@ -537,41 +550,53 @@ L'`ActuForm` existant doit lire cet état et pré-remplir les champs si présent
 
 Depuis `TeamRencontrePage`, bouton **"→ Live Score"** sur chaque `TeamMatchLine` sans `live_match_id`.
 
-**Payload inséré dans `live_matches`** :
+**Payload inséré dans `live_matches`** (colonnes réelles : `j1_*`…`j4_*`, cf. migration
+`20260423_live_matches.sql`). Convention d'équipe de `live_matches` : **équipe 1 = `j1` (+ `j3`
+en double)**, **équipe 2 = `j2` (+ `j4` en double)**. Notre club est donc l'équipe 1, l'adverse
+l'équipe 2 :
 
 ```ts
 {
+  match_date: 'YYYY-MM-DD',   // partie date de rencontre.date_heure (NOT NULL)
+  start_time: 'HH:MM',        // partie heure de rencontre.date_heure
+  match_type: line.match_type,
+  type_tournoi: `${competition.nom} — ${etape_label_court}`, // ex. "Pyrénées Interclubs — J3"
+
+  // Équipe 1 = notre club (j1, + j3 en double). j1_nom NOT NULL → '' si nul.
+  j1_prenom: line.joueurs_club[0].prenom,
+  j1_nom:    line.joueurs_club[0].nom ?? '',
+  j1_classement: line.joueurs_club[0].classement,
+  j1_club:   '',
+  j3_prenom: isDouble ? line.joueurs_club[1].prenom : null,
+  j3_nom:    isDouble ? (line.joueurs_club[1].nom ?? '') : null,
+  j3_classement: isDouble ? line.joueurs_club[1].classement : null,
+  j3_club:   isDouble ? '' : null,
+
+  // Équipe 2 = club adverse (j2, + j4 en double). j2_nom NOT NULL → '' si nul.
+  j2_prenom: line.joueurs_adverse[0].prenom,
+  j2_nom:    line.joueurs_adverse[0].nom ?? '',
+  j2_classement: line.joueurs_adverse[0].classement,
+  j2_club:   rencontre.club_adverse,
+  j4_prenom: isDouble ? line.joueurs_adverse[1].prenom : null,
+  j4_nom:    isDouble ? (line.joueurs_adverse[1].nom ?? '') : null,
+  j4_classement: isDouble ? line.joueurs_adverse[1].classement : null,
+  j4_club:   isDouble ? rencontre.club_adverse : null,
+
   status: 'pending',
-  match_type: line.match_type === 'simple' ? 'simple' : 'double',
-  // Joueurs club (ordre : index 0 = joueur 1, index 1 = joueur 2 si double)
-  player1_firstname: line.joueurs_club[0].prenom,
-  player1_lastname:  line.joueurs_club[0].nom ?? null,
-  player1_ranking:   line.joueurs_club[0].classement,
-  player1_club:      null, // club du club lui-même, non saisi
-  player2_firstname: line.match_type === 'double' ? line.joueurs_club[1].prenom : null,
-  player2_lastname:  line.match_type === 'double' ? (line.joueurs_club[1].nom ?? null) : null,
-  player2_ranking:   line.match_type === 'double' ? line.joueurs_club[1].classement : null,
-  player2_club:      null,
-  // Joueurs adverses
-  player3_firstname: line.joueurs_adverse[0].prenom,
-  player3_lastname:  line.joueurs_adverse[0].nom ?? null,
-  player3_ranking:   line.joueurs_adverse[0].classement,
-  player3_club:      rencontre.club_adverse,
-  player4_firstname: line.match_type === 'double' ? line.joueurs_adverse[1].prenom : null,
-  player4_lastname:  line.match_type === 'double' ? (line.joueurs_adverse[1].nom ?? null) : null,
-  player4_ranking:   line.match_type === 'double' ? line.joueurs_adverse[1].classement : null,
-  player4_club:      line.match_type === 'double' ? rencontre.club_adverse : null,
-  // Contexte (champ `type_tournoi` existant dans live_matches)
-  type_tournoi: `${competition.nom} — ${etape_label}`,
 }
 ```
 
 Après l'INSERT réussi : UPDATE `team_match_lines.live_match_id` avec l'UUID du live créé.
 
+> **Note d'implémentation** — la version initiale de cette spec décrivait des colonnes
+> `player1_*`…`player4_*` et un mapping club=`player1/2` / adverse=`player3/4` qui n'existent
+> pas dans `live_matches`. Le payload ci-dessus a été corrigé pour coller au schéma réel
+> (`j1`…`j4`, équipe 1 = `j1`+`j3`).
+
 ### Mise à jour du score depuis le Live Score
 
 Quand un `TeamMatchLine` a un `live_match_id`, écouter (ou requêter à l'ouverture de `TeamRencontrePage`) le statut du live correspondant. Si `status = 'finished'` et `winner` est renseigné :
-- Mettre à jour `team_match_lines.gagnant` en conséquence (`winner = 'player1'` ou `player2` → club ou adverse selon côté)
+- Mettre à jour `team_match_lines.gagnant` en conséquence (`winner = 'j1'` → `club`, `winner = 'j2'` → `adverse`, puisque l'équipe 1 = notre club)
 - Recalculer le score global de la rencontre
 
 > Implémentation simplifiée acceptable : requête unique au chargement de la page, sans abonnement Realtime (le suivi live se fait depuis `LiveScorePage`).

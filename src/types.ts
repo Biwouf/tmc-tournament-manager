@@ -226,3 +226,116 @@ export interface LiveMatch {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================================
+// Module Matches par équipe
+// ============================================================
+
+export type TeamCompetitionNom =
+  | 'Pyrénées Interclubs'
+  | 'CODEP'
+  | 'GAN 35'
+  | 'Thénégal'
+  | 'Interclubs';
+
+export type TeamType = 'adultes' | 'jeunes';
+
+export type TeamGenre =
+  | 'hommes'
+  | 'femmes'
+  | 'mixte'
+  | 'garcons'
+  | 'filles';
+
+export type TeamCategorie =
+  | 'seniors'
+  | '35_ans'
+  | '60_ans'
+  | '17_18'
+  | '15_16'
+  | '13_14'
+  | '11_12';
+
+export type TeamFormat =
+  | '2S1D'    // 2 simples et 1 double
+  | '3S1D2'   // 3 simples et 1 double (double = 2 pts)
+  | '4S1D2'   // 4 simples et 1 double (double = 2 pts)
+  | '4S2D';   // 4 simples et 2 doubles
+
+export type TeamDivision = 'R1A' | 'R1B' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6';
+
+export type TeamStadeFinale = '1/16' | '1/8' | '1/4' | '1/2' | 'finale';
+
+export type TeamMatchLineType = 'simple' | 'double';
+
+export type TeamMatchGagnant = 'club' | 'adverse';
+
+export interface TeamSaison {
+  id: string;
+  label: string;       // ex. "2025/2026"
+  actif: boolean;
+  created_at: string;
+}
+
+export interface TeamCompetition {
+  id: string;
+  saison_id: string;
+  nom: TeamCompetitionNom;
+  type: TeamType;
+  genre: TeamGenre;
+  categorie: TeamCategorie;
+  format: TeamFormat;
+  created_at: string;
+}
+
+export interface TeamEquipe {
+  id: string;
+  competition_id: string;
+  numero: number;           // 1, 2, 3…
+  division: TeamDivision;
+  nb_journees_poule: number;
+  qualifiee: boolean | null; // null = non encore déterminé
+  stade_finale_depart: TeamStadeFinale | null;
+  created_at: string;
+}
+
+export interface TeamEtape {
+  id: string;
+  equipe_id: string;
+  phase: 'poule' | 'finale';
+  numero_journee: number | null;        // renseigné si phase = 'poule'
+  stade_finale: TeamStadeFinale | null;  // renseigné si phase = 'finale'
+  created_at: string;
+}
+
+export interface TeamJoueur {
+  prenom: string;
+  nom: string | null;
+  classement: string; // ex. "30", "15/2"
+}
+
+export interface TeamMatchLine {
+  id: string;
+  rencontre_id: string;
+  ordre: number;
+  match_type: TeamMatchLineType;
+  joueurs_club: TeamJoueur[];
+  joueurs_adverse: TeamJoueur[];
+  live_match_id: string | null;
+  score: string | null;         // saisie libre si pas de live
+  gagnant: TeamMatchGagnant | null;
+  created_at: string;
+}
+
+export interface TeamRencontre {
+  id: string;
+  etape_id: string;
+  club_adverse: string;
+  date_heure: string;          // ISO 8601
+  domicile: boolean;
+  score_club: number | null;
+  score_adverse: number | null;
+  photo_urls: string[];
+  created_at: string;
+  updated_at: string;
+}

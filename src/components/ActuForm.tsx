@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, type MouseEvent } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import MarkdownEditor from './MarkdownEditor';
 import type { Actu, ActuFocalPoint } from '../types';
@@ -57,10 +57,16 @@ function computeFocalPoint(e: MouseEvent<HTMLDivElement>): ActuFocalPoint {
   return { x: clampPercent(x), y: clampPercent(y) };
 }
 
+interface ActuPrefill {
+  titre?: string;
+  image_urls?: string[];
+}
+
 export default function ActuForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -131,6 +137,21 @@ export default function ActuForm() {
         setLoading(false);
       });
   }, [id, isEdit]);
+
+  // Préremplissage depuis un autre module (ex. « Créer une actu » d'une rencontre).
+  // location.state = { titre?, image_urls? }. Appliqué une seule fois, en création.
+  useEffect(() => {
+    if (isEdit) return;
+    const prefill = location.state as ActuPrefill | null;
+    if (!prefill) return;
+    if (prefill.titre) setTitre(prefill.titre);
+    if (prefill.image_urls && prefill.image_urls.length > 0) {
+      setExistingImages(prefill.image_urls);
+      setExistingFocalPoints(prefill.image_urls.map(() => DEFAULT_FOCAL_POINT));
+      setExistingCaptions(prefill.image_urls.map(() => ''));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
