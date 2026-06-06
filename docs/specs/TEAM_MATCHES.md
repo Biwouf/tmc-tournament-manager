@@ -448,7 +448,7 @@ Tableau des journées (J1 à JN). Chaque ligne affiche :
 - Si une rencontre est créée : club adverse, date, lieu (domicile/extérieur), score final (si saisi) ou badge "À jouer" + bouton **Supprimer** (supprime la rencontre et ses matches en cascade ; la ligne repasse à l'état vide)
 - Si aucune rencontre : bouton "+ Créer la rencontre" + bouton **Supprimer** (supprime la journée). À la suppression : renumérotation des journées restantes (1..M) et mise à jour de `nb_journees_poule`. La dernière journée ne peut pas être supprimée (min. 1). Les stades de phase finale ne sont pas supprimables individuellement.
 
-**Bouton "Qualifier pour les phases finales"** (visible uniquement si toutes les journées ont une rencontre ET `qualifiee` est null) :
+**Bouton "Qualifier pour les phases finales"** (visible dès que `qualifiee` est null — **aucun prérequis sur les rencontres de poule**, pour permettre de configurer directement la phase finale d'une équipe saisie a posteriori) :
 - Ouvre une modale avec :
   - Toggle : "Qualifiée / Éliminée"
   - Si Qualifiée : `<select>` du stade de départ (1/16, 1/8, 1/4, 1/2, Finale)

@@ -115,10 +115,10 @@ export default function TeamEquipePage() {
     [etapes]
   );
 
-  const allPouleHaveRencontre =
-    pouleEtapes.length > 0 && pouleEtapes.every((e) => rencontreByEtape[e.id]);
-
-  const canQualify = Boolean(equipe && equipe.qualifiee === null && allPouleHaveRencontre);
+  // Issue de poule non encore tranchée : on peut qualifier / éliminer l'équipe.
+  // Pas de prérequis sur les rencontres de poule — permet de configurer
+  // directement la phase finale (équipe saisie a posteriori).
+  const canQualify = Boolean(equipe && equipe.qualifiee === null);
 
   const handleDeleteJournee = async (etape: TeamEtape) => {
     if (!equipe) return;
