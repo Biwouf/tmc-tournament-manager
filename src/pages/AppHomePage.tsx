@@ -10,6 +10,7 @@ const SECTIONS = [
       { to: '/actus', label: 'Actus', description: 'Rédiger et publier les actualités du club.' },
       { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.' },
       { to: '/live-score', label: 'Live Score', description: 'Suivre et saisir le score des matchs en direct.' },
+      { to: '/team-matches', label: 'Matches par équipe', description: 'Gérer les rencontres interclubs de l’équipe.' },
     ],
   },
   {

@@ -16,6 +16,11 @@ import ActusPage from './pages/ActusPage';
 import ActuForm from './components/ActuForm';
 import InvitePage from './pages/InvitePage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
+import TeamMatchesPage from './pages/TeamMatchesPage';
+import TeamMatchesAdminPage from './pages/TeamMatchesAdminPage';
+import TeamEquipePage from './pages/TeamEquipePage';
+import TeamRencontrePage from './pages/TeamRencontrePage';
+import TeamRencontreForm from './components/teamMatches/TeamRencontreForm';
 
 function RedirectTournament() {
   const { id } = useParams();
@@ -58,6 +63,12 @@ function App() {
       <Route path="/actus" element={auth(<ActusPage />)} />
       <Route path="/actus/new" element={auth(<ActuForm />)} />
       <Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
+      <Route path="/team-matches" element={auth(<TeamMatchesPage />)} />
+      <Route path="/team-matches/admin" element={auth(<TeamMatchesAdminPage />)} />
+      <Route path="/team-matches/equipe/:id" element={auth(<TeamEquipePage />)} />
+      <Route path="/team-matches/rencontre/new" element={auth(<TeamRencontreForm />)} />
+      <Route path="/team-matches/rencontre/:id" element={auth(<TeamRencontrePage />)} />
+      <Route path="/team-matches/rencontre/:id/edit" element={auth(<TeamRencontreForm />)} />
       <Route path="/admin/invite" element={auth(<InvitePage />)} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
     </Routes>
