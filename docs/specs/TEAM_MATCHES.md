@@ -500,11 +500,17 @@ Bouton "+ Ajouter un match" → ouvre une modale de saisie :
 
 Validation : prénom et classement obligatoires pour chaque joueur.
 
-Actions sur un match de la liste :
-- **Modifier** → réouvre la modale pré-remplie
-- **Supprimer** (si `live_match_id` est null)
-- **Basculer vers le Live Score** (si `live_match_id` est null) — voir section dédiée ci-dessous
-- Badge "En live" / "Terminé" si `live_match_id` renseigné + lien vers le live
+Trois états d'une ligne de match :
+
+1. **Sans résultat, pas de live** (`gagnant` null, `live_match_id` null) — rangée d'actions :
+   - **Saisir le score** → modale dédiée (`TeamMatchScoreModal`) : vainqueur (segmented `Notre club / Adverse`) + score libre optionnel (ex. "6-4 6-2"). Met à jour `team_match_lines.gagnant` et `.score`. Permet de renseigner un résultat **sans passer par le Live Score**.
+   - **Modifier** → réouvre la modale joueurs pré-remplie
+   - **Basculer vers le Live Score** — voir section dédiée ci-dessous
+   - **Supprimer**
+2. **Terminé manuel** (`gagnant` renseigné, `live_match_id` null) — la rangée d'actions est **repliée** en un simple badge **« Terminé »** (vert), cliquable pour rouvrir la modale de score. La modale propose alors **« Retirer le résultat »** (remet `gagnant`/`score` à null → retour à l'état 1 avec ses actions).
+3. **Relié au live** (`live_match_id` renseigné) — badge "En live" / "Terminé · voir le live" + lien vers le live (pas d'édition directe — le résultat vient du live).
+
+Le vainqueur/score saisi (`gagnant`, `score`) s'affiche sous les joueurs de la ligne.
 
 **Nombre attendu de matches** : affiché selon le format de la compétition (ex. "3/3 matches saisis" pour `3S1D2` → 3 simples + 1 double = 4 attendus → "3/4 matches saisis"). Pas de blocage si incomplet — le format est indicatif.
 
@@ -514,8 +520,8 @@ Saisie du score global de la rencontre.
 
 | Cas | Comportement |
 |---|---|
-| Aucun match dans le live score | Deux `<input type="number">` : "Notre score" / "Score adverse" |
-| Au moins un match dans le live score | Score calculé automatiquement à partir des `gagnant` des `TeamMatchLine` liées à un live. Affichage en lecture seule. Bouton "Recalculer" pour forcer le recalcul. |
+| Aucun match n'a de vainqueur | Deux `<input type="number">` : "Notre score" / "Score adverse" (saisie manuelle) |
+| Au moins un match a un `gagnant` (saisi manuellement **ou** via le live) | Score calculé automatiquement à partir des `gagnant` des `TeamMatchLine`. Affichage en lecture seule. Bouton "Recalculer" pour forcer le recalcul. |
 
 Calcul du score auto : somme des points gagnés selon le format. Exemple pour `3S1D2` :
 - Chaque simple gagné = 1 pt

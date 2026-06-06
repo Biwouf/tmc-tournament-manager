@@ -79,7 +79,8 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `components/teamMatches/TeamMatchesHeader.tsx` | Pages `teamMatches/` | Header partagé (back link + titre + sous-titre + actions + déconnexion). |
 | `components/teamMatches/TeamEquipeCard.tsx` | `TeamMatchesPage` | Carte d'une équipe (compétition, division, n°, saison, badge de statut, actions Voir/Supprimer). |
 | `components/teamMatches/TeamMatchLineModal.tsx` | `TeamRencontrePage` | Modale de saisie d'un match individuel (simple/double, joueurs club + adverses, prénom/nom/classement). |
-| `components/teamMatches/TeamScoreSection.tsx` | `TeamRencontrePage` | Section score final : saisie manuelle (2 inputs) si aucun live, sinon score calculé depuis les `gagnant` + bouton « Recalculer ». |
+| `components/teamMatches/TeamMatchScoreModal.tsx` | `TeamRencontrePage` | Modale de saisie du résultat d'un match **sans live** : vainqueur (club/adverse) + score libre optionnel. Met à jour `team_match_lines.gagnant` / `.score`. |
+| `components/teamMatches/TeamScoreSection.tsx` | `TeamRencontrePage` | Section score final : saisie manuelle (2 inputs) si aucun match n'a de vainqueur, sinon score calculé depuis les `gagnant` (live **ou** manuels) + bouton « Recalculer ». |
 | `components/teamMatches/TeamPhotosSection.tsx` | `TeamRencontrePage` | Upload multiple de photos (bucket `team-match-photos`, max 10 Mo), grille supprimable, bouton « Créer une actu » (navigation `/actus/new` avec `location.state = { titre, image_urls }`). |
 
 ### Infra

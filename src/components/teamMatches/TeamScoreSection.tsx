@@ -11,7 +11,9 @@ interface Props {
 }
 
 export default function TeamScoreSection({ rencontre, lines, format, onSaved }: Props) {
-  const hasLive = lines.some((l) => l.live_match_id !== null);
+  // Dès qu'au moins un match a un vainqueur (saisi manuellement ou via le live),
+  // le score global est calculé à partir des matches plutôt que saisi à la main.
+  const hasResults = lines.some((l) => l.gagnant !== null);
 
   const [scoreClub, setScoreClub] = useState<string>(
     rencontre.score_club !== null ? String(rencontre.score_club) : ''
@@ -48,7 +50,7 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
     save(club, adverse);
   };
 
-  if (hasLive) {
+  if (hasResults) {
     const computed = computeScore(lines, format);
     return (
       <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
@@ -56,7 +58,7 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
           Score final
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Calculé automatiquement à partir des matches reliés au Live Score.
+          Calculé automatiquement à partir des vainqueurs des matches saisis.
         </p>
         <div className="flex items-center gap-6">
           <div className="text-center">

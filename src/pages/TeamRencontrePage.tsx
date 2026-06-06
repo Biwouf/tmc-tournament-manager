@@ -13,6 +13,7 @@ import type {
 } from '../types';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
 import TeamMatchLineModal from '../components/teamMatches/TeamMatchLineModal';
+import TeamMatchScoreModal from '../components/teamMatches/TeamMatchScoreModal';
 import TeamScoreSection from '../components/teamMatches/TeamScoreSection';
 import TeamPhotosSection from '../components/teamMatches/TeamPhotosSection';
 import {
@@ -56,6 +57,7 @@ export default function TeamRencontrePage() {
 
   const [showModal, setShowModal] = useState(false);
   const [editingLine, setEditingLine] = useState<TeamMatchLine | undefined>(undefined);
+  const [scoringLine, setScoringLine] = useState<TeamMatchLine | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -284,6 +286,7 @@ export default function TeamRencontrePage() {
                     setEditingLine(line);
                     setShowModal(true);
                   }}
+                  onScore={() => setScoringLine(line)}
                   onDelete={() => handleDeleteLine(line)}
                   onToLive={() => handleToLiveScore(line)}
                 />
@@ -315,6 +318,17 @@ export default function TeamRencontrePage() {
           onClose={() => setShowModal(false)}
           onSaved={() => {
             setShowModal(false);
+            load();
+          }}
+        />
+      )}
+
+      {scoringLine && (
+        <TeamMatchScoreModal
+          line={scoringLine}
+          onClose={() => setScoringLine(undefined)}
+          onSaved={() => {
+            setScoringLine(undefined);
             load();
           }}
         />
@@ -386,11 +400,13 @@ async function syncFromLive(
 function MatchLineRow({
   line,
   onEdit,
+  onScore,
   onDelete,
   onToLive,
 }: {
   line: TeamMatchLine;
   onEdit: () => void;
+  onScore: () => void;
   onDelete: () => void;
   onToLive: () => void;
 }) {
@@ -407,9 +423,11 @@ function MatchLineRow({
           <span className="text-muted-foreground"> vs </span>
           {joueursLabel(line.joueurs_adverse)}
         </p>
-        {line.gagnant && (
+        {(line.gagnant || line.score) && (
           <p className="text-xs font-medium text-emerald-700">
-            Vainqueur : {line.gagnant === 'club' ? 'notre club' : 'adverse'}
+            {line.gagnant && `Vainqueur : ${line.gagnant === 'club' ? 'notre club' : 'adverse'}`}
+            {line.gagnant && line.score && ' · '}
+            {line.score && <span className="font-normal text-muted-foreground">{line.score}</span>}
           </p>
         )}
       </div>
@@ -421,8 +439,22 @@ function MatchLineRow({
         >
           {line.gagnant ? 'Terminé · voir le live' : 'En live'}
         </Link>
+      ) : line.gagnant ? (
+        <button
+          onClick={onScore}
+          title="Cliquer pour modifier le résultat"
+          className="rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-200"
+        >
+          Terminé
+        </button>
       ) : (
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={onScore}
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
+          >
+            Saisir le score
+          </button>
           <button
             onClick={onToLive}
             className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted"
