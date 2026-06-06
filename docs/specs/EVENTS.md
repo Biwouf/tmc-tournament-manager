@@ -276,7 +276,7 @@ Visible uniquement si `type === 'Match par équipe'`.
 2. Si un `generatedDataUrl` est en attente : suppression de l'image actuelle du bucket, conversion data URL → Blob, upload sous `{eventId}/{timestamp}-affiche-matchs.jpg`, UPDATE `image_url`
 3. Précédence des sources d'image : **affiche générée > fichier uploadé > suppression > image existante conservée**
 
-**Composant** : `src/components/TeamMatchImagePreview.tsx` (1414 × 2000, variante Bandeau, fond `#c8102e` + overlay `/template_event.png`, cellules auto-adaptatives selon le nombre de matchs, font `'Prompt'` chargée dans `index.html`). Template image : `public/template_event.png`.
+**Composant** : `src/components/TeamMatchImagePreview.tsx` (1414 × 2000, variante « Cellule XL », fond `#c8102e` + overlay `/template_event.png`). Chaque rencontre est une cellule à 3 zones (date `#fff5f6` à séparateur dashed · corps `catégorie` > `Équipe N` > `vs adversaire` · lieu plein bandeau rouge `Au club` / noir `Déplacement`). Layout adaptatif selon `matches.length` : `hero` (1 match, centré, typo zoomée), `normal` (2–4), `compact` (5+). Styles injectés via un `<style>` interne scopé `.tmc-poster` (pas de classes Tailwind, 100 % rasterisable). Fonts `'Prompt'` (UI) et `'Anton'` (numéro du jour + « vs »), fallbacks `'Arial Black', Impact`. Template image : `public/template_event.png`.
 
 **Annuler la génération** : purge le `dataUrl` en mémoire. Si aucune autre source d'image n'est sélectionnée, l'image existante (cas édition) est conservée telle quelle.
 
