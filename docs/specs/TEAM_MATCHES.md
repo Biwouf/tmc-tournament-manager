@@ -512,7 +512,12 @@ Trois états d'une ligne de match :
 
 Le vainqueur/score saisi (`gagnant`, `score`) s'affiche sous les joueurs de la ligne.
 
-**Nombre attendu de matches** : affiché selon le format de la compétition (ex. "3/3 matches saisis" pour `3S1D2` → 3 simples + 1 double = 4 attendus → "3/4 matches saisis"). Pas de blocage si incomplet — le format est indicatif.
+**Nombre attendu de matches** : affiché selon le format de la compétition (ex. "3/4 matches saisis" pour `3S1D2` → 3 simples + 1 double = 4 attendus). Pas de blocage si **incomplet** (on peut saisir moins).
+
+**Contrainte de composition (sécurité)** : on ne peut pas dépasser le nombre de simples/doubles du format. Concrètement (`FORMAT_SPECS`) :
+- Dans `TeamMatchLineModal`, un type dont toutes les places sont prises est **désactivé** ; le type par défaut est le premier type encore disponible ; un indicateur « Restant — simples : X, doubles : Y » est affiché. La sauvegarde refuse un type complet (filet de sécurité).
+- Le bouton **« + Ajouter un match »** est désactivé quand le total attendu du format est atteint.
+- Les places restantes excluent le match en cours d'édition (on peut toujours rééditer un match existant).
 
 #### Section "Score final"
 

@@ -266,7 +266,13 @@ export default function TeamRencontrePage() {
                 setEditingLine(undefined);
                 setShowModal(true);
               }}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
+              disabled={expected > 0 && lines.length >= expected}
+              title={
+                expected > 0 && lines.length >= expected
+                  ? 'Tous les matches du format sont déjà saisis'
+                  : undefined
+              }
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
             >
               + Ajouter un match
             </button>
@@ -309,11 +315,13 @@ export default function TeamRencontrePage() {
         <TeamPhotosSection rencontre={rencontre} onChange={load} />
       </main>
 
-      {showModal && (
+      {showModal && context && (
         <TeamMatchLineModal
           rencontreId={rencontre.id}
           clubAdverse={rencontre.club_adverse}
           defaultOrdre={lines.length}
+          format={context.competition.format}
+          existingLines={lines}
           line={editingLine}
           onClose={() => setShowModal(false)}
           onSaved={() => {

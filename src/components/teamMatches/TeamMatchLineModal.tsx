@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import type { TeamJoueur, TeamMatchLine, TeamMatchLineType } from '../../types';
+import type { TeamFormat, TeamJoueur, TeamMatchLine, TeamMatchLineType } from '../../types';
+import { FORMAT_SPECS } from './teamMatchLabels';
 
 interface Props {
   rencontreId: string;
   clubAdverse: string;
   defaultOrdre: number;
+  format: TeamFormat;
+  existingLines: TeamMatchLine[];
   line?: TeamMatchLine; // présent en édition
   onClose: () => void;
   onSaved: () => void;
@@ -26,21 +29,40 @@ export default function TeamMatchLineModal({
   rencontreId,
   clubAdverse,
   defaultOrdre,
+  format,
+  existingLines,
   line,
   onClose,
   onSaved,
 }: Props) {
-  const [matchType, setMatchType] = useState<TeamMatchLineType>(line?.match_type ?? 'simple');
+  const spec = FORMAT_SPECS[format];
+
+  // Places restantes par type, en excluant le match en cours d'édition.
+  const others = existingLines.filter((l) => l.id !== line?.id);
+  const simplesUsed = others.filter((l) => l.match_type === 'simple').length;
+  const doublesUsed = others.filter((l) => l.match_type === 'double').length;
+  const remaining: Record<TeamMatchLineType, number> = {
+    simple: spec.simples - simplesUsed,
+    double: spec.doubles - doublesUsed,
+  };
+  const isTypeFull = (t: TeamMatchLineType) => remaining[t] <= 0;
+
+  // Type par défaut : celui du match édité, sinon le premier type avec une place libre.
+  const defaultType: TeamMatchLineType =
+    line?.match_type ?? (remaining.simple > 0 ? 'simple' : 'double');
+
+  const [matchType, setMatchType] = useState<TeamMatchLineType>(defaultType);
   const [club, setClub] = useState<TeamJoueur[]>(
-    resize(line?.joueurs_club ?? [], line?.match_type === 'double' ? 2 : 1)
+    resize(line?.joueurs_club ?? [], defaultType === 'double' ? 2 : 1)
   );
   const [adverse, setAdverse] = useState<TeamJoueur[]>(
-    resize(line?.joueurs_adverse ?? [], line?.match_type === 'double' ? 2 : 1)
+    resize(line?.joueurs_adverse ?? [], defaultType === 'double' ? 2 : 1)
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const changeType = (t: TeamMatchLineType) => {
+    if (isTypeFull(t)) return;
     const n = t === 'double' ? 2 : 1;
     setMatchType(t);
     setClub((prev) => resize(prev, n));
@@ -81,6 +103,14 @@ export default function TeamMatchLineModal({
 
   const handleSubmit = async () => {
     setError(null);
+    if (isTypeFull(matchType)) {
+      setError(
+        matchType === 'simple'
+          ? `Ce format n'autorise que ${spec.simples} simple(s).`
+          : `Ce format n'autorise que ${spec.doubles} double(s).`
+      );
+      return;
+    }
     if (!validate()) return;
     setSaving(true);
 
@@ -112,21 +142,30 @@ export default function TeamMatchLineModal({
         <div className="mb-5">
           <label className="block text-sm font-medium text-foreground">Type</label>
           <div className="mt-1 inline-flex rounded-lg border border-border p-0.5">
-            {(['simple', 'double'] as TeamMatchLineType[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => changeType(t)}
-                className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition ${
-                  matchType === t
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+            {(['simple', 'double'] as TeamMatchLineType[]).map((t) => {
+              const full = isTypeFull(t) && matchType !== t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => changeType(t)}
+                  disabled={full}
+                  title={full ? 'Toutes les places de ce type sont prises pour ce format' : undefined}
+                  className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition ${
+                    matchType === t
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-muted'
+                  } disabled:cursor-not-allowed disabled:opacity-40`}
+                >
+                  {t}
+                </button>
+              );
+            })}
           </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Format : {spec.simples} simple(s) et {spec.doubles} double(s). Restant —{' '}
+            simples : {Math.max(0, remaining.simple)}, doubles : {Math.max(0, remaining.double)}.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
