@@ -23,7 +23,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
 
 ### Événements
-- Gestion des événements du club (Animations, Tournois, Matchs par équipe, Sorties, Soirées)
+- Gestion des événements du club (Animations, Tournois, Sorties, Soirées)
 - Liste paginée avec toggle « à venir / passés »
 - Formulaire de création/édition avec description en Markdown (aperçu intégré)
 - Upload d'image (JPEG/PNG, max 5 Mo) stockée sur Supabase Storage
@@ -57,6 +57,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
 - **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
+- **Génération d'affiche** des rencontres à venir : sélection (max 8) → affiche JPEG téléchargée localement
 
 ### PWA — bannière d'incitation à l'installation
 - Bannière fixe en bas (au-dessus de la barre de navigation) qui invite à installer l'app sur l'écran d'accueil

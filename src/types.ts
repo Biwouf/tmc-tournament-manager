@@ -95,9 +95,9 @@ export interface TournamentEntry {
   schedule: Schedule | null;
 }
 
-export type EventType = 'Animation' | 'Tournoi' | 'Match par équipe' | 'Sortie' | 'Soirée';
+export type EventType = 'Animation' | 'Tournoi' | 'Sortie' | 'Soirée';
 
-export const EVENT_TYPES: EventType[] = ['Animation', 'Tournoi', 'Match par équipe', 'Sortie', 'Soirée'];
+export const EVENT_TYPES: EventType[] = ['Animation', 'Tournoi', 'Sortie', 'Soirée'];
 
 export type TeamMatchGender = 'Masculin' | 'Féminin';
 
@@ -136,7 +136,6 @@ export interface ClubEvent {
   date_fin: string | null;
   image_url: string | null;
   prix: number | null;
-  team_matches: TeamMatch[] | null; // null si type !== 'Match par équipe'
   created_at: string;
   updated_at: string;
 }
