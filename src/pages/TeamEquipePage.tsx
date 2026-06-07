@@ -153,6 +153,50 @@ export default function TeamEquipePage() {
     load();
   };
 
+  const handleDeleteStade = async (etape: TeamEtape) => {
+    const label = STADE_LABELS[etape.stade_finale as TeamStadeFinale];
+    if (!window.confirm(`Supprimer le tour « ${label} » ?`)) return;
+
+    const { error } = await supabase.from('team_etapes').delete().eq('id', etape.id);
+    if (error) {
+      alert(`Erreur suppression : ${error.message}`);
+      return;
+    }
+    load();
+  };
+
+  const handleAnnulerQualification = async () => {
+    if (!equipe) return;
+    if (
+      !window.confirm(
+        'Annuler la qualification ? Tous les stades de phase finale et leurs rencontres seront supprimés. ' +
+          "L'équipe repassera à l'état non qualifié."
+      )
+    )
+      return;
+
+    const { error: delErr } = await supabase
+      .from('team_etapes')
+      .delete()
+      .eq('equipe_id', equipe.id)
+      .eq('phase', 'finale');
+    if (delErr) {
+      alert(`Erreur suppression : ${delErr.message}`);
+      return;
+    }
+
+    const { error: updErr } = await supabase
+      .from('team_equipes')
+      .update({ qualifiee: null, stade_finale_depart: null })
+      .eq('id', equipe.id);
+    if (updErr) {
+      alert(`Erreur mise à jour : ${updErr.message}`);
+      return;
+    }
+
+    load();
+  };
+
   const handleDeleteRencontre = async (rencontre: TeamRencontre) => {
     if (
       !window.confirm(
@@ -261,9 +305,17 @@ export default function TeamEquipePage() {
         {/* Phase finale */}
         {equipe.qualifiee === true && (
           <section>
-            <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
-              Phase finale
-            </h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+                Phase finale
+              </h2>
+              <button
+                onClick={handleAnnulerQualification}
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+              >
+                Annuler la qualification
+              </button>
+            </div>
             <div className="divide-y divide-border rounded-xl border bg-card/90">
               {finaleEtapes.map((etape) => (
                 <EtapeRow
@@ -273,6 +325,7 @@ export default function TeamEquipePage() {
                   onCreate={() => navigate(`/team-matches/rencontre/new?etapeId=${etape.id}`)}
                   onOpen={(rid) => navigate(`/team-matches/rencontre/${rid}`)}
                   onDelete={handleDeleteRencontre}
+                  onDeleteEtape={() => handleDeleteStade(etape)}
                 />
               ))}
             </div>
@@ -327,7 +380,7 @@ function EtapeRow({
           {onDeleteEtape && (
             <button
               onClick={onDeleteEtape}
-              title="Supprimer cette journée"
+              title="Supprimer cette étape"
               className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
             >
               Supprimer
