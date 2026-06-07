@@ -10,7 +10,6 @@ interface Props {
 const TYPE_COLORS: Record<EventType, string> = {
   Animation: 'bg-amber-100 text-amber-800',
   Tournoi: 'bg-blue-100 text-blue-800',
-  'Match par équipe': 'bg-emerald-100 text-emerald-800',
   Sortie: 'bg-violet-100 text-violet-800',
   Soirée: 'bg-rose-100 text-rose-800',
 };

@@ -1,15 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { toJpeg } from 'html-to-image';
 import { supabase } from '../lib/supabase';
 import type {
   TeamCompetition,
   TeamDivision,
   TeamEquipe,
   TeamEtape,
+  TeamMatch,
+  TeamMatchGender,
+  TeamMatchType,
+  TeamRencontre,
   TeamSaison,
 } from '../types';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
 import TeamEquipeCard, { type EquipeBadge } from '../components/teamMatches/TeamEquipeCard';
+import TeamMatchImagePreview from '../components/TeamMatchImagePreview';
 import { DIVISIONS, competitionLabel } from '../components/teamMatches/teamMatchLabels';
 
 /** Étapes de poule + ids des étapes ayant une rencontre — pour calculer les badges. */
@@ -57,6 +63,7 @@ export default function TeamMatchesPage() {
   const [saisonId, setSaisonId] = useState('');
   const [competitionId, setCompetitionId] = useState(''); // '' = toutes
   const [showForm, setShowForm] = useState(false);
+  const [showPoster, setShowPoster] = useState(false);
 
   // Référentiel saisons + compétitions.
   useEffect(() => {
@@ -241,6 +248,12 @@ export default function TeamMatchesPage() {
 
           <div className="ml-auto flex flex-wrap gap-3">
             <button
+              onClick={() => setShowPoster(true)}
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
+            >
+              Générer une affiche
+            </button>
+            <button
               onClick={() => navigate('/team-matches/admin?new=competition')}
               className="rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
             >
@@ -304,6 +317,8 @@ export default function TeamMatchesPage() {
           }}
         />
       )}
+
+      {showPoster && <GeneratePosterModal onClose={() => setShowPoster(false)} />}
     </div>
   );
 }
@@ -459,6 +474,259 @@ function CreateEquipeForm({
           >
             {saving ? 'Création...' : 'Créer'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Génération d'affiche des rencontres à venir
+// ============================================================
+
+/** Rencontre à venir avec son contexte (étape → équipe → compétition). */
+interface RencontreWithContext extends TeamRencontre {
+  etape: {
+    equipe: (TeamEquipe & { competition: TeamCompetition | null }) | null;
+  } | null;
+}
+
+const MAX_POSTER_MATCHES = 8;
+
+function formatRencontreDate(iso: string): string {
+  const d = new Date(iso);
+  const datePart = d.toLocaleDateString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+  });
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${datePart}, ${d.getHours()}h${pad(d.getMinutes())}`;
+}
+
+function rencontreToTeamMatch(
+  rencontre: TeamRencontre,
+  equipe: TeamEquipe,
+  competition: TeamCompetition,
+): TeamMatch {
+  const dt = new Date(rencontre.date_heure);
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  // date locale YYYY-MM-DD
+  const date = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  // heure locale HH:MM
+  const time = `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+
+  const gender: TeamMatchGender =
+    competition.genre === 'femmes' || competition.genre === 'filles'
+      ? 'Féminin'
+      : 'Masculin';
+
+  const matchTypeMap: Record<string, TeamMatchType> = {
+    seniors: 'Seniors',
+    '35_ans': 'Seniors +35',
+    '60_ans': 'Seniors +35', // pas d'entrée dédiée — fallback
+    '17_18': 'Jeunes 15/16 ans',
+    '15_16': 'Jeunes 15/16 ans',
+    '13_14': 'Jeunes 13/14 ans',
+    '11_12': 'Jeunes 11/12 ans',
+  };
+  const matchType: TeamMatchType = matchTypeMap[competition.categorie] ?? 'Seniors';
+
+  const teamNumber = Math.min(equipe.numero, 3) as 1 | 2 | 3;
+
+  return {
+    id: rencontre.id,
+    gender,
+    matchType,
+    teamNumber,
+    opponent: rencontre.club_adverse,
+    location: rencontre.domicile ? 'home' : 'away',
+    date,
+    time,
+  };
+}
+
+function GeneratePosterModal({ onClose }: { onClose: () => void }) {
+  const [rencontres, setRencontres] = useState<RencontreWithContext[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const [genStatus, setGenStatus] = useState<'idle' | 'loading' | 'done'>('idle');
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const posterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('team_rencontres')
+      .select(
+        `
+        *,
+        etape:team_etapes!etape_id(
+          *,
+          equipe:team_equipes!equipe_id(
+            *,
+            competition:team_competitions!competition_id(*)
+          )
+        )
+      `,
+      )
+      .gte('date_heure', new Date().toISOString())
+      .order('date_heure', { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setLoadError(error.message);
+        setRencontres((data ?? []) as RencontreWithContext[]);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedMatches = useMemo<TeamMatch[]>(() => {
+    return rencontres
+      .filter((r) => selectedIds.has(r.id))
+      .map((r) => {
+        const equipe = r.etape?.equipe;
+        const competition = equipe?.competition;
+        if (!equipe || !competition) return null;
+        return rencontreToTeamMatch(r, equipe, competition);
+      })
+      .filter((m): m is TeamMatch => m !== null);
+  }, [rencontres, selectedIds]);
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else if (next.size < MAX_POSTER_MATCHES) next.add(id);
+      return next;
+    });
+    // Une nouvelle sélection invalide l'affiche déjà générée.
+    setGenStatus('idle');
+    setDataUrl(null);
+  };
+
+  const handleGenerate = async () => {
+    setGenStatus('loading');
+    try {
+      const node = posterRef.current;
+      if (!node) throw new Error('Aperçu non monté');
+      const url = await toJpeg(node, { quality: 0.92, pixelRatio: 2 });
+      setDataUrl(url);
+      setGenStatus('done');
+    } catch (err) {
+      console.error(err);
+      setGenStatus('idle');
+    }
+  };
+
+  const atMax = selectedIds.size >= MAX_POSTER_MATCHES;
+
+  const genBtnLabel =
+    genStatus === 'loading' ? 'Génération…' : genStatus === 'done' ? 'Régénérer' : "Générer l'affiche";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-xl rounded-2xl border bg-card p-6 shadow-xl">
+        <h3 className="mb-1 text-lg font-semibold">Générer l'affiche</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Sélectionnez les rencontres à venir (max {MAX_POSTER_MATCHES}).
+        </p>
+
+        {loadError && (
+          <p className="mb-3 text-sm text-red-600">Erreur de chargement : {loadError}</p>
+        )}
+
+        {loading ? (
+          <div className="py-8 text-center text-muted-foreground">Chargement…</div>
+        ) : rencontres.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground">Aucune rencontre à venir.</div>
+        ) : (
+          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+            {rencontres.map((r) => {
+              const equipe = r.etape?.equipe;
+              const competition = equipe?.competition;
+              const checked = selectedIds.has(r.id);
+              const disabled = !checked && (atMax || !equipe || !competition);
+              return (
+                <label
+                  key={r.id}
+                  className={
+                    'flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-background px-3 py-2 text-sm transition ' +
+                    (disabled ? 'opacity-50' : 'hover:bg-muted')
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => toggle(r.id)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    {competition && equipe ? (
+                      <>
+                        {competitionLabel(competition)} — Équipe {equipe.numero} · {r.club_adverse}
+                      </>
+                    ) : (
+                      r.club_adverse
+                    )}
+                    <span className="block text-xs text-muted-foreground">
+                      {formatRencontreDate(r.date_heure)}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        {dataUrl && (
+          <div className="mt-4 flex items-start gap-3.5 rounded-xl border border-dashed border-border bg-background p-3">
+            <img
+              src={dataUrl}
+              alt="Affiche générée"
+              style={{ width: 110, height: 156 }}
+              className="rounded-md object-cover shadow"
+            />
+            <a
+              href={dataUrl}
+              download="affiche-matchs.jpg"
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              Télécharger l'image
+            </a>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+          >
+            Fermer
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={selectedMatches.length === 0 || genStatus === 'loading'}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+          >
+            {genStatus === 'loading' && (
+              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            )}
+            {genBtnLabel}
+          </button>
+        </div>
+      </div>
+
+      {/* Affiche hors viewport — requise pour html-to-image */}
+      <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>
+        <div ref={posterRef}>
+          <TeamMatchImagePreview matches={selectedMatches} />
         </div>
       </div>
     </div>

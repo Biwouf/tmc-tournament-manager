@@ -429,6 +429,18 @@ Actions : Créer, Modifier, Supprimer (si aucune équipe liée).
 
 À la validation : INSERT dans `team_equipes` puis génération automatique des étapes de poule (N lignes dans `team_etapes` avec `phase='poule'` et `numero_journee=1..N`).
 
+**Bouton "Générer une affiche"** (barre de filtres, à gauche de « Créer une compétition ») → ouvre `GeneratePosterModal`.
+
+#### Génération d'affiche des rencontres à venir (`GeneratePosterModal`)
+
+Migré depuis `EventForm` (l'ancien type d'événement `'Match par équipe'` a été supprimé). L'affiche est téléchargée localement en JPEG — **pas d'upload Supabase**.
+
+- **Chargement** : `team_rencontres` avec contexte imbriqué (`etape → equipe → competition`), filtré sur `date_heure >= now()`, trié ASC.
+- **Sélection** : une checkbox par rencontre, libellé `{competitionLabel} — Équipe {numero} · {club_adverse}` + date formatée. Max 8 rencontres (capacité de l'affiche) ; les checkboxes non cochées sont désactivées une fois la limite atteinte. État vide : « Aucune rencontre à venir. »
+- **Conversion** : `rencontreToTeamMatch()` mappe chaque rencontre en `TeamMatch` (genre déduit de `competition.genre`, type de `competition.categorie`, `teamNumber = min(numero, 3)`, `location` selon `domicile`, date/heure locales).
+- **Rendu** : `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`) → `html-to-image#toJpeg` (q=0.92, pixelRatio 2). Le `dataUrl` produit alimente un aperçu 110×156 + lien `<a download="affiche-matchs.jpg">`.
+- **États du bouton** : `idle` → « Générer l'affiche » / `loading` → « Génération… » + spinner / `done` → « Régénérer ». Toute modification de la sélection repasse à `idle` et purge le `dataUrl`.
+
 ---
 
 ### Page équipe — `TeamMatcheEquipePage.tsx`
