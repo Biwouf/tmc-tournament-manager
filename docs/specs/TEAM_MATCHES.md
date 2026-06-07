@@ -458,7 +458,7 @@ Route : `/team-matches/equipe/:id`
 Tableau des journées (J1 à JN). Chaque ligne affiche :
 - Numéro de journée (ex. "J3")
 - Si une rencontre est créée : club adverse, date, lieu (domicile/extérieur), score final (si saisi) ou badge "À jouer" + bouton **Supprimer** (supprime la rencontre et ses matches en cascade ; la ligne repasse à l'état vide)
-- Si aucune rencontre : bouton "+ Créer la rencontre" + bouton **Supprimer** (supprime la journée). À la suppression : renumérotation des journées restantes (1..M) et mise à jour de `nb_journees_poule`. La dernière journée ne peut pas être supprimée (min. 1). Les stades de phase finale ne sont pas supprimables individuellement.
+- Si aucune rencontre : bouton "+ Créer la rencontre" + bouton **Supprimer** (supprime la journée). À la suppression : renumérotation des journées restantes (1..M) et mise à jour de `nb_journees_poule`. La dernière journée ne peut pas être supprimée (min. 1).
 
 **Bouton "Qualifier pour les phases finales"** (visible dès que `qualifiee` est null — **aucun prérequis sur les rencontres de poule**, pour permettre de configurer directement la phase finale d'une équipe saisie a posteriori) :
 - Ouvre une modale avec :
@@ -469,6 +469,10 @@ Tableau des journées (J1 à JN). Chaque ligne affiche :
 **Section Phase finale** (visible uniquement si `qualifiee = true`) :
 
 Même tableau que la poule, mais avec les stades comme intitulés de ligne. Les stades sont générés séquentiellement à partir du stade de départ (ex. si départ = "1/4" → [1/4, 1/2, Finale]). Si l'équipe est éliminée à un stade, les stades suivants restent vides mais affichés (grisés).
+
+Comme en poule, chaque ligne de stade affiche un bouton **Supprimer** : sur une ligne avec rencontre il supprime la rencontre (cascade), sur une ligne vide il supprime le stade (`team_etapes`). La suppression d'un stade est unitaire (pas de renumérotation, pas de garde « min. 1 ») — utile pour retirer un stade de départ saisi trop tôt.
+
+L'en-tête de la section porte un bouton **Annuler la qualification** : il supprime tous les stades de phase finale de l'équipe (et leurs rencontres, en cascade) puis remet `qualifiee = null` et `stade_finale_depart = null`. L'équipe repasse à l'état non tranché → le bouton « Qualifier pour les phases finales » réapparaît, permettant de reconfigurer avec le bon stade de départ. C'est la porte de sortie si tous les stades ont été supprimés (sinon l'équipe resterait bloquée : `qualifiee = true` sans aucun stade ni moyen d'en regénérer).
 
 **Génération des étapes de phase finale** : au moment de la qualification, insérer dans `team_etapes` une ligne par stade depuis `stade_finale_depart` jusqu'à `finale`.
 
