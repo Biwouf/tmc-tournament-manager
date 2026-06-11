@@ -1,8 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import type { Actu } from '../types';
-import ActuCard from '../components/actus/ActuCard';
-import PullToRefreshWrapper from '../components/layout/PullToRefreshWrapper';
+import { supabase } from '../../lib/supabase';
+import type { Actu } from '../../types';
+import ActuCard from '../actus/ActuCard';
+import PullToRefreshWrapper from '../layout/PullToRefreshWrapper';
 
 const PAGE_SIZE = 10;
 
@@ -17,7 +17,7 @@ async function fetchActus(offset: number): Promise<Actu[]> {
   return data as Actu[];
 }
 
-export default function ActusPage() {
+export default function ActusFeed() {
   const { data, fetchNextPage, isFetching, isFetchingNextPage, isError, hasNextPage, refetch } =
     useInfiniteQuery({
       queryKey: ['actus'],

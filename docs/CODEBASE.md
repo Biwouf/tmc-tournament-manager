@@ -150,7 +150,7 @@ Voir `docs/specs/` :
 - Table `actus` (`image_urls TEXT[]`, `image_focal_points JSONB`, `image_captions TEXT[]`, `published`, `published_at`) + bucket `actu-images` + RLS `anon`/`authenticated` : migrations `supabase/migrations/2026042601_actus.sql` puis `supabase/migrations/2026042602_actus_image_urls.sql` (patch `image_url` → `image_urls`) puis `supabase/migrations/20260506_actus_focal_points.sql` (ajout `image_focal_points` parallèle à `image_urls`) puis `supabase/migrations/20260510_actus_image_captions.sql` (ajout `image_captions` — légendes Facebook par photo, BO-only)
 - Policies RLS `anon` (lecture publique pour PWA) : à ajouter sur `events` et `live_matches` (voir `docs/specs/PWA.MD`). Déjà en place sur `actus`.
 - GRANTs explicites par rôle sur les 4 tables existantes (`events`, `live_matches`, `actus`, `profiles`) : migration `supabase/migrations/20260603_grant_public_tables.sql`. Voir section *Migrations Supabase* ci-dessous.
-- Module **Matches par équipe** : tables `team_saisons`, `team_competitions`, `team_equipes`, `team_etapes`, `team_rencontres` (trigger `updated_at` réutilisant `set_updated_at()`), `team_match_lines` (`joueurs_club`/`joueurs_adverse` en JSONB, `live_match_id` FK → `live_matches`) + bucket public `team-match-photos` : migration `supabase/migrations/20260606_team_matches.sql`. RLS `authenticated` ALL sur chaque table (pas d'exposition `anon` — back-office uniquement). Aucune migration depuis `events`.
+- Module **Matches par équipe** : tables `team_saisons`, `team_competitions`, `team_equipes`, `team_etapes`, `team_rencontres` (trigger `updated_at` réutilisant `set_updated_at()`), `team_match_lines` (`joueurs_club`/`joueurs_adverse` en JSONB, `live_match_id` FK → `live_matches`) + bucket public `team-match-photos` : migration `supabase/migrations/20260606_team_matches.sql`. RLS `authenticated` ALL sur chaque table. Aucune migration depuis `events`. Exposition lecture `anon` (PWA Match équipes) ajoutée par `supabase/migrations/20260611_team_matches_pwa_read.sql` sur `team_saisons`/`team_competitions`/`team_equipes`/`team_etapes`/`team_rencontres` uniquement — **`team_match_lines` (joueurs nominatifs) reste back-office only**.
 
 ---
 
@@ -206,6 +206,17 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `types.ts` | Types partagés copiés depuis le BO + types `Actu` / `ActuFocalPoint` PWA |
 | `utils/focalPoint.ts` | Helper `focalPointStyle(fp)` → renvoie `{ objectPosition: 'x% y%' }` (fallback `50% 50%` si null/undefined). Utilisé par `ActuCard` et `ActuDetailPage`. |
 | `pages/LoginPage.tsx` | Formulaire email/mot de passe → redirige sur `state.from ?? /matches` |
+| `pages/ActuPage.tsx` | Onglet **Actu** (`/actu`) — fusion Actualités + Événements. Sous-onglets soulignés gérés par `?tab=actus\|events` (`useSearchParams`), monte `<ActusFeed />` ou `<EventsFeed />`. |
+| `pages/MatchesEquipesPage.tsx` | Onglet **Match équipes** (`/matches-equipes`, lecture) — rencontres interclubs à venir/passées, filtres saison + équipe + segmented. 3 queries React Query (saisons / compétitions+équipes / rencontres en 2 round-trips `team_etapes`→`team_rencontres`, jointure client). `team_match_lines` jamais requêté. |
+| `components/actu/ActuTabSwitcher.tsx` | Onglets soulignés (style iOS Mail) Actualités / Événements. |
+| `components/actu/ActusFeed.tsx` | Flux actus (ex-`ActusPage` : `useInfiniteQuery` + load-more + PTR). |
+| `components/actu/EventsFeed.tsx` | Flux événements (ex-`EventsPage` : `useQuery` + PTR). |
+| `components/matchesEquipes/labels.ts` | Helpers d'affichage `formatGenre`, `formatCategorie`, `competitionShortLabel` (lecture PWA, pas de React). |
+| `components/matchesEquipes/MatchEquipeFilterBar.tsx` | Chips Saison + Équipe + segmented À venir / Passés avec compteurs. |
+| `components/matchesEquipes/MatchEquipeFilterSheet.tsx` | Bottom sheet générique (liste d'options + check) ouvert au clic sur un chip. |
+| `components/matchesEquipes/MatchEquipeCell.tsx` | Cellule rencontre — états `upcoming` (date + contexte + lieu 🏠/✈️) / `past` (colonne résultat vert/rouge/jaune + score). Phase finale → `1/4`,`1/2`,`Finale`. |
+| `components/matchesEquipes/MatchEquipeList.tsx` | Liste des cellules + états vides (expose le type `EnrichedRencontre`). |
+| `components/icons/TeamMatchesIcon.tsx` | Icône bouclier + coche de l'onglet Match équipes (stroke). |
 | `pages/MatchesPage.tsx` | Liste des matchs (Realtime), bouton « Déconnexion », FAB « + » → `/matches/new` (visibles uniquement si auth). Batch-fetch des profils des gestionnaires (`scored_by`) après chargement des matchs, passé en prop `profilesMap` à chaque `MatchCard`. |
 | `pages/NewMatchPage.tsx` | Formulaire création de match (iso BO), `status='pending'`, `scored_by=null` |
 | `pages/LiveMatchPage.tsx` | Saisie du score (route `/matches/:id/score`). Garde l'accès initial : redirige avec flash si `pending` ou si live appartient à un autre user. Abonnement Realtime filtré sur l'ID du match : si `scored_by` change pendant que l'user est sur la page, bandeau *« lecture seule »* + `forceDisabled` passé au `LiveScoreEntry`. |
@@ -213,7 +224,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `components/matches/LiveScoreEntry.tsx` | Composant +/- (adapté du BO, layout mobile) |
 | `components/install/InstallBanner.tsx` | Bannière fixe au-dessus de la `BottomNav` qui invite à installer la PWA. Variante Android (CTA `beforeinstallprompt`) + variante iOS (instructions Partager → Sur l'écran d'accueil). Pose la classe `has-install-banner` sur `<body>` pour ajuster `padding-bottom` de `.pwa-content`. |
 | `components/layout/AppHeader.tsx` | Header fixe route-aware (56px). Mode `root` (tabs) : logo + titre. Mode `sub` : back button (libellé court sur iOS, icône seule sur Android via `navigator.userAgent`) + titre. Affiche optionnellement une action droite tirée de `HeaderActionContext`. |
-| `components/layout/BottomNav.tsx` | Navigation fixe basse — 3 onglets (Actus / Événements / Matches). |
+| `components/layout/BottomNav.tsx` | Navigation fixe basse — 3 onglets (Actu / Match équipes / Live). Le label `Actu` (compact) diverge du titre header `Actualités` (seul cas). |
 | `components/layout/PullToRefreshWrapper.tsx` | Wrapper scrollable (`h-full overflow-y-auto`) consommé par `ActusPage` et `EventsPage`. Indicateur SVG inline (couleur `text-primary`) qui se translate et tourne pendant le tirage, `animate-spin` pendant le rechargement, transition `transform 0.2s ease` lors du snap-back. `overscroll-behavior-y: contain` pour neutraliser le PTR natif iOS/Android. Repose sur `usePullToRefresh`. |
 | `components/layout/headerConfig.ts` | Map des routes → `HeaderConfig` (`mode`, `title`, `backTo`, `backLabel`). Helper `resolveHeader(pathname)` consommé par `AppHeader`. Ajouter une route ici quand on en crée une. |
 | `components/layout/HeaderActionContext.tsx` | Provider + hook `useHeaderAction(action)` pour qu'une page pose une action droite dans le header (text / icon / accent). `onClick` lu via ref → pas besoin de mémoïsation côté appelant. |
@@ -223,7 +234,10 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | Route | Auth | Rôle |
 |---|---|---|
 | `/login` | publique | Connexion |
-| `/actus`, `/evenements`, `/matches`, et leurs détails | publiques | Lecture `anon` |
+| `/actu` (+ `/actus/:id`, `/evenements/:id`) | publiques | Onglet Actu fusionné (lecture `anon`) |
+| `/actus`, `/evenements` | publiques | Compat : redirigent vers `/actu?tab=…` |
+| `/matches-equipes` | publique | Match équipes (lecture `anon`) |
+| `/matches` (+ ses détails) | publiques | Live (lecture `anon`) |
 | `/matches/new` | requise | Création d'un match |
 | `/matches/:id/score` | requise (et ownership pour `live`) | Saisie / consultation d'un live |
 

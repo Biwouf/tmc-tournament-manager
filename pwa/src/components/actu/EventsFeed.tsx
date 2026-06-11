@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import type { ClubEvent } from '../types';
-import EventCard from '../components/events/EventCard';
-import PullToRefreshWrapper from '../components/layout/PullToRefreshWrapper';
+import { supabase } from '../../lib/supabase';
+import type { ClubEvent } from '../../types';
+import EventCard from '../events/EventCard';
+import PullToRefreshWrapper from '../layout/PullToRefreshWrapper';
 
 async function fetchUpcomingEvents(): Promise<ClubEvent[]> {
   const { data, error } = await supabase
@@ -19,7 +19,7 @@ async function fetchUpcomingEvents(): Promise<ClubEvent[]> {
   });
 }
 
-export default function EventsPage() {
+export default function EventsFeed() {
   const { data: events, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['events'],
     queryFn: fetchUpcomingEvents,

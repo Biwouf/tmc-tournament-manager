@@ -4,7 +4,7 @@ interface IconProps {
   className?: string;
 }
 
-export default function EventsIcon({
+export default function TeamMatchesIcon({
   color = 'currentColor',
   size = 24,
   className,
@@ -22,11 +22,8 @@ export default function EventsIcon({
       className={className}
       aria-hidden="true"
     >
-      <rect x="4" y="6" width="16" height="14" rx="2" />
-      <path d="M4 10h16" />
-      <path d="M8.5 4v3.5" />
-      <path d="M15.5 4v3.5" />
-      <circle cx="15" cy="15" r="2" />
+      <path d="M12 3 4.5 5.5v6c0 4.5 3.4 8 7.5 9 4.1-1 7.5-4.5 7.5-9v-6L12 3Z" />
+      <path d="M9 12.5l2 2 4-4.5" />
     </svg>
   );
 }

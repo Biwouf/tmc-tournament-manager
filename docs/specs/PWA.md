@@ -10,7 +10,7 @@
 Application web progressive (PWA) publique à destination des membres du club CAC Tennis.
 Elle se nourrit de données gérées dans le back-office existant (`tmc-tournament-manager`).
 
-Trois rubriques en v1 : **Actus**, **Événements**, **Matches**.
+Trois onglets de navigation : **Actu** (Actualités + Événements fusionnés en sous-onglets), **Match équipes** (rencontres interclubs, lecture) et **Live** (live score).
 
 ---
 
@@ -191,77 +191,55 @@ Police **Manrope** — importer depuis Google Fonts dans `pwa/index.html` :
 ### Navigation
 
 ```
-[ Actus ]   [ Événements ]   [ Matches ]
+[ Actu ]   [ Match équipes ]   [ Live ]
         ← bottom navigation →
 ```
 
-Route racine `/` → redirige vers `/actus`.
+Route racine `/` → redirige vers `/actu`.
+
+> Le label de l'onglet **Actu** (compact, pour tenir à côté de « Match équipes ») diverge volontairement du titre du header **Actualités** (long). C'est le seul cas où nav-label et header-title divergent. L'onglet **Live** correspond à la route `/matches` (header `Live`). Icône centrale **Match équipes** : bouclier + coche (`TeamMatchesIcon`).
 
 ---
 
-### Onglet Actus — `/actus`
+### Onglet Actu — `/actu` (Actualités + Événements fusionnés)
 
-**Source de données** : table `actus`, filtre `published = true`
+Page `ActuPage.tsx` : deux sous-onglets **soulignés** (style iOS Mail) gérés par `?tab=actus|events` (`useSearchParams`, défaut `actus`), composant `ActuTabSwitcher`. Selon le sous-onglet, monte `<ActusFeed />` ou `<EventsFeed />` — chaque flux conserve sa logique de fetch (mêmes requêtes Supabase, même `PullToRefreshWrapper`).
 
-**Page liste (`ActusPage.tsx`)** :
-- Flux vertical de cartes triées par `published_at` DESC
-- Chaque carte : image (si présente), titre, extrait du contenu (2-3 lignes tronquées), date de publication formatée
-- Clic → page de détail `/actus/:id`
-- Pagination : bouton "Voir plus" (load more, pas de pagination classique)
-- État vide : message "Aucune actualité pour l'instant"
+Compat : les anciennes URLs `/actus` et `/evenements` redirigent vers `/actu?tab=actus` / `/actu?tab=events`.
 
-**Page détail (`ActuDetailPage.tsx`)** :
-- Titre, image full-width (si présente), date, contenu Markdown rendu via `react-markdown`
-- Bouton retour vers `/actus`
+**Sous-onglet Actualités (`ActusFeed.tsx`)** :
+- Source : table `actus`, filtre `published = true`, tri `published_at` DESC.
+- Cartes `ActuCard` (image, titre, extrait, date), bouton "Voir plus" (load more via `useInfiniteQuery`).
+- Clic → détail `/actus/:id` (`ActuDetailPage.tsx`, retour vers `/actu?tab=actus`).
+- État vide : "Aucune actualité pour l'instant".
 
-**Requête Supabase** :
-```ts
-const { data } = await supabase
-  .from('actus')
-  .select('*')
-  .eq('published', true)
-  .order('published_at', { ascending: false })
-  .range(offset, offset + 9);
-```
+**Sous-onglet Événements (`EventsFeed.tsx`)** :
+- Source : table `events`, événements à venir uniquement (`date_fin >= now` ou, à défaut, `date_debut >= now`), tri `date_debut` ASC.
+- Cartes `EventCard` (badge type coloré, titre, dates, image, prix).
+- Clic → détail `/evenements/:id` (`EventDetailPage.tsx`, retour vers `/actu?tab=events`).
+- État vide : "Aucun événement à venir".
 
 ---
 
-### Onglet Événements — `/evenements`
+### Onglet Match équipes — `/matches-equipes` (lecture)
 
-**Source de données** : table `events`
+**Source de données** : tables `team_saisons`, `team_competitions`, `team_equipes`, `team_etapes`, `team_rencontres` (exposées en lecture `anon` par la migration `20260611_team_matches_pwa_read.sql`). **`team_match_lines` (joueurs nominatifs) n'est jamais requêté côté PWA.**
 
-**Page liste (`EventsPage.tsx`)** :
-- Uniquement les événements à venir :
-  - Si `date_fin` renseignée → `date_fin >= now()`
-  - Sinon → `date_debut >= now()`
-- Tri par `date_debut` ASC (le prochain en premier)
-- Chaque carte : badge type coloré, titre, dates formatées, image (si présente), prix (ou "Gratuit")
-- Clic → page de détail `/evenements/:id`
-- État vide : message "Aucun événement à venir"
+**Page (`MatchesEquipesPage.tsx`)** : rencontres à venir / passées des équipes du club, filtrables par saison et par équipe.
+- État local (pas de routing) : `saisonId` (défaut = saison active), `equipeId` (défaut = toutes), `upcomingTab` (`upcoming` / `past`).
+- Trois queries React Query indépendantes : saisons (cache long), compétitions + équipes de la saison, rencontres (2 round-trips : `team_etapes` puis `team_rencontres`, jointure côté client via `etape_id → equipe_id → competition_id`).
+- Filtrage à venir / passés côté client (`date_heure >= now` ; passés triés DESC).
+- `MatchEquipeFilterBar` : chips Saison + Équipe (le chip Équipe passe en accent si filtré) + segmented À venir / Passés avec compteurs.
+- `MatchEquipeFilterSheet` : bottom sheet ouvert au clic sur un chip (liste d'options + check sur l'option active).
+- `MatchEquipeCell` : cellule rencontre en deux états — `upcoming` (date + contexte + lieu 🏠/✈️) et `past` (date atone + contexte + colonne résultat vert/rouge/jaune + score). Phase finale → badge `1/4`, `1/2`, `Finale` au lieu de `JOURNÉE n`.
+- `labels.ts` : helpers `formatGenre`, `formatCategorie`, `competitionShortLabel`.
+- États vides : "Aucune saison disponible.", "Aucune rencontre à venir." / "Aucune rencontre passée.".
 
-**Page détail (`EventDetailPage.tsx`)** :
-- Toutes les infos, description Markdown rendue via `react-markdown`
-- Bouton retour vers `/evenements`
-
-**Requête Supabase** (filtre date_fin géré côté client pour la logique OR) :
-```ts
-const { data } = await supabase
-  .from('events')
-  .select('*')
-  .order('date_debut', { ascending: true });
-// Filtrer côté client : garder si (date_fin && date_fin >= now) || (!date_fin && date_debut >= now)
-```
-
-**Couleurs des badges par type** (cohérent avec le BO) :
-- Animation → bleu
-- Tournoi → violet
-- Match par équipe → vert
-- Sortie → orange
-- Soirée → rose
+> Hors scope v1 : page détail d'une rencontre, édition/création (reste BO), exposition des joueurs.
 
 ---
 
-### Onglet Matches — `/matches`
+### Onglet Live — `/matches`
 
 **Source de données** : table `live_matches`, Supabase Realtime
 
@@ -328,11 +306,11 @@ pwa/
 │   │       ├── MatchCard.tsx   # Carte d'un match (pending/live/finished)
 │   │       └── LiveBadge.tsx   # Badge animé "LIVE"
 │   ├── pages/
-│   │   ├── ActusPage.tsx       # Liste des actus avec load more
+│   │   ├── ActuPage.tsx        # Onglet Actu : sous-onglets Actualités/Événements
 │   │   ├── ActuDetailPage.tsx  # Détail d'une actu (markdown rendu)
-│   │   ├── EventsPage.tsx      # Liste des événements à venir
 │   │   ├── EventDetailPage.tsx # Détail d'un événement (markdown rendu)
-│   │   └── MatchesPage.tsx     # Matches du jour + à venir, realtime
+│   │   ├── MatchesEquipesPage.tsx # Rencontres interclubs (lecture, filtres)
+│   │   └── MatchesPage.tsx     # Live : matches du jour + à venir, realtime
 │   ├── App.tsx                 # Router + layout (Header + BottomNav + <Outlet>)
 │   ├── main.tsx                # Point d'entrée
 │   └── index.css               # Tokens CSS du BO + ajouts mobile (safe-area, etc.)
