@@ -121,8 +121,8 @@ export interface LiveMatch {
 ### Migrations complémentaires
 
 - `supabase/migrations/20260519_live_matches_court.sql` — ajoute la colonne `court TEXT` (nullable, sans défaut).
-- `supabase/migrations/20260523_live_matches_started_at.sql` — ajoute la colonne `started_at TIMESTAMPTZ` (nullable, sans défaut).
-- `supabase/migrations/20260523_live_matches_retired_player.sql` — ajoute la colonne `retired_player live_match_winner` (nullable). Renseignée lors d'un abandon ; le vainqueur (`winner`) reste défini comme pour une fin de match normale.
+- `supabase/migrations/2026052301_live_matches_started_at.sql` — ajoute la colonne `started_at TIMESTAMPTZ` (nullable, sans défaut).
+- `supabase/migrations/2026052302_live_matches_retired_player.sql` — ajoute la colonne `retired_player live_match_winner` (nullable). Renseignée lors d'un abandon ; le vainqueur (`winner`) reste défini comme pour une fin de match normale.
 
 ---
 

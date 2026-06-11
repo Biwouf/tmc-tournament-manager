@@ -83,6 +83,33 @@ npm run dev
 npm run build
 ```
 
+### Configuration de l'environnement (nouveau dev)
+
+L'application pointe sur Supabase via des variables d'environnement. **En local, on travaille toujours sur le projet Supabase de développement** — jamais sur la production.
+
+Pour le back-office (racine du projet) :
+
+```bash
+# Copier le modèle versionné
+cp .env.example .env.local
+
+# Puis éditer .env.local et renseigner les clés du projet Supabase de DEV :
+#   VITE_SUPABASE_URL      → dashboard Supabase (dev) → Project Settings → API
+#   VITE_SUPABASE_ANON_KEY → idem
+#   VITE_ENV=development    (à garder tel quel en local)
+```
+
+Faire de même pour la PWA :
+
+```bash
+cp pwa/.env.example pwa/.env.local
+# puis renseigner les mêmes clés du projet Supabase de DEV
+```
+
+Notes :
+- `.env` et `.env.local` sont gitignorés : **aucune clé réelle n'est versionnée**.
+- `VITE_ENV` vaut `development` en local et `production` sur les déploiements. Si un serveur de dev local démarre avec `VITE_ENV=production`, un avertissement est loggé dans la console pour éviter d'atteindre la prod par erreur.
+
 ## Utilisation
 
 ### Planification TMC
