@@ -12,19 +12,19 @@ export type HeaderConfig = {
 };
 
 const ROUTES: Array<[string, HeaderConfig]> = [
-  ['/actus',              { mode: 'root', title: 'Actualités' }],
+  ['/actu',               { mode: 'root', title: 'Actualités' }],
   ['/actus/:id',          { mode: 'sub',  title: 'Actualité',
-                            backTo: '/actus', backLabel: 'Actus' }],
-  ['/evenements',         { mode: 'root', title: 'Événements' }],
+                            backTo: '/actu?tab=actus',  backLabel: 'Actualités' }],
   ['/evenements/:id',     { mode: 'sub',  title: 'Événement',
-                            backTo: '/evenements', backLabel: 'Agenda' }],
-  ['/matches',            { mode: 'root', title: 'Matches' }],
+                            backTo: '/actu?tab=events', backLabel: 'Actualités' }],
+  ['/matches-equipes',    { mode: 'root', title: 'Matchs équipes' }],
+  ['/matches',            { mode: 'root', title: 'Live' }],
   ['/matches/new',        { mode: 'sub',  title: 'Nouveau match',
-                            backTo: '/matches', backLabel: 'Matches' }],
+                            backTo: '/matches', backLabel: 'Live' }],
   ['/matches/:id/score',  { mode: 'sub',  title: 'Live',
-                            backTo: '/matches', backLabel: 'Matches' }],
+                            backTo: '/matches', backLabel: 'Live' }],
   ['/login',              { mode: 'sub',  title: 'Connexion',
-                            backTo: '/matches', backLabel: 'Matches' }],
+                            backTo: '/matches', backLabel: 'Live' }],
 ];
 
 export function resolveHeader(pathname: string): HeaderConfig {

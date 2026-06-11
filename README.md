@@ -59,6 +59,12 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
 - **Génération d'affiche** des rencontres à venir : sélection (max 8) → affiche JPEG téléchargée localement
 
+### PWA — navigation
+- Trois onglets en bas : **Actu**, **Match équipes**, **Live**
+- **Actu** : Actualités et Événements fusionnés, basculables via des sous-onglets soulignés (l'URL conserve `?tab=…`, pull-to-refresh sur les deux flux)
+- **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Pas d'édition depuis la PWA, pas d'exposition des joueurs nominatifs
+- **Live** : suivi du live score (inchangé)
+
 ### PWA — bannière d'incitation à l'installation
 - Bannière fixe en bas (au-dessus de la barre de navigation) qui invite à installer l'app sur l'écran d'accueil
 - Variante Android Chrome/Edge : bouton « Installer » qui déclenche le prompt natif (`beforeinstallprompt`)

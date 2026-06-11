@@ -4,10 +4,10 @@ import AppHeader from './components/layout/AppHeader';
 import { HeaderActionProvider } from './components/layout/HeaderActionContext';
 import BottomNav from './components/layout/BottomNav';
 import InstallBanner from './components/install/InstallBanner';
-import ActusPage from './pages/ActusPage';
+import ActuPage from './pages/ActuPage';
 import ActuDetailPage from './pages/ActuDetailPage';
-import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
+import MatchesEquipesPage from './pages/MatchesEquipesPage';
 import MatchesPage from './pages/MatchesPage';
 import LoginPage from './pages/LoginPage';
 import NewMatchPage from './pages/NewMatchPage';
@@ -30,15 +30,25 @@ export default function App() {
       <AppHeader />
       <main className="pwa-content">
         <Routes>
-          <Route path="/" element={<Navigate to="/actus" replace />} />
+          <Route path="/" element={<Navigate to="/actu" replace />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/actus" element={<ActusPage />} />
+
+          {/* Actu (fusionné) — sous-onglets gérés dans la page */}
+          <Route path="/actu" element={<ActuPage />} />
           <Route path="/actus/:id" element={<ActuDetailPage />} />
-          <Route path="/evenements" element={<EventsPage />} />
           <Route path="/evenements/:id" element={<EventDetailPage />} />
+
+          {/* Match équipes (lecture) */}
+          <Route path="/matches-equipes" element={<MatchesEquipesPage />} />
+
+          {/* Live (inchangé) */}
           <Route path="/matches" element={<MatchesPage />} />
           <Route path="/matches/new" element={<RequireAuth><NewMatchPage /></RequireAuth>} />
           <Route path="/matches/:id/score" element={<RequireAuth><LiveMatchPage /></RequireAuth>} />
+
+          {/* Compat : anciennes URLs → redirection */}
+          <Route path="/actus" element={<Navigate to="/actu?tab=actus" replace />} />
+          <Route path="/evenements" element={<Navigate to="/actu?tab=events" replace />} />
         </Routes>
       </main>
       <InstallBanner />

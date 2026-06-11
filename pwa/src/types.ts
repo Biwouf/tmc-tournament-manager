@@ -93,3 +93,51 @@ export interface Actu {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Module Matches par équipe (lecture seule PWA) ──────────────
+// Copié depuis le BO (src/types.ts, section Module Matches par équipe).
+// À maintenir en sync si les types BO évoluent.
+
+export type TeamCompetitionNom =
+  | 'Pyrénées Interclubs' | 'CODEP' | 'GAN 35' | 'Thénégal' | 'Interclubs';
+export type TeamType = 'adultes' | 'jeunes';
+export type TeamGenre = 'hommes' | 'femmes' | 'mixte' | 'garcons' | 'filles';
+export type TeamCategorie =
+  | 'seniors' | '35_ans' | '60_ans' | '17_18' | '15_16' | '13_14' | '11_12';
+export type TeamDivision = 'R1A' | 'R1B' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6';
+export type TeamStadeFinale = '1/16' | '1/8' | '1/4' | '1/2' | 'finale';
+
+export interface TeamSaison {
+  id: string; label: string; actif: boolean; created_at: string;
+}
+export interface TeamCompetition {
+  id: string; saison_id: string;
+  nom: TeamCompetitionNom; type: TeamType;
+  genre: TeamGenre; categorie: TeamCategorie;
+  // format pas utilisé PWA mais conservé pour cohérence type
+  format: '2S1D' | '3S1D2' | '4S1D2' | '4S2D';
+  created_at: string;
+}
+export interface TeamEquipe {
+  id: string; competition_id: string;
+  numero: number; division: TeamDivision;
+  nb_journees_poule: number;
+  qualifiee: boolean | null;
+  stade_finale_depart: TeamStadeFinale | null;
+  created_at: string;
+}
+export interface TeamEtape {
+  id: string; equipe_id: string;
+  phase: 'poule' | 'finale';
+  numero_journee: number | null;
+  stade_finale: TeamStadeFinale | null;
+  created_at: string;
+}
+export interface TeamRencontre {
+  id: string; etape_id: string;
+  club_adverse: string; date_heure: string;
+  domicile: boolean;
+  score_club: number | null; score_adverse: number | null;
+  photo_urls: string[];
+  created_at: string; updated_at: string;
+}
