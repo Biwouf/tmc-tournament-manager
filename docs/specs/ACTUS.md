@@ -56,7 +56,7 @@ export interface Actu {
 
 ### Migrations
 
-- `supabase/migrations/20260426_actus.sql` — table + RLS + bucket
+- `supabase/migrations/2026042601_actus.sql` — table + RLS + bucket
 - `supabase/migrations/20260506_actus_focal_points.sql` — colonne `image_focal_points` (JSONB)
 - `supabase/migrations/YYYYMMDD_actus_image_captions.sql` — colonne `image_captions` (TEXT[])
 
@@ -370,7 +370,7 @@ pwa/src/
 
 supabase/
   migrations/
-    20260426_actus.sql
+    2026042601_actus.sql
     20260506_actus_focal_points.sql
     YYYYMMDD_actus_image_captions.sql
   functions/

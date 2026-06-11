@@ -37,6 +37,12 @@ Tout brief de feature ou de correctif (contexte, objectif, périmètre) doit êt
 Les migrations vivent dans `supabase/migrations/`. Convention de nommage :
 `YYYYMMDD_<nom_court>.sql` — ex. `20260423_live_matches.sql`.
 
+⚠️ La CLI Supabase dérive la `version` de migration des **chiffres de tête** du nom de
+fichier. Deux migrations le même jour doivent donc être désambiguïsées par un suffixe de
+séquence à 2 chiffres : `YYYYMMDDNN` — ex. `2026042601_actus.sql` puis
+`2026042602_actus_image_urls.sql`. Sinon `supabase db push` échoue avec
+`duplicate key value violates unique constraint "schema_migrations_pkey"`.
+
 Application : via le dashboard Supabase (SQL Editor) ou `supabase db push` en CLI.
 Pour connaître le schéma actuel d'une table, lire la dernière migration qui la concerne
 — ne pas supposer depuis les types TypeScript.
