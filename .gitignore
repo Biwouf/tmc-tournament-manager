@@ -36,3 +36,12 @@ tools/
 
 # Briefs de feature/correctif (contexte local, non versionné)
 docs/briefs/
+
+# Cache de compilation incrémentale TypeScript
+*.tsbuildinfo
+
+# État local de la CLI Supabase (project-ref, versions…)
+supabase/.temp/
+
+# Feuille de pointage (document local, non versionné)
+public/Feuille de pointage.pdf
