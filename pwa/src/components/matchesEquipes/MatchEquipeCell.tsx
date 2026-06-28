@@ -144,6 +144,9 @@ function ResultColumn({ rencontre }: { rencontre: TeamRencontre }) {
         <span className="opacity-55">–</span>
         {rencontre.score_adverse}
       </span>
+      {rencontre.wo && (
+        <span className="text-[8px] font-bold tracking-widest opacity-80">WO</span>
+      )}
     </div>
   );
 }
