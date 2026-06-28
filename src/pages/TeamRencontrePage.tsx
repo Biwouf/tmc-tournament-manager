@@ -22,6 +22,7 @@ import {
   etapeLabel,
   etapeLabelCourt,
   expectedMatchCount,
+  totalPointsFormat,
 } from '../components/teamMatches/teamMatchLabels';
 
 function formatDateLong(iso: string): string {
@@ -59,6 +60,7 @@ export default function TeamRencontrePage() {
   const [editingLine, setEditingLine] = useState<TeamMatchLine | undefined>(undefined);
   const [scoringLine, setScoringLine] = useState<TeamMatchLine | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [declaringWo, setDeclaringWo] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -191,6 +193,40 @@ export default function TeamRencontrePage() {
     load();
   };
 
+  const handleWo = async (gagnant: 'club' | 'adverse') => {
+    if (!rencontre || !context) return;
+    setActionError(null);
+    const total = totalPointsFormat(context.competition.format);
+    const { error } = await supabase
+      .from('team_rencontres')
+      .update({
+        wo: true,
+        score_club: gagnant === 'club' ? total : 0,
+        score_adverse: gagnant === 'adverse' ? total : 0,
+      })
+      .eq('id', rencontre.id);
+    if (error) {
+      setActionError(error.message);
+      return;
+    }
+    setDeclaringWo(false);
+    load();
+  };
+
+  const handleCancelWo = async () => {
+    if (!rencontre) return;
+    setActionError(null);
+    const { error } = await supabase
+      .from('team_rencontres')
+      .update({ wo: false, score_club: null, score_adverse: null })
+      .eq('id', rencontre.id);
+    if (error) {
+      setActionError(error.message);
+      return;
+    }
+    load();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
@@ -266,17 +302,65 @@ export default function TeamRencontrePage() {
                 setEditingLine(undefined);
                 setShowModal(true);
               }}
-              disabled={expected > 0 && lines.length >= expected}
+              disabled={rencontre.wo || (expected > 0 && lines.length >= expected)}
               title={
-                expected > 0 && lines.length >= expected
-                  ? 'Tous les matches du format sont déjà saisis'
-                  : undefined
+                rencontre.wo
+                  ? 'Rencontre déclarée par WO'
+                  : expected > 0 && lines.length >= expected
+                    ? 'Tous les matches du format sont déjà saisis'
+                    : undefined
               }
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
             >
               + Ajouter un match
             </button>
           </div>
+
+          {/* Déclaration WO (walkover) */}
+          {rencontre.wo ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-medium text-amber-800">
+                Rencontre déclarée par WO ({rencontre.score_club}–{rencontre.score_adverse})
+              </p>
+              <button
+                onClick={handleCancelWo}
+                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100"
+              >
+                Annuler le WO
+              </button>
+            </div>
+          ) : declaringWo ? (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-3">
+              <span className="text-sm text-muted-foreground">Déclarer la rencontre par WO :</span>
+              <button
+                onClick={() => handleWo('club')}
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100"
+              >
+                Gagné par WO
+              </button>
+              <button
+                onClick={() => handleWo('adverse')}
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100"
+              >
+                Perdu par WO
+              </button>
+              <button
+                onClick={() => setDeclaringWo(false)}
+                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <button
+                onClick={() => setDeclaringWo(true)}
+                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted"
+              >
+                Déclarer WO
+              </button>
+            </div>
+          )}
 
           {lines.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center text-sm text-muted-foreground">
@@ -301,8 +385,8 @@ export default function TeamRencontrePage() {
           )}
         </section>
 
-        {/* Score final */}
-        {context && (
+        {/* Score final — masqué si WO (le bandeau WO affiche déjà le score) */}
+        {context && !rencontre.wo && (
           <TeamScoreSection
             rencontre={rencontre}
             lines={lines}
@@ -358,6 +442,7 @@ async function syncFromLive(
   lines: TeamMatchLine[],
   format: TeamFormat
 ): Promise<TeamMatchLine[]> {
+  if (rencontre.wo) return lines; // score géré manuellement par le WO
   const liveIds = lines.map((l) => l.live_match_id).filter((x): x is string => x !== null);
   if (liveIds.length === 0) return lines;
 

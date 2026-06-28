@@ -97,6 +97,12 @@ export function expectedMatchCount(format: TeamFormat): number {
   return spec.simples + spec.doubles;
 }
 
+/** Total de points en jeu sur une rencontre (sert au score d'un WO). */
+export function totalPointsFormat(format: TeamFormat): number {
+  const spec = FORMAT_SPECS[format];
+  return spec.simples + spec.doubles * spec.doublePoints;
+}
+
 // --- Helpers d'affichage composés ---
 
 /** ex. "Pyrénées Interclubs — Hommes Seniors" */

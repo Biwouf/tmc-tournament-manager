@@ -334,6 +334,7 @@ export interface TeamRencontre {
   domicile: boolean;
   score_club: number | null;
   score_adverse: number | null;
+  wo: boolean;
   photo_urls: string[];
   created_at: string;
   updated_at: string;
