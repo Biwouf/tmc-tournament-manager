@@ -139,13 +139,14 @@ function ResultColumn({ rencontre }: { rencontre: TeamRencontre }) {
   return (
     <div className={`flex flex-col items-center justify-center gap-1 ${bg} text-white px-1`}>
       <span className="text-[9px] font-bold tracking-wide">{label}</span>
-      <span className="text-[26px] font-black tabular-nums leading-none">
-        {rencontre.score_club}
-        <span className="opacity-55">–</span>
-        {rencontre.score_adverse}
-      </span>
-      {rencontre.wo && (
-        <span className="text-[8px] font-bold tracking-widest opacity-80">WO</span>
+      {rencontre.wo ? (
+        <span className="text-[22px] font-black tracking-wider leading-none">WO</span>
+      ) : (
+        <span className="text-[26px] font-black tabular-nums leading-none">
+          {rencontre.score_club}
+          <span className="opacity-55">–</span>
+          {rencontre.score_adverse}
+        </span>
       )}
     </div>
   );
