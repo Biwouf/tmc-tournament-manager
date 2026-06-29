@@ -115,6 +115,19 @@ export default function TeamEquipePage() {
     [etapes]
   );
 
+  // Index du premier stade de phase finale où l'équipe a perdu (score_club <
+  // score_adverse, ce qui couvre aussi le WO défaite). Les stades suivants
+  // n'ont plus lieu d'être : on bloque leur création.
+  const elimineeApresIndex = useMemo(() => {
+    for (let i = 0; i < finaleEtapes.length; i++) {
+      const r = rencontreByEtape[finaleEtapes[i].id];
+      if (r && r.score_club !== null && r.score_adverse !== null && r.score_club < r.score_adverse) {
+        return i;
+      }
+    }
+    return null;
+  }, [finaleEtapes, rencontreByEtape]);
+
   // Issue de poule non encore tranchée : on peut qualifier / éliminer l'équipe.
   // Pas de prérequis sur les rencontres de poule — permet de configurer
   // directement la phase finale (équipe saisie a posteriori).
@@ -317,7 +330,7 @@ export default function TeamEquipePage() {
               </button>
             </div>
             <div className="divide-y divide-border rounded-xl border bg-card/90">
-              {finaleEtapes.map((etape) => (
+              {finaleEtapes.map((etape, i) => (
                 <EtapeRow
                   key={etape.id}
                   titre={STADE_LABELS[etape.stade_finale as TeamStadeFinale]}
@@ -326,6 +339,7 @@ export default function TeamEquipePage() {
                   onOpen={(rid) => navigate(`/team-matches/rencontre/${rid}`)}
                   onDelete={handleDeleteRencontre}
                   onDeleteEtape={() => handleDeleteStade(etape)}
+                  createDisabled={elimineeApresIndex !== null && i > elimineeApresIndex}
                 />
               ))}
             </div>
@@ -358,6 +372,7 @@ function EtapeRow({
   onOpen,
   onDelete,
   onDeleteEtape,
+  createDisabled,
 }: {
   titre: string;
   rencontre: TeamRencontre | undefined;
@@ -365,18 +380,21 @@ function EtapeRow({
   onOpen: (rencontreId: string) => void;
   onDelete: (rencontre: TeamRencontre) => void;
   onDeleteEtape?: () => void;
+  createDisabled?: boolean;
 }) {
   if (!rencontre) {
     return (
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <span className="font-medium text-muted-foreground">{titre}</span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onCreate}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            + Créer la rencontre
-          </button>
+          {!createDisabled && (
+            <button
+              onClick={onCreate}
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            >
+              + Créer la rencontre
+            </button>
+          )}
           {onDeleteEtape && (
             <button
               onClick={onDeleteEtape}
@@ -406,7 +424,11 @@ function EtapeRow({
             {formatDate(rencontre.date_heure)} · {rencontre.domicile ? 'Au club' : 'Déplacement'}
           </p>
         </div>
-        {hasScore ? (
+        {rencontre.wo ? (
+          <span className="rounded-md bg-orange-100 px-2.5 py-1 text-sm font-semibold text-orange-700">
+            WO
+          </span>
+        ) : hasScore ? (
           <span className="rounded-md bg-muted px-2.5 py-1 text-sm font-semibold tabular-nums">
             {rencontre.score_club} – {rencontre.score_adverse}
           </span>
