@@ -468,7 +468,9 @@ Tableau des journées (J1 à JN). Chaque ligne affiche :
 
 **Section Phase finale** (visible uniquement si `qualifiee = true`) :
 
-Même tableau que la poule, mais avec les stades comme intitulés de ligne. Les stades sont générés séquentiellement à partir du stade de départ (ex. si départ = "1/4" → [1/4, 1/2, Finale]). Si l'équipe est éliminée à un stade, les stades suivants restent vides mais affichés (grisés).
+Même tableau que la poule, mais avec les stades comme intitulés de ligne. Les stades sont générés séquentiellement à partir du stade de départ (ex. si départ = "1/4" → [1/4, 1/2, Finale]). Si l'équipe est éliminée à un stade (première rencontre de phase finale où `score_club < score_adverse` — couvre aussi le WO défaite, dont le score auto est `0` < `totalPointsFormat`), **les stades suivants sont masqués** : seuls les stades jusqu'au stade perdu (inclus) sont affichés (`finaleEtapesVisibles`). Contrairement à la poule, où toutes les journées s'affichent quel que soit le résultat des rencontres précédentes.
+
+Affichage du résultat d'une ligne avec rencontre : badge **WO** (orange) si `rencontre.wo`, sinon le score `score_club – score_adverse` s'il est saisi, sinon le badge « À jouer ».
 
 Comme en poule, chaque ligne de stade affiche un bouton **Supprimer** : sur une ligne avec rencontre il supprime la rencontre (cascade), sur une ligne vide il supprime le stade (`team_etapes`). La suppression d'un stade est unitaire (pas de renumérotation, pas de garde « min. 1 ») — utile pour retirer un stade de départ saisi trop tôt.
 

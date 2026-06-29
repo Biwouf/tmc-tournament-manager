@@ -115,6 +115,20 @@ export default function TeamEquipePage() {
     [etapes]
   );
 
+  // Stades de phase finale à afficher : on s'arrête au premier stade perdu
+  // (score_club < score_adverse, ce qui couvre aussi le WO défaite). Les stades
+  // suivants n'ont plus lieu d'être et sont masqués. La poule n'est pas concernée
+  // (toutes les journées s'affichent quel que soit le résultat).
+  const finaleEtapesVisibles = useMemo(() => {
+    for (let i = 0; i < finaleEtapes.length; i++) {
+      const r = rencontreByEtape[finaleEtapes[i].id];
+      if (r && r.score_club !== null && r.score_adverse !== null && r.score_club < r.score_adverse) {
+        return finaleEtapes.slice(0, i + 1);
+      }
+    }
+    return finaleEtapes;
+  }, [finaleEtapes, rencontreByEtape]);
+
   // Issue de poule non encore tranchée : on peut qualifier / éliminer l'équipe.
   // Pas de prérequis sur les rencontres de poule — permet de configurer
   // directement la phase finale (équipe saisie a posteriori).
@@ -317,7 +331,7 @@ export default function TeamEquipePage() {
               </button>
             </div>
             <div className="divide-y divide-border rounded-xl border bg-card/90">
-              {finaleEtapes.map((etape) => (
+              {finaleEtapesVisibles.map((etape) => (
                 <EtapeRow
                   key={etape.id}
                   titre={STADE_LABELS[etape.stade_finale as TeamStadeFinale]}
@@ -406,7 +420,11 @@ function EtapeRow({
             {formatDate(rencontre.date_heure)} · {rencontre.domicile ? 'Au club' : 'Déplacement'}
           </p>
         </div>
-        {hasScore ? (
+        {rencontre.wo ? (
+          <span className="rounded-md bg-orange-100 px-2.5 py-1 text-sm font-semibold text-orange-700">
+            WO
+          </span>
+        ) : hasScore ? (
           <span className="rounded-md bg-muted px-2.5 py-1 text-sm font-semibold tabular-nums">
             {rencontre.score_club} – {rencontre.score_adverse}
           </span>
