@@ -4,6 +4,7 @@ import { toJpeg } from 'html-to-image';
 import * as pdfjsLib from 'pdfjs-dist';
 import PdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent } from '../types';
 
 // Worker fourni en tant qu'instance (workerPort) : Vite le bundle correctement
@@ -537,6 +538,7 @@ function formatEventLabel(ev: Pick<ClubEvent, 'titre' | 'date_debut'>): string {
 }
 
 export default function ProgrammationImagePage() {
+  const { clubId } = useClub();
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -576,12 +578,13 @@ export default function ProgrammationImagePage() {
     supabase
       .from('events')
       .select('id, titre, date_debut')
+      .eq('club_id', clubId)
       .order('date_debut', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) setEvents(data);
         setEventsLoading(false);
       });
-  }, []);
+  }, [clubId]);
 
   // Reset le bouton de basculement, le highlight et la sélection à chaque nouvelle importation (PDF/CSV).
   // La sélection est ré-initialisée à « tout coché » sur les matchs complets.
@@ -646,6 +649,7 @@ export default function ProgrammationImagePage() {
       event_id: selectedEventId || null,
       type_tournoi: m.type_tournoi || null,
       status: 'pending' as const,
+      club_id: clubId,
     }));
 
     const { error } = await supabase.from('live_matches').insert(payload);

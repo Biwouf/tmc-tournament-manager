@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { Actu } from '../types';
 
 const STORAGE_BUCKET = 'actu-images';
@@ -17,6 +18,7 @@ function formatDate(iso: string): string {
 }
 
 export default function ActusPage() {
+  const { clubId } = useClub();
   const [actus, setActus] = useState<Actu[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
@@ -28,6 +30,7 @@ export default function ActusPage() {
     supabase
       .from('actus')
       .select('*')
+      .eq('club_id', clubId)
       .order('created_at', { ascending: false })
       .abortSignal(controller.signal)
       .then(({ data, error }) => {
@@ -40,14 +43,14 @@ export default function ActusPage() {
     return () => {
       controller.abort();
     };
-  }, [reloadKey]);
+  }, [reloadKey, clubId]);
 
   const reload = () => setReloadKey((k) => k + 1);
 
   const handlePublish = async (a: Actu) => {
     const payload: Partial<Actu> = { published: true };
     if (!a.published_at) payload.published_at = new Date().toISOString();
-    const { error } = await supabase.from('actus').update(payload).eq('id', a.id);
+    const { error } = await supabase.from('actus').update(payload).eq('id', a.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur publication : ${error.message}`);
       return;
@@ -56,7 +59,7 @@ export default function ActusPage() {
   };
 
   const handleUnpublish = async (a: Actu) => {
-    const { error } = await supabase.from('actus').update({ published: false }).eq('id', a.id);
+    const { error } = await supabase.from('actus').update({ published: false }).eq('id', a.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur dépublication : ${error.message}`);
       return;
@@ -72,7 +75,7 @@ export default function ActusPage() {
         .filter((p): p is string => p !== null);
       if (paths.length > 0) await supabase.storage.from(STORAGE_BUCKET).remove(paths);
     }
-    const { error } = await supabase.from('actus').delete().eq('id', a.id);
+    const { error } = await supabase.from('actus').delete().eq('id', a.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;

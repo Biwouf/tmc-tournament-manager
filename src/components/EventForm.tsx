@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
 import { EVENT_TYPES, type ClubEvent, type EventType } from '../types';
 
@@ -43,6 +44,7 @@ export default function EventForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -81,6 +83,7 @@ export default function EventForm() {
       .from('events')
       .select('*')
       .eq('id', id)
+      .eq('club_id', clubId)
       .single()
       .then(({ data, error }) => {
         if (error || !data) {
@@ -98,7 +101,7 @@ export default function EventForm() {
         setExistingImageUrl(ev.image_url);
         setLoading(false);
       });
-  }, [id, isEdit]);
+  }, [id, isEdit, clubId]);
 
   const handleImageChange = (file: File | null) => {
     if (!file) {
@@ -181,12 +184,13 @@ export default function EventForm() {
         const { error: updateErr } = await supabase
           .from('events')
           .update(basePayload)
-          .eq('id', targetId);
+          .eq('id', targetId)
+          .eq('club_id', clubId);
         if (updateErr) throw updateErr;
       } else {
         const { data, error: insertErr } = await supabase
           .from('events')
-          .insert({ ...basePayload, image_url: null })
+          .insert({ ...basePayload, image_url: null, club_id: clubId })
           .select('id')
           .single();
         if (insertErr || !data) throw insertErr ?? new Error('Insert failed');
@@ -210,7 +214,8 @@ export default function EventForm() {
         const { error: imgErr } = await supabase
           .from('events')
           .update({ image_url: finalImageUrl })
-          .eq('id', targetId);
+          .eq('id', targetId)
+          .eq('club_id', clubId);
         if (imgErr) throw imgErr;
       }
 

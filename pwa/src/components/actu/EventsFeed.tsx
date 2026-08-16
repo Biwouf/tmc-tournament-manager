@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { useClub } from '../../contexts/ClubContext';
 import type { ClubEvent } from '../../types';
 import EventCard from '../events/EventCard';
 import PullToRefreshWrapper from '../layout/PullToRefreshWrapper';
 
-async function fetchUpcomingEvents(): Promise<ClubEvent[]> {
+async function fetchUpcomingEvents(clubId: string | null): Promise<ClubEvent[]> {
   const { data, error } = await supabase
     .from('events')
     .select('*')
+    .eq('club_id', clubId)
     .order('date_debut', { ascending: true });
   if (error) throw error;
 
@@ -20,9 +22,10 @@ async function fetchUpcomingEvents(): Promise<ClubEvent[]> {
 }
 
 export default function EventsFeed() {
+  const { clubId } = useClub();
   const { data: events, isLoading, isError, isFetching, refetch } = useQuery({
-    queryKey: ['events'],
-    queryFn: fetchUpcomingEvents,
+    queryKey: ['events', clubId],
+    queryFn: () => fetchUpcomingEvents(clubId),
   });
 
   const handleRefresh = async () => {

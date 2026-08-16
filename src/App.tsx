@@ -21,14 +21,16 @@ import TeamMatchesAdminPage from './pages/TeamMatchesAdminPage';
 import TeamEquipePage from './pages/TeamEquipePage';
 import TeamRencontrePage from './pages/TeamRencontrePage';
 import TeamRencontreForm from './components/teamMatches/TeamRencontreForm';
+import { ClubProvider, useClub } from './contexts/ClubContext';
 
 function RedirectTournament() {
   const { id } = useParams();
   return <Navigate to={`/tmc-planning/${id}`} replace />;
 }
 
-function App() {
+function AppRoutes() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const { loading: clubLoading } = useClub();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -42,7 +44,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (user === undefined) return null;
+  if (user === undefined || clubLoading) return null;
 
   const auth = (el: ReactElement) => user ? el : <Navigate to="/login" replace />;
 
@@ -72,6 +74,14 @@ function App() {
       <Route path="/admin/invite" element={auth(<InvitePage />)} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
     </Routes>
+  );
+}
+
+function App() {
+  return (
+    <ClubProvider>
+      <AppRoutes />
+    </ClubProvider>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCategorie,
   TeamCompetition,
@@ -24,6 +25,7 @@ import {
 const FORMATS: TeamFormat[] = ['2S1D', '3S1D2', '4S1D2', '4S2D'];
 
 export default function TeamMatchesAdminPage() {
+  const { clubId } = useClub();
   const [searchParams, setSearchParams] = useSearchParams();
   const [saisons, setSaisons] = useState<TeamSaison[]>([]);
   const [competitions, setCompetitions] = useState<TeamCompetition[]>([]);
@@ -46,8 +48,8 @@ export default function TeamMatchesAdminPage() {
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      supabase.from('team_saisons').select('*').order('created_at', { ascending: false }),
-      supabase.from('team_competitions').select('*').order('created_at', { ascending: true }),
+      supabase.from('team_saisons').select('*').eq('club_id', clubId).order('created_at', { ascending: false }),
+      supabase.from('team_competitions').select('*').eq('club_id', clubId).order('created_at', { ascending: true }),
     ]).then(([s, c]) => {
       if (cancelled) return;
       if (s.data) setSaisons(s.data as TeamSaison[]);
@@ -57,7 +59,7 @@ export default function TeamMatchesAdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, clubId]);
 
   // Sélection par défaut : saison active, sinon la première.
   useEffect(() => {
@@ -115,6 +117,7 @@ function SaisonsSection({
   competitions: TeamCompetition[];
   onChange: () => void;
 }) {
+  const { clubId } = useClub();
   const [newLabel, setNewLabel] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
@@ -126,7 +129,7 @@ function SaisonsSection({
       setError('Le label de la saison est obligatoire.');
       return;
     }
-    const { error: err } = await supabase.from('team_saisons').insert({ label: newLabel.trim() });
+    const { error: err } = await supabase.from('team_saisons').insert({ label: newLabel.trim(), club_id: clubId });
     if (err) return setError(err.message);
     setNewLabel('');
     onChange();
@@ -137,7 +140,8 @@ function SaisonsSection({
     const { error: err } = await supabase
       .from('team_saisons')
       .update({ label: editLabel.trim() })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('club_id', clubId);
     if (err) return setError(err.message);
     setEditingId(null);
     onChange();
@@ -149,13 +153,16 @@ function SaisonsSection({
       const { error: err } = await supabase
         .from('team_saisons')
         .update({ actif: false })
-        .eq('id', saison.id);
+        .eq('id', saison.id)
+        .eq('club_id', clubId);
       if (err) return setError(err.message);
     } else {
-      // Désactive toutes les autres puis active celle-ci.
-      const off = await supabase.from('team_saisons').update({ actif: false }).neq('id', saison.id);
+      // Désactive toutes les autres saisons DU CLUB puis active celle-ci.
+      // Le `.eq('club_id', clubId)` est indispensable : sans lui, l'activation
+      // désactiverait les saisons actives des autres clubs (fuite multi-tenant).
+      const off = await supabase.from('team_saisons').update({ actif: false }).eq('club_id', clubId).neq('id', saison.id);
       if (off.error) return setError(off.error.message);
-      const on = await supabase.from('team_saisons').update({ actif: true }).eq('id', saison.id);
+      const on = await supabase.from('team_saisons').update({ actif: true }).eq('id', saison.id).eq('club_id', clubId);
       if (on.error) return setError(on.error.message);
     }
     onChange();
@@ -169,7 +176,7 @@ function SaisonsSection({
       return;
     }
     if (!window.confirm(`Supprimer la saison "${saison.label}" ?`)) return;
-    const { error: err } = await supabase.from('team_saisons').delete().eq('id', saison.id);
+    const { error: err } = await supabase.from('team_saisons').delete().eq('id', saison.id).eq('club_id', clubId);
     if (err) return setError(err.message);
     onChange();
   };
@@ -295,6 +302,7 @@ function CompetitionsSection({
   autoOpen?: boolean;
   onAutoOpened?: () => void;
 }) {
+  const { clubId } = useClub();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CompetitionDraft>(emptyDraft());
@@ -341,8 +349,8 @@ function CompetitionsSection({
     }
     const payload = { saison_id: selectedSaisonId, ...draft };
     const { error: err } = editingId
-      ? await supabase.from('team_competitions').update(payload).eq('id', editingId)
-      : await supabase.from('team_competitions').insert(payload);
+      ? await supabase.from('team_competitions').update(payload).eq('id', editingId).eq('club_id', clubId)
+      : await supabase.from('team_competitions').insert({ ...payload, club_id: clubId });
     if (err) return setError(err.message);
     setShowForm(false);
     onChange();
@@ -353,14 +361,15 @@ function CompetitionsSection({
     const { count, error: countErr } = await supabase
       .from('team_equipes')
       .select('id', { count: 'exact', head: true })
-      .eq('competition_id', c.id);
+      .eq('competition_id', c.id)
+      .eq('club_id', clubId);
     if (countErr) return setError(countErr.message);
     if ((count ?? 0) > 0) {
       setError('Impossible de supprimer : des équipes sont rattachées à cette compétition.');
       return;
     }
     if (!window.confirm('Supprimer cette compétition ?')) return;
-    const { error: err } = await supabase.from('team_competitions').delete().eq('id', c.id);
+    const { error: err } = await supabase.from('team_competitions').delete().eq('id', c.id).eq('club_id', clubId);
     if (err) return setError(err.message);
     onChange();
   };

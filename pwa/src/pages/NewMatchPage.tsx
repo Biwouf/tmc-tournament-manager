@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent, LiveMatchType } from '../types';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
@@ -30,6 +31,7 @@ const inputClass =
 
 export default function NewMatchPage() {
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   const [matchType, setMatchType] = useState<LiveMatchType>('simple');
   const [matchDate, setMatchDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -67,12 +69,13 @@ export default function NewMatchPage() {
     supabase
       .from('events')
       .select('id, titre, date_debut')
+      .eq('club_id', clubId)
       .gte('date_debut', since.toISOString())
       .order('date_debut', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) setEvents(data);
       });
-  }, []);
+  }, [clubId]);
 
   const validate = (): FieldErrors => {
     const errs: FieldErrors = {};
@@ -125,6 +128,7 @@ export default function NewMatchPage() {
 
       status: 'pending' as const,
       scored_by: null,
+      club_id: clubId,
     };
 
     const { error } = await supabase.from('live_matches').insert(payload);

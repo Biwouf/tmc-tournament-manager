@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toJpeg } from 'html-to-image';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCompetition,
   TeamDivision,
@@ -46,6 +47,7 @@ function computeBadge(equipe: TeamEquipe, progress: ProgressData): EquipeBadge {
 
 export default function TeamMatchesPage() {
   const navigate = useNavigate();
+  const { clubId } = useClub();
   const [saisons, setSaisons] = useState<TeamSaison[]>([]);
   const [competitions, setCompetitions] = useState<TeamCompetition[]>([]);
   const [equipes, setEquipes] = useState<TeamEquipe[]>([]);
@@ -69,8 +71,8 @@ export default function TeamMatchesPage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      supabase.from('team_saisons').select('*').order('created_at', { ascending: false }),
-      supabase.from('team_competitions').select('*').order('created_at', { ascending: true }),
+      supabase.from('team_saisons').select('*').eq('club_id', clubId).order('created_at', { ascending: false }),
+      supabase.from('team_competitions').select('*').eq('club_id', clubId).order('created_at', { ascending: true }),
     ]).then(([s, c]) => {
       if (cancelled) return;
       const err = s.error ?? c.error;
@@ -82,7 +84,7 @@ export default function TeamMatchesPage() {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, clubId]);
 
   // Sélection saison par défaut : active.
   useEffect(() => {
@@ -122,6 +124,7 @@ export default function TeamMatchesPage() {
     supabase
       .from('team_equipes')
       .select('*')
+      .eq('club_id', clubId)
       .in('competition_id', filteredCompIds)
       .order('numero', { ascending: true })
       .then(async ({ data: eqData }) => {
@@ -139,12 +142,13 @@ export default function TeamMatchesPage() {
         const { data: etapeData } = await supabase
           .from('team_etapes')
           .select('*')
+          .eq('club_id', clubId)
           .in('equipe_id', equipeIds);
         const etapes = (etapeData ?? []) as TeamEtape[];
 
         const etapeIds = etapes.map((e) => e.id);
         const { data: rencData } = etapeIds.length
-          ? await supabase.from('team_rencontres').select('etape_id').in('etape_id', etapeIds)
+          ? await supabase.from('team_rencontres').select('etape_id').eq('club_id', clubId).in('etape_id', etapeIds)
           : { data: [] };
 
         if (cancelled) return;
@@ -169,7 +173,7 @@ export default function TeamMatchesPage() {
     return () => {
       cancelled = true;
     };
-  }, [refReady, saisonId, competitionId, competitionsOfSaison, reloadKey]);
+  }, [refReady, saisonId, competitionId, competitionsOfSaison, reloadKey, clubId]);
 
   const saisonsById = useMemo(() => Object.fromEntries(saisons.map((s) => [s.id, s])), [saisons]);
   const competitionsById = useMemo(
@@ -179,7 +183,7 @@ export default function TeamMatchesPage() {
 
   const handleDelete = async (equipe: TeamEquipe) => {
     if (!window.confirm(`Supprimer l'équipe ${equipe.numero} et toutes ses rencontres ?`)) return;
-    const { error } = await supabase.from('team_equipes').delete().eq('id', equipe.id);
+    const { error } = await supabase.from('team_equipes').delete().eq('id', equipe.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;
@@ -340,6 +344,7 @@ function CreateEquipeForm({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { clubId } = useClub();
   const [competitionId, setCompetitionId] = useState(defaultCompetitionId);
   const [division, setDivision] = useState<TeamDivision>('R2');
   const [nbJournees, setNbJournees] = useState(5);
@@ -373,6 +378,7 @@ function CreateEquipeForm({
         numero,
         division,
         nb_journees_poule: nbJournees,
+        club_id: clubId,
       })
       .select('id')
       .single();
@@ -388,6 +394,7 @@ function CreateEquipeForm({
       equipe_id: data.id,
       phase: 'poule' as const,
       numero_journee: i + 1,
+      club_id: clubId,
     }));
     const { error: etapesErr } = await supabase.from('team_etapes').insert(etapes);
     if (etapesErr) {
@@ -548,6 +555,7 @@ function rencontreToTeamMatch(
 }
 
 function GeneratePosterModal({ onClose }: { onClose: () => void }) {
+  const { clubId } = useClub();
   const [rencontres, setRencontres] = useState<RencontreWithContext[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -573,6 +581,9 @@ function GeneratePosterModal({ onClose }: { onClose: () => void }) {
         )
       `,
       )
+      // club_id dénormalisé sur team_rencontres (D11) : un seul filtre sur la
+      // table racine suffit, pas besoin de filtrer chaque table jointe.
+      .eq('club_id', clubId)
       .gte('date_heure', new Date().toISOString())
       .order('date_heure', { ascending: true })
       .then(({ data, error }) => {
@@ -584,7 +595,7 @@ function GeneratePosterModal({ onClose }: { onClose: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [clubId]);
 
   const selectedMatches = useMemo<TeamMatch[]>(() => {
     return rencontres

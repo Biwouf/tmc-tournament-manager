@@ -1,15 +1,17 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { useClub } from '../../contexts/ClubContext';
 import type { Actu } from '../../types';
 import ActuCard from '../actus/ActuCard';
 import PullToRefreshWrapper from '../layout/PullToRefreshWrapper';
 
 const PAGE_SIZE = 10;
 
-async function fetchActus(offset: number): Promise<Actu[]> {
+async function fetchActus(offset: number, clubId: string | null): Promise<Actu[]> {
   const { data, error } = await supabase
     .from('actus')
     .select('*')
+    .eq('club_id', clubId)
     .eq('published', true)
     .order('published_at', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1);
@@ -18,10 +20,11 @@ async function fetchActus(offset: number): Promise<Actu[]> {
 }
 
 export default function ActusFeed() {
+  const { clubId } = useClub();
   const { data, fetchNextPage, isFetching, isFetchingNextPage, isError, hasNextPage, refetch } =
     useInfiniteQuery({
-      queryKey: ['actus'],
-      queryFn: ({ pageParam }) => fetchActus(pageParam),
+      queryKey: ['actus', clubId],
+      queryFn: ({ pageParam }) => fetchActus(pageParam, clubId),
       initialPageParam: 0,
       getNextPageParam: (lastPage, allPages) =>
         lastPage.length < PAGE_SIZE ? undefined : allPages.length * PAGE_SIZE,

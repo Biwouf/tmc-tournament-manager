@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCompetition,
   TeamEquipe,
@@ -19,6 +20,7 @@ import MatchEquipeList, {
 import { competitionShortLabel } from '../components/matchesEquipes/labels';
 
 export default function MatchesEquipesPage() {
+  const { clubId } = useClub();
   const [saisonId, setSaisonId] = useState<string | null>(null); // null = défaut (saison active)
   const [equipeId, setEquipeId] = useState<string | null>(null); // null = "Toutes les équipes"
   const [upcomingTab, setUpcomingTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -26,11 +28,12 @@ export default function MatchesEquipesPage() {
 
   // 1) Saisons (rare, cache long)
   const { data: saisons } = useQuery({
-    queryKey: ['team-saisons'],
+    queryKey: ['team-saisons', clubId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('team_saisons')
         .select('*')
+        .eq('club_id', clubId)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as TeamSaison[];
@@ -42,17 +45,19 @@ export default function MatchesEquipesPage() {
 
   // 2) Compétitions + équipes de la saison sélectionnée
   const { data: equipesCtx } = useQuery({
-    queryKey: ['team-equipes', currentSaisonId],
+    queryKey: ['team-equipes', currentSaisonId, clubId],
     enabled: !!currentSaisonId,
     queryFn: async () => {
       const { data: comps, error: e1 } = await supabase
         .from('team_competitions')
         .select('*')
+        .eq('club_id', clubId)
         .eq('saison_id', currentSaisonId);
       if (e1) throw e1;
       const { data: eqs, error: e2 } = await supabase
         .from('team_equipes')
         .select('*')
+        .eq('club_id', clubId)
         .in('competition_id', (comps as TeamCompetition[]).map((c) => c.id));
       if (e2) throw e2;
       return {
@@ -69,7 +74,7 @@ export default function MatchesEquipesPage() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['team-rencontres', currentSaisonId, equipeId],
+    queryKey: ['team-rencontres', currentSaisonId, equipeId, clubId],
     enabled: !!currentSaisonId && !!equipesCtx,
     queryFn: async (): Promise<EnrichedRencontre[]> => {
       const equipeIds = equipeId ? [equipeId] : equipesCtx!.equipes.map((e) => e.id);
@@ -77,12 +82,14 @@ export default function MatchesEquipesPage() {
       const { data: etapes, error: e1 } = await supabase
         .from('team_etapes')
         .select('*')
+        .eq('club_id', clubId)
         .in('equipe_id', equipeIds);
       if (e1) throw e1;
       if ((etapes as TeamEtape[]).length === 0) return [];
       const { data: rencs, error: e2 } = await supabase
         .from('team_rencontres')
         .select('*')
+        .eq('club_id', clubId)
         .in('etape_id', (etapes as TeamEtape[]).map((et) => et.id))
         .order('date_heure', { ascending: true });
       if (e2) throw e2;

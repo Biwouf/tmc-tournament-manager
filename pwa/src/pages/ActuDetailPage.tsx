@@ -4,6 +4,7 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { Actu } from '../types';
 import { focalPointStyle } from '../utils/focalPoint';
 
@@ -31,11 +32,12 @@ const markdownComponents: Components = {
   },
 };
 
-async function fetchActu(id: string): Promise<Actu> {
+async function fetchActu(id: string, clubId: string | null): Promise<Actu> {
   const { data, error } = await supabase
     .from('actus')
     .select('*')
     .eq('id', id)
+    .eq('club_id', clubId)
     .eq('published', true)
     .single();
   if (error) throw error;
@@ -44,10 +46,11 @@ async function fetchActu(id: string): Promise<Actu> {
 
 export default function ActuDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { clubId } = useClub();
 
   const { data: actu, isLoading, isError } = useQuery({
-    queryKey: ['actu', id],
-    queryFn: () => fetchActu(id!),
+    queryKey: ['actu', id, clubId],
+    queryFn: () => fetchActu(id!, clubId),
     enabled: !!id,
   });
 

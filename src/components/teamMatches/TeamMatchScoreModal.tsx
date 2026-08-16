@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useClub } from '../../contexts/ClubContext';
 import type { TeamMatchGagnant, TeamMatchLine } from '../../types';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function TeamMatchScoreModal({ line, onClose, onSaved }: Props) {
+  const { clubId } = useClub();
   const [gagnant, setGagnant] = useState<TeamMatchGagnant>(line.gagnant ?? 'club');
   const [score, setScore] = useState(line.score ?? '');
   const [saving, setSaving] = useState(false);
@@ -20,7 +22,8 @@ export default function TeamMatchScoreModal({ line, onClose, onSaved }: Props) {
     const { error: err } = await supabase
       .from('team_match_lines')
       .update(payload)
-      .eq('id', line.id);
+      .eq('id', line.id)
+      .eq('club_id', clubId);
     if (err) {
       setError(err.message);
       setSaving(false);

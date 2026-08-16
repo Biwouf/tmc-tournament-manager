@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { TournamentEntry } from '../types';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 
 export default function HomePage({ user }: Props) {
   const navigate = useNavigate();
+  const { clubId } = useClub();
   const [tournaments, setTournaments] = useState<TournamentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -19,6 +21,7 @@ export default function HomePage({ user }: Props) {
     supabase
       .from('tournaments')
       .select('id, config, schedule')
+      .eq('club_id', clubId)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
@@ -32,7 +35,7 @@ export default function HomePage({ user }: Props) {
         }
         setLoading(false);
       });
-  }, []);
+  }, [clubId]);
 
   const handleLogout = () => supabase.auth.signOut();
 
@@ -47,7 +50,7 @@ export default function HomePage({ user }: Props) {
       };
       const { data, error: insertError } = await supabase
         .from('tournaments')
-        .insert({ config: newConfig, schedule: null, user_id: user.id })
+        .insert({ config: newConfig, schedule: null, user_id: user.id, club_id: clubId })
         .select('id')
         .single();
       if (insertError) throw insertError;

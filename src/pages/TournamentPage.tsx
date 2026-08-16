@@ -8,6 +8,7 @@ import { generateSchedule, generateTimeSlots, retryUnscheduledMatches } from '..
 import { moveMatches } from '../moveMatch';
 import { exportScheduleCsv } from '../exportScheduleCsv';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 
 interface Props {
   user: User;
@@ -16,6 +17,7 @@ interface Props {
 export default function TournamentPage({ user }: Props) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   const isNew = id === 'new';
 
@@ -32,6 +34,7 @@ export default function TournamentPage({ user }: Props) {
       .from('tournaments')
       .select('id, config, schedule')
       .eq('id', id!)
+      .eq('club_id', clubId)
       .single()
       .then(({ data, error }) => {
         if (!error && data) {
@@ -46,7 +49,7 @@ export default function TournamentPage({ user }: Props) {
         }
         setLoading(false);
       });
-  }, [id, isNew]);
+  }, [id, isNew, clubId]);
 
   const handleConfigSubmit = async (newConfig: GlobalConfig) => {
     try {
@@ -56,7 +59,7 @@ export default function TournamentPage({ user }: Props) {
       if (isNew) {
         const { data, error } = await supabase
           .from('tournaments')
-          .insert({ config: newConfig, schedule, user_id: user.id })
+          .insert({ config: newConfig, schedule, user_id: user.id, club_id: clubId })
           .select('id')
           .single();
         if (error) throw error;
@@ -65,7 +68,8 @@ export default function TournamentPage({ user }: Props) {
         const { error } = await supabase
           .from('tournaments')
           .update({ config: newConfig, schedule })
-          .eq('id', id!);
+          .eq('id', id!)
+          .eq('club_id', clubId);
         if (error) throw error;
         setEntry((prev) => prev ? { ...prev, config: newConfig, schedule } : prev);
       }
@@ -109,7 +113,8 @@ export default function TournamentPage({ user }: Props) {
     const { error: saveError } = await supabase
       .from('tournaments')
       .update({ schedule: entry.schedule })
-      .eq('id', id!);
+      .eq('id', id!)
+      .eq('club_id', clubId);
     setSaving(false);
     if (saveError) {
       setError(saveError.message);
@@ -119,7 +124,7 @@ export default function TournamentPage({ user }: Props) {
   };
 
   const handleDelete = async () => {
-    await supabase.from('tournaments').delete().eq('id', id!);
+    await supabase.from('tournaments').delete().eq('id', id!).eq('club_id', clubId);
     navigate('/tmc-planning');
   };
 
@@ -127,7 +132,8 @@ export default function TournamentPage({ user }: Props) {
     const { error } = await supabase
       .from('tournaments')
       .update({ schedule: null })
-      .eq('id', id!);
+      .eq('id', id!)
+      .eq('club_id', clubId);
     if (!error) setEntry((prev) => prev ? { ...prev, schedule: null } : prev);
   };
 

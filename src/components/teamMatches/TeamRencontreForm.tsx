@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useClub } from '../../contexts/ClubContext';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import TeamMatchesHeader from './TeamMatchesHeader';
 import { competitionLabel, etapeLabel } from './teamMatchLabels';
@@ -23,6 +24,7 @@ export default function TeamRencontreForm() {
   const isEdit = Boolean(id);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   const [context, setContext] = useState<Context | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,18 +45,21 @@ export default function TeamRencontreForm() {
         .from('team_etapes')
         .select('*')
         .eq('id', etapeId)
+        .eq('club_id', clubId)
         .single();
       if (!etape) return null;
       const { data: equipe } = await supabase
         .from('team_equipes')
         .select('*')
         .eq('id', (etape as TeamEtape).equipe_id)
+        .eq('club_id', clubId)
         .single();
       if (!equipe) return null;
       const { data: competition } = await supabase
         .from('team_competitions')
         .select('*')
         .eq('id', (equipe as TeamEquipe).competition_id)
+        .eq('club_id', clubId)
         .single();
       if (!competition) return null;
       return {
@@ -73,6 +78,7 @@ export default function TeamRencontreForm() {
           .from('team_rencontres')
           .select('*')
           .eq('id', id)
+          .eq('club_id', clubId)
           .single();
         if (!renc) {
           if (!cancelled) {
@@ -112,7 +118,7 @@ export default function TeamRencontreForm() {
     return () => {
       cancelled = true;
     };
-  }, [id, isEdit, searchParams]);
+  }, [id, isEdit, searchParams, clubId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +134,8 @@ export default function TeamRencontreForm() {
       const { error: updErr } = await supabase
         .from('team_rencontres')
         .update({ club_adverse: clubAdverse.trim(), date_heure: isoDate, domicile })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('club_id', clubId);
       if (updErr) {
         setError(updErr.message);
         setSaving(false);
@@ -143,6 +150,7 @@ export default function TeamRencontreForm() {
           club_adverse: clubAdverse.trim(),
           date_heure: isoDate,
           domicile,
+          club_id: clubId,
         })
         .select('id')
         .single();
