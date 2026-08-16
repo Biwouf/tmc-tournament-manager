@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCompetition,
   TeamEquipe,
@@ -49,6 +50,7 @@ interface Context {
 
 export default function TeamRencontrePage() {
   const { id } = useParams();
+  const { clubId } = useClub();
 
   const [rencontre, setRencontre] = useState<TeamRencontre | null>(null);
   const [context, setContext] = useState<Context | null>(null);
@@ -66,7 +68,7 @@ export default function TeamRencontrePage() {
     if (!id) return;
     setLoading(true);
 
-    const { data: renc } = await supabase.from('team_rencontres').select('*').eq('id', id).single();
+    const { data: renc } = await supabase.from('team_rencontres').select('*').eq('id', id).eq('club_id', clubId).single();
     if (!renc) {
       setNotFound(true);
       setLoading(false);
@@ -78,15 +80,17 @@ export default function TeamRencontrePage() {
       .from('team_etapes')
       .select('*')
       .eq('id', rencRow.etape_id)
+      .eq('club_id', clubId)
       .single();
     const { data: equipe } = etape
-      ? await supabase.from('team_equipes').select('*').eq('id', (etape as TeamEtape).equipe_id).single()
+      ? await supabase.from('team_equipes').select('*').eq('id', (etape as TeamEtape).equipe_id).eq('club_id', clubId).single()
       : { data: null };
     const { data: competition } = equipe
       ? await supabase
           .from('team_competitions')
           .select('*')
           .eq('id', (equipe as TeamEquipe).competition_id)
+          .eq('club_id', clubId)
           .single()
       : { data: null };
 
@@ -94,12 +98,13 @@ export default function TeamRencontrePage() {
       .from('team_match_lines')
       .select('*')
       .eq('rencontre_id', rencRow.id)
+      .eq('club_id', clubId)
       .order('ordre', { ascending: true });
     let lineRows = (lineData ?? []) as TeamMatchLine[];
 
     // Synchronisation depuis le Live Score (requête unique au chargement).
     if (competition) {
-      lineRows = await syncFromLive(rencRow, lineRows, (competition as TeamCompetition).format);
+      lineRows = await syncFromLive(rencRow, lineRows, (competition as TeamCompetition).format, clubId);
     }
 
     setRencontre(rencRow);
@@ -114,7 +119,7 @@ export default function TeamRencontrePage() {
     );
     setLines(lineRows);
     setLoading(false);
-  }, [id]);
+  }, [id, clubId]);
 
   useEffect(() => {
     load();
@@ -125,7 +130,7 @@ export default function TeamRencontrePage() {
   const handleDeleteLine = async (line: TeamMatchLine) => {
     if (line.live_match_id) return;
     if (!window.confirm('Supprimer ce match ?')) return;
-    const { error } = await supabase.from('team_match_lines').delete().eq('id', line.id);
+    const { error } = await supabase.from('team_match_lines').delete().eq('id', line.id).eq('club_id', clubId);
     if (error) {
       setActionError(error.message);
       return;
@@ -175,6 +180,7 @@ export default function TeamRencontrePage() {
       j4_club: isDouble ? rencontre.club_adverse : null,
 
       status: 'pending' as const,
+      club_id: clubId,
     };
 
     const { data, error } = await supabase.from('live_matches').insert(payload).select('id').single();
@@ -185,7 +191,8 @@ export default function TeamRencontrePage() {
     const { error: updErr } = await supabase
       .from('team_match_lines')
       .update({ live_match_id: data.id })
-      .eq('id', line.id);
+      .eq('id', line.id)
+      .eq('club_id', clubId);
     if (updErr) {
       setActionError(updErr.message);
       return;
@@ -204,7 +211,8 @@ export default function TeamRencontrePage() {
         score_club: gagnant === 'club' ? total : 0,
         score_adverse: gagnant === 'adverse' ? total : 0,
       })
-      .eq('id', rencontre.id);
+      .eq('id', rencontre.id)
+      .eq('club_id', clubId);
     if (error) {
       setActionError(error.message);
       return;
@@ -219,7 +227,8 @@ export default function TeamRencontrePage() {
     const { error } = await supabase
       .from('team_rencontres')
       .update({ wo: false, score_club: null, score_adverse: null })
-      .eq('id', rencontre.id);
+      .eq('id', rencontre.id)
+      .eq('club_id', clubId);
     if (error) {
       setActionError(error.message);
       return;
@@ -440,7 +449,8 @@ export default function TeamRencontrePage() {
 async function syncFromLive(
   rencontre: TeamRencontre,
   lines: TeamMatchLine[],
-  format: TeamFormat
+  format: TeamFormat,
+  clubId: string | null
 ): Promise<TeamMatchLine[]> {
   if (rencontre.wo) return lines; // score géré manuellement par le WO
   const liveIds = lines.map((l) => l.live_match_id).filter((x): x is string => x !== null);
@@ -449,6 +459,7 @@ async function syncFromLive(
   const { data: lives } = await supabase
     .from('live_matches')
     .select('id, status, winner')
+    .eq('club_id', clubId)
     .in('id', liveIds);
   if (!lives) return lines;
 
@@ -473,7 +484,7 @@ async function syncFromLive(
   await Promise.all(
     updated
       .filter((l, i) => l.gagnant !== lines[i].gagnant)
-      .map((l) => supabase.from('team_match_lines').update({ gagnant: l.gagnant }).eq('id', l.id))
+      .map((l) => supabase.from('team_match_lines').update({ gagnant: l.gagnant }).eq('id', l.id).eq('club_id', clubId))
   );
 
   // Recalcule et persiste le score global.
@@ -481,7 +492,8 @@ async function syncFromLive(
   await supabase
     .from('team_rencontres')
     .update({ score_club: club, score_adverse: adverse })
-    .eq('id', rencontre.id);
+    .eq('id', rencontre.id)
+    .eq('club_id', clubId);
 
   return updated;
 }

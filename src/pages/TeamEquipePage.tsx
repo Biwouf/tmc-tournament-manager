@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCompetition,
   TeamEquipe,
@@ -30,6 +31,7 @@ function formatDate(iso: string): string {
 export default function TeamEquipePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   const [equipe, setEquipe] = useState<TeamEquipe | null>(null);
   const [competition, setCompetition] = useState<TeamCompetition | null>(null);
@@ -44,7 +46,7 @@ export default function TeamEquipePage() {
     if (!id) return;
     setLoading(true);
 
-    const { data: eq } = await supabase.from('team_equipes').select('*').eq('id', id).single();
+    const { data: eq } = await supabase.from('team_equipes').select('*').eq('id', id).eq('club_id', clubId).single();
     if (!eq) {
       setNotFound(true);
       setLoading(false);
@@ -57,6 +59,7 @@ export default function TeamEquipePage() {
       .from('team_competitions')
       .select('*')
       .eq('id', equipeRow.competition_id)
+      .eq('club_id', clubId)
       .single();
     const compRow = (comp ?? null) as TeamCompetition | null;
     setCompetition(compRow);
@@ -66,6 +69,7 @@ export default function TeamEquipePage() {
         .from('team_saisons')
         .select('*')
         .eq('id', compRow.saison_id)
+        .eq('club_id', clubId)
         .single();
       setSaison((sai ?? null) as TeamSaison | null);
     }
@@ -73,18 +77,19 @@ export default function TeamEquipePage() {
     const { data: etapeData } = await supabase
       .from('team_etapes')
       .select('*')
-      .eq('equipe_id', equipeRow.id);
+      .eq('equipe_id', equipeRow.id)
+      .eq('club_id', clubId);
     const etapeRows = (etapeData ?? []) as TeamEtape[];
     setEtapes(etapeRows);
 
     const etapeIds = etapeRows.map((e) => e.id);
     const { data: rencData } = etapeIds.length
-      ? await supabase.from('team_rencontres').select('*').in('etape_id', etapeIds)
+      ? await supabase.from('team_rencontres').select('*').eq('club_id', clubId).in('etape_id', etapeIds)
       : { data: [] };
     setRencontres((rencData ?? []) as TeamRencontre[]);
 
     setLoading(false);
-  }, [id]);
+  }, [id, clubId]);
 
   useEffect(() => {
     load();
@@ -142,7 +147,7 @@ export default function TeamEquipePage() {
     }
     if (!window.confirm(`Supprimer la journée J${etape.numero_journee} ?`)) return;
 
-    const { error } = await supabase.from('team_etapes').delete().eq('id', etape.id);
+    const { error } = await supabase.from('team_etapes').delete().eq('id', etape.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;
@@ -155,14 +160,15 @@ export default function TeamEquipePage() {
         .map((e, i) =>
           e.numero_journee === i + 1
             ? null
-            : supabase.from('team_etapes').update({ numero_journee: i + 1 }).eq('id', e.id)
+            : supabase.from('team_etapes').update({ numero_journee: i + 1 }).eq('id', e.id).eq('club_id', clubId)
         )
         .filter((p): p is NonNullable<typeof p> => p !== null)
     );
     await supabase
       .from('team_equipes')
       .update({ nb_journees_poule: remaining.length })
-      .eq('id', equipe.id);
+      .eq('id', equipe.id)
+      .eq('club_id', clubId);
 
     load();
   };
@@ -171,7 +177,7 @@ export default function TeamEquipePage() {
     const label = STADE_LABELS[etape.stade_finale as TeamStadeFinale];
     if (!window.confirm(`Supprimer le tour « ${label} » ?`)) return;
 
-    const { error } = await supabase.from('team_etapes').delete().eq('id', etape.id);
+    const { error } = await supabase.from('team_etapes').delete().eq('id', etape.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;
@@ -193,6 +199,7 @@ export default function TeamEquipePage() {
       .from('team_etapes')
       .delete()
       .eq('equipe_id', equipe.id)
+      .eq('club_id', clubId)
       .eq('phase', 'finale');
     if (delErr) {
       alert(`Erreur suppression : ${delErr.message}`);
@@ -202,7 +209,8 @@ export default function TeamEquipePage() {
     const { error: updErr } = await supabase
       .from('team_equipes')
       .update({ qualifiee: null, stade_finale_depart: null })
-      .eq('id', equipe.id);
+      .eq('id', equipe.id)
+      .eq('club_id', clubId);
     if (updErr) {
       alert(`Erreur mise à jour : ${updErr.message}`);
       return;
@@ -218,7 +226,7 @@ export default function TeamEquipePage() {
       )
     )
       return;
-    const { error } = await supabase.from('team_rencontres').delete().eq('id', rencontre.id);
+    const { error } = await supabase.from('team_rencontres').delete().eq('id', rencontre.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;
@@ -458,6 +466,7 @@ function QualifModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const { clubId } = useClub();
   const [qualifiee, setQualifiee] = useState(true);
   const [stade, setStade] = useState<TeamStadeFinale>('1/8');
   const [saving, setSaving] = useState(false);
@@ -473,7 +482,8 @@ function QualifModal({
         qualifiee,
         stade_finale_depart: qualifiee ? stade : null,
       })
-      .eq('id', equipe.id);
+      .eq('id', equipe.id)
+      .eq('club_id', clubId);
 
     if (updErr) {
       setError(updErr.message);
@@ -487,6 +497,7 @@ function QualifModal({
         equipe_id: equipe.id,
         phase: 'finale' as const,
         stade_finale: s,
+        club_id: clubId,
       }));
       const { error: insErr } = await supabase.from('team_etapes').insert(etapes);
       if (insErr) {

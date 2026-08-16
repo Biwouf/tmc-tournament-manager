@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useClub } from '../../contexts/ClubContext';
 import type { TeamFormat, TeamMatchLine, TeamRencontre } from '../../types';
 import { computeScore } from './teamMatchLabels';
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function TeamScoreSection({ rencontre, lines, format, onSaved }: Props) {
+  const { clubId } = useClub();
   // Dès qu'au moins un match a un vainqueur (saisi manuellement ou via le live),
   // le score global est calculé à partir des matches plutôt que saisi à la main.
   const hasResults = lines.some((l) => l.gagnant !== null);
@@ -30,7 +32,8 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
     const { error: err } = await supabase
       .from('team_rencontres')
       .update({ score_club: club, score_adverse: adverse })
-      .eq('id', rencontre.id);
+      .eq('id', rencontre.id)
+      .eq('club_id', clubId);
     setSaving(false);
     if (err) {
       setError(err.message);

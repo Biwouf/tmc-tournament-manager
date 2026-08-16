@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent, LiveMatchType } from '../types';
 
 interface FieldErrors {
@@ -26,6 +27,7 @@ function formatEventLabel(ev: Pick<ClubEvent, 'titre' | 'date_debut'>): string {
 
 export default function LiveMatchForm() {
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   const [matchType, setMatchType] = useState<LiveMatchType>('simple');
   const [matchDate, setMatchDate] = useState('');
@@ -63,12 +65,13 @@ export default function LiveMatchForm() {
     supabase
       .from('events')
       .select('id, titre, date_debut')
+      .eq('club_id', clubId)
       .gte('date_debut', since.toISOString())
       .order('date_debut', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) setEvents(data);
       });
-  }, []);
+  }, [clubId]);
 
   const validate = (): FieldErrors => {
     const errs: FieldErrors = {};
@@ -121,6 +124,7 @@ export default function LiveMatchForm() {
       j4_club: matchType === 'double' ? j4Club.trim() : null,
 
       status: 'pending' as const,
+      club_id: clubId,
     };
 
     const { error } = await supabase.from('live_matches').insert(payload);

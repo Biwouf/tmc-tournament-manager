@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useClub } from '../../contexts/ClubContext';
 import type { TeamFormat, TeamJoueur, TeamMatchLine, TeamMatchLineType } from '../../types';
 import { FORMAT_SPECS } from './teamMatchLabels';
 
@@ -35,6 +36,7 @@ export default function TeamMatchLineModal({
   onClose,
   onSaved,
 }: Props) {
+  const { clubId } = useClub();
   const spec = FORMAT_SPECS[format];
 
   // Places restantes par type, en excluant le match en cours d'édition.
@@ -122,8 +124,8 @@ export default function TeamMatchLineModal({
     };
 
     const { error: err } = line
-      ? await supabase.from('team_match_lines').update(payload).eq('id', line.id)
-      : await supabase.from('team_match_lines').insert({ ...payload, ordre: defaultOrdre });
+      ? await supabase.from('team_match_lines').update(payload).eq('id', line.id).eq('club_id', clubId)
+      : await supabase.from('team_match_lines').insert({ ...payload, ordre: defaultOrdre, club_id: clubId });
 
     if (err) {
       setError(err.message);

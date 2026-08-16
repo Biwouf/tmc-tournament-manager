@@ -2,17 +2,19 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, Profile } from '../types';
 import MatchCard from '../components/matches/MatchCard';
 import { useAuth } from '../hooks/useAuth';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
-async function fetchMatches(): Promise<LiveMatch[]> {
+async function fetchMatches(clubId: string | null): Promise<LiveMatch[]> {
   const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
 
   const { data, error } = await supabase
     .from('live_matches')
     .select('*')
+    .eq('club_id', clubId)
     .gte('match_date', today)
     .order('match_date', { ascending: true })
     .order('start_time', { ascending: true, nullsFirst: false });
@@ -29,11 +31,12 @@ export default function MatchesPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { clubId } = useClub();
   const [flash, setFlash] = useState<string | null>(null);
 
   const { data: matches, isLoading, isError } = useQuery({
-    queryKey: ['matches'],
-    queryFn: fetchMatches,
+    queryKey: ['matches', clubId],
+    queryFn: () => fetchMatches(clubId),
     refetchInterval: 30_000,
   });
 

@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import { formatDate } from '../components/events/EventCard';
 import type { ClubEvent, EventType } from '../types';
 
@@ -18,18 +19,24 @@ const TYPE_COLORS: Record<EventType, string> = {
   Soirée:             'bg-pink-100 text-pink-700',
 };
 
-async function fetchEvent(id: string): Promise<ClubEvent> {
-  const { data, error } = await supabase.from('events').select('*').eq('id', id).single();
+async function fetchEvent(id: string, clubId: string | null): Promise<ClubEvent> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', id)
+    .eq('club_id', clubId)
+    .single();
   if (error) throw error;
   return data as ClubEvent;
 }
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { clubId } = useClub();
 
   const { data: event, isLoading, isError } = useQuery({
-    queryKey: ['event', id],
-    queryFn: () => fetchEvent(id!),
+    queryKey: ['event', id, clubId],
+    queryFn: () => fetchEvent(id!, clubId),
     enabled: !!id,
   });
 

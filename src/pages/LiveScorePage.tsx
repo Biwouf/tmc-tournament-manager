@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, Profile } from '../types';
 import LiveMatchCard from '../components/LiveMatchCard';
 import LivePulse from '../components/LivePulse';
@@ -15,6 +16,7 @@ const SECTION_ACCENT: Record<SectionAccent, string> = {
 
 export default function LiveScorePage() {
   const navigate = useNavigate();
+  const { clubId } = useClub();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [courtDialog, setCourtDialog] = useState<{ matchId: string; value: string } | null>(null);
@@ -26,6 +28,7 @@ export default function LiveScorePage() {
     const { data, error } = await supabase
       .from('live_matches')
       .select('*')
+      .eq('club_id', clubId)
       .order('match_date', { ascending: true })
       .order('start_time', { ascending: true, nullsFirst: true });
     if (error) {
@@ -81,7 +84,8 @@ export default function LiveScorePage() {
         court: value.trim() || null,
         started_at: new Date().toISOString(),
       })
-      .eq('id', matchId);
+      .eq('id', matchId)
+      .eq('club_id', clubId);
     if (error) {
       alert(`Erreur : ${error.message}`);
       return;
@@ -107,7 +111,8 @@ export default function LiveScorePage() {
     const { error } = await supabase
       .from('live_matches')
       .update({ scored_by: currentUserId })
-      .eq('id', takeoverDialog.matchId);
+      .eq('id', takeoverDialog.matchId)
+      .eq('club_id', clubId);
     if (error) {
       alert(`Erreur : ${error.message}`);
       return;
@@ -121,7 +126,7 @@ export default function LiveScorePage() {
     const team1 = `${m.j1_prenom} ${m.j1_nom}`;
     const team2 = `${m.j2_prenom} ${m.j2_nom}`;
     if (!window.confirm(`Supprimer le match ${team1} vs ${team2} ?`)) return;
-    const { error } = await supabase.from('live_matches').delete().eq('id', m.id);
+    const { error } = await supabase.from('live_matches').delete().eq('id', m.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent } from '../types';
 import EventCard from '../components/EventCard';
 
@@ -15,6 +16,7 @@ function extractStoragePath(publicUrl: string): string | null {
 
 export default function EventsPage() {
   const navigate = useNavigate();
+  const { clubId } = useClub();
   const [events, setEvents] = useState<ClubEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPast, setShowPast] = useState(false);
@@ -37,6 +39,7 @@ export default function EventsPage() {
     supabase
       .from('events')
       .select('*', { count: 'exact' })
+      .eq('club_id', clubId)
       .or(filter)
       .order('date_debut', { ascending: !showPast })
       .range(from, to)
@@ -54,7 +57,7 @@ export default function EventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, showPast, reloadKey]);
+  }, [page, showPast, reloadKey, clubId]);
 
   const reload = () => setReloadKey((k) => k + 1);
 
@@ -64,7 +67,7 @@ export default function EventsPage() {
       const path = extractStoragePath(ev.image_url);
       if (path) await supabase.storage.from('event-images').remove([path]);
     }
-    const { error } = await supabase.from('events').delete().eq('id', ev.id);
+    const { error } = await supabase.from('events').delete().eq('id', ev.id).eq('club_id', clubId);
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;
@@ -83,6 +86,7 @@ export default function EventsPage() {
         date_fin: ev.date_fin,
         image_url: ev.image_url,
         prix: ev.prix,
+        club_id: clubId,
       })
       .select('id')
       .single();

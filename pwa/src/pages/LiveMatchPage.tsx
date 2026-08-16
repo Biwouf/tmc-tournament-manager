@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, LiveMatchWinner } from '../types';
 import { getMatchWinner, getTeamLabel } from '../liveScoreRules';
 import LiveScoreEntry from '../components/matches/LiveScoreEntry';
@@ -44,6 +45,7 @@ export default function LiveMatchPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { clubId } = useClub();
 
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +61,7 @@ export default function LiveMatchPage() {
       .from('live_matches')
       .select('*')
       .eq('id', id)
+      .eq('club_id', clubId)
       .single()
       .then(({ data, error }) => {
         if (cancelled) return;
@@ -83,7 +86,7 @@ export default function LiveMatchPage() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [id, user, authLoading, navigate]);
+  }, [id, user, authLoading, navigate, clubId]);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -117,10 +120,10 @@ export default function LiveMatchPage() {
 
     setMatch({ ...match, ...finalPatch });
 
-    const { error } = await supabase.from('live_matches').update(finalPatch).eq('id', match.id);
+    const { error } = await supabase.from('live_matches').update(finalPatch).eq('id', match.id).eq('club_id', clubId);
     if (error) {
       setSavingError(error.message);
-      const { data } = await supabase.from('live_matches').select('*').eq('id', match.id).single();
+      const { data } = await supabase.from('live_matches').select('*').eq('id', match.id).eq('club_id', clubId).single();
       if (data) setMatch(data as LiveMatch);
     } else {
       setSavingError(null);
@@ -136,7 +139,7 @@ export default function LiveMatchPage() {
       retired_player: null,
     };
     setMatch({ ...match, ...patch });
-    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id);
+    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id).eq('club_id', clubId);
     if (error) setSavingError(error.message);
     else setSavingError(null);
   };
@@ -151,7 +154,7 @@ export default function LiveMatchPage() {
       finished_at: new Date().toISOString(),
     };
     setMatch({ ...match, ...patch });
-    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id);
+    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id).eq('club_id', clubId);
     if (error) setSavingError(error.message);
     else setSavingError(null);
   };

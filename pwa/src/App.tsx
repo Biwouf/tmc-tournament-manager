@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage';
 import NewMatchPage from './pages/NewMatchPage';
 import LiveMatchPage from './pages/LiveMatchPage';
 import { useAuth } from './hooks/useAuth';
+import { ClubProvider, useClub } from './contexts/ClubContext';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -25,6 +26,17 @@ function RequireAuth({ children }: { children: ReactElement }) {
 }
 
 export default function App() {
+  return (
+    <ClubProvider>
+      <AppShell />
+    </ClubProvider>
+  );
+}
+
+function AppShell() {
+  const { loading: clubLoading } = useClub();
+  if (clubLoading) return null;
+
   return (
     <HeaderActionProvider>
       <AppHeader />

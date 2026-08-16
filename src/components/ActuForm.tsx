@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, type MouseEvent } from 'react';
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
 import type { Actu, ActuFocalPoint } from '../types';
 
@@ -67,6 +68,7 @@ export default function ActuForm() {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const location = useLocation();
+  const { clubId } = useClub();
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -117,6 +119,7 @@ export default function ActuForm() {
       .from('actus')
       .select('*')
       .eq('id', id)
+      .eq('club_id', clubId)
       .single()
       .then(({ data, error }) => {
         if (error || !data) {
@@ -136,7 +139,7 @@ export default function ActuForm() {
         setExistingCaptions(urls.map((_, i) => caps[i] ?? ''));
         setLoading(false);
       });
-  }, [id, isEdit]);
+  }, [id, isEdit, clubId]);
 
   // Préremplissage depuis un autre module (ex. « Créer une actu » d'une rencontre).
   // location.state = { titre?, image_urls? }. Appliqué une seule fois, en création.
@@ -278,12 +281,13 @@ export default function ActuForm() {
         const { error: updateErr } = await supabase
           .from('actus')
           .update(basePayload)
-          .eq('id', targetId);
+          .eq('id', targetId)
+          .eq('club_id', clubId);
         if (updateErr) throw updateErr;
       } else {
         const { data, error: insertErr } = await supabase
           .from('actus')
-          .insert({ ...basePayload, image_urls: [] })
+          .insert({ ...basePayload, image_urls: [], club_id: clubId })
           .select('id')
           .single();
         if (insertErr || !data) throw insertErr ?? new Error('Insert failed');
@@ -321,7 +325,8 @@ export default function ActuForm() {
           image_focal_points: finalFocalPoints,
           image_captions: finalCaptions,
         })
-        .eq('id', targetId);
+        .eq('id', targetId)
+        .eq('club_id', clubId);
       if (imgErr) throw imgErr;
 
       const shouldPostToFacebook = publish && postToFacebook && !facebookDisabled;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useClub } from '../../contexts/ClubContext';
 import type { TeamRencontre } from '../../types';
 
 const STORAGE_BUCKET = 'team-match-photos';
@@ -25,6 +26,7 @@ interface Props {
 
 export default function TeamPhotosSection({ rencontre, onChange }: Props) {
   const navigate = useNavigate();
+  const { clubId } = useClub();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +36,8 @@ export default function TeamPhotosSection({ rencontre, onChange }: Props) {
     const { error: err } = await supabase
       .from('team_rencontres')
       .update({ photo_urls: urls })
-      .eq('id', rencontre.id);
+      .eq('id', rencontre.id)
+      .eq('club_id', clubId);
     if (err) {
       setError(err.message);
       return false;
