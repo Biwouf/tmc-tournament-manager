@@ -388,6 +388,67 @@ Spécificités multi-tenant à ajouter au brief existant :
 Le garde-fou dev/prod existant (`VITE_ENV`, cf. `lib/supabase.ts`) est conservé. La base de
 dev reçoit le même schéma multi-tenant. Prévoir des **clubs de test** en dev.
 
+### 8.4 Checklist de déploiement PROD — à passer à **chaque** merge de la série
+
+> ⚠️ **Incident PR3/PR4 (17/08/2026), à ne pas reproduire.** PR3 n'avait jamais été appliquée
+> sur le projet Supabase de prod. Le merge de PR4 y a donc déployé la **garde d'appartenance**
+> sur une base où `club_members` était **vide** → « Accès refusé » pour **tous** les comptes,
+> **BO de prod hors service** jusqu'à l'application de PR3 après coup. Rien dans le build, les
+> tests ou le déploiement Vercel ne l'avait signalé.
+
+La leçon : **merger et déployer ne touchent pas la base.** Le code part sur Vercel
+automatiquement, mais migrations, Edge Functions, config du dashboard et opérations de données
+sont **quatre gestes manuels distincts**, chacun sur le projet prod. Une PR étiquetée
+« non-bloquante prod » ne l'est que si les migrations des PR **précédentes** sont en place.
+
+| Surface | Mécanisme | Si on l'oublie |
+|---|---|---|
+| Code BO / PWA | **auto** (Vercel sur `main`) | — |
+| Migrations SQL | **manuel** (SQL Editor ou `db push`) | le front s'exécute sur un schéma/une RLS qu'il ne suppose pas |
+| Edge Functions | **manuel** (`supabase functions deploy`) | le front envoie un contrat que l'ancienne version ignore |
+| Config dashboard Auth | **manuel** (URL Configuration) | liens d'invitation cassés **en silence** |
+| Opérations de données | **manuel** (`supabase/scripts/*.sql`) | la feature est invisible en prod |
+
+**1. Avant le merge — état des migrations de prod.** Confronter à `supabase/migrations/` :
+
+```sql
+SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version;
+```
+
+⚠️ Le **SQL Editor n'alimente pas ce journal** : après une application manuelle, enregistrer
+la ligne, sinon un futur `db push` voudra rejouer la migration et le journal mentira.
+
+```sql
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('YYYYMMDDNN', '<nom_court>');
+```
+
+**2. Appliquer les migrations manquantes, dans l'ordre.** Passer d'abord le **pré-vol des
+policies** quand la migration en supprime (cf. en-tête de `20260816_multi_tenant_rls.sql`) :
+**prod porte des policies créées à la main dans le dashboard, absentes du dépôt** — c'est le
+cas des policies `anon` de `events` et `live_matches`, dont dépend la PWA. Le SQL Editor
+exécute le fichier en une transaction implicite : un garde-fou qui lève annule tout, donc pas
+de demi-migration.
+
+**3. Déployer les Edge Functions touchées**, sans relinker le dossier local (il pointe sur dev) :
+
+```bash
+supabase functions deploy <nom> --project-ref <ref-du-projet-prod>
+```
+
+**4. Authentication → URL Configuration.** Les **Redirect URLs** sont **vides par défaut** sur
+un projet neuf ; sans l'origine de déploiement (`https://<domaine>/**`), Supabase retombe
+silencieusement sur le *Site URL* et les liens d'invitation ne mènent nulle part. Le *Site URL*
+n'accepte pas de wildcard. En dev, `http://localhost:*/**` couvre les décalages de port de Vite.
+
+**5. Opérations de données** (`supabase/scripts/`), en dernier, quand la PR en prévoit une —
+ex. `pr4_assign_club_roles.sql`. Ce sont des **scripts manuels, jamais des migrations** : leur
+contenu dépend de l'environnement.
+
+**6. Contrôle fonctionnel réel.** Ouvrir le **BO de prod** et la **PWA de prod**, connecté. Un
+verrouillage RLS ou une garde d'accès ne se voient ni dans un build vert ni dans un typecheck :
+seul un parcours authentifié les révèle.
+
 ---
 
 ## 9. Migration du club existant (CAC Tennis)
@@ -459,6 +520,11 @@ Billing & self-service signup · custom domains généralisés · autres sports 
 ### Découpage en PR (1 étape = 1 PR)
 
 Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contract).
+
+> ⚠️ Avant de merger **n'importe laquelle** de ces PR : passer la **checklist §8.4**. L'ordre
+> ci-dessous ne protège la prod que si chaque PR y est *réellement* déployée — migrations,
+> Edge Functions et config Auth comprises, qui sont des gestes **manuels**. L'oubli de PR3 sur
+> prod a mis le BO hors service au merge de PR4.
 
 | PR | Phase | Objet | Sensibilité prod |
 |---|---|---|---|
