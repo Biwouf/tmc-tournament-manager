@@ -138,6 +138,24 @@ create policy public_read on public.actus
 > `GRANT` par rôle, alignés sur la RLS (cf. `docs/CODEBASE.md` › Convention GRANTs). Les
 > nouvelles tables (`clubs`, `club_members`, `club_settings`) doivent les inclure.
 
+### 2.4 Dette d'isolation connue — tables socle non cloisonnées
+
+PR3 a posé `tenant_isolation` sur les **10 tables métier** uniquement. Les tables socle
+(PR1) ont été délibérément gelées, et deux d'entre elles restent **non cloisonnées par
+club** :
+
+| Table | Policy PR1 | Portée réelle | Quand ça devient un problème |
+|---|---|---|---|
+| `club_settings` | `FOR SELECT TO authenticated USING (true)` | tout compte authentifié lit la config de **tous** les clubs | dès **PR6**, quand le JSONB portera la config de chaque club (aujourd'hui vide, donc sans conséquence) |
+| `profiles` | lecture libre `authenticated` **et** `anon` | prénoms/noms de **tous** les membres de **tous** les clubs, y compris hors authentification | dès le 2ᵉ club réel en production |
+
+`clubs` est volontairement lisible par tous : c'est la condition de la résolution du tenant
+avant authentification (§3). `club_members` est déjà restreinte (`user_id = auth.uid()`).
+
+À traiter **avant PR6** pour `club_settings`. Pour `profiles`, le cloisonnement passe par
+`club_members` (un profil est visible s'il partage un club avec le demandeur) — attention à
+ne pas casser la lecture `anon` dont dépend l'affichage du gestionnaire d'un live en PWA.
+
 ---
 
 ## 3. Résolution du tenant au runtime
@@ -405,9 +423,9 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR1 ✅ | 1 | Migration SQL socle : `clubs`/`club_members`/`club_settings`/enum/super-admin + `club_id` **nullable** partout + ligne CAC + backfill | non-bloquante |
 | PR2 ✅ | 1 | `ClubContext` (résolution hostname→club_id, fallback CAC) + filtrage `.eq('club_id')` partout + clés localStorage TMC préfixées | non-bloquante |
 | PR3 ✅ | 1 | **Verrouillage** : `club_id` NOT NULL + FK, RLS multi-tenant + GRANTs + helpers `auth_club_ids()`/`is_super_admin()` + seeding `club_members` (reporté de PR1) | ⚠️ **sensible** (tester sur dev + comptes CAC avant merge) |
-| PR4 | 1 | Invitations portant `club_id`+`role` + `useClubRole()` + masquage UI par rôle | non-bloquante |
+| PR4 | 1 | Invitations portant `club_id`+`role` + `useClubRole()` + masquage UI par rôle + **garde d'appartenance BO** : un non-membre du club courant se voit refuser l'accès (§3) au lieu d'obtenir un BO monté mais vide, comme aujourd'hui | non-bloquante |
 | PR5 | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin) | non-bloquante |
-| PR6 | 3 | Section « Configuration du site » au BO (`club_settings.config` + formulaires) *(scindable en 2)* | non-bloquante |
+| PR6 | 3 | Section « Configuration du site » au BO (`club_settings.config` + formulaires) *(scindable en 2)* — **inclut le cloisonnement RLS de `club_settings`**, cf. §2.4 | non-bloquante |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |
 | PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
 | PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |
