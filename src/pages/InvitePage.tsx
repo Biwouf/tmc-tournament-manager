@@ -1,9 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
+import type { ClubRole } from '../contexts/ClubRoleContext';
+
+// Défaut = le rôle le moins privilégié (brief PR4 §9.3).
+const ROLE_OPTIONS: { value: ClubRole; label: string }[] = [
+  { value: 'member', label: 'Membre — Live Score uniquement' },
+  { value: 'manager', label: 'Gestionnaire — contenus et outils du club' },
+  { value: 'admin', label: 'Administrateur — tout, y compris les invitations' },
+];
 
 type InvokeResult =
-  | { success: true; action_link?: string }
+  | { success: true; action_link?: string; already_existed?: boolean }
   | { success: false; error: string };
 
 async function invokeInvite(body: Record<string, unknown>): Promise<InvokeResult> {
@@ -29,18 +38,29 @@ async function invokeInvite(body: Record<string, unknown>): Promise<InvokeResult
     }
     return { success: false, error: detail ?? invokeErr.message };
   }
-  const payload = data as { success?: boolean; error?: string; action_link?: string } | null;
+  const payload = data as {
+    success?: boolean;
+    error?: string;
+    action_link?: string;
+    already_existed?: boolean;
+  } | null;
   if (!payload?.success) {
     return {
       success: false,
       error: payload?.error ?? 'Erreur inconnue lors de l’envoi de l’invitation.',
     };
   }
-  return { success: true, action_link: payload.action_link };
+  return {
+    success: true,
+    action_link: payload.action_link,
+    already_existed: payload.already_existed,
+  };
 }
 
 export default function InvitePage() {
+  const { clubId, club } = useClub();
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<ClubRole>('member');
   const [loading, setLoading] = useState<null | 'send' | 'generate-link'>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +80,23 @@ export default function InvitePage() {
     setLoading('send');
     const target = email.trim();
     const redirectTo = `${window.location.origin}/accept-invite`;
-    const result = await invokeInvite({ email: target, redirectTo, action: 'send' });
+    const result = await invokeInvite({
+      email: target,
+      redirectTo,
+      action: 'send',
+      club_id: clubId,
+      role,
+    });
     setLoading(null);
     if (!result.success) {
       setError(result.error);
       return;
     }
-    setSuccess(`Invitation envoyée à ${target}.`);
+    setSuccess(
+      result.already_existed
+        ? `Un compte existait déjà pour ${target} : il a été rattaché au club (aucun email envoyé).`
+        : `Invitation envoyée à ${target}.`,
+    );
     setEmail('');
   };
 
@@ -79,10 +109,19 @@ export default function InvitePage() {
       email: target,
       redirectTo,
       action: 'generate-link',
+      club_id: clubId,
+      role,
     });
     setLoading(null);
     if (!result.success) {
       setError(result.error);
+      return;
+    }
+    if (result.already_existed) {
+      // Compte existant : pas de lien d'activation à transmettre, le rattachement suffit.
+      setSuccess(
+        `Un compte existait déjà pour ${target} : il a été rattaché au club. Il peut se connecter avec son mot de passe habituel.`,
+      );
       return;
     }
     if (!result.action_link) {
@@ -112,7 +151,9 @@ export default function InvitePage() {
           Inviter un utilisateur
         </h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          L’invité recevra un email pour choisir son mot de passe.
+          L’invité recevra un email pour choisir son mot de passe. Il sera rattaché à{' '}
+          <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span> avec
+          le rôle choisi.
         </p>
 
         <form onSubmit={handleSend} className="space-y-4">
@@ -137,6 +178,21 @@ export default function InvitePage() {
               required
               autoComplete="email"
             />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">Rôle</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as ClubRole)}
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <button

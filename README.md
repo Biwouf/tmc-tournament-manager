@@ -72,6 +72,16 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Masquée si l'app est déjà installée (mode standalone)
 - Fermeture (croix ou « Plus tard ») : reproposée 7 jours plus tard
 
+### Comptes, rôles et invitations
+- Accès au back-office **sur invitation** : un administrateur du club envoie l'invitation par email (ou génère un lien à copier, en cas de blocage SMTP) depuis *Admin › Inviter un utilisateur*
+- L'invitation porte un **rôle**, choisi à l'envoi (défaut : Membre, le moins privilégié) :
+  - **Administrateur** — tous les modules + invitation d'autres utilisateurs
+  - **Gestionnaire** — contenus et outils du club (actus, événements, matches par équipe, affiche, planning), sans invitation
+  - **Membre** — Live Score uniquement (profil adhérent PWA)
+- Le dashboard n'affiche que les modules autorisés par le rôle ; `/admin/invite` est réservé aux administrateurs
+- Un compte qui n'appartient pas au club du back-office ouvert se voit refuser l'accès avec un message explicite (et un bouton de déconnexion), au lieu d'un back-office aux listes vides
+- Inviter un email qui a déjà un compte le **rattache** au club courant, sans nouvel email
+
 ### Général
 - Authentification via Supabase
 - Sauvegarde automatique avec localStorage (TMC) et Supabase (Events)
@@ -115,6 +125,22 @@ cp pwa/.env.example pwa/.env.local
 Notes :
 - `.env` et `.env.local` sont gitignorés : **aucune clé réelle n'est versionnée**.
 - `VITE_ENV` vaut `development` en local et `production` sur les déploiements. Si un serveur de dev local démarre avec `VITE_ENV=production`, un avertissement est loggé dans la console pour éviter d'atteindre la prod par erreur.
+
+### Whitelist des URLs de redirection (obligatoire pour les invitations)
+
+Le flux d'invitation renvoie l'invité sur `<origin>/accept-invite`, où `<origin>` est
+l'origine réelle de l'app (`window.location.origin` — aucun port n'est codé en dur). Supabase
+n'autorise cette redirection que si elle figure dans **Authentication → URL Configuration →
+Redirect URLs** du projet concerné ; sinon il retombe **silencieusement** sur le *Site URL* et
+l'invité n'atteint jamais l'écran d'activation (il reçoit bien l'email, mais le lien le dépose
+ailleurs).
+
+À déclarer une fois par projet Supabase :
+
+| Projet | Entrée |
+|---|---|
+| dev | `http://localhost:*/**` — glob de port : survit au décalage de Vite (5173 → 5174 → …) quand plusieurs serveurs de dev tournent |
+| prod | l'origine de déploiement, ex. `https://<projet>.vercel.app/**` (puis `https://*.feelike.app/**` au passage au wildcard) |
 
 ## Utilisation
 
