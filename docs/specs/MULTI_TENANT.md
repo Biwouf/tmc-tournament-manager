@@ -1,6 +1,6 @@
 # MULTI_TENANT.md — Passage en architecture multi-tenant (SaaS)
 
-> **Statut : cadrage validé, non implémenté.**
+> **Statut : en cours — PR1 à PR3 livrées (cf. tableau « Découpage en PR » ci-dessous).**
 > Document maître. À lire avant d'attaquer n'importe quelle phase ci-dessous.
 > Chaque phase fera l'objet de son propre brief dans `docs/briefs/` au moment de l'implémentation.
 > Source : `docs/briefs/multi_tenant_archi.md` (vision) + `docs/briefs/web_site_brief.md` (site vitrine).
@@ -238,6 +238,28 @@ doit pouvoir **uploader son propre background d'affiche**. → champ image dans 
 consommé par `ProgrammationImagePage` / `TeamMatchImagePreview`. (cf. `docs/specs/GEN_PROG.md`
 à mettre à jour le moment venu.)
 
+### 6.2-bis Identité visuelle des apps internes (BO + PWA)
+
+Le §6.1 ci-dessus ne couvre que la **vitrine**. Or l'objectif produit est un cloisonnement
+**graphique et textuel complet des trois surfaces** : BO, vitrine et PWA doivent porter le
+nom, les couleurs et les logos du club courant. Aujourd'hui BO et PWA sont **codés en dur
+aux couleurs de CAC**. Inventaire du dur, par difficulté :
+
+| Niveau | Emplacements | Levier |
+|---|---|---|
+| Texte | `src/pages/AppHomePage.tsx` (h1), `pwa/src/components/layout/headerConfig.ts` (titre root), `pwa/src/components/install/InstallBanner.tsx` (slogan), `pwa/index.html` (`<title>`) | **`clubs.name`**, déjà exposé par `useClub()` — aucun nouveau champ requis |
+| Images | `/logo.png` (BO), icônes PWA (`/icons/*`) | Storage préfixé `club_id/` (D12) + champ de config club |
+| Manifest PWA | `pwa/vite.config.ts` → `name`, `short_name`, `icons` | ⚠️ **figés au build** — voir question ouverte ci-dessous |
+
+> ⚠️ **Question ouverte, à trancher avant PR9/PR13.** Une PWA **unique** servant N clubs (D2)
+> ne peut pas porter un manifest statique : le nom et l'icône sur l'écran d'accueil sont
+> résolus au build, pas au runtime. Deux pistes : (a) manifest **généré au runtime** et
+> injecté via un `<link rel="manifest">` pointant sur une route/blob par tenant ; (b) un
+> déploiement PWA par club — ce qui **contredirait D2**. Comme D9 prévoit
+> `app-<slug>.feelike.app`, c'est un livrable visible par l'adhérent : à décider avant, pas
+> pendant. Le volet texte (`clubs.name`) est en revanche livrable indépendamment et à tout
+> moment.
+
 ### 6.3 Comptes sociaux par club
 Aujourd'hui la publication Facebook utilise des **secrets globaux** (`FACEBOOK_PAGE_ID`,
 `FACEBOOK_PAGE_ACCESS_TOKEN`) côté Edge Function `post-to-facebook`. En multi-tenant, ces
@@ -380,13 +402,14 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 
 | PR | Phase | Objet | Sensibilité prod |
 |---|---|---|---|
-| PR1 | 1 | Migration SQL socle : `clubs`/`club_members`/`club_settings`/enum/super-admin + `club_id` **nullable** partout + ligne CAC + backfill | non-bloquante |
-| PR2 | 1 | `ClubContext` (résolution hostname→club_id, fallback CAC) + filtrage `.eq('club_id')` partout + clés localStorage TMC préfixées | non-bloquante |
-| PR3 | 1 | **Verrouillage** : `club_id` NOT NULL + FK, RLS multi-tenant + GRANTs + helpers `auth_club_ids()`/`is_super_admin()` | ⚠️ **sensible** (tester sur dev + comptes CAC avant merge) |
+| PR1 ✅ | 1 | Migration SQL socle : `clubs`/`club_members`/`club_settings`/enum/super-admin + `club_id` **nullable** partout + ligne CAC + backfill | non-bloquante |
+| PR2 ✅ | 1 | `ClubContext` (résolution hostname→club_id, fallback CAC) + filtrage `.eq('club_id')` partout + clés localStorage TMC préfixées | non-bloquante |
+| PR3 ✅ | 1 | **Verrouillage** : `club_id` NOT NULL + FK, RLS multi-tenant + GRANTs + helpers `auth_club_ids()`/`is_super_admin()` + seeding `club_members` (reporté de PR1) | ⚠️ **sensible** (tester sur dev + comptes CAC avant merge) |
 | PR4 | 1 | Invitations portant `club_id`+`role` + `useClubRole()` + masquage UI par rôle | non-bloquante |
 | PR5 | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin) | non-bloquante |
 | PR6 | 3 | Section « Configuration du site » au BO (`club_settings.config` + formulaires) *(scindable en 2)* | non-bloquante |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |
+| PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
 | PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |
 | PR9 | 4 | App `web/` (vitrine) : scaffold + résolution tenant + design tokens + 5 pages rendues depuis `club_settings` | nouvelle app |
 | PR10 | 4 | Flux actus & events branchés sur la vitrine (filtrés `club_id`) | non-bloquante |
