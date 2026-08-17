@@ -52,6 +52,21 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  // PR3 — ne jamais monter l'app avec clubId null : sinon chaque insert écrirait
+  // club_id: null (rejeté par le NOT NULL / la RLS tenant_isolation) et chaque
+  // .eq('club_id', null) ne renverrait rien. La vraie page « club inconnu /
+  // suspendu » (design + slug dans l'URL) reste du ressort de PR13.
+  if (!loading && !club) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="max-w-md rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Club introuvable ou indisponible. Vérifiez l'adresse utilisée pour accéder au
+          back-office, ou contactez l'administrateur de la plateforme.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ClubContext.Provider value={{ clubId: club?.id ?? null, club, loading }}>
       {children}
