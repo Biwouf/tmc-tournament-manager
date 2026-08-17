@@ -1,6 +1,6 @@
 # MULTI_TENANT.md — Passage en architecture multi-tenant (SaaS)
 
-> **Statut : en cours — PR1 à PR3 livrées (cf. tableau « Découpage en PR » ci-dessous).**
+> **Statut : en cours — PR1 à PR4 livrées (cf. tableau « Découpage en PR » ci-dessous).**
 > Document maître. À lire avant d'attaquer n'importe quelle phase ci-dessous.
 > Chaque phase fera l'objet de son propre brief dans `docs/briefs/` au moment de l'implémentation.
 > Source : `docs/briefs/multi_tenant_archi.md` (vision) + `docs/briefs/web_site_brief.md` (site vitrine).
@@ -211,7 +211,49 @@ Implémentation :
   vérité** ; le front ne fait que masquer.
 - Le flux d'invitation existant (`InvitePage`/`AcceptInvitePage` + Edge Function
   `invite-user`) est **étendu** pour porter `club_id` + `role` dans l'invitation et créer la
-  ligne `club_members` à l'acceptation.
+  ligne `club_members`.
+
+### 4.1 Livré en PR4 — état réel de l'implémentation
+
+- **`club_members` créée à l'émission de l'invitation**, pas à l'acceptation :
+  `inviteUserByEmail` / `generateLink` créent le compte `auth.users` immédiatement et
+  renvoient son `id`, donc l'Edge Function (déjà en service role) upsert dans la foulée.
+  `AcceptInvitePage` est **inchangée**. Deux approches ont été **écartées** :
+  - *rôle dans `user_metadata` puis création à l'acceptation* → `raw_user_meta_data` est
+    modifiable par l'utilisateur (`auth.updateUser({ data })`) : un invité `member` pourrait
+    se promouvoir `admin` avant d'accepter. **Faille d'escalade.**
+  - *table `club_invitations` + token consommé à l'acceptation* → robuste mais c'est une
+    table, un cycle de vie et un aller-retour de plus pour un besoin que le service role
+    couvre en une ligne. À reconsidérer seulement pour **lister les invitations en attente**.
+- **Autorisation d'invitation** : `invite-user` exige `admin` **du `club_id` demandé** (ou
+  super-admin), contrôle fait en service role sur `club_members` + `profiles`. Un `manager`
+  n'invite personne. C'est ce contrôle — et non le `club_id` envoyé par le front — qui
+  empêche d'injecter le club d'un tiers.
+- **Garde d'appartenance BO** : un compte authentifié ni membre ni super-admin obtient un
+  écran de refus plein page (nom du club + « Se déconnecter »), pas une redirection vers
+  `/login` : la session est valide, c'est le club qui ne l'est pas. `/login` et
+  `/accept-invite` restent atteignables.
+- **Super-admin non membre** : entre en support (`isMember === false`, rôle effectif `admin`).
+- **Multi-club (D5)** : inviter un email déjà titulaire d'un compte le **rattache** au club
+  courant sans envoyer d'email (réponse `already_existed`).
+
+> ⚠️ **Limite assumée — le rôle n'est PAS appliqué en base.** `tenant_isolation` (PR3)
+> cloisonne **par club**, pas par rôle. Un `member` reste `authenticated` et membre du club :
+> la RLS lui autorise toujours le CRUD complet sur les 10 tables métier de **son** club. PR4
+> ne fait que **masquer l'UI** — conforme au « le front ne fait que masquer » ci-dessus, mais
+> cela signifie qu'un `member` techniquement outillé peut encore écrire hors Live Score.
+> Ce n'est **pas** un problème d'isolation entre clubs (l'objet de cette migration), c'est une
+> restriction intra-club. La fermer = une PR dédiée (policies par commande
+> `SELECT`/`INSERT`/`UPDATE`/`DELETE` avec un helper `auth_club_role(club_id)`) — **hors PR4**,
+> à décider plus tard, à ne pas improviser.
+
+> **Dette PR4 — pas de garde d'appartenance côté PWA.** `pwa/` n'a ni `useClubRole()` ni
+> garde : un membre du club A qui ouvre la PWA du club B lit le contenu public (normal, il est
+> `anon`-lisible) mais échoue sur une **erreur technique sèche** à la première écriture (créer
+> un match, saisir un score), rejetée par la RLS. Le correctif n'est pas l'écran de refus du
+> BO — ce serait priver le visiteur d'un contenu volontairement public — mais le masquage des
+> seules actions d'écriture pour un non-membre. À traiter avec la page « club inconnu /
+> suspendu » (**PR13**).
 
 ---
 
@@ -382,8 +424,8 @@ dédié dans `docs/briefs/` au moment de l'implémentation.
   `club_id` + backfill CAC, RLS multi-tenant + GRANTs.
 - `ClubContext` (résolution subdomain → club_id) dans `src/` et `pwa/src/`.
 - Toutes les requêtes filtrent `club_id` ; clés localStorage TMC préfixées.
-- Extension du flux d'invitation (porte `club_id` + `role`).
-- Hook `useClubRole()` + masquage UI par rôle.
+- Extension du flux d'invitation (porte `club_id` + `role`) — cf. §4.1.
+- Hook `useClubRole()` + masquage UI par rôle + garde d'appartenance BO.
 - ✅ *Verif* : CAC fonctionne à l'identique ; créer un 2ᵉ club de test prouve l'isolation
   (aucune fuite de données entre clubs, testée via deux comptes).
 
@@ -423,7 +465,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR1 ✅ | 1 | Migration SQL socle : `clubs`/`club_members`/`club_settings`/enum/super-admin + `club_id` **nullable** partout + ligne CAC + backfill | non-bloquante |
 | PR2 ✅ | 1 | `ClubContext` (résolution hostname→club_id, fallback CAC) + filtrage `.eq('club_id')` partout + clés localStorage TMC préfixées | non-bloquante |
 | PR3 ✅ | 1 | **Verrouillage** : `club_id` NOT NULL + FK, RLS multi-tenant + GRANTs + helpers `auth_club_ids()`/`is_super_admin()` + seeding `club_members` (reporté de PR1) | ⚠️ **sensible** (tester sur dev + comptes CAC avant merge) |
-| PR4 | 1 | Invitations portant `club_id`+`role` + `useClubRole()` + masquage UI par rôle + **garde d'appartenance BO** : un non-membre du club courant se voit refuser l'accès (§3) au lieu d'obtenir un BO monté mais vide, comme aujourd'hui | non-bloquante |
+| PR4 ✅ | 1 | Invitations portant `club_id`+`role` (+ autorisation `admin` du club dans `invite-user`) + `useClubRole()` + masquage UI par rôle + **garde d'appartenance BO** : un non-membre du club courant se voit refuser l'accès (§3) au lieu d'obtenir un BO monté mais vide. Aucune migration ; script manuel d'attribution des rôles + déploiement manuel de la function. Limites et dettes : §4.1 | non-bloquante |
 | PR5 | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin) | non-bloquante |
 | PR6 | 3 | Section « Configuration du site » au BO (`club_settings.config` + formulaires) *(scindable en 2)* — **inclut le cloisonnement RLS de `club_settings`**, cf. §2.4 | non-bloquante |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |

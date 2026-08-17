@@ -1,16 +1,19 @@
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useClubRole } from '../contexts/ClubRoleContext';
 
+// `roles` = rôles autorisés à voir la carte (matrice MULTI_TENANT.md §4 / brief PR4 §6).
+// Le masquage est purement UI : la RLS tenant_isolation cloisonne par club, pas par rôle.
 const SECTIONS = [
   {
     id: 'club',
     label: 'Actus du club',
     hint: 'Contenu publié pour les adhérents',
     items: [
-      { to: '/actus', label: 'Actus', description: 'Rédiger et publier les actualités du club.' },
-      { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.' },
-      { to: '/live-score', label: 'Live Score', description: 'Suivre et saisir le score des matchs en direct.' },
-      { to: '/team-matches', label: 'Matches par équipe', description: 'Gérer les rencontres interclubs de l’équipe.' },
+      { to: '/actus', label: 'Actus', description: 'Rédiger et publier les actualités du club.', roles: ['admin', 'manager'] },
+      { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.', roles: ['admin', 'manager'] },
+      { to: '/live-score', label: 'Live Score', description: 'Suivre et saisir le score des matchs en direct.', roles: ['admin', 'manager', 'member'] },
+      { to: '/team-matches', label: 'Matches par équipe', description: 'Gérer les rencontres interclubs de l’équipe.', roles: ['admin', 'manager'] },
     ],
   },
   {
@@ -18,8 +21,8 @@ const SECTIONS = [
     label: 'Outils',
     hint: 'Générateurs et planning sportif',
     items: [
-      { to: '/programmation-image', label: 'Affiche programmation', description: 'Générer une image de la programmation à afficher.' },
-      { to: '/tmc-planning', label: 'Gestion planning', description: 'Créer et gérer les tournois, planifier les matchs.' },
+      { to: '/programmation-image', label: 'Affiche programmation', description: 'Générer une image de la programmation à afficher.', roles: ['admin', 'manager'] },
+      { to: '/tmc-planning', label: 'Gestion planning', description: 'Créer et gérer les tournois, planifier les matchs.', roles: ['admin', 'manager'] },
     ],
   },
   {
@@ -27,13 +30,23 @@ const SECTIONS = [
     label: 'Admin',
     hint: 'Réservé aux administrateurs',
     items: [
-      { to: '/admin/invite', label: 'Inviter un utilisateur', description: 'Envoyer un lien d’invitation au back-office.' },
+      { to: '/admin/invite', label: 'Inviter un utilisateur', description: 'Envoyer un lien d’invitation au back-office.', roles: ['admin'] },
     ],
   },
 ] as const;
 
 export default function AppHomePage() {
+  const { role, isSuperAdmin } = useClubRole();
   const handleLogout = () => supabase.auth.signOut();
+
+  // Super-admin non membre : accès support avec le rôle effectif 'admin'.
+  const effectiveRole = isSuperAdmin ? 'admin' : role;
+  const sections = SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter(
+      (item) => effectiveRole !== null && (item.roles as readonly string[]).includes(effectiveRole),
+    ),
+  })).filter((section) => section.items.length > 0);
 
   return (
     <div className="min-h-screen">
@@ -57,7 +70,7 @@ export default function AppHomePage() {
 
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col gap-9">
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <section key={section.id}>
               <div className="flex items-baseline gap-3.5 mb-3.5">
                 <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary m-0">
