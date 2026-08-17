@@ -1,6 +1,6 @@
 # MULTI_TENANT.md — Passage en architecture multi-tenant (SaaS)
 
-> **Statut : en cours — PR1 à PR4 livrées (cf. tableau « Découpage en PR » ci-dessous).**
+> **Statut : en cours — PR1 à PR5 livrées (cf. tableau « Découpage en PR » ci-dessous).**
 > Document maître. À lire avant d'attaquer n'importe quelle phase ci-dessous.
 > Chaque phase fera l'objet de son propre brief dans `docs/briefs/` au moment de l'implémentation.
 > Source : `docs/briefs/multi_tenant_archi.md` (vision) + `docs/briefs/web_site_brief.md` (site vitrine).
@@ -152,6 +152,10 @@ club** :
 `clubs` est volontairement lisible par tous : c'est la condition de la résolution du tenant
 avant authentification (§3). `club_members` est déjà restreinte (`user_id = auth.uid()`).
 
+> PR5 n'a rien changé à cette dette : elle a ajouté à `club_settings` des policies
+> **d'écriture** réservées au super-admin (réparation d'un club), la policy `SELECT`
+> `USING (true)` reste telle quelle.
+
 À traiter **avant PR6** pour `club_settings`. Pour `profiles`, le cloisonnement passe par
 `club_members` (un profil est visible s'il partage un club avec le demandeur) — attention à
 ne pas casser la lecture `anon` dont dépend l'affichage du gestionnaire d'un live en PWA.
@@ -271,6 +275,46 @@ Fonctions V1 :
 - **Impersonation / accès support** : entrer dans le BO d'un club donné.
 
 Hors V1 : facturation, quotas, métriques d'usage, self-service signup.
+
+### 5.1 Livré en PR5 — état réel de l'implémentation
+
+Route **`/super-admin`** dans le BO, gardée par **`isSuperAdmin` seul** (jamais `role === 'admin'` :
+le super-admin n'est pas un rôle de club). Carte « Console plateforme » sur le dashboard, rendue
+**hors de la matrice de rôles** pour la même raison.
+
+- **Écritures par RLS, pas par Edge Function.** Créer ou suspendre un club ne manipule aucun
+  secret : policies `is_super_admin()` sur `clubs` / `club_settings` + client Supabase standard.
+  Zéro Edge Function nouvelle, zéro déploiement manuel supplémentaire. L'invitation, elle, garde
+  `invite-user` **inchangée** — elle a besoin du service role pour créer le compte `auth.users`,
+  et elle autorisait déjà un super-admin sur n'importe quel `club_id` (§4.1).
+- **`clubs.slug` est devenu une adresse DNS** (D9) : `CHECK clubs_slug_format` (format
+  sous-domaine, 2–32, préfixe `app-` interdit car réservé à la PWA, slugs plateforme réservés).
+  Les mêmes règles sont dupliquées côté front — le CHECK est le filet, pas le message d'erreur.
+- **`club_settings` par trigger**, pas par un 2ᵉ insert côté front : un échec entre les deux
+  laisserait un club à moitié provisionné.
+- **Pas de suppression de club** : aucune policy `DELETE`. On suspend (cascade sur 10 tables).
+- **Accès support = override de club** (`localStorage.feelike_support_club`), résolu par
+  `ClubContext` **avant** le hostname et **sans** le filtre `status = 'active'` — entrer dans un
+  club suspendu pour le diagnostiquer est l'usage même du support. Bandeau permanent + Quitter.
+  Indispensable, pas un bonus : sans wildcard `*.feelike.app` (PR13), un club créé depuis la
+  console ne serait joignable **par personne**. Ce n'est pas une faille : poser la clé à la main
+  ne donne aucun droit (écran « Accès refusé » de PR4, et `tenant_isolation` ne rend rien) —
+  l'override change le club **affiché**, pas les droits. BO uniquement, PWA non touchée.
+- **Périmètre volontairement fermé** (tranché en PR5) : la **gestion des membres** d'un club
+  (lister / changer un rôle / retirer) part en **PR5-bis côté admin de club**, qui est le vrai
+  destinataire du besoin — la console de provisioning ne devient pas un écran d'administration
+  des comptes. Le **sélecteur de club généraliste** pour les comptes multi-clubs non
+  super-admin (D5) attend un 2ᵉ club réel et le wildcard (PR13) ; l'override ci-dessus en est
+  déjà l'ossature.
+
+> ⚠️ **Prérequis de sécurité livré avec cette PR** — `profiles.is_super_admin` était
+> **auto-attribuable** depuis PR1 : la policy `profiles_update_own` n'avait pas de `WITH CHECK`
+> et le `GRANT UPDATE` ne listait aucune colonne, donc tout compte authentifié (clé anon
+> publique) pouvait se promouvoir et court-circuiter `tenant_isolation` sur **tous** les clubs.
+> Corrigé par `2026081801_profiles_column_grants.sql` (**grants par colonne** — la RLS ne sait
+> pas restreindre une colonne — sur INSERT *et* UPDATE, + `WITH CHECK`). Migration isolable,
+> à appliquer **avant** `2026081802` : livrer la console au-dessus d'un flag auto-attribuable
+> serait le mauvais ordre. Le flag ne se pose plus qu'au SQL Editor (bootstrap : `README.md`).
 
 ---
 
@@ -532,7 +576,8 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR2 ✅ | 1 | `ClubContext` (résolution hostname→club_id, fallback CAC) + filtrage `.eq('club_id')` partout + clés localStorage TMC préfixées | non-bloquante |
 | PR3 ✅ | 1 | **Verrouillage** : `club_id` NOT NULL + FK, RLS multi-tenant + GRANTs + helpers `auth_club_ids()`/`is_super_admin()` + seeding `club_members` (reporté de PR1) | ⚠️ **sensible** (tester sur dev + comptes CAC avant merge) |
 | PR4 ✅ | 1 | Invitations portant `club_id`+`role` (+ autorisation `admin` du club dans `invite-user`) + `useClubRole()` + masquage UI par rôle + **garde d'appartenance BO** : un non-membre du club courant se voit refuser l'accès (§3) au lieu d'obtenir un BO monté mais vide. Aucune migration ; script manuel d'attribution des rôles + déploiement manuel de la function. Limites et dettes : §4.1 | non-bloquante |
-| PR5 | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin) | non-bloquante |
+| PR5 ✅ | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin, accès support) + **correctif §0** : `is_super_admin` n'est plus auto-attribuable (grants par colonne sur `profiles`). Détail : §5.1 | non-bloquante — mais les **deux** migrations sont à appliquer, la `2026081801` d'abord |
+| PR5-bis | 2 | Gestion des membres d'un club (lister / changer un rôle / retirer) **côté admin de club** — sorti de PR5 pour ne pas transformer la console de provisioning en écran d'administration des comptes | non-bloquante |
 | PR6 | 3 | Section « Configuration du site » au BO (`club_settings.config` + formulaires) *(scindable en 2)* — **inclut le cloisonnement RLS de `club_settings`**, cf. §2.4 | non-bloquante |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |
 | PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
