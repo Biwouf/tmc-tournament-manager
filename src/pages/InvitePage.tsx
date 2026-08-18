@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { invokeInvite } from '../lib/invite';
 import { useClub } from '../contexts/ClubContext';
 import type { ClubRole } from '../contexts/ClubRoleContext';
 
@@ -10,52 +10,6 @@ const ROLE_OPTIONS: { value: ClubRole; label: string }[] = [
   { value: 'manager', label: 'Gestionnaire — contenus et outils du club' },
   { value: 'admin', label: 'Administrateur — tout, y compris les invitations' },
 ];
-
-type InvokeResult =
-  | { success: true; action_link?: string; already_existed?: boolean }
-  | { success: false; error: string };
-
-async function invokeInvite(body: Record<string, unknown>): Promise<InvokeResult> {
-  const { data, error: invokeErr } = await supabase.functions.invoke('invite-user', {
-    body,
-  });
-  if (invokeErr) {
-    // `invokeErr.message` est générique ("non-2xx status"). On essaie de lire
-    // le body de la réponse pour récupérer le vrai message d'erreur.
-    const ctx = (invokeErr as { context?: unknown }).context;
-    let detail: string | null = null;
-    if (ctx instanceof Response) {
-      try {
-        const body = await ctx.clone().json();
-        if (body && typeof body.error === 'string') detail = body.error;
-      } catch {
-        try {
-          detail = (await ctx.clone().text()) || null;
-        } catch {
-          // ignore
-        }
-      }
-    }
-    return { success: false, error: detail ?? invokeErr.message };
-  }
-  const payload = data as {
-    success?: boolean;
-    error?: string;
-    action_link?: string;
-    already_existed?: boolean;
-  } | null;
-  if (!payload?.success) {
-    return {
-      success: false,
-      error: payload?.error ?? 'Erreur inconnue lors de l’envoi de l’invitation.',
-    };
-  }
-  return {
-    success: true,
-    action_link: payload.action_link,
-    already_existed: payload.already_existed,
-  };
-}
 
 export default function InvitePage() {
   const { clubId, club } = useClub();

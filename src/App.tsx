@@ -16,12 +16,13 @@ import ActusPage from './pages/ActusPage';
 import ActuForm from './components/ActuForm';
 import InvitePage from './pages/InvitePage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
+import SuperAdminPage from './pages/SuperAdminPage';
 import TeamMatchesPage from './pages/TeamMatchesPage';
 import TeamMatchesAdminPage from './pages/TeamMatchesAdminPage';
 import TeamEquipePage from './pages/TeamEquipePage';
 import TeamRencontrePage from './pages/TeamRencontrePage';
 import TeamRencontreForm from './components/teamMatches/TeamRencontreForm';
-import { ClubProvider, useClub } from './contexts/ClubContext';
+import { ClubProvider, useClub, exitSupportClub } from './contexts/ClubContext';
 import { ClubRoleProvider, useClubRole } from './contexts/ClubRoleContext';
 
 function RedirectTournament() {
@@ -59,6 +60,26 @@ function NoClubAccess({ clubName }: { clubName: string | null }) {
   );
 }
 
+// PR5 §7 — le club affiché vient de l'override de support, pas du hostname. Bandeau
+// permanent : sans lui, on croit être dans son club et on y publie une actu.
+function SupportBanner({ clubName, suspended }: { clubName: string; suspended: boolean }) {
+  return (
+    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-sm text-amber-900">
+      <span>
+        <span className="font-semibold">Support</span> — vous consultez{' '}
+        <span className="font-medium">{clubName}</span>
+        {suspended ? ' (suspendu)' : ''}.
+      </span>
+      <button
+        onClick={exitSupportClub}
+        className="rounded-lg border border-amber-600/40 bg-amber-50/60 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+      >
+        Quitter
+      </button>
+    </div>
+  );
+}
+
 function AppRoutes() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const { loading: clubLoading } = useClub();
@@ -87,7 +108,7 @@ function AppRoutes() {
 }
 
 function GuardedRoutes({ user }: { user: User | null }) {
-  const { club } = useClub();
+  const { club, isSupport } = useClub();
   const { role, isMember, isSuperAdmin, loading: roleLoading } = useClubRole();
   const { pathname } = useLocation();
 
@@ -101,33 +122,43 @@ function GuardedRoutes({ user }: { user: User | null }) {
   // Un super-admin non membre entre en support avec le rôle effectif 'admin'.
   const adminOnly = (el: ReactElement) =>
     isSuperAdmin || role === 'admin' ? el : <Navigate to="/" replace />;
+  // La console est une surface PLATEFORME : `isSuperAdmin` seul, jamais role === 'admin'
+  // (le super-admin n'est pas un rôle de club). L'URL est devinable, carte masquée ou non.
+  const superAdminOnly = (el: ReactElement) =>
+    isSuperAdmin ? el : <Navigate to="/" replace />;
 
   return (
-    <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-      <Route path="/" element={auth(<AppHomePage />)} />
-      <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
-      <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
-      <Route path="/tournament/:id" element={<RedirectTournament />} />
-      <Route path="/programmation-image" element={auth(<ProgrammationImagePage />)} />
-      <Route path="/events" element={auth(<EventsPage />)} />
-      <Route path="/events/new" element={auth(<EventForm />)} />
-      <Route path="/events/:id/edit" element={auth(<EventForm />)} />
-      <Route path="/live-score" element={auth(<LiveScorePage />)} />
-      <Route path="/live-score/new" element={auth(<LiveMatchForm />)} />
-      <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />
-      <Route path="/actus" element={auth(<ActusPage />)} />
-      <Route path="/actus/new" element={auth(<ActuForm />)} />
-      <Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
-      <Route path="/team-matches" element={auth(<TeamMatchesPage />)} />
-      <Route path="/team-matches/admin" element={auth(<TeamMatchesAdminPage />)} />
-      <Route path="/team-matches/equipe/:id" element={auth(<TeamEquipePage />)} />
-      <Route path="/team-matches/rencontre/new" element={auth(<TeamRencontreForm />)} />
-      <Route path="/team-matches/rencontre/:id" element={auth(<TeamRencontrePage />)} />
-      <Route path="/team-matches/rencontre/:id/edit" element={auth(<TeamRencontreForm />)} />
-      <Route path="/admin/invite" element={auth(adminOnly(<InvitePage />))} />
-      <Route path="/accept-invite" element={<AcceptInvitePage />} />
-    </Routes>
+    <>
+      {isSupport && user && club && (
+        <SupportBanner clubName={club.name} suspended={club.status !== 'active'} />
+      )}
+      <Routes>
+        <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+        <Route path="/" element={auth(<AppHomePage />)} />
+        <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
+        <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
+        <Route path="/tournament/:id" element={<RedirectTournament />} />
+        <Route path="/programmation-image" element={auth(<ProgrammationImagePage />)} />
+        <Route path="/events" element={auth(<EventsPage />)} />
+        <Route path="/events/new" element={auth(<EventForm />)} />
+        <Route path="/events/:id/edit" element={auth(<EventForm />)} />
+        <Route path="/live-score" element={auth(<LiveScorePage />)} />
+        <Route path="/live-score/new" element={auth(<LiveMatchForm />)} />
+        <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />
+        <Route path="/actus" element={auth(<ActusPage />)} />
+        <Route path="/actus/new" element={auth(<ActuForm />)} />
+        <Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
+        <Route path="/team-matches" element={auth(<TeamMatchesPage />)} />
+        <Route path="/team-matches/admin" element={auth(<TeamMatchesAdminPage />)} />
+        <Route path="/team-matches/equipe/:id" element={auth(<TeamEquipePage />)} />
+        <Route path="/team-matches/rencontre/new" element={auth(<TeamRencontreForm />)} />
+        <Route path="/team-matches/rencontre/:id" element={auth(<TeamRencontrePage />)} />
+        <Route path="/team-matches/rencontre/:id/edit" element={auth(<TeamRencontreForm />)} />
+        <Route path="/admin/invite" element={auth(adminOnly(<InvitePage />))} />
+        <Route path="/super-admin" element={auth(superAdminOnly(<SuperAdminPage />))} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
+      </Routes>
+    </>
   );
 }
 

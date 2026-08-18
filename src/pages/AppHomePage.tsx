@@ -70,6 +70,36 @@ export default function AppHomePage() {
 
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col gap-9">
+          {/* PR5 — surface PLATEFORME, pas module club : volontairement hors de la
+              matrice de rôles ci-dessus (le super-admin n'est pas un rôle de club). */}
+          {isSuperAdmin && (
+            <section>
+              <div className="flex items-baseline gap-3.5 mb-3.5">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary m-0">
+                  Plateforme
+                </h2>
+                <span
+                  className="flex-1 h-px"
+                  style={{ background: 'linear-gradient(to right, hsl(var(--border)), transparent)' }}
+                />
+                <span className="hidden md:inline text-xs text-muted-foreground">
+                  Réservé au super-admin
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Link
+                  to="/super-admin"
+                  className="rounded-2xl border bg-card/90 p-8 shadow-sm transition hover:border-primary/30 hover:shadow-md"
+                >
+                  <h3 className="text-xl font-semibold text-card-foreground">Console plateforme</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Créer, lister et suspendre les clubs ; inviter leur premier administrateur.
+                  </p>
+                </Link>
+              </div>
+            </section>
+          )}
+
           {sections.map((section) => (
             <section key={section.id}>
               <div className="flex items-baseline gap-3.5 mb-3.5">

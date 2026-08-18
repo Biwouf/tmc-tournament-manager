@@ -82,6 +82,22 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Un compte qui n'appartient pas au club du back-office ouvert se voit refuser l'accès avec un message explicite (et un bouton de déconnexion), au lieu d'un back-office aux listes vides
 - Inviter un email qui a déjà un compte le **rattache** au club courant, sans nouvel email
 
+### Console plateforme (super-admin)
+Réservée au **super-admin** de la plateforme, sur `/super-admin` (carte *Plateforme › Console plateforme* du dashboard). Invisible et inaccessible pour un administrateur de club.
+
+- **Créer un club** : nom, slug et sport. Le slug est le sous-domaine du club (`<slug>.feelike.app`) : minuscules, chiffres et tirets, 2 à 32 caractères, ni préfixe `app-` (réservé à la PWA) ni slug réservé par la plateforme. Sa ligne de configuration est créée automatiquement.
+- **Lister** les clubs avec leur statut, leur date de création, leur nombre de membres et un marqueur **« aucun admin »** — l'état d'un club fraîchement créé, dont l'action suivante est l'invitation.
+- **Inviter le premier administrateur** d'un club, par email ou en générant un lien à copier.
+- **Suspendre / réactiver** un club. Un club suspendu n'est plus accessible à ses membres (back-office et PWA). Suspendre le club dans lequel on se trouve est refusé.
+- **Entrer dans un club en support** : le back-office bascule sur ce club (même suspendu, pour diagnostic), avec un bandeau permanent rappelant où l'on se trouve et un bouton *Quitter*. Ça ne donne aucun droit supplémentaire : le club affiché change, pas les permissions.
+
+Le **tout premier super-admin** se pose à la main dans le SQL Editor Supabase — il n'existe volontairement aucune interface de promotion (personne ne peut se promouvoir soi-même) :
+
+```sql
+UPDATE public.profiles SET is_super_admin = true
+WHERE id = (SELECT id FROM auth.users WHERE email = '<email>');
+```
+
 ### Général
 - Authentification via Supabase
 - Sauvegarde automatique avec localStorage (TMC) et Supabase (Events)
