@@ -467,12 +467,36 @@ INSERT INTO supabase_migrations.schema_migrations (version, name)
 VALUES ('YYYYMMDDNN', '<nom_court>');
 ```
 
-**2. Appliquer les migrations manquantes, dans l'ordre.** Passer d'abord le **pré-vol des
-policies** quand la migration en supprime (cf. en-tête de `20260816_multi_tenant_rls.sql`) :
-**prod porte des policies créées à la main dans le dashboard, absentes du dépôt** — c'est le
-cas des policies `anon` de `events` et `live_matches`, dont dépend la PWA. Le SQL Editor
-exécute le fichier en une transaction implicite : un garde-fou qui lève annule tout, donc pas
-de demi-migration.
+**2. Appliquer les migrations manquantes, dans l'ordre.** Passer d'abord le **pré-vol** propre
+à la migration quand elle en prévoit un — policies droppées (en-tête de
+`20260816_multi_tenant_rls.sql`), slugs incompatibles (en-tête de
+`2026081802_super_admin_console.sql`). Rappel : **prod porte des policies créées à la main dans
+le dashboard, absentes du dépôt** — c'est le cas des policies `anon` de `events` et
+`live_matches`, dont dépend la PWA.
+
+Ensuite, deux chemins — **le premier est préférable**.
+
+*Voie recommandée — `db push` visant la prod explicitement.* Elle applique dans l'ordre **et
+écrit elle-même `schema_migrations`** : c'est la seule qui ne peut pas laisser le journal
+mentir (cf. l'avertissement du §1). Ne **pas** faire `supabase link` sur la prod — ça réécrit
+`supabase/.temp/` et braque le CLI sur la prod pour **toutes** les commandes suivantes, celles
+qu'on croira lancer sur dev comprises. On passe la prod en argument, une fois :
+
+```bash
+supabase db push --db-url "postgresql://postgres.<ref-prod>:<mdp>@<host-prod>:5432/postgres" --dry-run
+```
+
+Chaîne de connexion : dashboard prod → *Project Settings → Database → Connection string*, avec
+le mot de passe **percent-encodé**. **Lire la sortie du `--dry-run` avant tout** : elle doit
+lister **exactement** les migrations de la PR. Si elle en liste d'autres, s'arrêter — c'est le
+scénario de l'incident ci-dessus, une migration antérieure jamais appliquée. Puis relancer sans
+`--dry-run`.
+
+*Voie manuelle (SQL Editor)* — utile pour n'appliquer qu'une seule migration d'une PR qui en
+porte plusieurs (ex. le correctif de sécurité `2026081801` seul, sans attendre PR5), ou pour
+lire le SQL en l'exécutant. Le SQL Editor exécute le fichier en une transaction implicite : un
+garde-fou qui lève annule tout, donc pas de demi-migration. **Ne pas oublier l'`INSERT` du
+journal** (§1) — c'est précisément ce que la voie recommandée fait à ta place.
 
 **3. Déployer les Edge Functions touchées**, sans relinker le dossier local (il pointe sur dev) :
 
