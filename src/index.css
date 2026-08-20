@@ -45,6 +45,38 @@
   --color-ring: hsl(var(--ring));
 }
 
+/* États de score du module Matches par équipe (grille de saison).
+   Valeurs littérales : ce sont des états métier, pas des variantes du thème club.
+   Tailwind v4 — le thème vit ici, tailwind.config.js n'est plus lu. */
+@theme {
+  --color-score-win: #dcfce7;
+  --color-score-win-fg: #15803d;
+  --color-score-win-border: #bbf7d0;
+
+  --color-score-loss: #fee2e2;
+  --color-score-loss-fg: #b91c1c;
+  --color-score-loss-border: #fecaca;
+
+  --color-score-draw: #fef9c3;
+  --color-score-draw-fg: #854d0e;
+  --color-score-draw-border: #fde68a;
+
+  --color-score-todo: #e51828;
+  --color-score-todo-fg: #ffffff;
+
+  --color-score-next: #fbe6e8;
+  --color-score-next-fg: #8a5c61;
+
+  --color-score-wo: #f3f4f6;
+  --color-score-wo-fg: #374151;
+
+  --color-score-na: #f2d3d7;      /* bordure pointillée de la cellule inerte */
+  --color-score-na-hatch: #faf0f1; /* hachures diagonales */
+
+  --color-finale-header: #fef3c7;
+  --color-finale-header-fg: #92400e;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -74,4 +106,21 @@
 }
 .markdown-body li {
   margin: 0.25rem 0;
+}
+
+/* ─── Grille de saison (/team-matches) ─────────────────────────────────── */
+/* Cellule « non applicable » : l'équipe n'a pas cette journée / ce stade.
+   Doit rester distincte d'une cellule vide « à programmer » sans survol. */
+.cell-na {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-score-na-hatch) 0,
+    var(--color-score-na-hatch) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
