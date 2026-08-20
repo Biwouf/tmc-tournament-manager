@@ -241,6 +241,7 @@ CREATE TABLE IF NOT EXISTS team_competitions (
                            'seniors', '35_ans', '60_ans', '17_18', '15_16', '13_14', '11_12'
                          )),
   format     TEXT        NOT NULL CHECK (format IN ('2S1D', '3S1D2', '4S1D2', '4S2D')),
+  terminee   BOOLEAN     NOT NULL DEFAULT false,  -- 20260820 : championnat clos
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
@@ -383,7 +384,12 @@ Actions : Créer, Modifier (inline), Supprimer (si aucune compétition liée).
 
 Par saison (filtrée sur la saison active par défaut, sélecteur pour les autres).
 
-Tableau listant les compétitions avec colonnes : Nom, Type, Genre, Catégorie, Format.
+Tableau listant les compétitions avec colonnes : Nom, Type, Genre, Catégorie, Format,
+**Terminée**.
+
+**Terminée** est une case à cocher inline (`UPDATE team_competitions.terminee`) : c'est le
+seul endroit d'où le flag se pilote. Une compétition terminée sort de la grille active de
+`/team-matches` et bascule dans sa section repliée, sans rechargement de page.
 
 Actions : Créer, Modifier, Supprimer (si aucune équipe liée).
 
@@ -398,48 +404,198 @@ Actions : Créer, Modifier, Supprimer (si aucune équipe liée).
 | Catégorie | `<select>` | Options filtrées selon le type |
 | Format | `<select>` | 4 options avec libellé complet |
 
+### Gestion des équipes
+
+Tableau des équipes de la saison sélectionnée : Équipe n°, Compétition, Division, Journées,
+actions **Voir** (→ page équipe) et **Supprimer** (avec confirmation ; supprime les rencontres
+en cascade).
+
+**Bouton « + Équipe »** → formulaire de création :
+
+| Champ | Composant | Notes |
+|---|---|---|
+| Compétition | `<select>` | Parmi les compétitions de la saison sélectionnée |
+| Numéro | lecture seule | Incrémenté auto selon les équipes existantes dans la compétition |
+| Division | `<select>` | R1A, R1B, R2…R6 |
+| Journées de poule | `<input type="number" min="1">` | Nombre de journées de la phase qualificative |
+
+À la validation : INSERT dans `team_equipes` puis génération automatique des étapes de poule
+(N lignes dans `team_etapes` avec `phase='poule'` et `numero_journee=1..N`).
+
+> Création et suppression d'équipe vivaient sur l'ancienne page liste `/team-matches`. Elles
+> ont migré ici avec la refonte en vue Grille de saison — sans ce déplacement, il n'y aurait
+> plus aucun moyen de créer ni de supprimer une équipe.
+
 ---
 
 ## Module principal — `/team-matches`
 
-### Page liste des équipes — `TeamMatchesPage.tsx`
+### Vue Grille de saison — `TeamMatchesPage.tsx`
 
-**Filtres** (en haut) :
-- Sélecteur de saison (par défaut : saison active)
-- Sélecteur de compétition (toutes les compétitions de la saison sélectionnée)
+Trois vues (**Grille** par défaut, **Agenda**, **Liste**) partageant un même chargement,
+doublées d'un **panneau latéral persistant** (372 px, `border-l`). Objectif : saisir un score
+en **2 clics** (cellule → CTA du panneau) au lieu des 3 navigations de l'ancienne page liste.
 
-**Liste** : une carte par équipe.
+`view` et `saisonId` sont persistés via `useLocalStorage` sous une clé préfixée club
+(`tmc:${clubId}:team-matches:view`) : le retour depuis une page rencontre retrouve le contexte.
+La grille se recharge au `focus` de la fenêtre, pour que le score qui vient d'être saisi
+apparaisse immédiatement.
 
-**Carte équipe** :
-- En-tête : compétition (nom + catégorie + genre), division, "Équipe N"
-- Sous-titre : saison
-- Badges : phase de poule en cours (Jx/N) ou phase finale (stade courant)
-- Actions : **Voir** | **Supprimer** (avec confirmation)
+Le header ne porte plus les boutons « Admin », « Créer une équipe » ni « Créer une
+compétition » : la création d'équipe et de compétition vit désormais dans
+`TeamMatchesAdminPage`, atteignable depuis l'accueil du BO.
 
-**Bouton "Créer une équipe"** → ouvre formulaire (modale ou page dédiée).
+#### Chargement — `useTeamSeasonGrid(saisonId)`
 
-**Formulaire de création d'équipe** :
+Un **seul** `select` imbriqué depuis la table racine, en remplacement de la cascade
+séquentielle équipes → étapes → rencontres :
 
-| Champ | Composant | Notes |
-|---|---|---|
-| Compétition | `<select>` | Parmi les compétitions de la saison active |
-| Numéro | `<select>` `1 / 2 / 3…` | Incrémenté auto selon les équipes existantes dans la compétition |
-| Division | `<select>` | R1A, R1B, R2…R6 |
-| Journées de poule | `<input type="number" min="1">` | Nombre de journées de la phase qualificative |
+```ts
+supabase.from('team_competitions')
+  .select('*, team_equipes(*, team_etapes(*, team_rencontres(*)))')
+  .eq('club_id', clubId)        // club_id dénormalisé (D11) : un seul filtre suffit
+  .eq('saison_id', saisonId)
+```
 
-À la validation : INSERT dans `team_equipes` puis génération automatique des étapes de poule (N lignes dans `team_etapes` avec `phase='poule'` et `numero_journee=1..N`).
+`team_match_lines` n'est **pas** chargée à ce niveau : elle l'est à la demande, quand une
+cellule est sélectionnée. `team_rencontres.etape_id` étant `UNIQUE`, la relation imbriquée est
+normalisée en objet unique **une fois** au sortir du hook.
 
-**Bouton "Générer une affiche"** (barre de filtres, à gauche de « Créer une compétition ») → ouvre `GeneratePosterModal`.
+Le hook expose des cellules déjà typées (`Cell`, `Colonne`, `CellState`) : les composants de
+vue ne recalculent rien.
 
-#### Génération d'affiche des rencontres à venir (`GeneratePosterModal`)
+#### Colonnes d'un bloc compétition
 
-Migré depuis `EventForm` (l'ancien type d'événement `'Match par équipe'` a été supprimé). L'affiche est téléchargée localement en JPEG — **pas d'upload Supabase**.
+| Phase | Règle |
+|---|---|
+| Poule | `max(nb_journees_poule, plus grand numero_journee)` sur **toutes les équipes du groupe** |
+| Finale | une colonne par `stade_finale` **réellement présent** dans le groupe, ordonnée selon `STADES_FINALE` |
 
-- **Chargement** : `team_rencontres` avec contexte imbriqué (`etape → equipe → competition`), filtré sur `date_heure >= now()`, trié ASC.
-- **Sélection** : une checkbox par rencontre, libellé `{competitionLabel} — Équipe {numero} · {club_adverse}` + date formatée. Max 8 rencontres (capacité de l'affiche) ; les checkboxes non cochées sont désactivées une fois la limite atteinte. État vide : « Aucune rencontre à venir. »
-- **Conversion** : `rencontreToTeamMatch()` mappe chaque rencontre en `TeamMatch` (genre déduit de `competition.genre`, type de `competition.categorie`, `teamNumber = min(numero, 3)`, `location` selon `domicile`, date/heure locales).
-- **Rendu** : `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`) → `html-to-image#toJpeg` (q=0.92, pixelRatio 2). Le `dataUrl` produit alimente un aperçu 110×156 + lien `<a download="affiche-matchs.jpg">`.
-- **États du bouton** : `idle` → « Générer l'affiche » / `loading` → « Génération… » + spinner / `done` → « Régénérer ». Toute modification de la sélection repasse à `idle` et purge le `dataUrl`.
+`nb_journees_poule` est une colonne de `team_equipes`, mutable (`handleDeleteJournee` la
+réécrit) : deux équipes d'une même compétition divergent **par conception**. Le maximum est
+donc pris sur le groupe, et jamais sur la seule valeur déclarée — une étape `J6` sur une
+équipe à `nb_journees_poule = 5` doit s'afficher plutôt que disparaître en silence.
+
+Côté finale, `stadesFromDepart()` crée **toutes** les étapes d'un coup : une équipe qualifiée
+en 1/16 en porte 5 (`1/16`, `1/8`, `1/4`, `1/2`, `finale`). Une colonne « Finales » unique
+masquerait les scores des tours déjà joués. `handleDeleteStade` ne renumérote pas : les trous
+dans la série des stades sont légitimes et ne sont pas comblés.
+
+Pire cas de largeur : `1 + 11 + 5` colonnes ≈ 2090 px. La largeur minimale est **calculée**
+(`gridMinWidth`), la zone scrolle horizontalement plutôt que de compresser, et la colonne
+équipe est `position: sticky; left: 0`.
+
+#### Cascade d'état d'une cellule
+
+Une cellule = une `team_etape` (poule `numero_journee` ou finale `stade_finale`) d'une équipe.
+**L'ordre compte** — `wo` passe avant les scores, puisqu'un WO renseigne le score
+automatiquement (`totalPointsFormat(format)` à 0) : testé après, tous les WO gagnés
+s'afficheraient en `win`.
+
+| Ordre | État | Condition | Rendu |
+|---|---|---|---|
+| 1 | `na` | l'étape n'existe pas pour cette équipe | hachuré, bordure pointillée, non focusable, `<div>` inerte |
+| 2 | `none` | étape sans rencontre | fond blanc, `–`, « à programmer », cliquable pour créer |
+| 3 | `wo` | `rencontre.wo` | fond neutre, libellé `WO`, sous-titre = le score |
+| 4 | `todo` | date passée, `score_club` **ou** `score_adverse` null | rouge plein, `· ·`, « à saisir » |
+| 5 | `win` | scores saisis, `score_club > score_adverse` | vert, `4–1` |
+| 6 | `loss` | scores saisis, `score_club < score_adverse` | rouge clair |
+| 7 | `draw` | scores saisis, égalité | jaune, sous-titre `Nul` |
+| 8 | `next` | rencontre existe, date future | rose clair, `–`, sous-titre = club adverse |
+
+Une rencontre sans score n'est jamais vide : `–` = « rien à saisir », `· ·` = « score
+manquant ». `na` et `none` sont **visuellement distincts sans survol** : `na` = « cette équipe
+n'a pas cette journée » (mort), `none` = « l'étape existe, la rencontre reste à programmer ».
+
+Le **match nul existe** : les formats `4S1D2` et `4S2D` totalisent 6 points (3–3 possible), et
+`TeamScoreSection` expose deux inputs libres quel que soit le format. Le bilan d'équipe compte
+les nuls séparément (`R3 · 2V · 1N · 0D`) ; le segment `N` n'apparaît que si le compte est > 0.
+
+**Limite assumée : pas d'état « en cours ».** Le savoir supposerait de lire
+`team_match_lines.live_match_id`, or les lines ne sont volontairement pas chargées à ce
+niveau. Une rencontre en cours apparaît en `todo` dès que sa date est passée.
+
+#### Compteurs et définition du week-end
+
+- `scores à saisir` = cellules `todo`, sections terminées exclues ;
+- `équipes en cours` = équipes des compétitions non terminées ;
+- `rencontres ce week-end` = rencontres `next` dans le week-end courant.
+
+Le week-end a **une seule définition**, dans `components/teamMatches/weekend.ts` :
+**vendredi 18:00 → dimanche 23:59:59.999**, en heure locale (`date_heure` est un `TIMESTAMPTZ`
+que `new Date(iso)` ramène en local). `currentWeekendRange` / `nextWeekendRange` /
+`lastWeekendRange` servent le compteur, la vue Agenda **et** la présélection de l'affiche —
+trois définitions divergentes feraient trois bugs. Le décalage ±1 semaine se fait en jours
+calendaires : en millisecondes, le vendredi dérive d'une heure au passage à l'heure d'été.
+
+#### Championnats terminés
+
+`team_competitions.terminee` (migration `20260820_team_competitions_terminee.sql`) sort une
+compétition de la grille active et la place dans une section repliée « Championnats terminés
+(n) », à `opacity .75` avec un badge « Terminé ». Le flag est **explicite**, piloté par une
+case à cocher dans `/team-matches/admin` — jamais dérivé d'un calcul sur les étapes : une
+compétition peut être finie pour le club alors qu'une phase finale reste programmée.
+
+#### Vue Agenda
+
+Quatre sections, bornes issues du helper partagé, section vide masquée :
+**À saisir** (rencontres jouées sans score) · **Ce week-end** · **Week-end suivant** ·
+**Déjà jouées** (dernier week-end écoulé, avec le score). Une ligne = pastille date/heure ·
+chaîne `Compétition · Catégorie · Éq. n · Jn` + club adverse · `Au club` / `Déplacement` ·
+tag d'état à droite. Le clic sélectionne la rencontre dans le panneau sans changer de vue.
+
+#### Vue Liste
+
+Une ligne par équipe : `Équipe` (+ compétition) · `Div.` · `Avancement` (pastilles J1…Jn
+colorées par état, `na` inclus) · `Bilan` · `État` (phase en cours ou issue finale) · `Ouvrir`,
+qui bascule en vue Grille sur l'équipe (et déplie la section terminée si besoin). Les équipes
+de compétitions terminées sont à `opacity .6`.
+
+#### Panneau latéral — mode « rencontre » (`RencontrePanel`)
+
+Chaîne de contexte · titre `etapeLabel()` + club adverse · état/date/lieu · bloc score 32px ·
+liste des `team_match_lines` (chargée à la sélection, requête annulable, `.eq('club_id', …)`,
+sans cache — le retour depuis la page rencontre doit voir les lines à jour) · CTA contextuel
+(`Créer la rencontre` / `Saisir le score` / `Composer l'équipe` / `Modifier le score`) ·
+actions secondaires (Live Score, Photos, Créer une actu, Plein écran, Déclarer un WO).
+
+Les actions secondaires **ouvrent la page rencontre**, seule surface d'édition de ces flux ;
+« Créer une actu » navigue directement vers `/actus/new` avec le même `location.state` que
+`TeamPhotosSection`.
+
+Au chargement, la **première rencontre `todo`** est présélectionnée, sinon la prochaine à
+venir. La sélection porte sa saison : changer de saison l'invalide.
+
+#### Panneau latéral — mode « affiche » (`PosterPanel`)
+
+Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localement en JPEG —
+**pas d'upload Supabase**.
+
+- **Source** : les rencontres à venir déjà chargées par le hook de grille (plus de requête
+  dédiée), groupées par week-end (`Ce week-end` / `Week-end suivant` / `Plus tard`) avec un
+  bouton « Tout prendre » par groupe.
+- **Présélection** : toutes les rencontres du week-end courant, triées par `date_heure`,
+  tronquées à `MAX_POSTER_MATCHES = 8`. Au-delà de 8, le clic est ignoré ; le compteur
+  affiche `n / 8 sélectionnées`.
+- **Conversion** : `rencontreToTeamMatch()` (dans `components/teamMatches/poster/posterHelpers.ts`)
+  mappe chaque rencontre en `TeamMatch` — genre déduit de `competition.genre`, type de
+  `competition.categorie` (fallback `60_ans → 'Seniors +35'`), `teamNumber = min(numero, 3)`,
+  `location` selon `domicile`, date/heure locales.
+- **Rendu** : `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`)
+  → `html-to-image#toJpeg` (q=0.92, pixelRatio 2), plus un aperçu A4 mis à l'échelle dans le
+  panneau. L'aperçu suit chaque coche (c'est du DOM React), mais **`toJpeg` n'est déclenché
+  que par le bouton** : à `pixelRatio: 2` sur une A4, l'appeler à chaque coche ferait ramer
+  le panneau.
+- **Téléchargement** : `<a download="affiche-rencontres-YYYY-MM-DD.jpg">`, où la date est
+  celle du **samedi** du week-end concerné.
+- **États du bouton** : `idle` → « Générer l'affiche » / `loading` → « Génération… » +
+  spinner / `done` → « Régénérer ». Toute modification de la sélection repasse à `idle` et
+  purge le `dataUrl`.
+
+#### États de chargement et d'erreur
+
+Squelette de grille (lignes grises) plutôt qu'un « Chargement… » centré ; bandeau rouge
+nommant les migrations à appliquer en cas d'erreur ; états vides explicites par vue.
 
 ---
 

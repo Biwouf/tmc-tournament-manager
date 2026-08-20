@@ -51,13 +51,18 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 
 ### Matches par équipe
 - Gestion des **rencontres interclubs** du club (back-office), indépendamment des événements
-- **Admin** : saisons (une seule active à la fois) et compétitions (nom, type adultes/jeunes, genre, catégorie, format)
+- **Vue « grille de saison »** : lignes = équipes groupées par compétition, colonnes = journées de poule puis tours de phase finale. Chaque cellule est une rencontre colorée par état (victoire, défaite, nul, score à saisir, à venir, WO, à programmer) et cliquable — **saisir un score prend 2 clics**
+- Deux vues alternatives sur les mêmes données : **Agenda** (à saisir / ce week-end / week-end suivant / déjà jouées) et **Liste** (une ligne par équipe, avancement, bilan, état)
+- **Panneau latéral** : détail de la rencontre sélectionnée (score, matches individuels, raccourcis Live Score / Photos / Actu / WO) ou générateur d'affiche
+- Un compteur d'en-tête remonte les **scores à saisir** — les rencontres jouées sans score ne se découvrent plus par hasard
+- **Admin** : saisons (une seule active à la fois), compétitions (nom, type adultes/jeunes, genre, catégorie, format) et équipes (création/suppression)
+- Une compétition peut être marquée **« terminée »** : elle quitte la grille active pour une section repliée, sans disparaître
 - **Équipes** par compétition : division, nombre de journées de poule (les journées sont générées automatiquement)
 - **Phase de poule** puis **phases finales** : qualification d'une équipe avec stade de départ (les stades 1/16 → finale sont générés automatiquement)
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
 - **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
-- **Génération d'affiche** des rencontres à venir : sélection (max 8) → affiche JPEG téléchargée localement
+- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`)
 
 ### PWA — navigation
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
