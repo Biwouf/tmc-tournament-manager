@@ -110,6 +110,14 @@ export function gridTemplateColumns(nPoule: number, nFinales: number): string {
     .join(' ');
 }
 
+/** `R3 · 3V · 1N · 0D` — le segment N n'apparaît que si des nuls existent (D1). */
+export function bilanLabel(division: string, b: Bilan): string {
+  const segments = [`${b.victoires}V`];
+  if (b.nuls > 0) segments.push(`${b.nuls}N`);
+  segments.push(`${b.defaites}D`);
+  return [division, ...segments].join(' · ');
+}
+
 /** Classes Tailwind d'une cellule selon son état. */
 export const CELL_CLASSES: Record<CellState, string> = {
   na: 'cell-na border border-dashed border-score-na text-transparent',
