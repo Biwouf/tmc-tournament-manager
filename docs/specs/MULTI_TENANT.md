@@ -259,6 +259,54 @@ Implémentation :
 > seules actions d'écriture pour un non-membre. À traiter avec la page « club inconnu /
 > suspendu » (**PR13**).
 
+### 4.2 Livré en PR5-bis — gestion des membres côté admin de club
+
+Écran **`/admin/members`** (`MembersPage`, route `adminOnly`), carte *Admin › Membres* du
+dashboard. Il **absorbe** l'ancienne page `/admin/invite`, qui redirige en permanence :
+inviter quelqu'un et voir la liste se rafraîchir est le même geste. Un `manager` n'y a pas
+accès (§4 : « Ne gère ni la config club ni les membres »).
+
+- **Lister** : nom, **email**, rôle (`<select>` inline), badge « invitation en attente ».
+- **Changer le rôle**, **retirer** du club (confirmation nommant la personne et le club),
+  **renvoyer l'invitation** à un invité jamais activé, **inviter** (email ou lien à copier).
+
+- **Tout passe par l'Edge Function `club-members`** (service role), et cette PR n'a **aucune
+  migration** : `club_members` garde exactement ses deux policies `SELECT`. C'est une
+  **déviation assumée** de ce que laissait entendre §4.1 (« ouvrir `club_members` en lecture
+  club-scopée + écritures ») : l'email et le statut « en attente » vivent dans `auth.users`,
+  hors de portée de la clé anon — le service role est de toute façon nécessaire pour que la
+  liste soit lisible. Des policies RLS en plus donneraient deux sources pour la même liste, et
+  une policy `UPDATE` exposée au client sur la table qui porte l'autorisation de toute l'app
+  n'est pas une surface qu'on ouvre sans nécessité.
+- **Autorisation** : patron d'`invite-user` — admin **du `club_id` demandé** ou super-admin,
+  vérifié en service role. Le `club_id` envoyé par le front ne fait pas foi.
+- **Garde-fou « au moins un admin par club », côté serveur** : rétrograder ou retirer le
+  dernier `admin` est refusé par la function (le front désactive aussi les contrôles, mais ce
+  n'est que du confort). Sans lui, un club sans admin ne peut plus inviter personne et le
+  rattrapage est SQL-only. **Se rétrograder ou se retirer soi-même reste permis** — le cas
+  dangereux est déjà couvert par le garde-fou ; la confirmation dit ce qu'on perd.
+- **Retirer ≠ supprimer le compte** : `DELETE` sur `club_members` seul. `auth.users` et
+  `profiles` sont intacts, une future invitation rattachera le compte (branche
+  `already_existed`). Effet immédiat : `auth_club_ids()` étant évalué à chaque requête, la RLS
+  refuse tout sur-le-champ, et au rechargement la personne tombe sur l'écran « Accès refusé ».
+- **Relancer une invitation ne peut pas passer par `invite-user`** : l'invité existe déjà dans
+  `auth.users` (§4.1), la function partirait dans sa branche `already_existed` et répondrait
+  « succès » **sans envoyer d'email**. `club-members` appelle donc `inviteUserByEmail`
+  directement — GoTrue ne lève `email_exists` que sur un compte **confirmé**, un invité jamais
+  activé reçoit donc bien un nouvel email — avec repli `generateLink` (`invite` puis
+  `recovery`) qui produit un lien à copier. La réponse porte `email_sent` : l'UI annonce ce qui
+  s'est réellement passé, jamais l'email espéré. Action refusée (`400`) sur un membre `active`.
+- **`is_super_admin` n'est jamais exposé** par la function : information plateforme, pas rôle
+  de club.
+- **Non traité ici** : le rôle reste du **masquage UI** (encadré ⚠️ du §4.1) — les libellés de
+  l'écran disent « définit ce que la personne voit dans le back-office », pas ce qu'elle a le
+  droit de faire. Rien côté PWA (dette §4.1, PR13). Pas de suppression de compte
+  `auth.users` (« annuler l'invitation ») en V1.
+
+⚠️ Déploiement **manuel** : `supabase functions deploy club-members` (dev puis prod).
+
+---
+
 ---
 
 ## 5. Console super-admin (provisioning)
@@ -301,7 +349,7 @@ le super-admin n'est pas un rôle de club). Carte « Console plateforme » sur l
   ne donne aucun droit (écran « Accès refusé » de PR4, et `tenant_isolation` ne rend rien) —
   l'override change le club **affiché**, pas les droits. BO uniquement, PWA non touchée.
 - **Périmètre volontairement fermé** (tranché en PR5) : la **gestion des membres** d'un club
-  (lister / changer un rôle / retirer) part en **PR5-bis côté admin de club**, qui est le vrai
+  (lister / changer un rôle / retirer) part en **PR5-bis côté admin de club** (livré, §4.2), qui est le vrai
   destinataire du besoin — la console de provisioning ne devient pas un écran d'administration
   des comptes. Le **sélecteur de club généraliste** pour les comptes multi-clubs non
   super-admin (D5) attend un 2ᵉ club réel et le wildcard (PR13) ; l'override ci-dessus en est
@@ -601,7 +649,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR3 ✅ | 1 | **Verrouillage** : `club_id` NOT NULL + FK, RLS multi-tenant + GRANTs + helpers `auth_club_ids()`/`is_super_admin()` + seeding `club_members` (reporté de PR1) | ⚠️ **sensible** (tester sur dev + comptes CAC avant merge) |
 | PR4 ✅ | 1 | Invitations portant `club_id`+`role` (+ autorisation `admin` du club dans `invite-user`) + `useClubRole()` + masquage UI par rôle + **garde d'appartenance BO** : un non-membre du club courant se voit refuser l'accès (§3) au lieu d'obtenir un BO monté mais vide. Aucune migration ; script manuel d'attribution des rôles + déploiement manuel de la function. Limites et dettes : §4.1 | non-bloquante |
 | PR5 ✅ | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin, accès support) + **correctif §0** : `is_super_admin` n'est plus auto-attribuable (grants par colonne sur `profiles`). Détail : §5.1 | non-bloquante — mais les **deux** migrations sont à appliquer, la `2026081801` d'abord |
-| PR5-bis | 2 | Gestion des membres d'un club (lister / changer un rôle / retirer) **côté admin de club** — sorti de PR5 pour ne pas transformer la console de provisioning en écran d'administration des comptes | non-bloquante |
+| PR5-bis ✅ | 2 | Gestion des membres d'un club (lister / changer un rôle / retirer / relancer une invitation / inviter) **côté admin de club** — sorti de PR5 pour ne pas transformer la console de provisioning en écran d'administration des comptes. Écran `/admin/members`, qui absorbe `/admin/invite`. **Aucune migration** : tout passe par l'Edge Function `club-members` (service role), à déployer à la main. Détail : §4.2 | non-bloquante — mais la function `club-members` est à **déployer manuellement** (dev puis prod) |
 | PR6 | 3 | Section « Configuration du site » au BO (`club_settings.config` + formulaires) *(scindable en 2)* — **inclut le cloisonnement RLS de `club_settings`**, cf. §2.4 | non-bloquante |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |
 | PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |

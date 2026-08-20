@@ -73,12 +73,16 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Fermeture (croix ou « Plus tard ») : reproposée 7 jours plus tard
 
 ### Comptes, rôles et invitations
-- Accès au back-office **sur invitation** : un administrateur du club envoie l'invitation par email (ou génère un lien à copier, en cas de blocage SMTP) depuis *Admin › Inviter un utilisateur*
-- L'invitation porte un **rôle**, choisi à l'envoi (défaut : Membre, le moins privilégié) :
-  - **Administrateur** — tous les modules + invitation d'autres utilisateurs
-  - **Gestionnaire** — contenus et outils du club (actus, événements, matches par équipe, affiche, planning), sans invitation
+- Accès au back-office **sur invitation** : tout se passe sur l'écran *Admin › Membres* (`/admin/members`), réservé aux administrateurs du club. L'ancienne adresse `/admin/invite` y redirige.
+- **Inviter** : par email, ou en générant un lien à copier (utile en cas de blocage SMTP). L'invitation porte un **rôle**, choisi à l'envoi (défaut : Membre, le moins privilégié) :
+  - **Administrateur** — tous les modules + gestion des membres
+  - **Gestionnaire** — contenus et outils du club (actus, événements, matches par équipe, affiche, planning), sans gestion des membres
   - **Membre** — Live Score uniquement (profil adhérent PWA)
-- Le dashboard n'affiche que les modules autorisés par le rôle ; `/admin/invite` est réservé aux administrateurs
+- Le rôle définit ce que la personne **voit** dans le back-office : le dashboard n'affiche que les modules autorisés
+- **Gérer les membres** depuis le même écran : liste (nom, email, rôle, statut), changement de rôle, retrait du club, et relance de l'invitation pour quelqu'un qui n'a jamais activé son compte
+  - Une invitation non activée apparaît dans la liste avec le badge *Invitation en attente* — c'est l'email qui identifie la personne tant qu'elle n'a pas rempli son profil
+  - **Retirer** quelqu'un coupe son accès immédiatement, mais ne supprime pas son compte : une nouvelle invitation le rattachera
+  - Un club doit toujours garder **au moins un administrateur** : rétrograder ou retirer le dernier est refusé
 - Un compte qui n'appartient pas au club du back-office ouvert se voit refuser l'accès avec un message explicite (et un bouton de déconnexion), au lieu d'un back-office aux listes vides
 - Inviter un email qui a déjà un compte le **rattache** au club courant, sans nouvel email
 

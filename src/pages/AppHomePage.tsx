@@ -30,7 +30,7 @@ const SECTIONS = [
     label: 'Admin',
     hint: 'Réservé aux administrateurs',
     items: [
-      { to: '/admin/invite', label: 'Inviter un utilisateur', description: 'Envoyer un lien d’invitation au back-office.', roles: ['admin'] },
+      { to: '/admin/members', label: 'Membres', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
     ],
   },
 ] as const;
