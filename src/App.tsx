@@ -14,7 +14,7 @@ import LiveMatchPage from './pages/LiveMatchPage';
 import LiveMatchForm from './components/LiveMatchForm';
 import ActusPage from './pages/ActusPage';
 import ActuForm from './components/ActuForm';
-import InvitePage from './pages/InvitePage';
+import MembersPage from './pages/MembersPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import TeamMatchesPage from './pages/TeamMatchesPage';
@@ -154,7 +154,10 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <Route path="/team-matches/rencontre/new" element={auth(<TeamRencontreForm />)} />
         <Route path="/team-matches/rencontre/:id" element={auth(<TeamRencontrePage />)} />
         <Route path="/team-matches/rencontre/:id/edit" element={auth(<TeamRencontreForm />)} />
-        <Route path="/admin/invite" element={auth(adminOnly(<InvitePage />))} />
+        <Route path="/admin/members" element={auth(adminOnly(<MembersPage />))} />
+        {/* PR5-bis — l'écran Membres absorbe l'ancienne page d'invitation ; l'URL est
+            documentée dans le README et peut traîner dans un favori. */}
+        <Route path="/admin/invite" element={<Navigate to="/admin/members" replace />} />
         <Route path="/super-admin" element={auth(superAdminOnly(<SuperAdminPage />))} />
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
       </Routes>
