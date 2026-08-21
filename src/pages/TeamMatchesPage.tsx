@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -201,7 +202,11 @@ export default function TeamMatchesPage() {
             <GridSkeleton />
           ) : saisons.length === 0 ? (
             <div className="rounded-[13px] border border-dashed border-border bg-card/50 p-12 text-center text-muted-foreground">
-              Aucune saison. Rendez-vous dans l'Admin pour en créer une.
+              Aucune saison.{' '}
+              <Link to="/team-matches/admin" className="font-semibold text-primary hover:underline">
+                Créez-en une dans le référentiel
+              </Link>
+              .
             </div>
           ) : view === 'grille' ? (
             <SeasonGridView

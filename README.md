@@ -55,7 +55,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Deux vues alternatives sur les mêmes données : **Agenda** (à saisir / ce week-end / week-end suivant / déjà jouées) et **Liste** (une ligne par équipe, avancement, bilan, état)
 - **Panneau latéral** : détail de la rencontre sélectionnée (score, matches individuels, raccourcis Live Score / Photos / Actu / WO) ou générateur d'affiche
 - Un compteur d'en-tête remonte les **scores à saisir** — les rencontres jouées sans score ne se découvrent plus par hasard
-- **Admin** : saisons (une seule active à la fois), compétitions (nom, type adultes/jeunes, genre, catégorie, format) et équipes (création/suppression)
+- **Référentiel** (carte « Saisons & équipes » sur l'accueil) : saisons (une seule active à la fois), compétitions (nom, type adultes/jeunes, genre, catégorie, format) et équipes (création/suppression)
 - Une compétition peut être marquée **« terminée »** : elle quitte la grille active pour une section repliée, sans disparaître
 - **Équipes** par compétition : division, nombre de journées de poule (les journées sont générées automatiquement)
 - **Phase de poule** puis **phases finales** : qualification d'une équipe avec stade de départ (les stades 1/16 → finale sont générés automatiquement)

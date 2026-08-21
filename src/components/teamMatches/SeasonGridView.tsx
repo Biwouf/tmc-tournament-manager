@@ -79,7 +79,11 @@ function Block({
 
       {block.equipes.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-card/50 p-5 text-center text-sm text-muted-foreground">
-          Aucune équipe dans cette compétition.
+          Aucune équipe dans cette compétition.{' '}
+          <Link to="/team-matches/admin" className="font-semibold text-primary hover:underline">
+            Ajoutez-en une
+          </Link>
+          .
         </p>
       ) : (
         <div className="overflow-x-auto rounded-[13px] border border-border bg-card py-2.5 pr-2.5">
@@ -157,7 +161,11 @@ export default function SeasonGridView({
   if (blocks.length === 0 && doneBlocks.length === 0) {
     return (
       <div className="rounded-[13px] border border-dashed border-border bg-card/50 p-12 text-center text-muted-foreground">
-        Aucune compétition dans cette saison. Rendez-vous dans l'Admin pour en créer une.
+        Aucune compétition dans cette saison.{' '}
+        <Link to="/team-matches/admin" className="font-semibold text-primary hover:underline">
+          Créez-en une dans le référentiel
+        </Link>
+        .
       </div>
     );
   }

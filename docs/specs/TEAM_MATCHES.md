@@ -443,7 +443,15 @@ apparaisse immédiatement.
 
 Le header ne porte plus les boutons « Admin », « Créer une équipe » ni « Créer une
 compétition » : la création d'équipe et de compétition vit désormais dans
-`TeamMatchesAdminPage`, atteignable depuis l'accueil du BO.
+`TeamMatchesAdminPage`.
+
+**Points d'entrée du référentiel** (il n'y en avait plus aucun après le retrait du bouton
+« Admin » — l'accueil du BO ne pointait que vers `/team-matches`) :
+
+- la carte **« Saisons & équipes »** de l'accueil du BO (`roles: ['admin', 'manager']`) ;
+- les états vides de la grille, dont la formulation renvoyait au référentiel sans y mener :
+  « Aucune saison », « Aucune compétition dans cette saison », « Aucune équipe dans cette
+  compétition » portent chacun un lien vers `/team-matches/admin`.
 
 #### Chargement — `useTeamSeasonGrid(saisonId)`
 
