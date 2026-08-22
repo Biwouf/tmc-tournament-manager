@@ -387,9 +387,16 @@ Par saison (filtrée sur la saison active par défaut, sélecteur pour les autre
 Tableau listant les compétitions avec colonnes : Nom, Type, Genre, Catégorie, Format,
 **Terminée**.
 
-**Terminée** est une case à cocher inline (`UPDATE team_competitions.terminee`) : c'est le
+**Championnat** est une case à cocher inline (`UPDATE team_competitions.terminee`) : c'est le
 seul endroit d'où le flag se pilote. Une compétition terminée sort de la grille active de
-`/team-matches` et bascule dans sa section repliée, sans rechargement de page.
+`/team-matches` et bascule dans sa section repliée, sans rechargement de page — rien n'est
+supprimé. L'effet étant invisible depuis cet écran, il est explicité par une phrase d'aide
+sous le titre de section et par une infobulle sur la case.
+
+Tant que `20260820_team_competitions_terminee.sql` n'est pas appliquée, PostgREST répond
+`Could not find the 'terminee' column … in the schema cache`. Ce cas est intercepté et
+remplacé par un message nommant la migration à appliquer, plutôt que de laisser remonter
+l'erreur brute.
 
 Actions : Créer, Modifier, Supprimer (si aucune équipe liée).
 
