@@ -826,17 +826,29 @@ Quand un `TeamMatchLine` a un `live_match_id`, écouter (ou requêter à l'ouver
 ```
 src/
   pages/
-    TeamMatchesPage.tsx          # Liste des équipes (filtre saison/compétition)
-    TeamMatchesAdminPage.tsx     # Admin saisons + compétitions
+    TeamMatchesPage.tsx          # Vue Grille de saison (Grille / Agenda / Liste + panneau)
+    TeamMatchesAdminPage.tsx     # Référentiel : saisons, compétitions, équipes
     TeamEquipePage.tsx           # Détail d'une équipe (phases + rencontres)
     TeamRencontrePage.tsx        # Suivi d'une rencontre
   components/
     teamMatches/
-      TeamEquipeCard.tsx         # Carte équipe dans la liste
+      useTeamSeasonGrid.ts       # Chargement agrégé de la saison + dérivation des cellules
+      gridTypes.ts               # CellState, Colonne, Cell, Bilan, largeurs de grille
+      weekend.ts                 # Définition unique du week-end (compteur, Agenda, affiche)
+      teamMatchLabels.ts         # Libellés, FORMAT_SPECS, computeScore, stadesFromDepart
+      SeasonGridView.tsx         # Vue Grille
+      AgendaView.tsx             # Vue Agenda
+      ListeView.tsx              # Vue Liste
+      RencontrePanel.tsx         # Panneau latéral — mode « rencontre »
+      TeamMatchesHeader.tsx      # Header partagé du module
       TeamRencontreForm.tsx      # Formulaire création/édition rencontre
       TeamMatchLineModal.tsx     # Modale saisie d'un match individuel
+      TeamMatchScoreModal.tsx    # Modale résultat d'un match sans live
       TeamScoreSection.tsx       # Section score final (manuel ou calculé)
       TeamPhotosSection.tsx      # Section upload de photos
+      poster/
+        posterHelpers.ts         # rencontreToTeamMatch, MAX_POSTER_MATCHES, formatage date
+        PosterPanel.tsx          # Panneau latéral — mode « affiche »
 ```
 
 ## Routes à ajouter dans `App.tsx`
