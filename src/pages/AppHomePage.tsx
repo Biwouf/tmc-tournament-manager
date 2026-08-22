@@ -14,6 +14,7 @@ const SECTIONS = [
       { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.', roles: ['admin', 'manager'] },
       { to: '/live-score', label: 'Live Score', description: 'Suivre et saisir le score des matchs en direct.', roles: ['admin', 'manager', 'member'] },
       { to: '/team-matches', label: 'Matches par équipe', description: 'Gérer les rencontres interclubs de l’équipe.', roles: ['admin', 'manager'] },
+      { to: '/team-matches/admin', label: 'Saisons & équipes', description: 'Référentiel interclubs : saisons, compétitions, équipes.', roles: ['admin', 'manager'] },
     ],
   },
   {

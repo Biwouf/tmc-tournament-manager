@@ -284,6 +284,7 @@ export interface TeamCompetition {
   genre: TeamGenre;
   categorie: TeamCategorie;
   format: TeamFormat;
+  terminee: boolean;        // championnat clos — sort de la grille active
   created_at: string;
 }
 

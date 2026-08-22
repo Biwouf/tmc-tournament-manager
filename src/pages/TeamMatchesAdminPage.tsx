@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCategorie,
   TeamCompetition,
   TeamCompetitionNom,
+  TeamDivision,
+  TeamEquipe,
   TeamFormat,
   TeamGenre,
   TeamSaison,
@@ -16,10 +18,12 @@ import {
   CATEGORIE_LABELS,
   CATEGORIES_BY_TYPE,
   COMPETITION_NOMS,
+  DIVISIONS,
   FORMAT_LABELS,
   GENRE_LABELS,
   GENRES_BY_TYPE,
   TYPE_LABELS,
+  competitionLabel,
 } from '../components/teamMatches/teamMatchLabels';
 
 const FORMATS: TeamFormat[] = ['2S1D', '3S1D2', '4S1D2', '4S2D'];
@@ -29,6 +33,7 @@ export default function TeamMatchesAdminPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [saisons, setSaisons] = useState<TeamSaison[]>([]);
   const [competitions, setCompetitions] = useState<TeamCompetition[]>([]);
+  const [equipes, setEquipes] = useState<TeamEquipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey((k) => k + 1);
@@ -73,11 +78,38 @@ export default function TeamMatchesAdminPage() {
     [competitions, selectedSaisonId]
   );
 
+  // Équipes de la saison sélectionnée — la création (numéro auto) et la
+  // suppression d'équipe vivent ici depuis la refonte de /team-matches.
+  useEffect(() => {
+    const compIds = competitionsOfSaison.map((c) => c.id);
+    if (compIds.length === 0) return;
+    let cancelled = false;
+    supabase
+      .from('team_equipes')
+      .select('*')
+      .eq('club_id', clubId)
+      .in('competition_id', compIds)
+      .order('numero', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) setEquipes((data ?? []) as TeamEquipe[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [competitionsOfSaison, reloadKey, clubId]);
+
+  // Filtré au rendu plutôt que vidé dans l'effet : le temps d'un changement de
+  // saison, `equipes` contient encore celles de la précédente.
+  const equipesOfSaison = useMemo(() => {
+    const compIds = new Set(competitionsOfSaison.map((c) => c.id));
+    return equipes.filter((e) => compIds.has(e.competition_id));
+  }, [equipes, competitionsOfSaison]);
+
   return (
     <div className="min-h-screen">
       <TeamMatchesHeader
         title="Admin — Matches par équipe"
-        subtitle="Gérer les saisons et les compétitions du club."
+        subtitle="Gérer les saisons, les compétitions et les équipes du club."
         backTo="/team-matches"
         backLabel="Matches par équipe"
       />
@@ -96,6 +128,11 @@ export default function TeamMatchesAdminPage() {
               onChange={reload}
               autoOpen={autoOpenCompetition && saisons.length > 0}
               onAutoOpened={clearAutoOpen}
+            />
+            <EquipesSection
+              competitions={competitionsOfSaison}
+              equipes={equipesOfSaison}
+              onChange={reload}
             />
           </>
         )}
@@ -356,6 +393,27 @@ function CompetitionsSection({
     onChange();
   };
 
+  const handleToggleTerminee = async (c: TeamCompetition) => {
+    setError(null);
+    const { error: err } = await supabase
+      .from('team_competitions')
+      .update({ terminee: !c.terminee })
+      .eq('id', c.id)
+      .eq('club_id', clubId);
+    if (err) {
+      // La colonne est arrivée avec 20260820 : tant que la migration n'est pas
+      // appliquée, PostgREST répond « column not found in the schema cache ».
+      setError(
+        /terminee/i.test(err.message) && /schema cache|column/i.test(err.message)
+          ? "La migration 20260820_team_competitions_terminee.sql n'a pas été appliquée sur cette base. " +
+              'Appliquez-la (SQL Editor Supabase ou `supabase db push`), puis rechargez.'
+          : err.message
+      );
+      return;
+    }
+    onChange();
+  };
+
   const handleDelete = async (c: TeamCompetition) => {
     setError(null);
     const { count, error: countErr } = await supabase
@@ -401,6 +459,11 @@ function CompetitionsSection({
         </div>
       </div>
 
+      <p className="mb-3 text-xs text-muted-foreground">
+        <strong className="font-semibold">Terminé</strong> range le championnat dans la section
+        repliée « Championnats terminés » de la grille — rien n'est supprimé.
+      </p>
+
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
       {competitions.length === 0 ? (
@@ -417,6 +480,7 @@ function CompetitionsSection({
                 <th className="px-4 py-2.5">Genre</th>
                 <th className="px-4 py-2.5">Catégorie</th>
                 <th className="px-4 py-2.5">Format</th>
+                <th className="px-4 py-2.5">Terminé</th>
                 <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
@@ -428,6 +492,20 @@ function CompetitionsSection({
                   <td className="px-4 py-2.5">{GENRE_LABELS[c.genre]}</td>
                   <td className="px-4 py-2.5">{CATEGORIE_LABELS[c.categorie]}</td>
                   <td className="px-4 py-2.5">{FORMAT_LABELS[c.format]}</td>
+                  <td className="px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={c.terminee}
+                      onChange={() => handleToggleTerminee(c)}
+                      aria-label={`Marquer « ${competitionLabel(c)} » comme terminée`}
+                      title={
+                        c.terminee
+                          ? 'Décochez pour faire remonter ce championnat dans la grille active.'
+                          : 'Cochez quand le championnat est fini : il quitte la grille active.'
+                      }
+                      className="h-4 w-4 cursor-pointer accent-[var(--color-primary)]"
+                    />
+                  </td>
                   <td className="px-4 py-2.5">
                     <div className="flex justify-end gap-2">
                       <button
@@ -561,5 +639,281 @@ function CompetitionsSection({
         </div>
       )}
     </section>
+  );
+}
+
+// ============================================================
+// Équipes — création (génère les étapes J1..JN) et suppression.
+// Déplacé depuis TeamMatchesPage lors de la refonte en vue Grille de saison.
+// ============================================================
+
+function EquipesSection({
+  competitions,
+  equipes,
+  onChange,
+}: {
+  competitions: TeamCompetition[];
+  equipes: TeamEquipe[];
+  onChange: () => void;
+}) {
+  const { clubId } = useClub();
+  const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const competitionsById = useMemo(
+    () => Object.fromEntries(competitions.map((c) => [c.id, c])),
+    [competitions]
+  );
+
+  const handleDelete = async (equipe: TeamEquipe) => {
+    if (!window.confirm(`Supprimer l'équipe ${equipe.numero} et toutes ses rencontres ?`)) return;
+    const { error: err } = await supabase
+      .from('team_equipes')
+      .delete()
+      .eq('id', equipe.id)
+      .eq('club_id', clubId);
+    if (err) return setError(err.message);
+    onChange();
+  };
+
+  return (
+    <section>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Équipes</h2>
+        <button
+          onClick={() => {
+            setError(null);
+            setShowForm(true);
+          }}
+          disabled={competitions.length === 0}
+          title={competitions.length === 0 ? "Créez d'abord une compétition dans cette saison" : undefined}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+        >
+          + Équipe
+        </button>
+      </div>
+
+      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+      {equipes.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center text-sm text-muted-foreground">
+          Aucune équipe pour cette saison.
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border bg-card/90">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2.5">Équipe</th>
+                <th className="px-4 py-2.5">Compétition</th>
+                <th className="px-4 py-2.5">Division</th>
+                <th className="px-4 py-2.5">Journées</th>
+                <th className="px-4 py-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {equipes.map((eq) => {
+                const competition = competitionsById[eq.competition_id];
+                return (
+                  <tr key={eq.id}>
+                    <td className="px-4 py-2.5 font-medium">Équipe {eq.numero}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {competition ? competitionLabel(competition) : '—'}
+                    </td>
+                    <td className="px-4 py-2.5">{eq.division}</td>
+                    <td className="px-4 py-2.5">{eq.nb_journees_poule}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/team-matches/equipe/${eq.id}`}
+                          className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted"
+                        >
+                          Voir
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(eq)}
+                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-100"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showForm && (
+        <CreateEquipeForm
+          competitions={competitions}
+          existingEquipes={equipes}
+          defaultCompetitionId={competitions[0]?.id ?? ''}
+          onClose={() => setShowForm(false)}
+          onCreated={() => {
+            setShowForm(false);
+            onChange();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function CreateEquipeForm({
+  competitions,
+  existingEquipes,
+  defaultCompetitionId,
+  onClose,
+  onCreated,
+}: {
+  competitions: TeamCompetition[];
+  existingEquipes: TeamEquipe[];
+  defaultCompetitionId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const { clubId } = useClub();
+  const [competitionId, setCompetitionId] = useState(defaultCompetitionId);
+  const [division, setDivision] = useState<TeamDivision>('R2');
+  const [nbJournees, setNbJournees] = useState(5);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Numéro auto = plus grand numéro existant dans la compétition + 1.
+  const numero = useMemo(() => {
+    const nums = existingEquipes
+      .filter((e) => e.competition_id === competitionId)
+      .map((e) => e.numero);
+    return nums.length ? Math.max(...nums) + 1 : 1;
+  }, [existingEquipes, competitionId]);
+
+  const handleSubmit = async () => {
+    setError(null);
+    if (!competitionId) {
+      setError('Sélectionnez une compétition.');
+      return;
+    }
+    if (!Number.isInteger(nbJournees) || nbJournees < 1) {
+      setError('Le nombre de journées doit être un entier ≥ 1.');
+      return;
+    }
+    setSaving(true);
+
+    const { data, error: insertErr } = await supabase
+      .from('team_equipes')
+      .insert({
+        competition_id: competitionId,
+        numero,
+        division,
+        nb_journees_poule: nbJournees,
+        club_id: clubId,
+      })
+      .select('id')
+      .single();
+
+    if (insertErr || !data) {
+      setError(insertErr?.message ?? 'Création impossible.');
+      setSaving(false);
+      return;
+    }
+
+    // Génération automatique des étapes de poule J1..JN.
+    const etapes = Array.from({ length: nbJournees }, (_, i) => ({
+      equipe_id: data.id,
+      phase: 'poule' as const,
+      numero_journee: i + 1,
+      club_id: clubId,
+    }));
+    const { error: etapesErr } = await supabase.from('team_etapes').insert(etapes);
+    if (etapesErr) {
+      setError(`Équipe créée mais erreur sur les journées : ${etapesErr.message}`);
+      setSaving(false);
+      return;
+    }
+
+    onCreated();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-xl">
+        <h3 className="mb-4 text-lg font-semibold">Créer une équipe</h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground">Compétition</label>
+            <select
+              value={competitionId}
+              onChange={(e) => setCompetitionId(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              {competitions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {competitionLabel(c)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground">Numéro</label>
+              <input
+                type="text"
+                value={`Équipe ${numero}`}
+                readOnly
+                className="mt-1 block w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground">Division</label>
+              <select
+                value={division}
+                onChange={(e) => setDivision(e.target.value as TeamDivision)}
+                className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                {DIVISIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground">Journées de poule</label>
+            <input
+              type="number"
+              min={1}
+              value={nbJournees}
+              onChange={(e) => setNbJournees(Number(e.target.value))}
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+          >
+            {saving ? 'Création...' : 'Créer'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
