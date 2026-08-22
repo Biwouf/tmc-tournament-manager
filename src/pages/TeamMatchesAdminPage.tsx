@@ -460,10 +460,8 @@ function CompetitionsSection({
       </div>
 
       <p className="mb-3 text-xs text-muted-foreground">
-        La colonne <strong className="font-semibold">Championnat</strong> indique si la
-        compétition est encore en cours. Un championnat marqué terminé quitte la grille de
-        <em> Matches par équipe</em> et passe dans la section repliée « Championnats terminés » —
-        rien n'est supprimé, tout reste consultable.
+        <strong className="font-semibold">Terminé</strong> range le championnat dans la section
+        repliée « Championnats terminés » de la grille — rien n'est supprimé.
       </p>
 
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
@@ -482,7 +480,7 @@ function CompetitionsSection({
                 <th className="px-4 py-2.5">Genre</th>
                 <th className="px-4 py-2.5">Catégorie</th>
                 <th className="px-4 py-2.5">Format</th>
-                <th className="px-4 py-2.5">Championnat</th>
+                <th className="px-4 py-2.5">Terminé</th>
                 <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
@@ -495,22 +493,18 @@ function CompetitionsSection({
                   <td className="px-4 py-2.5">{CATEGORIE_LABELS[c.categorie]}</td>
                   <td className="px-4 py-2.5">{FORMAT_LABELS[c.format]}</td>
                   <td className="px-4 py-2.5">
-                    <label
+                    <input
+                      type="checkbox"
+                      checked={c.terminee}
+                      onChange={() => handleToggleTerminee(c)}
+                      aria-label={`Marquer « ${competitionLabel(c)} » comme terminée`}
                       title={
                         c.terminee
                           ? 'Décochez pour faire remonter ce championnat dans la grille active.'
-                          : 'Cochez quand le championnat est fini : il quitte la grille active et passe dans la section repliée « Championnats terminés ».'
+                          : 'Cochez quand le championnat est fini : il quitte la grille active.'
                       }
-                      className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={c.terminee}
-                        onChange={() => handleToggleTerminee(c)}
-                        className="h-4 w-4 accent-[var(--color-primary)]"
-                      />
-                      {c.terminee ? 'Terminé' : 'En cours'}
-                    </label>
+                      className="h-4 w-4 cursor-pointer accent-[var(--color-primary)]"
+                    />
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex justify-end gap-2">

@@ -385,13 +385,14 @@ Actions : Créer, Modifier (inline), Supprimer (si aucune compétition liée).
 Par saison (filtrée sur la saison active par défaut, sélecteur pour les autres).
 
 Tableau listant les compétitions avec colonnes : Nom, Type, Genre, Catégorie, Format,
-**Terminée**.
+**Terminé**.
 
-**Championnat** est une case à cocher inline (`UPDATE team_competitions.terminee`) : c'est le
-seul endroit d'où le flag se pilote. Une compétition terminée sort de la grille active de
-`/team-matches` et bascule dans sa section repliée, sans rechargement de page — rien n'est
-supprimé. L'effet étant invisible depuis cet écran, il est explicité par une phrase d'aide
-sous le titre de section et par une infobulle sur la case.
+**Terminé** est une case à cocher seule, sans libellé par ligne (`UPDATE
+team_competitions.terminee`) : c'est le seul endroit d'où le flag se pilote. Une compétition
+terminée sort de la grille active de `/team-matches` et bascule dans sa section repliée, sans
+rechargement de page — rien n'est supprimé. L'effet se produisant sur un **autre** écran, il
+reste écrit une fois sous le titre de section, doublé d'une infobulle sur la case ; la case
+porte un `aria-label` nommant la compétition, puisqu'elle n'a pas de libellé visible.
 
 Tant que `20260820_team_competitions_terminee.sql` n'est pas appliquée, PostgREST répond
 `Could not find the 'terminee' column … in the schema cache`. Ce cas est intercepté et
