@@ -4,15 +4,9 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent } from '../types';
 import EventCard from '../components/EventCard';
+import { STORAGE_BUCKETS, extractStoragePath } from '../lib/storage';
 
 const PAGE_SIZE = 10;
-
-function extractStoragePath(publicUrl: string): string | null {
-  const marker = '/storage/v1/object/public/event-images/';
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  return publicUrl.slice(idx + marker.length);
-}
 
 export default function EventsPage() {
   const navigate = useNavigate();
@@ -64,8 +58,8 @@ export default function EventsPage() {
   const handleDelete = async (ev: ClubEvent) => {
     if (!window.confirm(`Supprimer l'événement "${ev.titre}" ?`)) return;
     if (ev.image_url) {
-      const path = extractStoragePath(ev.image_url);
-      if (path) await supabase.storage.from('event-images').remove([path]);
+      const path = extractStoragePath(STORAGE_BUCKETS.eventImages, ev.image_url);
+      if (path) await supabase.storage.from(STORAGE_BUCKETS.eventImages).remove([path]);
     }
     const { error } = await supabase.from('events').delete().eq('id', ev.id).eq('club_id', clubId);
     if (error) {

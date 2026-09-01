@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import rehypeRaw from 'rehype-raw';
 import { supabase } from '../lib/supabase';
+import { useClub } from '../contexts/ClubContext';
+import { STORAGE_BUCKETS, clubPath, sanitizeFilename } from '../lib/storage';
 
 export interface MarkdownEditorProps {
   value: string;
@@ -21,11 +23,7 @@ type ImageMode = 'file' | 'url';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
-const CONTENT_IMAGES_BUCKET = 'content-images';
-
-function sanitizeFilename(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/-+/g, '-');
-}
+const CONTENT_IMAGES_BUCKET = STORAGE_BUCKETS.contentImages;
 
 const findLineStart = (text: string, pos: number): number => {
   const idx = text.lastIndexOf('\n', pos - 1);
@@ -76,6 +74,10 @@ export default function MarkdownEditor({
   rows = 12,
   placeholder,
 }: MarkdownEditorProps) {
+  // PR6a — les images inline vont sous `content-images/<club_id>/inline/…`. L'éditeur n'est
+  // monté que par ActuForm et EventForm, tous deux sous le ClubProvider : pas de prop à
+  // faire descendre.
+  const { clubId } = useClub();
   const [tab, setTab] = useState<'write' | 'preview'>('write');
   const [hasSelection, setHasSelection] = useState(false);
   const [imageFormOpen, setImageFormOpen] = useState(false);
@@ -258,7 +260,7 @@ export default function MarkdownEditor({
 
     setUploading(true);
     try {
-      const path = `inline/${Date.now()}-${sanitizeFilename(file.name)}`;
+      const path = clubPath(clubId, 'inline', `${Date.now()}-${sanitizeFilename(file.name)}`);
       const { error } = await supabase.storage.from(CONTENT_IMAGES_BUCKET).upload(path, file, {
         contentType: file.type,
         cacheControl: '3600',

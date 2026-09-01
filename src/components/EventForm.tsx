@@ -4,17 +4,16 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
 import { EVENT_TYPES, type ClubEvent, type EventType } from '../types';
+import {
+  STORAGE_BUCKETS,
+  clubPath,
+  extractStoragePath,
+  sanitizeFilename,
+} from '../lib/storage';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
-const STORAGE_BUCKET = 'event-images';
-
-function extractStoragePath(publicUrl: string): string | null {
-  const marker = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  return publicUrl.slice(idx + marker.length);
-}
+const STORAGE_BUCKET = STORAGE_BUCKETS.eventImages;
 
 function isoToLocalInput(iso: string | null): string {
   if (!iso) return '';
@@ -25,10 +24,6 @@ function isoToLocalInput(iso: string | null): string {
 
 function localInputToIso(value: string): string {
   return new Date(value).toISOString();
-}
-
-function sanitizeFilename(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/-+/g, '-');
 }
 
 interface FieldErrors {
@@ -144,7 +139,7 @@ export default function EventForm() {
   };
 
   const uploadImage = async (file: File, eventId: string): Promise<string> => {
-    const path = `${eventId}/${Date.now()}-${sanitizeFilename(file.name)}`;
+    const path = clubPath(clubId, eventId, `${Date.now()}-${sanitizeFilename(file.name)}`);
     const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
       contentType: file.type,
       cacheControl: '3600',
@@ -155,7 +150,7 @@ export default function EventForm() {
   };
 
   const deleteStorageFile = async (publicUrl: string) => {
-    const path = extractStoragePath(publicUrl);
+    const path = extractStoragePath(STORAGE_BUCKET, publicUrl);
     if (path) await supabase.storage.from(STORAGE_BUCKET).remove([path]);
   };
 

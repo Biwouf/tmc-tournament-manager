@@ -144,21 +144,49 @@ PR3 a posé `tenant_isolation` sur les **10 tables métier** uniquement. Les tab
 (PR1) ont été délibérément gelées, et deux d'entre elles restent **non cloisonnées par
 club** :
 
-| Table | Policy PR1 | Portée réelle | Quand ça devient un problème |
+| Table | Policy PR1 | Portée réelle | Statut |
 |---|---|---|---|
-| `club_settings` | `FOR SELECT TO authenticated USING (true)` | tout compte authentifié lit la config de **tous** les clubs | dès **PR6**, quand le JSONB portera la config de chaque club (aujourd'hui vide, donc sans conséquence) |
-| `profiles` | lecture libre `authenticated` **et** `anon` | prénoms/noms de **tous** les membres de **tous** les clubs, y compris hors authentification | dès le 2ᵉ club réel en production |
+| ~~`club_settings`~~ | ~~`FOR SELECT TO authenticated USING (true)`~~ | ~~tout compte authentifié lit la config de **tous** les clubs~~ | ✅ **fermée en PR6a** (`20260822_config_storage_tenant.sql`) |
+| `profiles` | lecture libre `authenticated` **et** `anon` | prénoms/noms de **tous** les membres de **tous** les clubs, y compris hors authentification | ⚠️ **ouverte** — dès le 2ᵉ club réel en production |
 
 `clubs` est volontairement lisible par tous : c'est la condition de la résolution du tenant
 avant authentification (§3). `club_members` est déjà restreinte (`user_id = auth.uid()`).
 
 > PR5 n'a rien changé à cette dette : elle a ajouté à `club_settings` des policies
 > **d'écriture** réservées au super-admin (réparation d'un club), la policy `SELECT`
-> `USING (true)` reste telle quelle.
+> `USING (true)` restait telle quelle. **PR6a** l'a remplacée par
+> `club_settings_select_tenant` (patron `tenant_isolation`) et a ajouté
+> `club_settings_update_club_admin` (`EXISTS` sur `club_members` avec `role = 'admin'`), les
+> policies super-admin de PR5 étant conservées. Garde-fou `pg_policies` inclus, façon PR3.
+> La lecture `anon` **n'est pas ouverte** : PR9 ouvrira une lecture restreinte aux clés
+> publiques quand la vitrine en aura besoin.
 
-À traiter **avant PR6** pour `club_settings`. Pour `profiles`, le cloisonnement passe par
-`club_members` (un profil est visible s'il partage un club avec le demandeur) — attention à
-ne pas casser la lecture `anon` dont dépend l'affichage du gestionnaire d'un live en PWA.
+Pour `profiles`, le cloisonnement passe par `club_members` (un profil est visible s'il partage
+un club avec le demandeur) — attention à ne pas casser la lecture `anon` dont dépend
+l'affichage du gestionnaire d'un live en PWA. **Pas de PR d'accueil à ce jour.**
+
+#### Dette Storage — fermée en PR6a, avec un reliquat legacy
+
+Non recensée ici avant le 20/08/2026, et pourtant c'était la **dernière fuite de données entre
+clubs** de la plateforme. PR3 a verrouillé les 10 tables métier et laissé le Storage dehors :
+les policies d'écriture des 4 buckets étaient scopées **au bucket**, pas au club
+(`WITH CHECK (bucket_id = 'actu-images')`) — tout membre d'un club pouvait écraser ou
+supprimer les images de n'importe quel autre.
+
+**PR6a** applique D12 : premier segment de chemin = `club_id`, policies d'écriture et de
+suppression scopées via `public.can_write_club_object(name)`, lecture publique inchangée. Le
+bucket `content-images`, créé au dashboard et versionné par aucune migration, est rapatrié
+dans le dépôt à cette occasion.
+
+> ⚠️ **Reliquat — clause « grandfather », posée le 2026-08-22, temporaire.**
+> Les objets antérieurs à PR6a n'ont pas de préfixe club. Les policies tolèrent donc les
+> chemins dont le **1ᵉʳ segment n'est pas un UUID**, réservés aux membres de CAC — sans quoi
+> ces objets deviendraient **non supprimables** et « supprimer une actu » casserait en prod
+> sur des données réelles.
+> **Fermeture** : une PR de nettoyage qui déplace les objets et réécrit les URL — dans
+> `events.image_url`, `actus.image_urls[]`, `team_rencontres.photo_urls[]` **et dans le corps
+> markdown** des actus et des events, où `MarkdownEditor` les a noyées. À planifier dès qu'un
+> **2ᵉ club réel** existe ; tant qu'un seul club possède ces objets, la clause ne fuit rien.
 
 ---
 
@@ -375,6 +403,17 @@ Les ~80 variables du `web_site_brief.md` (`brand.*`, `home.*`, `club.*`, `infra.
 `pricing.*`, `contact.*`, `social.*`, `partners`, `legal.*`, `settings.*`).
 - **Stockage** : `club_settings.config` en **JSONB** (arbre unique, versionnable, souple
   pour les `list<…>`). Schéma validé côté app (zod ou équivalent).
+- **Contrat posé en PR6a** — source unique : `src/lib/clubConfig.ts` (zod), écrit sans import
+  React ni Supabase pour être déplaçable tel quel dans le paquet partagé avec `web/` (PR9).
+  Trois règles : tout est optionnel et a un défaut (`config = '{}'` est le cas **nominal**
+  d'un club provisionné par la console) ; **la lecture ne jette jamais** (`safeParse` + fusion
+  avec les défauts — la validation stricte est pour l'écriture, PR6b) ; les **clés inconnues
+  sont préservées**, pour qu'un BO en retard d'une version n'efface pas un groupe qu'il ne
+  connaît pas encore. `config.version` (= 1) discrimine la forme.
+  Groupes réellement couverts à ce jour : **`brand`, `home`, `contact`** — ceux que PR9
+  consommera en premier. Les autres s'ajouteront avec leurs consommateurs : figer 80 clés sans
+  retour d'usage, c'est se condamner à migrer un JSONB qui porte déjà les données de deux clubs.
+  Lecture côté BO : `src/hooks/useClubConfig.ts`.
 - **Images** (logos, hero, portraits, courts…) : voir **D12** — buckets **par type de
   contenu** (peu nombreux, stables), chemins **préfixés `club_id/`** (ex.
   `vitrine/{club_id}/hero.jpg`). Policies Storage : **écriture/suppression scopées au club**
@@ -650,7 +689,8 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR4 ✅ | 1 | Invitations portant `club_id`+`role` (+ autorisation `admin` du club dans `invite-user`) + `useClubRole()` + masquage UI par rôle + **garde d'appartenance BO** : un non-membre du club courant se voit refuser l'accès (§3) au lieu d'obtenir un BO monté mais vide. Aucune migration ; script manuel d'attribution des rôles + déploiement manuel de la function. Limites et dettes : §4.1 | non-bloquante |
 | PR5 ✅ | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin, accès support) + **correctif §0** : `is_super_admin` n'est plus auto-attribuable (grants par colonne sur `profiles`). Détail : §5.1 | non-bloquante — mais les **deux** migrations sont à appliquer, la `2026081801` d'abord |
 | PR5-bis ✅ | 2 | Gestion des membres d'un club (lister / changer un rôle / retirer / relancer une invitation / inviter) **côté admin de club** — sorti de PR5 pour ne pas transformer la console de provisioning en écran d'administration des comptes. Écran `/admin/members`, qui absorbe `/admin/invite`. **Aucune migration** : tout passe par l'Edge Function `club-members` (service role), à déployer à la main. Détail : §4.2 | non-bloquante — mais la function `club-members` est à **déployer manuellement** (dev puis prod) |
-| PR6 | 3 | Section « Configuration du site » au BO (`club_settings.config` + formulaires) *(scindable en 2)* — **inclut le cloisonnement RLS de `club_settings`**, cf. §2.4 | non-bloquante |
+| PR6a ✅ | 3 | **Socle** : contrat `club_settings.config` (`src/lib/clubConfig.ts`, zod, lecture tolérante) + cloisonnement RLS de `club_settings` (dette §2.4) + **cloisonnement Storage** (D12 : préfixe `club_id/`, policies scopées sur les 4 buckets, `content-images` rapatrié) + mutualisation d'`extractStoragePath` dans `src/lib/storage.ts`. **Aucun formulaire.** | ⚠️ **sensible** — migration Storage : un verrouillage ne se voit ni au build ni au typecheck, contrôle fonctionnel réel exigé (§8.4) |
+| PR6b | 3 | Section « Configuration du site » au BO : les 10 groupes de formulaires sur le contrat posé en PR6a. **Aucune migration** — la policy d'écriture est déjà en place. | non-bloquante |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |
 | PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
 | PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |
