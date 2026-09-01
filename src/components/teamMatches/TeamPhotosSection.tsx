@@ -3,21 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import type { TeamRencontre } from '../../types';
+import {
+  STORAGE_BUCKETS,
+  clubPath,
+  extractStoragePath,
+  sanitizeFilename,
+} from '../../lib/storage';
 
-const STORAGE_BUCKET = 'team-match-photos';
+const STORAGE_BUCKET = STORAGE_BUCKETS.teamMatchPhotos;
 const MAX_SIZE = 10 * 1024 * 1024;
 const ACCEPTED = ['image/jpeg', 'image/png'];
-
-function sanitizeFilename(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/-+/g, '-');
-}
-
-function extractStoragePath(publicUrl: string): string | null {
-  const marker = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  return publicUrl.slice(idx + marker.length);
-}
 
 interface Props {
   rencontre: TeamRencontre;
@@ -61,7 +56,7 @@ export default function TeamPhotosSection({ rencontre, onChange }: Props) {
         setError(`"${file.name}" dépasse 10 Mo.`);
         continue;
       }
-      const path = `${rencontre.id}/${Date.now()}-${sanitizeFilename(file.name)}`;
+      const path = clubPath(clubId, rencontre.id, `${Date.now()}-${sanitizeFilename(file.name)}`);
       const { error: upErr } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
         contentType: file.type,
         cacheControl: '3600',
@@ -83,7 +78,7 @@ export default function TeamPhotosSection({ rencontre, onChange }: Props) {
   const handleRemove = async (url: string) => {
     setError(null);
     setBusy(true);
-    const path = extractStoragePath(url);
+    const path = extractStoragePath(STORAGE_BUCKET, url);
     if (path) await supabase.storage.from(STORAGE_BUCKET).remove([path]);
     await persist(photoUrls.filter((u) => u !== url));
     setBusy(false);

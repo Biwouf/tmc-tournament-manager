@@ -3,15 +3,9 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { Actu } from '../types';
+import { STORAGE_BUCKETS, extractStoragePath } from '../lib/storage';
 
-const STORAGE_BUCKET = 'actu-images';
-
-function extractStoragePath(publicUrl: string): string | null {
-  const marker = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  return publicUrl.slice(idx + marker.length);
-}
+const STORAGE_BUCKET = STORAGE_BUCKETS.actuImages;
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { dateStyle: 'medium' });
@@ -71,7 +65,7 @@ export default function ActusPage() {
     if (!window.confirm(`Supprimer l'actu "${a.titre}" ?`)) return;
     if (a.image_urls.length > 0) {
       const paths = a.image_urls
-        .map(extractStoragePath)
+        .map((url) => extractStoragePath(STORAGE_BUCKET, url))
         .filter((p): p is string => p !== null);
       if (paths.length > 0) await supabase.storage.from(STORAGE_BUCKET).remove(paths);
     }

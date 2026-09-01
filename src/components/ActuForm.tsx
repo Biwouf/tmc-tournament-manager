@@ -4,22 +4,17 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
 import type { Actu, ActuFocalPoint } from '../types';
+import {
+  STORAGE_BUCKETS,
+  clubPath,
+  extractStoragePath,
+  sanitizeFilename,
+} from '../lib/storage';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
-const STORAGE_BUCKET = 'actu-images';
+const STORAGE_BUCKET = STORAGE_BUCKETS.actuImages;
 const DEFAULT_FOCAL_POINT: ActuFocalPoint = { x: 50, y: 50 };
-
-function extractStoragePath(publicUrl: string): string | null {
-  const marker = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return null;
-  return publicUrl.slice(idx + marker.length);
-}
-
-function sanitizeFilename(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/-+/g, '-');
-}
 
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -235,7 +230,7 @@ export default function ActuForm() {
   };
 
   const uploadFile = async (file: File, actuId: string, index: number): Promise<string> => {
-    const path = `${actuId}/${Date.now()}-${index}-${sanitizeFilename(file.name)}`;
+    const path = clubPath(clubId, actuId, `${Date.now()}-${index}-${sanitizeFilename(file.name)}`);
     const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
       contentType: file.type,
       cacheControl: '3600',
@@ -247,7 +242,7 @@ export default function ActuForm() {
 
   const deleteStorageFiles = async (publicUrls: string[]) => {
     const paths = publicUrls
-      .map(extractStoragePath)
+      .map((url) => extractStoragePath(STORAGE_BUCKET, url))
       .filter((p): p is string => p !== null);
     if (paths.length > 0) {
       await supabase.storage.from(STORAGE_BUCKET).remove(paths);
