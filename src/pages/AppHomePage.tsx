@@ -32,6 +32,7 @@ const SECTIONS = [
     hint: 'Réservé aux administrateurs',
     items: [
       { to: '/admin/members', label: 'Membres', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
+      { to: '/admin/site', label: 'Configuration du site', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
     ],
   },
 ] as const;
