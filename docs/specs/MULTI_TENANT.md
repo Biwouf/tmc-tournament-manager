@@ -422,6 +422,22 @@ Les ~80 variables du `web_site_brief.md` (`brand.*`, `home.*`, `club.*`, `infra.
 - **Nouvelle section BO** « Configuration du site » : un formulaire par groupe de préfixe
   (Identité, Accueil, Le Club, Infrastructures, Tarifs, Contact, Réseaux, Partenaires,
   Légal, Réglages d'affichage).
+- **Livré en PR6b** — `/admin/site` (`adminOnly`), un **panneau par groupe** avec son propre bouton
+  d'enregistrement : une erreur de validation sur un groupe ne bloque pas les autres, et l'UPDATE ne
+  touche qu'une clé racine, donc deux onglets ouverts sur deux panneaux différents ne s'écrasent plus.
+  Écriture : `src/lib/clubConfigWrite.ts` — **schéma strict** (l'inverse du schéma de lecture), qui refuse
+  au lieu de retomber sur un défaut et **nomme l'entrée fautive** (« 2ᵉ horaire — « Jour » est
+  obligatoire. ») ; sans quoi une entrée à demi remplie coûterait **toute** la liste à la relecture.
+  Un champ requis vide est en revanche **accepté au niveau du groupe** : un club en cours de saisie est le
+  cas nominal, au même titre que `config = '{}'`. L'écriture **relit la ligne brute**, fusionne
+  **profondément** le seul groupe édité (les clés inconnues nichées dans un groupe connu survivent —
+  `parseClubConfig` ne fusionne qu'à la racine) et fait un **`UPDATE`, jamais un `upsert`** : l'INSERT
+  reste réservé au super-admin. Le `.select()` qui suit l'UPDATE est **nécessaire** — une écriture refusée
+  par la RLS ne remonte aucune erreur, elle ne touche aucune ligne.
+  Périmètre PR6b : **`brand`, `home`, `contact`** seulement, les sept autres groupes étant **PR6c**.
+  Images : bucket **`content-images`** sous `clubPath(clubId, 'config', …)` — le bucket générique que
+  demande D12, donc **aucune migration**. Un bucket dédié viendra avec PR7-bis, quand elle aura
+  elle-même des logos et des icônes PWA à y placer, et déplacera ces quelques objets.
 
 ### 6.2 GEN_PROG — background personnalisé
 Le module Programmation Image utilise aujourd'hui un fond figé. En multi-tenant, chaque club
@@ -690,7 +706,8 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR5 ✅ | 2 | Console super-admin (créer/lister/suspendre un club, inviter le 1er admin, accès support) + **correctif §0** : `is_super_admin` n'est plus auto-attribuable (grants par colonne sur `profiles`). Détail : §5.1 | non-bloquante — mais les **deux** migrations sont à appliquer, la `2026081801` d'abord |
 | PR5-bis ✅ | 2 | Gestion des membres d'un club (lister / changer un rôle / retirer / relancer une invitation / inviter) **côté admin de club** — sorti de PR5 pour ne pas transformer la console de provisioning en écran d'administration des comptes. Écran `/admin/members`, qui absorbe `/admin/invite`. **Aucune migration** : tout passe par l'Edge Function `club-members` (service role), à déployer à la main. Détail : §4.2 | non-bloquante — mais la function `club-members` est à **déployer manuellement** (dev puis prod) |
 | PR6a ✅ | 3 | **Socle** : contrat `club_settings.config` (`src/lib/clubConfig.ts`, zod, lecture tolérante) + cloisonnement RLS de `club_settings` (dette §2.4) + **cloisonnement Storage** (D12 : préfixe `club_id/`, policies scopées sur les 4 buckets, `content-images` rapatrié) + mutualisation d'`extractStoragePath` dans `src/lib/storage.ts`. **Aucun formulaire.** | ⚠️ **sensible** — migration Storage : un verrouillage ne se voit ni au build ni au typecheck, contrôle fonctionnel réel exigé (§8.4) |
-| PR6b | 3 | Section « Configuration du site » au BO : les 10 groupes de formulaires sur le contrat posé en PR6a. **Aucune migration** — la policy d'écriture est déjà en place. | non-bloquante |
+| PR6b ✅ | 3 | Section « Configuration du site » au BO (`/admin/site`, `adminOnly`) : un panneau par groupe, chacun avec son propre enregistrement, sur les **trois groupes du contrat** (`brand`, `home`, `contact`) — `src/lib/clubConfigWrite.ts` (schéma **strict** à l'écriture, `UPDATE` + fusion profonde préservant les clés inconnues) + `SiteConfigPage` + `components/siteConfig/`. Images sous `content-images/<club_id>/config/…`. **Aucune migration** — la policy d'écriture et les GRANT étaient déjà en place, et le bucket réutilisé date de PR6a. `src/lib/clubConfig.ts` **inchangé**. | non-bloquante — première PR de la série **sans opération prod** |
+| PR6c | 3 | Les **sept groupes restants** (`club`, `infra`, `pricing`, `social`, `partners`, `legal`, `settings`) : extension de `clubConfig.ts` (objets imbriqués `club.president.*` / `club.coach.*`, cinq listes d'objets, types `number` et `bool`) **et** leurs panneaux, qui se déclarent alors dans la table de specs de `clubConfigWrite.ts`. Sortis de PR6b pour ne pas figer ~80 clés avant que la vitrine (PR9) en ait rendu une seule : le livrable de PR6b était le **mécanisme d'écriture**, qui s'éprouve aussi bien sur trois groupes que sur dix et se corrige dix fois moins cher. | non-bloquante |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |
 | PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
 | PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |

@@ -91,6 +91,16 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Un compte qui n'appartient pas au club du back-office ouvert se voit refuser l'accès avec un message explicite (et un bouton de déconnexion), au lieu d'un back-office aux listes vides
 - Inviter un email qui a déjà un compte le **rattache** au club courant, sans nouvel email
 
+### Configuration du site
+Écran *Admin › Configuration du site* (`/admin/site`), réservé aux **administrateurs** du club — un gestionnaire n'y a pas accès.
+
+- Permet de renseigner les informations publiques du club **sans passer par la base** : identité (nom, sport, ville, logos, couleur d'accent), page d'accueil (bandeau, chiffres clés, teasers école et infrastructures, appel à l'action) et coordonnées (adresse, téléphone, e-mail, lien Maps, horaires d'accueil).
+- Ces informations alimentent le **futur site vitrine** du club. Elles ne changent **ni le back-office, ni l'application des adhérents** — la couleur d'accent comprise.
+- **Un bouton d'enregistrement par panneau** : corriger un numéro de téléphone ne réécrit pas l'identité du club, et deux personnes qui modifient deux panneaux différents ne s'écrasent pas.
+- Les champs marqués ⬤ sont ceux qu'attend le site vitrine, mais **un panneau incomplet s'enregistre** : on peut compléter plus tard.
+- Les listes (chiffres clés, cartes infrastructures, horaires) s'ajoutent, se retirent et se réordonnent. Une **entrée à demi remplie est refusée**, en la nommant (« 2ᵉ horaire — « Jour » est obligatoire. ») : la laisser passer ferait perdre toute la liste au rechargement suivant.
+- Les images sont envoyées **à l'enregistrement du panneau**, pas au choix du fichier ; remplacer ou retirer une image supprime l'ancienne.
+
 ### Console plateforme (super-admin)
 Réservée au **super-admin** de la plateforme, sur `/super-admin` (carte *Plateforme › Console plateforme* du dashboard). Invisible et inaccessible pour un administrateur de club.
 
