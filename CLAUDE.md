@@ -4,13 +4,51 @@
 
 ## Projet — TMC Tournament Manager
 
+### Contexte produit — SaaS multi-tenant « feelike »
+
+Ce projet évolue d'une app mono-club (CAC Tennis) vers un **produit SaaS multi-tenant**
+commercialisable, dont le nom / domaine racine est **`feelike.app`**. Autrement dit :
+**« feelike » = la plateforme SaaS, TMC Tournament Manager = le produit qu'on y rend
+multi-tenant, CAC Tennis = le premier club (tenant #1)**. Ces trois termes désignent le même
+projet — un « Feelike Migration Tracker » ou toute mention de `feelike.app` concerne bien
+cette codebase.
+
+Architecture cible retenue : base Supabase partagée + `club_id` + RLS, apps uniques (BO / PWA /
+site vitrine) avec tenant résolu au runtime par sous-domaine `*.feelike.app`, provisioning par
+un super-admin. Migration livrée en 16 PR réparties en 5 phases.
+
+- **Spec maître** (à lire en premier pour tout sujet multi-tenant) : `docs/specs/MULTI_TENANT.md`
+  — décisions D1–D12, modèle de données, plan de livraison et découpage en PR.
+- **Suivi d'avancement** : artifact claude.ai « Migration multi-tenant feelike » (statut des 16 PR, ops de déploiement, dettes ouvertes). L'ancien artefact Cowork `feelike-migration-tracker` est figé au 20/08/2026 — ne plus s'y référer.
+
 ### Règle absolue — pas de développement via Cowork
 
 **Aucune modification de code via Cowork**, sauf si l'utilisateur le demande explicitement dans le message. Tout le développement se fait via Claude Code : l'utilisateur y crée la branche appropriée et choisit le modèle adapté.
 
-### Règle absolue — branches Git
+### Workflow Git — worktrees
 
-**Ne jamais créer de nouvelle branche.** Toujours travailler directement sur la branche demandée par l'utilisateur (ex. `planning/ranking-order`). Ne pas utiliser de worktrees ou de branches "claude/xxx" — éditer les fichiers dans le répertoire principal du projet.
+Le projet utilise les **Git worktrees** : chaque feature est développée dans un dossier dédié, isolé du dossier principal.
+
+**Règles :**
+- Ne jamais créer de branche ou de worktree de ta propre initiative.
+- C'est l'utilisateur qui crée le worktree (`git worktree add`) et qui ouvre la session Claude Code dedans.
+- Travailler uniquement dans le dossier worktree de la session en cours — ne jamais toucher au dossier principal ni aux autres worktrees.
+- Ne pas créer de branches `claude/xxx` ou toute autre branche automatique.
+
+**Rappel pédagogique — comment l'utilisateur crée un worktree :**
+```bash
+# Créer un worktree sur une nouvelle branche
+git worktree add ../tmc-<nom-feature> feature/<nom-feature>
+
+# Ouvrir ensuite Claude Code dans ce dossier
+cd ../tmc-<nom-feature> && claude
+
+# Lister les worktrees actifs
+git worktree list
+
+# Supprimer un worktree après merge de la PR
+git worktree remove ../tmc-<nom-feature>
+```
 
 ### Première action obligatoire
 
@@ -67,13 +105,14 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 
 ## 1. Think Before Coding
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**Don't assume. Don't hide confusion. Surface tradeoffs. Ask questions.**
 
 Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
+- State your assumptions explicitly. If uncertain, **ask** — don't guess silently.
+- If multiple interpretations exist, present them and ask which one to follow.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- **Don't wait for the user to ask "did you have questions?" — pose them proactively**, before writing a single line of code.
 - If the task involves a field described as "already existing" or "already wired",
   verify it before starting: check the producer's insert payload, the TypeScript types
   (BO + PWA), and the latest migration. A brief can be wrong about the current state
