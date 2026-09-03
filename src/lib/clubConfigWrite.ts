@@ -12,29 +12,62 @@
 // en dérivent tous. Les dissocier, c'est se garantir qu'un libellé et sa validation
 // divergeront.
 //
-// Périmètre : `brand`, `home`, `contact` (PR6a) et `social`, `partners`, `legal`, `settings`
-// (PR6c) — le chrome du site vitrine. Les trois pages de contenu (`club`, `infra`, `pricing`)
-// arrivent en PR6d : elles forceront les objets imbriqués, les listes de scalaires et le type
-// `number`, extensions qu'on ne pose pas avant le groupe qui les exerce.
+// Périmètre : les DIX groupes du `web_site_brief.md` §5 — `brand`, `home`, `contact` (PR6a),
+// `social`, `partners`, `legal`, `settings` (PR6c) et les trois pages de contenu `club`,
+// `infra`, `pricing` (PR6d). La configuration est CLOSE.
+//
+// PR6d apporte les trois dernières extensions du modèle, chacune posée avec le groupe qui
+// l'exerce, et toutes les trois tenues à la même règle que celles de PR6c : l'état de
+// formulaire garde UNE seule forme, PLATE, et seuls les deux points qui lisent et écrivent le
+// JSONB connaissent la forme réelle (`groupValueFromConfig`, `configFromGroupValue`).
+//   - OBJETS IMBRIQUÉS (`club.president`, `club.coach`, `infra.clubhouse`,
+//     `infra.locker_rooms`) : la clé de formulaire reste plate et SANS POINT
+//     (`president_photo`), la spec porte en plus le chemin réel (`path: ['president','photo']`).
+//     Une clé pointée casserait `setAtPath` en silence — cf. `SiteConfigPanel.tsx`.
+//   - LISTES DE SCALAIRES (`club.values`, `club.methods`, `club.levels`,
+//     `club.coach.credentials`, `infra.clubhouse.images`) : `scalar: true` + UN seul champ.
+//     L'état reste des `ListEntry` à une clé, donc l'ajout, le retrait, le réordonnancement et
+//     les chemins de fichiers en attente (`clubhouse_images.0.value`) marchent sans une ligne
+//     de plus ; l'emballage `{ value }` ne sort jamais du formulaire.
+//   - Le type `number` (`pricing.lessons[].price`, `pricing.membership[].price`) : sa propre
+//     branche de schéma, comme `bool` en PR6c.
 import { z } from 'zod';
 import { supabase } from './supabase';
 import { CLUB_CONFIG_VERSION, type ClubConfig } from './clubConfig';
 
 // ── Specs ────────────────────────────────────────────────────────────────────
 
-/** Types de la table du `web_site_brief.md` §5 présents dans ces groupes.
- *  `number` n'apparaît que dans `pricing.*` — PR6d.
+/** Types de la table du `web_site_brief.md` §5. Tous sont désormais exercés par un groupe.
  *
- *  ⚠️ `bool` ne décrit aujourd'hui QUE les drapeaux d'affichage de `settings.*`, dont
- *  l'absence vaut `true` (§5.10) : c'est ce que `groupValueFromConfig` applique, en miroir du
- *  helper `flag` du schéma de lecture. Un booléen à défaut `false` devra porter son défaut
- *  dans sa spec plutôt que réutiliser ce type tel quel. */
-export type FieldType = 'text' | 'longtext' | 'image' | 'color' | 'url' | 'email' | 'tel' | 'bool';
+ *  ⚠️ `bool` ne décrit QUE les drapeaux d'affichage de `settings.*`, dont l'absence vaut `true`
+ *  (§5.10) : c'est ce que `groupValueFromConfig` applique, en miroir du helper `flag` du schéma
+ *  de lecture. Un booléen à défaut `false` devra porter son défaut dans sa spec plutôt que
+ *  réutiliser ce type tel quel.
+ *
+ *  ⚠️ `number` n'est PAS le type de tous les prix : `pricing.other_fees[].price` est du `text`,
+ *  son unité étant variable (« 15€ / h »). Voir le commentaire de `pricingSchema`. */
+export type FieldType =
+  | 'text'
+  | 'longtext'
+  | 'image'
+  | 'color'
+  | 'url'
+  | 'email'
+  | 'tel'
+  | 'bool'
+  | 'number';
 
 export type FieldSpec = {
+  /** Clé de l'ÉTAT DE FORMULAIRE. Plate, et SANS POINT : `setAtPath` découpe les chemins de
+   *  fichiers en attente sur le point, et une clé pointée y serait lue comme un index de liste
+   *  — l'objet entier serait écrasé par une URL, sans erreur. Voir `path` pour le JSONB. */
   key: string;
   label: string;
   type: FieldType;
+  /** Chemin réel dans le JSONB quand il diffère de `[key]` — les objets imbriqués de PR6d
+   *  (`['president', 'photo']`). N'a de sens qu'au niveau du GROUPE : dans une entrée de liste,
+   *  la clé du champ EST son chemin. */
+  path?: string[];
   /** Le ⬤ du brief §5. SIGNALÉ à l'écran, mais NON bloquant au niveau du groupe : un club en
    *  cours de saisie est le cas nominal, au même titre que `config = '{}'`. Dans une ENTRÉE
    *  de liste, en revanche, il bloque — cf. `fieldSchema`. */
@@ -44,11 +77,22 @@ export type FieldSpec = {
 };
 
 export type ListSpec = {
+  /** Clé de l'ÉTAT DE FORMULAIRE — voir `FieldSpec.key`. Elle préfixe aussi les chemins de
+   *  fichiers en attente (`clubhouse_images.0.value`). */
   key: string;
   label: string;
   /** Au singulier et sans article : sert à nommer l'entrée fautive (« 2ᵉ horaire : … »). */
   singular: string;
   help?: string;
+  /** Chemin réel dans le JSONB quand il diffère de `[key]` — `['coach', 'credentials']`. */
+  path?: string[];
+  /** Liste de VALEURS SIMPLES (`list<text>`, `list<image>`) et non d'objets : `fields` en porte
+   *  alors exactement UN. L'état de formulaire reste des `ListEntry` à une clé — c'est ce qui
+   *  laisse le rendu, l'ajout, le retrait, le réordonnancement et le remap des fichiers en
+   *  attente fonctionner sans rien savoir de cette forme —, et l'emballage `{ value: … }` est
+   *  déballé à l'écriture : le JSONB porte bien `["Respect", "Convivialité"]`, la forme que
+   *  décrit la spec et que PR9 lira. */
+  scalar?: true;
   fields: FieldSpec[];
 };
 
@@ -62,6 +106,9 @@ export type ItemSpec =
 export type ClubConfigGroupKey =
   | 'brand'
   | 'home'
+  | 'club'
+  | 'infra'
+  | 'pricing'
   | 'contact'
   | 'social'
   | 'partners'
@@ -94,6 +141,11 @@ export type GroupSpec =
 /** Les items d'un groupe quelle que soit sa forme — un groupe-liste en a exactement un. */
 export function itemsOf(group: GroupSpec): ItemSpec[] {
   return group.kind === 'list' ? [{ kind: 'list', ...group.list }] : group.items;
+}
+
+/** Où l'item vit dans le JSONB, sa clé de formulaire par défaut. */
+function pathOf(item: ItemSpec): string[] {
+  return item.path ?? [item.key];
 }
 
 // L'ordre des clés suit celui de `clubConfig.ts`, pour que les deux fichiers se relisent
@@ -209,9 +261,213 @@ const CONTACT: GroupSpec = {
   ],
 };
 
+// Les trois groupes de PR6d sont les PAGES DE CONTENU : ils s'intercalent entre l'accueil et
+// le contact, dans l'ordre du `web_site_brief.md` §5.
+const CLUB: GroupSpec = {
+  kind: 'fields',
+  key: 'club',
+  label: 'Le Club',
+  hint: 'Président·e, encadrant, valeurs, programmes et bureau',
+  items: [
+    { kind: 'field', key: 'page_title', label: 'Titre de la page', type: 'text', required: true, placeholder: 'Le Club' },
+
+    // Objet imbriqué : clés de formulaire PLATES, chemin réel dans `path`. Les sous-titres
+    // `section` de PR6b suffisent à présenter l'objet à l'écran — pas de structure nouvelle.
+    { kind: 'field', section: 'Le président·e', key: 'president_name', path: ['president', 'name'], label: 'Nom', type: 'text', required: true, placeholder: 'Prénom Nom' },
+    { kind: 'field', key: 'president_role', path: ['president', 'role'], label: 'Fonction', type: 'text', required: true, placeholder: 'Présidente du club' },
+    { kind: 'field', key: 'president_photo', path: ['president', 'photo'], label: 'Portrait', type: 'image', required: true },
+    { kind: 'field', key: 'president_quote', path: ['president', 'quote'], label: 'Le mot du président·e', type: 'longtext', required: true },
+
+    {
+      kind: 'list',
+      section: 'Valeurs du club',
+      key: 'values',
+      label: 'Valeurs',
+      singular: 'valeur',
+      scalar: true,
+      help: 'Trois à quatre valeurs recommandées. Une liste vide masque simplement le bloc.',
+      fields: [{ key: 'value', label: 'Valeur', type: 'text', required: true, placeholder: 'Convivialité' }],
+    },
+
+    { kind: 'field', section: 'L’encadrant', key: 'coach_name', path: ['coach', 'name'], label: 'Nom', type: 'text', required: true, placeholder: 'Prénom Nom' },
+    { kind: 'field', key: 'coach_role', path: ['coach', 'role'], label: 'Fonction', type: 'text', required: true, placeholder: 'Directeur sportif' },
+    {
+      // L'item le plus composé de la PR : une liste de scalaires QUI VIT À UN CHEMIN.
+      kind: 'list',
+      key: 'coach_credentials',
+      path: ['coach', 'credentials'],
+      label: 'Diplômes et classement',
+      singular: 'diplôme',
+      scalar: true,
+      fields: [{ key: 'value', label: 'Diplôme ou classement', type: 'text', required: true, placeholder: 'Diplômé d’État' }],
+    },
+    { kind: 'field', key: 'coach_bio', path: ['coach', 'bio'], label: 'Biographie et pédagogie', type: 'longtext', required: true },
+    { kind: 'field', key: 'coach_photo', path: ['coach', 'photo'], label: 'Portrait', type: 'image', required: true },
+
+    {
+      kind: 'list',
+      section: 'Enseignement',
+      key: 'methods',
+      label: 'Méthodes d’enseignement',
+      singular: 'méthode',
+      scalar: true,
+      fields: [{ key: 'value', label: 'Méthode', type: 'text', required: true, placeholder: 'Pédagogie par le jeu' }],
+    },
+    {
+      kind: 'list',
+      key: 'levels',
+      label: 'Niveaux proposés',
+      singular: 'niveau',
+      scalar: true,
+      fields: [{ key: 'value', label: 'Niveau', type: 'text', required: true, placeholder: 'Débutant' }],
+    },
+
+    {
+      kind: 'list',
+      section: 'Programmes',
+      key: 'programs',
+      label: 'Programmes',
+      singular: 'programme',
+      fields: [
+        { key: 'name', label: 'Nom', type: 'text', required: true, placeholder: 'École de tennis' },
+        { key: 'age', label: 'Âge', type: 'text', placeholder: '4 – 17 ans' },
+        { key: 'frequency', label: 'Fréquence', type: 'text', placeholder: '1h / semaine' },
+        { key: 'description', label: 'Description', type: 'longtext' },
+        { key: 'image', label: 'Image', type: 'image' },
+      ],
+    },
+
+    {
+      kind: 'list',
+      section: 'Le bureau',
+      key: 'board',
+      label: 'Membres du bureau',
+      singular: 'membre',
+      fields: [
+        { key: 'name', label: 'Nom', type: 'text', required: true, placeholder: 'Prénom Nom' },
+        { key: 'role', label: 'Fonction', type: 'text', required: true, placeholder: 'Trésorier' },
+        { key: 'photo', label: 'Portrait', type: 'image' },
+      ],
+    },
+  ],
+};
+
+const INFRA: GroupSpec = {
+  kind: 'fields',
+  key: 'infra',
+  label: 'Infrastructures',
+  hint: 'Courts, club house et vestiaires',
+  items: [
+    { kind: 'field', key: 'page_title', label: 'Titre de la page', type: 'text', required: true, placeholder: 'Nos infrastructures' },
+
+    {
+      kind: 'list',
+      section: 'Courts',
+      key: 'courts',
+      label: 'Courts',
+      singular: 'court',
+      help: 'Une entrée par type de surface plutôt qu’une par court.',
+      fields: [
+        { key: 'count', label: 'Nombre', type: 'text', required: true, placeholder: '4' },
+        { key: 'label', label: 'Libellé', type: 'text', required: true, placeholder: 'Courts extérieurs' },
+        { key: 'detail', label: 'Détail', type: 'text', placeholder: 'Béton poreux, éclairés' },
+        { key: 'image', label: 'Image', type: 'image' },
+      ],
+    },
+
+    { kind: 'field', section: 'Club house', key: 'clubhouse_title', path: ['clubhouse', 'title'], label: 'Titre', type: 'text' },
+    { kind: 'field', key: 'clubhouse_text', path: ['clubhouse', 'text'], label: 'Description', type: 'longtext' },
+    {
+      // Liste de scalaires d'IMAGES, elle aussi à un chemin : les fichiers en attente s'y
+      // indexent `clubhouse_images.0.value`, comme pour n'importe quelle autre liste.
+      kind: 'list',
+      key: 'clubhouse_images',
+      path: ['clubhouse', 'images'],
+      label: 'Photos',
+      singular: 'photo',
+      scalar: true,
+      help: 'Deux photos recommandées.',
+      fields: [{ key: 'value', label: 'Photo', type: 'image', required: true }],
+    },
+
+    { kind: 'field', section: 'Vestiaires', key: 'locker_rooms_title', path: ['locker_rooms', 'title'], label: 'Titre', type: 'text' },
+    { kind: 'field', key: 'locker_rooms_text', path: ['locker_rooms', 'text'], label: 'Description', type: 'longtext' },
+    { kind: 'field', key: 'locker_rooms_image', path: ['locker_rooms', 'image'], label: 'Photo', type: 'image' },
+  ],
+};
+
+/** Le libellé d'aide des deux champs `price` NUMÉRIQUES — leur unité est fixe, la vitrine met
+ *  le montant en forme elle-même. À ne pas confondre avec `other_fees[].price`, du texte. */
+const AMOUNT_HELP =
+  'En euros, chiffres seuls — « 210 ». Laissé vide, aucun tarif n’est affiché pour cette formule.';
+
+const PRICING: GroupSpec = {
+  kind: 'fields',
+  key: 'pricing',
+  label: 'Tarifs',
+  hint: 'Adhésion, cours et autres frais',
+  items: [
+    { kind: 'field', key: 'page_title', label: 'Titre de la page', type: 'text', required: true, placeholder: 'Nos tarifs' },
+    { kind: 'field', key: 'season', label: 'Saison', type: 'text', placeholder: '2025 / 2026' },
+    { kind: 'field', key: 'note', label: 'Mention', type: 'text', placeholder: 'Licence FFT incluse' },
+
+    {
+      kind: 'list',
+      section: 'Adhésion + cours',
+      key: 'lessons',
+      label: 'Formules avec cours',
+      singular: 'formule',
+      fields: [
+        { key: 'name', label: 'Nom', type: 'text', required: true, placeholder: 'École de tennis' },
+        { key: 'subtitle', label: 'Sous-titre', type: 'text' },
+        { key: 'frequency', label: 'Fréquence', type: 'text', placeholder: '1h / semaine' },
+        { key: 'price', label: 'Tarif', type: 'number', help: AMOUNT_HELP, placeholder: '210' },
+        { key: 'eligibility', label: 'Public concerné', type: 'text', placeholder: 'De 4 à 17 ans' },
+      ],
+    },
+
+    {
+      kind: 'list',
+      section: 'Adhésion seule',
+      key: 'membership',
+      label: 'Formules d’adhésion',
+      singular: 'adhésion',
+      fields: [
+        { key: 'name', label: 'Nom', type: 'text', required: true, placeholder: 'Adulte' },
+        { key: 'subtitle', label: 'Sous-titre', type: 'text' },
+        { key: 'price', label: 'Tarif', type: 'number', help: AMOUNT_HELP, placeholder: '95' },
+      ],
+    },
+
+    {
+      kind: 'list',
+      section: 'Autres frais',
+      key: 'other_fees',
+      label: 'Autres frais et prestations',
+      singular: 'frais',
+      fields: [
+        { key: 'label', label: 'Libellé', type: 'text', required: true, placeholder: 'Location de court' },
+        {
+          // ⚠️ `text` et NON `number`, contrairement aux deux `price` ci-dessus : l'unité est
+          // variable ici (web_site_brief §5.5). Ce n'est pas une incohérence à « corriger ».
+          key: 'price',
+          label: 'Tarif',
+          type: 'text',
+          help: 'Texte libre — « 15€ / h », « 8€ ». C’est le seul tarif dont l’unité est variable.',
+          placeholder: '15€ / h',
+        },
+      ],
+    },
+
+    { kind: 'field', section: 'Bandeau d’inscription', key: 'cta_title', label: 'Titre', type: 'text' },
+    { kind: 'field', key: 'cta_text', label: 'Texte', type: 'longtext' },
+    { kind: 'field', key: 'cta_button', label: 'Bouton', type: 'text' },
+  ],
+};
+
 // Les quatre groupes de PR6c sont le CHROME du site — pied de page, réseaux, bande
-// partenaires, drapeaux d'affichage — et non des pages : ils viennent après les groupes de
-// contenu, et PR6d insérera `club`, `infra` et `pricing` avant eux.
+// partenaires, drapeaux d'affichage — et non des pages : ils viennent donc après les groupes
+// de contenu ci-dessus.
 const SOCIAL: GroupSpec = {
   kind: 'fields',
   key: 'social',
@@ -322,13 +578,31 @@ const SETTINGS: GroupSpec = {
   ],
 };
 
-export const CLUB_CONFIG_GROUPS: GroupSpec[] = [BRAND, HOME, CONTACT, SOCIAL, PARTNERS, LEGAL, SETTINGS];
+/** Ordre des panneaux à l'écran — celui du `web_site_brief.md` §5 : identité, puis les pages
+ *  (accueil, club, infrastructures, tarifs, contact), puis le chrome. */
+export const CLUB_CONFIG_GROUPS: GroupSpec[] = [
+  BRAND,
+  HOME,
+  CLUB,
+  INFRA,
+  PRICING,
+  CONTACT,
+  SOCIAL,
+  PARTNERS,
+  LEGAL,
+  SETTINGS,
+];
 
 // ── Schéma strict ────────────────────────────────────────────────────────────
 
 export type ListEntry = Record<string, string>;
 /** Le booléen est le seul type d'état de formulaire qui ne soit pas une chaîne — il ne
- *  descend PAS dans les entrées de liste, aucun `bool` n'y figurant au contrat. */
+ *  descend PAS dans les entrées de liste, aucun `bool` n'y figurant au contrat.
+ *
+ *  ⚠️ Ces deux types décrivent l'état SAISI. La SORTIE de `validateClubConfigGroup` réemprunte
+ *  `GroupValue` par commodité alors qu'elle porte aussi des nombres et des `undefined` (les
+ *  montants de PR6d) — le panneau la range telle quelle dans son état, ce qu'un `<input>`
+ *  contrôlé accepte. C'est la seule entorse, et elle s'arrête à `configFromGroupValue`. */
 export type GroupValue = Record<string, string | boolean | ListEntry[]>;
 
 // `image` n'a volontairement PAS de contrôle de format : la valeur est produite par
@@ -362,15 +636,50 @@ function fieldSchema(spec: FieldSpec, insideList: boolean) {
  *  écrirait la CHAÎNE `'false'` dans le JSONB — non vide, donc vraie pour la vitrine. */
 const boolSchema = z.boolean({ error: 'doit être coché ou décoché' });
 
+/**
+ * Un MONTANT — sa propre branche, comme `boolSchema`, et pour la même raison : le faire
+ * transiter par le tuyau des chaînes écrirait `"120"` dans le JSONB, une régression silencieuse
+ * pour la vitrine, qui attend un nombre (`clubConfig.ts`, helper `amount`).
+ *
+ * VIDE ≠ ZÉRO : une saisie vide rend `undefined`, et la clé est OMISE à l'écriture
+ * (`listForConfig`) plutôt qu'écrite à `0` — un tarif non renseigné n'est pas la gratuité.
+ *
+ * Le schéma doit être IDEMPOTENT : `saveClubConfigGroup` revalide la valeur que le panneau lui
+ * repasse, et celle-ci est déjà passée une fois par ici. Il accepte donc en entrée aussi bien
+ * la saisie (`'210'`) que sa propre sortie — le nombre `210`, et l'`undefined` d'un montant
+ * laissé vide, qu'un `z.string()` seul refuserait au second tour. C'est ce qui rend `boolSchema`
+ * sûr depuis PR6c, appliqué à un type dont l'entrée et la sortie diffèrent.
+ */
+function amountSchema(spec: FieldSpec, insideList: boolean) {
+  return z
+    .union([z.string(), z.number(), z.undefined()], { error: 'n’est pas un montant valide' })
+    // Absent et vide sont le MÊME cas — il n'y a pas de « montant effacé » distinct d'un
+    // montant jamais saisi.
+    .transform((v) => (v === undefined ? '' : typeof v === 'number' ? v : v.trim()))
+    .refine((v) => v !== '' || !(insideList && spec.required), 'est obligatoire')
+    .refine(
+      (v) => typeof v === 'number' || v === '' || Number.isFinite(Number(v)),
+      'n’est pas un montant valide',
+    )
+    .transform((v) => (typeof v === 'number' ? v : v === '' ? undefined : Number(v)));
+}
+
+/** Le schéma d'un champ, quel que soit son type. `insideList` porte l'asymétrie du ⬤. */
+function itemFieldSchema(spec: FieldSpec, insideList: boolean): z.ZodType {
+  if (spec.type === 'bool') return boolSchema;
+  if (spec.type === 'number') return amountSchema(spec, insideList);
+  return fieldSchema(spec, insideList);
+}
+
 function groupSchema(group: GroupSpec) {
   const shape: Record<string, z.ZodType> = {};
   for (const item of itemsOf(group)) {
     shape[item.key] =
       item.kind === 'list'
-        ? z.array(z.object(Object.fromEntries(item.fields.map((f) => [f.key, fieldSchema(f, true)]))))
-        : item.type === 'bool'
-          ? boolSchema
-          : fieldSchema(item, false);
+        ? z.array(
+            z.object(Object.fromEntries(item.fields.map((f) => [f.key, itemFieldSchema(f, true)]))),
+          )
+        : itemFieldSchema(item, false);
   }
   return z.object(shape);
 }
@@ -413,6 +722,26 @@ function asText(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
+/** Un montant vient du JSONB en NOMBRE et l'état de formulaire est fait de chaînes (c'est un
+ *  `<input>`). Sans cette conversion, un tarif enregistré se relirait vide. */
+function asAmount(v: unknown): string {
+  return typeof v === 'number' && Number.isFinite(v) ? String(v) : '';
+}
+
+function asFormValue(spec: FieldSpec, raw: unknown): string {
+  return spec.type === 'number' ? asAmount(raw) : asText(raw);
+}
+
+/** Lit la valeur au chemin réel du JSONB — `['president', 'photo']`. */
+function readAt(source: Record<string, unknown>, path: string[]): unknown {
+  let current: unknown = source;
+  for (const segment of path) {
+    if (!isPlainObject(current)) return undefined;
+    current = current[segment];
+  }
+  return current;
+}
+
 /** Projette la config lue sur les seules clés de la spec, en texte : l'état du formulaire est
  *  entièrement fait de chaînes — images (URL) et couleur (hex) comprises —, à la seule
  *  exception des drapeaux, qui restent des booléens (§`boolSchema`). */
@@ -428,18 +757,27 @@ export function groupValueFromConfig(group: GroupSpec, config: ClubConfig): Grou
         : {};
   const value: GroupValue = {};
   for (const item of itemsOf(group)) {
+    // Le `path` d'un objet imbriqué ne va pas plus loin qu'ici : la clé de l'état reste plate.
+    const raw = readAt(source, pathOf(item));
     if (item.kind === 'list') {
-      const entries = Array.isArray(source[item.key]) ? (source[item.key] as unknown[]) : [];
-      value[item.key] = entries.map((entry) => {
-        const row = isPlainObject(entry) ? entry : {};
-        return Object.fromEntries(item.fields.map((f) => [f.key, asText(row[f.key])])) as ListEntry;
-      });
+      const entries = Array.isArray(raw) ? raw : [];
+      value[item.key] = item.scalar
+        ? // Une liste de scalaires est EMBALLÉE dans des entrées à une clé, le temps du
+          // formulaire : c'est ce qui lui donne l'ajout, le retrait et le réordonnancement de
+          // n'importe quelle autre liste, sans une ligne de rendu de plus.
+          entries.map((entry) => ({ [item.fields[0].key]: asFormValue(item.fields[0], entry) }))
+        : entries.map((entry) => {
+            const row = isPlainObject(entry) ? entry : {};
+            return Object.fromEntries(
+              item.fields.map((f) => [f.key, asFormValue(f, row[f.key])]),
+            ) as ListEntry;
+          });
     } else if (item.type === 'bool') {
       // L'ABSENCE VAUT `true` (web_site_brief §5.10, helper `flag` du schéma de lecture) : un
       // club qui n'a jamais ouvert cet écran doit voir ses quatre cases cochées.
-      value[item.key] = typeof source[item.key] === 'boolean' ? (source[item.key] as boolean) : true;
+      value[item.key] = typeof raw === 'boolean' ? raw : true;
     } else {
-      value[item.key] = asText(source[item.key]);
+      value[item.key] = asFormValue(item, raw);
     }
   }
   return value;
@@ -460,6 +798,54 @@ export function groupValueFromConfig(group: GroupSpec, config: ClubConfig): Grou
  * assumée : une clé inconnue nichée DANS une entrée de liste ne survit pas — la préserver
  * demanderait un identifiant d'entrée que le contrat n'a pas.
  */
+/**
+ * Une liste TELLE QUE LE JSONB LA PORTE, à partir des `ListEntry` du formulaire.
+ *
+ * Deux déballages, et deux seulement :
+ *   - une liste `scalar` rend ses valeurs simples — `["Respect", "Convivialité"]` et non
+ *     `[{ value: 'Respect' }, …]`. Stocker l'emballage ferait diverger le JSONB de sa spec,
+ *     ce que la décision `partners` de PR6c a déjà refusé une fois ;
+ *   - une clé à `undefined` est OMISE — c'est ce que rend `amountSchema` pour un montant vide,
+ *     et « pas de tarif » ne doit devenir ni `0`, ni `null`.
+ */
+function listForConfig(list: ListSpec, raw: unknown): unknown[] {
+  const entries = (Array.isArray(raw) ? raw : []) as Record<string, unknown>[];
+  if (list.scalar) return entries.map((entry) => entry[list.fields[0].key] ?? '');
+  return entries.map((entry) =>
+    Object.fromEntries(Object.entries(entry).filter(([, v]) => v !== undefined)),
+  );
+}
+
+function setAt(target: Record<string, unknown>, path: string[], value: unknown) {
+  let current = target;
+  for (const segment of path.slice(0, -1)) {
+    if (!isPlainObject(current[segment])) current[segment] = {};
+    current = current[segment] as Record<string, unknown>;
+  }
+  current[path[path.length - 1]] = value;
+}
+
+/**
+ * Reconstruit la forme RÉELLE du groupe dans le JSONB à partir de l'état PLAT du formulaire :
+ * chaque item est posé à son `path`, et les listes passent par `listForConfig`.
+ *
+ * Second des deux seuls points qui connaissent la forme du groupe, avec `groupValueFromConfig`
+ * — c'est ce qui laisse `groupSchema`, `formatIssue`, `setAtPath` et tout le panneau l'ignorer.
+ * `mergeGroup` reçoit alors un objet DÉJÀ niché, et sa fusion profonde préexistante suffit :
+ * poser `club.president.twitter` à la main survit à un enregistrement du panneau.
+ */
+function configFromGroupValue(group: GroupSpec, value: GroupValue): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const item of itemsOf(group)) {
+    setAt(
+      out,
+      pathOf(item),
+      item.kind === 'list' ? listForConfig(item, value[item.key]) : value[item.key],
+    );
+  }
+  return out;
+}
+
 function mergeGroup(previous: unknown, next: Record<string, unknown>): Record<string, unknown> {
   const base = isPlainObject(previous) ? previous : {};
   const merged: Record<string, unknown> = { ...base };
@@ -509,8 +895,8 @@ export async function saveClubConfigGroup(
     version: CLUB_CONFIG_VERSION,
     [group.key]:
       group.kind === 'list'
-        ? (validated.value[group.list.key] as ListEntry[])
-        : mergeGroup(raw[group.key], validated.value),
+        ? listForConfig(group.list, validated.value[group.list.key])
+        : mergeGroup(raw[group.key], configFromGroupValue(group, validated.value)),
   };
 
   // 2. UPDATE, jamais `upsert` : l'INSERT est réservé au super-admin

@@ -73,7 +73,13 @@ export function ScalarField({
         </div>
       ) : (
         <input
+          // PR6d — un MONTANT reste un `input[type=text]`. Un `input[type=number]` rend une
+          // CHAÎNE VIDE dès que la saisie n'est pas un nombre : un « 15€ / h » collé
+          // disparaîtrait, et une saisie invalide passerait pour un champ laissé vide, donc
+          // pour une clé omise, au lieu du refus nommé d'`amountSchema`. `inputMode` suffit à
+          // ouvrir le pavé numérique sur mobile.
           type={spec.type === 'email' ? 'email' : spec.type === 'tel' ? 'tel' : 'text'}
+          inputMode={spec.type === 'number' ? 'decimal' : undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={spec.placeholder}

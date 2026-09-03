@@ -11,11 +11,11 @@
 //      validation stricte est pour l'ÉCRITURE (PR6b), pas pour la lecture.
 //   3. Les clés inconnues sont TOLÉRÉES et préservées telles quelles (cf. `parseClubConfig`).
 //
-// Périmètre des groupes : `brand`, `home`, `contact` (PR6a) puis `social`, `partners`,
-// `legal`, `settings` (PR6c) — le chrome du site vitrine. Le brief §5 interdit d'inventer les
-// ~80 clés d'un coup : mieux vaut un arbre restreint et une règle de tolérance que 80 clés à
-// migrer. Les trois pages de contenu (`club`, `infra`, `pricing`) s'ajouteront en PR6d, avec
-// leur formulaire — ajouter un groupe est ADDITIF, donc sans incrément de version.
+// Périmètre des groupes : `brand`, `home`, `contact` (PR6a), puis `social`, `partners`,
+// `legal`, `settings` (PR6c) — le chrome du site vitrine —, et enfin `club`, `infra`,
+// `pricing` (PR6d) — les trois pages de contenu. Le contrat est désormais COMPLET : les dix
+// groupes du `web_site_brief.md` §5 y sont, et PR9 a de quoi rendre la vitrine. Chaque ajout
+// de groupe est resté ADDITIF, donc sans incrément de version.
 
 import { z } from 'zod';
 
@@ -24,6 +24,15 @@ export const CLUB_CONFIG_VERSION = 1;
 
 const text = z.string().catch('');
 const optionalText = z.string().optional().catch(undefined);
+/**
+ * Un MONTANT, dans l'esprit de `text` et de `flag` — PR6d, `pricing.*` (§5.5).
+ *
+ * Absent ≠ zéro : un tarif que le club n'a pas renseigné n'est pas gratuit, et `0` s'afficherait
+ * comme un prix. La clé est donc omise, et l'écriture l'omet elle aussi plutôt que d'écrire `0`
+ * (`clubConfigWrite.ts`, `amountSchema`). Un `"120"` (chaîne) retombe sur `undefined` plutôt que
+ * d'être coercé : la vitrine verrait sinon passer un type que le contrat ne décrit pas.
+ */
+const amount = z.number().optional().catch(undefined);
 
 // ── brand.* — identité & marque (web_site_brief §5.1) ────────────────────────
 const brandSchema = z.object({
@@ -68,6 +77,113 @@ const homeSchema = z.object({
   school_teaser_cta: optionalText,
   school_teaser_image: optionalText,
   infra_teaser: z.array(infraTeaserSchema).catch([]),
+  cta_title: optionalText,
+  cta_text: optionalText,
+  cta_button: optionalText,
+});
+
+// ── club.* — page « Le Club » (web_site_brief §5.3) ──────────────────────────
+// Premiers OBJETS IMBRIQUÉS du contrat (`president`, `coach`) et premières LISTES DE SCALAIRES
+// (`values`, `methods`, `levels`, `coach.credentials`). Ce sont bien ces formes-là que le JSONB
+// porte et que PR9 lira : côté BO, l'état de formulaire reste plat et ne les connaît qu'aux
+// deux points qui lisent et écrivent le JSONB (`clubConfigWrite.ts`).
+const presidentSchema = z.object({
+  name: text,
+  role: text,
+  photo: optionalText,
+  quote: text,
+});
+
+const coachSchema = z.object({
+  name: text,
+  role: text,
+  credentials: z.array(text).catch([]),
+  bio: text,
+  photo: optionalText,
+});
+
+const programSchema = z.object({
+  name: text,
+  age: optionalText,
+  frequency: optionalText,
+  description: optionalText,
+  image: optionalText,
+});
+
+const boardMemberSchema = z.object({ name: text, role: text, photo: optionalText });
+
+const clubSchema = z.object({
+  page_title: optionalText,
+  president: presidentSchema
+    .catch(() => presidentSchema.parse({}))
+    .default(() => presidentSchema.parse({})),
+  values: z.array(text).catch([]),
+  coach: coachSchema.catch(() => coachSchema.parse({})).default(() => coachSchema.parse({})),
+  methods: z.array(text).catch([]),
+  levels: z.array(text).catch([]),
+  programs: z.array(programSchema).catch([]),
+  board: z.array(boardMemberSchema).catch([]),
+});
+
+// ── infra.* — page « Infrastructures » (web_site_brief §5.4) ─────────────────
+const courtSchema = z.object({
+  count: text,
+  label: text,
+  detail: optionalText,
+  image: optionalText,
+});
+
+const clubhouseSchema = z.object({
+  title: optionalText,
+  text: optionalText,
+  /** Liste de scalaires, d'URL cette fois : `list<image>` et non `list<{ url }>`. */
+  images: z.array(text).catch([]),
+});
+
+const lockerRoomsSchema = z.object({
+  title: optionalText,
+  text: optionalText,
+  image: optionalText,
+});
+
+const infraSchema = z.object({
+  page_title: optionalText,
+  courts: z.array(courtSchema).catch([]),
+  clubhouse: clubhouseSchema
+    .catch(() => clubhouseSchema.parse({}))
+    .default(() => clubhouseSchema.parse({})),
+  locker_rooms: lockerRoomsSchema
+    .catch(() => lockerRoomsSchema.parse({}))
+    .default(() => lockerRoomsSchema.parse({})),
+});
+
+// ── pricing.* — page « Tarifs » (web_site_brief §5.5) ────────────────────────
+/**
+ * ⚠️ DEUX champs `price`, DEUX types, et c'est VOULU (web_site_brief §5.5) :
+ *   - `lessons[].price` et `membership[].price` sont des NOMBRES — la vitrine les met en forme
+ *     elle-même (séparateur, devise) et peut les comparer ou les trier ;
+ *   - `other_fees[].price` est du TEXTE, parce que l'unité y est variable : « 15€ / h », « 8€ ».
+ * Ne pas « harmoniser » l'un sur l'autre.
+ */
+const lessonSchema = z.object({
+  name: text,
+  subtitle: optionalText,
+  frequency: optionalText,
+  price: amount,
+  eligibility: optionalText,
+});
+
+const membershipSchema = z.object({ name: text, subtitle: optionalText, price: amount });
+
+const otherFeeSchema = z.object({ label: text, price: text });
+
+const pricingSchema = z.object({
+  page_title: optionalText,
+  season: optionalText,
+  note: optionalText,
+  lessons: z.array(lessonSchema).catch([]),
+  membership: z.array(membershipSchema).catch([]),
+  other_fees: z.array(otherFeeSchema).catch([]),
   cta_title: optionalText,
   cta_text: optionalText,
   cta_button: optionalText,
@@ -136,6 +252,11 @@ export const clubConfigSchema = z.object({
   version: z.number().int().catch(CLUB_CONFIG_VERSION).default(CLUB_CONFIG_VERSION),
   brand: brandSchema.catch(() => brandSchema.parse({})).default(() => brandSchema.parse({})),
   home: homeSchema.catch(() => homeSchema.parse({})).default(() => homeSchema.parse({})),
+  club: clubSchema.catch(() => clubSchema.parse({})).default(() => clubSchema.parse({})),
+  infra: infraSchema.catch(() => infraSchema.parse({})).default(() => infraSchema.parse({})),
+  pricing: pricingSchema
+    .catch(() => pricingSchema.parse({}))
+    .default(() => pricingSchema.parse({})),
   contact: contactSchema
     .catch(() => contactSchema.parse({}))
     .default(() => contactSchema.parse({})),

@@ -1,5 +1,10 @@
 // Multi-tenant — PR6b : un panneau = un groupe de config, avec son propre enregistrement.
 //
+// PR6d : le panneau se REPLIE (l'écran en porte dix) et affiche son état — « Configuré » /
+// « À compléter » d'après ce qui est en base, ou « Modifications non enregistrées » dès qu'une
+// saisie est en cours. Replier n'est qu'un masquage : le panneau reste monté, donc sa saisie
+// et ses fichiers en attente survivent.
+//
 // Un bouton par groupe, et non un pour la page : corriger un numéro de téléphone n'a pas à
 // réécrire l'identité du club, une erreur de validation sur un groupe ne bloque pas les
 // autres, et l'UPDATE ne touche qu'une clé racine — deux onglets ouverts sur deux panneaux
@@ -110,6 +115,24 @@ function withHeadings(items: ItemSpec[]): { item: ItemSpec; heading: string | nu
   });
 }
 
+/**
+ * « Configuré » = au moins une valeur saisie — PR6d, l'indicateur du panneau replié.
+ *
+ * Les drapeaux d'affichage sont IGNORÉS : ils ont toujours une valeur (l'absence vaut `true`),
+ * ils ne diraient donc rien de l'avancement. Un groupe qui n'a que des drapeaux — « Affichage »
+ * — est de ce fait toujours considéré comme configuré, ce qui est la vérité : il n'y a rien à
+ * y remplir.
+ */
+function isFilled(group: GroupSpec, value: GroupValue): boolean {
+  const items = itemsOf(group).filter((item) => !(item.kind === 'field' && item.type === 'bool'));
+  if (items.length === 0) return true;
+  return items.some((item) =>
+    item.kind === 'list'
+      ? ((value[item.key] as ListEntry[] | undefined) ?? []).length > 0
+      : typeof value[item.key] === 'string' && value[item.key] !== '',
+  );
+}
+
 async function deleteConfigImage(publicUrl: string) {
   const key = extractStoragePath(BUCKET, publicUrl);
   if (!key) return;
@@ -123,13 +146,17 @@ export default function SiteConfigPanel({
   group,
   initial,
   clubId,
+  defaultOpen,
   onSaved,
 }: {
   group: GroupSpec;
   initial: GroupValue;
   clubId: string | null;
+  /** L'écran porte dix panneaux : ils sont repliés par défaut, sauf le premier. */
+  defaultOpen: boolean;
   onSaved: () => void;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [value, setValue] = useState<GroupValue>(initial);
   /** Dernier état réellement en base — sert à savoir quelles images ont été remplacées. */
   const [persisted, setPersisted] = useState<GroupValue>(initial);
@@ -267,9 +294,26 @@ export default function SiteConfigPanel({
     onSaved();
   };
 
+  // Toute édition remplace l'objet d'état : la comparaison de références suffit à repérer une
+  // saisie non enregistrée, qu'il serait sinon possible de replier — et d'oublier.
+  const dirty = value !== persisted || Object.keys(files).length > 0;
+  const bodyId = `site-config-${group.key}`;
+
   return (
     <section>
-      <div className="mb-3.5 flex items-baseline gap-3.5">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        className="mb-3.5 flex w-full items-baseline gap-3.5 text-left"
+      >
+        <span
+          aria-hidden
+          className={`text-[0.6rem] text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+        >
+          ▶
+        </span>
         <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
           {group.label}
         </h2>
@@ -280,9 +324,20 @@ export default function SiteConfigPanel({
           }}
         />
         <span className="hidden text-xs text-muted-foreground md:inline">{group.hint}</span>
-      </div>
+        {dirty ? (
+          <span className="shrink-0 text-xs font-medium text-amber-600">
+            Modifications non enregistrées
+          </span>
+        ) : (
+          <span
+            className={`shrink-0 text-xs ${isFilled(group, persisted) ? 'text-emerald-700' : 'text-muted-foreground'}`}
+          >
+            {isFilled(group, persisted) ? 'Configuré' : 'À compléter'}
+          </span>
+        )}
+      </button>
 
-      <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+      <div id={bodyId} hidden={!open} className="rounded-2xl border bg-card/90 p-6 shadow-sm">
         {errors.length > 0 && (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <p className="font-medium">Rien n’a été enregistré :</p>
