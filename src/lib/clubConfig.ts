@@ -11,11 +11,11 @@
 //      validation stricte est pour l'ÉCRITURE (PR6b), pas pour la lecture.
 //   3. Les clés inconnues sont TOLÉRÉES et préservées telles quelles (cf. `parseClubConfig`).
 //
-// Périmètre des groupes : `brand`, `home`, `contact` seulement — ceux que PR9 consommera en
-// premier. Le brief §5 interdit explicitement d'inventer les ~80 clés d'un coup : mieux vaut un
-// arbre restreint et une règle de tolérance que 80 clés à migrer. Les groupes restants
-// (`club`, `infra`, `pricing`, `social`, `partners`, `legal`, `settings`) s'ajouteront quand
-// leurs consommateurs existeront, sans casser les configs déjà écrites.
+// Périmètre des groupes : `brand`, `home`, `contact` (PR6a) puis `social`, `partners`,
+// `legal`, `settings` (PR6c) — le chrome du site vitrine. Le brief §5 interdit d'inventer les
+// ~80 clés d'un coup : mieux vaut un arbre restreint et une règle de tolérance que 80 clés à
+// migrer. Les trois pages de contenu (`club`, `infra`, `pricing`) s'ajouteront en PR6d, avec
+// leur formulaire — ajouter un groupe est ADDITIF, donc sans incrément de version.
 
 import { z } from 'zod';
 
@@ -87,6 +87,43 @@ const contactSchema = z.object({
   opening_hours: z.array(openingHourSchema).catch([]),
 });
 
+// ── social.* — réseaux sociaux (web_site_brief §5.7) ─────────────────────────
+const socialSchema = z.object({
+  facebook_url: optionalText,
+  instagram_url: optionalText,
+});
+
+// ── partners — « Ils soutiennent le club » (web_site_brief §5.8) ─────────────
+// Une LISTE À LA RACINE, et non un objet de champs : c'est la forme que décrit la spec et que
+// PR9 lira. L'écriture la produit telle quelle (`clubConfigWrite.ts`, groupe `kind: 'list'`).
+const partnerSchema = z.object({ logo: text, name: optionalText, url: optionalText });
+
+// ── legal.* — mentions légales (web_site_brief §5.9) ─────────────────────────
+const legalSchema = z.object({
+  publication_director: optionalText,
+  host_name: optionalText,
+  host_address: optionalText,
+});
+
+// ── settings.* — drapeaux d'affichage (web_site_brief §5.10) ─────────────────
+/**
+ * Défaut POSITIF, à l'inverse de tout le reste du contrat où le défaut est vide : le brief
+ * §5.10 veut qu'un club qui n'a rien configuré affiche ses blocs. Clé absente et clé à `true`
+ * se lisent donc pareil — seul un `false` explicite masque, ce que l'écriture garantit en
+ * enregistrant le booléen plutôt qu'en effaçant la clé.
+ *
+ * Nommé `flag` et non `bool` : c'est un drapeau d'affichage à défaut positif, pas un booléen
+ * neutre. Un booléen dont le défaut serait `false` ne doit PAS réutiliser ce helper.
+ */
+const flag = z.boolean().catch(true).default(true);
+
+const settingsSchema = z.object({
+  show_news: flag,
+  show_events: flag,
+  show_partners: flag,
+  show_stats: flag,
+});
+
 /**
  * Schéma de LECTURE. Chaque groupe a un défaut, donc `{}` est valide et rend l'arbre complet.
  * `.catch()` sur les feuilles : une clé au mauvais type retombe sur son défaut au lieu
@@ -102,6 +139,12 @@ export const clubConfigSchema = z.object({
   contact: contactSchema
     .catch(() => contactSchema.parse({}))
     .default(() => contactSchema.parse({})),
+  social: socialSchema.catch(() => socialSchema.parse({})).default(() => socialSchema.parse({})),
+  partners: z.array(partnerSchema).catch([]),
+  legal: legalSchema.catch(() => legalSchema.parse({})).default(() => legalSchema.parse({})),
+  settings: settingsSchema
+    .catch(() => settingsSchema.parse({}))
+    .default(() => settingsSchema.parse({})),
 });
 
 export type ClubConfig = z.infer<typeof clubConfigSchema>;

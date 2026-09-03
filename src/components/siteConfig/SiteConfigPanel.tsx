@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { STORAGE_BUCKETS, clubPath, extractStoragePath, sanitizeFilename } from '../../lib/storage';
 import {
+  itemsOf,
   saveClubConfigGroup,
   validateClubConfigGroup,
   type GroupSpec,
@@ -16,7 +17,7 @@ import {
   type ItemSpec,
   type ListSpec,
 } from '../../lib/clubConfigWrite';
-import { ImageField, ScalarField } from './SiteConfigFields';
+import { BoolField, ImageField, ScalarField } from './SiteConfigFields';
 
 // Décision brief §8, voie (a) : le bucket générique existant, sous `<club_id>/config/…`.
 // Zéro migration — c'est ce qui garde PR6b déployable par un simple push. Un bucket dédié
@@ -34,7 +35,7 @@ function entryPath(listKey: string, index: number, fieldKey: string) {
 /** Toutes les URL d'image portées par une valeur de groupe, listes comprises. */
 function imageUrls(group: GroupSpec, value: GroupValue): string[] {
   const urls: string[] = [];
-  for (const item of group.items) {
+  for (const item of itemsOf(group)) {
     if (item.kind === 'list') {
       const entries = (value[item.key] as ListEntry[] | undefined) ?? [];
       for (const entry of entries) {
@@ -56,6 +57,28 @@ function setAtPath(value: GroupValue, path: string, url: string): GroupValue {
     i === Number(index) ? { ...entry, [leaf]: url } : entry,
   );
   return { ...value, [head]: entries };
+}
+
+/**
+ * Marqueur temporaire d'un champ image dont le fichier n'est pas encore envoyé. Il ne sort
+ * jamais d'ici : chaque chemin marqué est réécrit par l'URL réelle juste après l'upload.
+ * Le type `image` n'a volontairement AUCUN contrôle de format (cf. `FORMATS`), donc rien ne
+ * s'oppose à cette valeur le temps de la validation.
+ */
+const PENDING_IMAGE = '(fichier en attente d’envoi)';
+
+/**
+ * Un fichier choisi vit dans `files` jusqu'à l'upload, PAS dans `value`. Valider `value` tel
+ * quel refuse donc un champ image ⬤ qu'on vient pourtant de renseigner — le cas de
+ * `partners[].logo`, premier champ image obligatoire à l'intérieur d'une entrée de liste (au
+ * niveau du GROUPE, un ⬤ vide est accepté, d'où l'absence du problème sur `brand.logo`).
+ *
+ * On valide donc une PROJECTION où chaque chemin en attente porte une valeur non vide. L'ordre
+ * de PR6b est préservé — valider, puis uploader : on n'envoie toujours rien au Storage pour un
+ * panneau que l'écriture refusera.
+ */
+function withPendingImages(value: GroupValue, files: PendingFiles): GroupValue {
+  return Object.keys(files).reduce((acc, path) => setAtPath(acc, path, PENDING_IMAGE), value);
 }
 
 // `clubPath()` est obligatoire : les policies Storage lisent le premier segment via
@@ -197,8 +220,10 @@ export default function SiteConfigPanel({
     }
 
     // Valider AVANT d'uploader : inutile d'envoyer une image au Storage pour un panneau que
-    // l'écriture va refuser — ce serait un orphelin garanti.
-    const validated = validateClubConfigGroup(group, value);
+    // l'écriture va refuser — ce serait un orphelin garanti. Les fichiers en attente comptent
+    // comme renseignés (`withPendingImages`), sans quoi un logo qu'on vient de choisir serait
+    // refusé pour cause de champ vide.
+    const validated = validateClubConfigGroup(group, withPendingImages(value, files));
     if (!validated.valid) {
       setErrors(validated.errors);
       return;
@@ -275,7 +300,7 @@ export default function SiteConfigPanel({
         )}
 
         <div className="flex flex-col gap-5">
-          {withHeadings(group.items).map(({ item, heading }) => (
+          {withHeadings(itemsOf(group)).map(({ item, heading }) => (
             <div key={item.key} className="flex flex-col gap-5">
               {heading && (
                 <h3 className="mt-1 text-sm font-semibold text-card-foreground">{heading}</h3>
@@ -299,6 +324,13 @@ export default function SiteConfigPanel({
                   onAdd={() => addEntry(item)}
                   onRemove={(index) => removeEntry(item, index)}
                   onMove={(index, delta) => moveEntry(item, index, delta)}
+                />
+              ) : item.type === 'bool' ? (
+                <BoolField
+                  spec={item}
+                  // L'absence vaut `true` (web_site_brief §5.10), comme à la lecture.
+                  value={value[item.key] !== false}
+                  onChange={(checked) => edit((prev) => ({ ...prev, [item.key]: checked }))}
                 />
               ) : item.type === 'image' ? (
                 <ImageField

@@ -12,19 +12,24 @@
 // en dérivent tous. Les dissocier, c'est se garantir qu'un libellé et sa validation
 // divergeront.
 //
-// Périmètre : `brand`, `home`, `contact` — les trois groupes du contrat posé en PR6a. Les
-// sept autres (`club`, `infra`, `pricing`, `social`, `partners`, `legal`, `settings`)
-// arrivent en PR6c, avec l'extension de `clubConfig.ts` qu'ils impliquent. Ce fichier ne
-// touche pas au schéma de lecture.
+// Périmètre : `brand`, `home`, `contact` (PR6a) et `social`, `partners`, `legal`, `settings`
+// (PR6c) — le chrome du site vitrine. Les trois pages de contenu (`club`, `infra`, `pricing`)
+// arrivent en PR6d : elles forceront les objets imbriqués, les listes de scalaires et le type
+// `number`, extensions qu'on ne pose pas avant le groupe qui les exerce.
 import { z } from 'zod';
 import { supabase } from './supabase';
 import { CLUB_CONFIG_VERSION, type ClubConfig } from './clubConfig';
 
 // ── Specs ────────────────────────────────────────────────────────────────────
 
-/** Types de la table du `web_site_brief.md` §5 présents dans ces trois groupes.
- *  `number` et `bool` n'apparaissent que dans `pricing.*` et `settings.*` — PR6c. */
-export type FieldType = 'text' | 'longtext' | 'image' | 'color' | 'url' | 'email' | 'tel';
+/** Types de la table du `web_site_brief.md` §5 présents dans ces groupes.
+ *  `number` n'apparaît que dans `pricing.*` — PR6d.
+ *
+ *  ⚠️ `bool` ne décrit aujourd'hui QUE les drapeaux d'affichage de `settings.*`, dont
+ *  l'absence vaut `true` (§5.10) : c'est ce que `groupValueFromConfig` applique, en miroir du
+ *  helper `flag` du schéma de lecture. Un booléen à défaut `false` devra porter son défaut
+ *  dans sa spec plutôt que réutiliser ce type tel quel. */
+export type FieldType = 'text' | 'longtext' | 'image' | 'color' | 'url' | 'email' | 'tel' | 'bool';
 
 export type FieldSpec = {
   key: string;
@@ -54,18 +59,47 @@ export type ItemSpec =
   | ({ kind: 'field'; section?: string } & FieldSpec)
   | ({ kind: 'list'; section?: string } & ListSpec);
 
-export type ClubConfigGroupKey = 'brand' | 'home' | 'contact';
+export type ClubConfigGroupKey =
+  | 'brand'
+  | 'home'
+  | 'contact'
+  | 'social'
+  | 'partners'
+  | 'legal'
+  | 'settings';
 
-export type GroupSpec = {
+/**
+ * Deux formes de groupe, parce que le contrat en a deux :
+ *   - `kind: 'fields'` — `config[key]` est un OBJET de champs et de listes (le cas général) ;
+ *   - `kind: 'list'`   — `config[key]` est une LISTE à la racine, ce que le brief §5.8 décrit
+ *     pour `partners`. Emboîter la liste sous `partners.items` aurait évité cette union, au
+ *     prix d'un JSONB divergent de la spec que PR9 lira.
+ *
+ * L'état de formulaire, lui, garde UNE seule forme : `itemsOf()` présente le groupe-liste
+ * comme un groupe à un seul item, si bien que le schéma zod, le nommage de l'entrée fautive,
+ * les chemins de fichiers en attente (`partners.0.logo`) et le rendu du panneau fonctionnent
+ * sans savoir laquelle des deux formes ils manipulent. Seuls les deux points où le JSONB est
+ * lu et écrit connaissent la différence.
+ */
+type GroupBase = {
   key: ClubConfigGroupKey;
   label: string;
   hint: string;
-  items: ItemSpec[];
 };
+
+export type GroupSpec =
+  | (GroupBase & { kind: 'fields'; items: ItemSpec[] })
+  | (GroupBase & { kind: 'list'; list: ListSpec });
+
+/** Les items d'un groupe quelle que soit sa forme — un groupe-liste en a exactement un. */
+export function itemsOf(group: GroupSpec): ItemSpec[] {
+  return group.kind === 'list' ? [{ kind: 'list', ...group.list }] : group.items;
+}
 
 // L'ordre des clés suit celui de `clubConfig.ts`, pour que les deux fichiers se relisent
 // en vis-à-vis.
 const BRAND: GroupSpec = {
+  kind: 'fields',
   key: 'brand',
   label: 'Identité du club',
   hint: 'Nom, logos et couleur du site vitrine',
@@ -95,6 +129,7 @@ const BRAND: GroupSpec = {
 };
 
 const HOME: GroupSpec = {
+  kind: 'fields',
   key: 'home',
   label: 'Page d’accueil du site vitrine',
   hint: 'Bandeau, chiffres clés et teasers',
@@ -142,6 +177,7 @@ const HOME: GroupSpec = {
 };
 
 const CONTACT: GroupSpec = {
+  kind: 'fields',
   key: 'contact',
   label: 'Contact et coordonnées',
   hint: 'Adresse, téléphone et horaires d’accueil',
@@ -173,12 +209,127 @@ const CONTACT: GroupSpec = {
   ],
 };
 
-export const CLUB_CONFIG_GROUPS: GroupSpec[] = [BRAND, HOME, CONTACT];
+// Les quatre groupes de PR6c sont le CHROME du site — pied de page, réseaux, bande
+// partenaires, drapeaux d'affichage — et non des pages : ils viennent après les groupes de
+// contenu, et PR6d insérera `club`, `infra` et `pricing` avant eux.
+const SOCIAL: GroupSpec = {
+  kind: 'fields',
+  key: 'social',
+  label: 'Réseaux sociaux',
+  hint: 'Liens affichés dans le pied de page du site vitrine',
+  items: [
+    // Deux champs nommés, et non la `list<{ platform, url }>` qu'évoque le brief §5.7 : une
+    // liste générique se paierait en complexité côté vitrine pour un besoin qui n'existe pas.
+    {
+      kind: 'field',
+      key: 'facebook_url',
+      label: 'Page Facebook',
+      type: 'url',
+      placeholder: 'https://www.facebook.com/…',
+      // Libellé honnête : la publication automatique des actus sur Facebook a ses propres
+      // réglages (PR8), ce lien ne fait que s'afficher sur le site vitrine.
+      help: 'Simple lien affiché sur le site vitrine. Sans effet sur la publication des actus sur Facebook.',
+    },
+    {
+      kind: 'field',
+      key: 'instagram_url',
+      label: 'Compte Instagram',
+      type: 'url',
+      placeholder: 'https://www.instagram.com/…',
+    },
+  ],
+};
+
+const PARTNERS: GroupSpec = {
+  kind: 'list',
+  key: 'partners',
+  label: 'Partenaires',
+  hint: 'La bande « Ils soutiennent le club » du site vitrine',
+  // La clé de la liste est celle du groupe : les chemins d'images en attente se lisent alors
+  // `partners.0.logo`, comme `infra_teaser.1.image` pour une liste nichée dans un groupe.
+  list: {
+    key: 'partners',
+    label: 'Partenaires',
+    singular: 'partenaire',
+    help: 'Le logo est obligatoire ; le nom et le lien sont facultatifs. Une liste vide masque simplement la bande.',
+    fields: [
+      { key: 'logo', label: 'Logo', type: 'image', required: true },
+      { key: 'name', label: 'Nom', type: 'text', placeholder: 'Crédit Agricole' },
+      { key: 'url', label: 'Site web', type: 'url', placeholder: 'https://…' },
+    ],
+  },
+};
+
+const LEGAL: GroupSpec = {
+  kind: 'fields',
+  key: 'legal',
+  label: 'Mentions légales',
+  hint: 'Pied de page et page « Mentions légales » du site vitrine',
+  items: [
+    {
+      kind: 'field',
+      key: 'publication_director',
+      label: 'Directeur de la publication',
+      type: 'text',
+      placeholder: 'Prénom Nom',
+      help: 'Habituellement le président du club. Apparaît sur le site vitrine uniquement.',
+    },
+    { kind: 'field', key: 'host_name', label: 'Hébergeur du site', type: 'text', placeholder: 'Vercel Inc.' },
+    {
+      kind: 'field',
+      key: 'host_address',
+      label: 'Adresse de l’hébergeur',
+      type: 'text',
+      help: 'Nom et adresse de l’hébergeur sont obligatoires dans les mentions légales d’un site public.',
+    },
+  ],
+};
+
+const SETTINGS: GroupSpec = {
+  kind: 'fields',
+  key: 'settings',
+  label: 'Affichage des sections',
+  hint: 'Blocs affichés ou masqués sur le site vitrine',
+  items: [
+    {
+      kind: 'field',
+      key: 'show_news',
+      label: 'Afficher le bloc Actualités',
+      type: 'bool',
+      help: 'Décocher masque le bloc sur le site vitrine. Les actus restent publiées dans l’application des adhérents.',
+    },
+    {
+      kind: 'field',
+      key: 'show_events',
+      label: 'Afficher le bloc Prochains rendez-vous',
+      type: 'bool',
+      help: 'Décocher masque l’agenda sur le site vitrine. Les événements restent visibles dans l’application des adhérents.',
+    },
+    {
+      kind: 'field',
+      key: 'show_partners',
+      label: 'Afficher la bande Partenaires',
+      type: 'bool',
+      help: 'Le contenu se saisit dans le panneau « Partenaires » ci-dessus.',
+    },
+    {
+      kind: 'field',
+      key: 'show_stats',
+      label: 'Afficher les chiffres clés',
+      type: 'bool',
+      help: 'Le contenu se saisit dans le panneau « Page d’accueil du site vitrine ».',
+    },
+  ],
+};
+
+export const CLUB_CONFIG_GROUPS: GroupSpec[] = [BRAND, HOME, CONTACT, SOCIAL, PARTNERS, LEGAL, SETTINGS];
 
 // ── Schéma strict ────────────────────────────────────────────────────────────
 
 export type ListEntry = Record<string, string>;
-export type GroupValue = Record<string, string | ListEntry[]>;
+/** Le booléen est le seul type d'état de formulaire qui ne soit pas une chaîne — il ne
+ *  descend PAS dans les entrées de liste, aucun `bool` n'y figurant au contrat. */
+export type GroupValue = Record<string, string | boolean | ListEntry[]>;
 
 // `image` n'a volontairement PAS de contrôle de format : la valeur est produite par
 // `getPublicUrl()`, et le contrat de lecture la décrit comme « clé Storage OU URL publique ».
@@ -207,13 +358,19 @@ function fieldSchema(spec: FieldSpec, insideList: boolean) {
     .refine((v) => v === '' || !format || format.test(v), format?.message ?? 'est invalide');
 }
 
+/** Un drapeau n'a ni trim, ni format, ni « vide » : le faire transiter par `fieldSchema`
+ *  écrirait la CHAÎNE `'false'` dans le JSONB — non vide, donc vraie pour la vitrine. */
+const boolSchema = z.boolean({ error: 'doit être coché ou décoché' });
+
 function groupSchema(group: GroupSpec) {
   const shape: Record<string, z.ZodType> = {};
-  for (const item of group.items) {
+  for (const item of itemsOf(group)) {
     shape[item.key] =
       item.kind === 'list'
         ? z.array(z.object(Object.fromEntries(item.fields.map((f) => [f.key, fieldSchema(f, true)]))))
-        : fieldSchema(item, false);
+        : item.type === 'bool'
+          ? boolSchema
+          : fieldSchema(item, false);
   }
   return z.object(shape);
 }
@@ -225,7 +382,7 @@ function ordinal(n: number): string {
 /** « 2ᵉ horaire — « Jour » est obligatoire. » plutôt qu'un « formulaire invalide » global. */
 function formatIssue(group: GroupSpec, issue: { path: PropertyKey[]; message: string }): string {
   const [head, index, leaf] = issue.path;
-  const item = group.items.find((i) => i.key === head);
+  const item = itemsOf(group).find((i) => i.key === head);
 
   if (item?.kind === 'list' && typeof index === 'number') {
     const field = item.fields.find((f) => f.key === leaf);
@@ -257,17 +414,30 @@ function asText(v: unknown): string {
 }
 
 /** Projette la config lue sur les seules clés de la spec, en texte : l'état du formulaire est
- *  entièrement fait de chaînes, y compris pour les images (URL) et la couleur (hex). */
+ *  entièrement fait de chaînes — images (URL) et couleur (hex) comprises —, à la seule
+ *  exception des drapeaux, qui restent des booléens (§`boolSchema`). */
 export function groupValueFromConfig(group: GroupSpec, config: ClubConfig): GroupValue {
-  const source = isPlainObject(config[group.key]) ? (config[group.key] as Record<string, unknown>) : {};
+  const raw = config[group.key];
+  // Premier des deux seuls points qui connaissent la forme du groupe : la liste à la racine
+  // est remise sous la clé de sa liste, et tout ce qui suit ignore la différence.
+  const source: Record<string, unknown> =
+    group.kind === 'list'
+      ? { [group.list.key]: raw }
+      : isPlainObject(raw)
+        ? (raw as Record<string, unknown>)
+        : {};
   const value: GroupValue = {};
-  for (const item of group.items) {
+  for (const item of itemsOf(group)) {
     if (item.kind === 'list') {
       const entries = Array.isArray(source[item.key]) ? (source[item.key] as unknown[]) : [];
       value[item.key] = entries.map((entry) => {
         const row = isPlainObject(entry) ? entry : {};
         return Object.fromEntries(item.fields.map((f) => [f.key, asText(row[f.key])])) as ListEntry;
       });
+    } else if (item.type === 'bool') {
+      // L'ABSENCE VAUT `true` (web_site_brief §5.10, helper `flag` du schéma de lecture) : un
+      // club qui n'a jamais ouvert cet écran doit voir ses quatre cases cochées.
+      value[item.key] = typeof source[item.key] === 'boolean' ? (source[item.key] as boolean) : true;
     } else {
       value[item.key] = asText(source[item.key]);
     }
@@ -331,10 +501,16 @@ export async function saveClubConfigGroup(
   }
 
   const raw = isPlainObject(data?.config) ? data.config : {};
+  // Second point qui connaît la forme du groupe. Un groupe-liste est remplacé EN BLOC : c'est
+  // déjà la règle des listes (cf. `mergeGroup`), et `mergeGroup` ne saurait de toute façon pas
+  // fusionner un tableau — `Object.entries` en ferait un objet indexé par position.
   const next = {
     ...raw,
     version: CLUB_CONFIG_VERSION,
-    [group.key]: mergeGroup(raw[group.key], validated.value),
+    [group.key]:
+      group.kind === 'list'
+        ? (validated.value[group.list.key] as ListEntry[])
+        : mergeGroup(raw[group.key], validated.value),
   };
 
   // 2. UPDATE, jamais `upsert` : l'INSERT est réservé au super-admin
