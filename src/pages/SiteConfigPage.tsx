@@ -5,8 +5,9 @@
 // `club_settings_update_club_admin` le refuse EN BASE de toute façon — le masquage ici n'est
 // que du confort.
 //
-// Trois groupes seulement (`brand`, `home`, `contact`) : ceux du contrat posé en PR6a. Les
-// sept autres arrivent en PR6c, avec l'extension de `clubConfig.ts` qu'ils impliquent.
+// Sept groupes : les trois du contrat de PR6a (`brand`, `home`, `contact`) puis le chrome du
+// site vitrine livré en PR6c (`social`, `partners`, `legal`, `settings`). Les trois pages de
+// contenu (`club`, `infra`, `pricing`) arrivent en PR6d et s'inséreront AVANT le chrome.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';

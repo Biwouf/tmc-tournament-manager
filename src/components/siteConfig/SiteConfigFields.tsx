@@ -86,6 +86,42 @@ export function ScalarField({
 }
 
 /**
+ * Case à cocher — les seuls booléens du contrat sont les drapeaux d'affichage de `settings.*`.
+ *
+ * Décocher écrit le booléen `false` et n'efface PAS la clé : c'est la seule façon de
+ * distinguer « masqué explicitement » de « jamais configuré », l'absence de clé valant `true`
+ * (web_site_brief §5.10). Pas de ⬤ ici — un drapeau a toujours une valeur, il n'est jamais
+ * « vide ».
+ */
+export function BoolField({
+  spec,
+  value,
+  onChange,
+}: {
+  spec: FieldSpec;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div>
+      <label className="flex cursor-pointer items-center gap-2.5">
+        <input
+          type="checkbox"
+          checked={value}
+          onChange={(e) => onChange(e.target.checked)}
+          className="h-4 w-4 shrink-0 cursor-pointer rounded border-input accent-primary"
+        />
+        <span className="text-sm font-medium text-foreground">{spec.label}</span>
+      </label>
+      {/* Aligné sur le libellé plutôt que sur la case : la case n'est pas une puce de liste. */}
+      <div className="pl-[1.625rem]">
+        <FieldHelp help={spec.help} />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Upload DIFFÉRÉ : le fichier choisi ici n'atteint le Storage qu'à l'enregistrement du
  * panneau. Uploader à la sélection laisserait un objet orphelin dans le bucket dès qu'on
  * change d'avis, et supprimerait l'ancienne image avant d'être sûr que l'écriture passe.
