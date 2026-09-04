@@ -5,9 +5,14 @@
 // `club_settings_update_club_admin` le refuse EN BASE de toute façon — le masquage ici n'est
 // que du confort.
 //
-// Sept groupes : les trois du contrat de PR6a (`brand`, `home`, `contact`) puis le chrome du
-// site vitrine livré en PR6c (`social`, `partners`, `legal`, `settings`). Les trois pages de
-// contenu (`club`, `infra`, `pricing`) arrivent en PR6d et s'inséreront AVANT le chrome.
+// DIX groupes, dans l'ordre du `web_site_brief.md` §5 : l'identité et les pages du site
+// (`brand`, `home`, puis `club`, `infra`, `pricing` — PR6d —, puis `contact`), et enfin son
+// chrome (`social`, `partners`, `legal`, `settings` — PR6c). La configuration est CLOSE.
+//
+// Dix panneaux dépliés faisaient une page trop haute : ils sont REPLIÉS par défaut, sauf le
+// premier, et chacun affiche son état (« Configuré » / « À compléter ») — ce qui donne en prime
+// une vue d'avancement au club qui remplit sa config. Le repli n'est qu'un masquage : chaque
+// panneau reste monté et garde sa saisie en cours, qu'il signale plutôt que de la cacher.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
@@ -56,9 +61,10 @@ export default function SiteConfigPage() {
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              Chaque panneau s’enregistre séparément. Les champs marqués{' '}
-              <span className="text-primary">⬤</span> sont attendus par le site vitrine, mais
-              vous pouvez enregistrer un panneau incomplet et le compléter plus tard.
+              Cliquez sur le titre d’un panneau pour le déplier. Chaque panneau s’enregistre
+              séparément. Les champs marqués <span className="text-primary">⬤</span> sont
+              attendus par le site vitrine, mais vous pouvez enregistrer un panneau incomplet et
+              le compléter plus tard.
             </p>
 
             {CLUB_CONFIG_GROUPS.map((group, index) => (
@@ -67,6 +73,7 @@ export default function SiteConfigPage() {
                 group={group}
                 initial={initialValues[index]}
                 clubId={clubId}
+                defaultOpen={index === 0}
                 onSaved={reload}
               />
             ))}

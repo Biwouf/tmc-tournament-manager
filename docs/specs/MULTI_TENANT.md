@@ -410,11 +410,13 @@ Les ~80 variables du `web_site_brief.md` (`brand.*`, `home.*`, `club.*`, `infra.
   avec les défauts — la validation stricte est pour l'écriture, PR6b) ; les **clés inconnues
   sont préservées**, pour qu'un BO en retard d'une version n'efface pas un groupe qu'il ne
   connaît pas encore. `config.version` (= 1) discrimine la forme.
-  Groupes réellement couverts à ce jour : **`brand`, `home`, `contact`** (PR6a) et **`social`,
-  `partners`, `legal`, `settings`** (PR6c). Restent `club`, `infra`, `pricing` — **PR6d**. Les
-  groupes s'ajoutent avec leurs consommateurs : figer 80 clés sans retour d'usage, c'est se
-  condamner à migrer un JSONB qui porte déjà les données de deux clubs. Un ajout de groupe est
-  **additif**, donc `CLUB_CONFIG_VERSION` reste à **1**.
+  Groupes couverts : **`brand`, `home`, `contact`** (PR6a), **`social`, `partners`, `legal`,
+  `settings`** (PR6c) et **`club`, `infra`, `pricing`** (PR6d). ✅ **La configuration est CLOSE**
+  — les dix groupes du `web_site_brief.md` §5 sont éditables et PR9 a son contrat complet. Les
+  groupes se sont ajoutés avec leurs consommateurs plutôt qu'en bloc : figer 80 clés sans retour
+  d'usage, c'était se condamner à migrer un JSONB qui porte déjà les données de deux clubs.
+  Chaque ajout de groupe est resté **additif**, donc `CLUB_CONFIG_VERSION` reste à **1** — il n'a
+  jamais bougé de PR6a à PR6d.
   Lecture côté BO : `src/hooks/useClubConfig.ts`.
 - **Images** (logos, hero, portraits, courts…) : voir **D12** — buckets **par type de
   contenu** (peu nombreux, stables), chemins **préfixés `club_id/`** (ex.
@@ -461,13 +463,54 @@ Les ~80 variables du `web_site_brief.md` (`brand.*`, `home.*`, `club.*`, `infra.
   connaissent la différence, la lecture (`groupValueFromConfig`) et l'écriture, où la liste remplace
   sa valeur **en bloc** (`mergeGroup` ne saurait pas fusionner un tableau : `Object.entries` en ferait
   un objet indexé par position). Les logos réutilisent l'upload différé de PR6b **sans modification**.
-  Ordre à l'écran : le chrome vient **après** les groupes de contenu (Identité → Accueil → Contact →
-  Réseaux → Partenaires → Mentions légales → Affichage) ; PR6d insérera `club`, `infra` et `pricing`
-  **avant** ce bloc. Périmètre PR6d : ce sont eux qui forceront les **objets imbriqués**
-  (`club.president.*`, `infra.clubhouse.*`), les **listes de scalaires** (`club.values`,
-  `infra.clubhouse.images`) et le type **`number`** (`pricing.lessons[].price`) — extensions
-  volontairement **non anticipées** ici, les poser sans le groupe qui les exerce étant du code non
-  testé.
+  Ordre à l'écran : le chrome vient **après** les groupes de contenu, et PR6d a inséré `club`,
+  `infra` et `pricing` **avant** ce bloc. Les trois dernières extensions du modèle sont restées
+  **non anticipées** ici — les poser sans le groupe qui les exerce, c'est du code non testé.
+- **Livré en PR6d — la configuration est CLOSE.** Les trois **pages de contenu** : **`club`**
+  (§5.3), **`infra`** (§5.4) et **`pricing`** (§5.5), soit ~45 clés, 8 listes et 4 objets
+  imbriqués. Toujours **aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. Trois extensions,
+  chacune posée avec le groupe qui l'exerce, et toutes tenues à la **règle de PR6c** : l'état de
+  formulaire garde **une seule forme, plate**, et seuls les deux points qui lisent et écrivent le
+  JSONB connaissent la forme réelle. `groupSchema`, `formatIssue`, `setAtPath` et le rendu du
+  panneau n'ont eu à connaître **aucune** des trois.
+  · **Objets imbriqués** (`club.president`, `club.coach`, `infra.clubhouse`,
+  `infra.locker_rooms`). La clé de formulaire reste **plate et sans point** (`president_photo`),
+  la spec porte en plus le **chemin réel** (`path: ['president', 'photo']`). Des clés pointées
+  auraient cassé `setAtPath` **en silence** — il découpe les chemins de fichiers en attente sur le
+  point, donc `'president.photo'` s'y serait lu `[head='president', index='photo']` et une URL
+  d'image aurait **écrasé l'objet entier**. Côté écriture, l'objet niché est reconstruit à partir
+  des `path` **avant** `mergeGroup`, dont la fusion profonde préexistante suffit alors : une clé
+  inconnue posée à la main (`club.president.twitter`) survit à un enregistrement du panneau. Les
+  sous-titres `section` de PR6b suffisent à présenter ces objets à l'écran.
+  · **Listes de scalaires** (`club.values`, `club.methods`, `club.levels`,
+  `club.coach.credentials`, `infra.clubhouse.images`). `ListSpec` gagne `scalar: true` + **un
+  seul** `FieldSpec` ; l'état reste des entrées à une clé, donc le rendu de liste, l'ajout, le
+  retrait, le réordonnancement et le remap des fichiers en attente (`clubhouse_images.0.value`)
+  fonctionnent **sans une ligne de plus**. L'emballage `{ value: … }` ne sort **jamais** du
+  formulaire : le JSONB porte `["Respect", "Convivialité"]`, la forme que décrit la spec et que
+  PR9 lira — le stocker emballé aurait refait l'erreur que la décision `partners` a refusée.
+  `club.coach.credentials` et `infra.clubhouse.images` **combinent** les deux extensions : une
+  liste scalaire qui vit à un `path`.
+  · Le type **`number`** (`pricing.lessons[].price`, `pricing.membership[].price`). Sa propre
+  branche de schéma, comme `bool` en PR6c : la saisie reste une chaîne (c'est un `<input>`), le
+  schéma la **valide et la convertit**, et le JSONB reçoit un **nombre** — un `"120"` y serait une
+  régression silencieuse pour la vitrine. **Vide ≠ zéro** : un tarif non renseigné voit sa clé
+  **omise**, jamais écrite à `0`. Le schéma est **idempotent** (il accepte le nombre et
+  l'`undefined` autant que la chaîne) parce que `saveClubConfigGroup` revalide la valeur que le
+  panneau lui repasse — un `z.string()` seul aurait refusé au second tour un montant laissé vide.
+  Le champ reste un `input[type=text]` avec `inputMode="decimal"` : un `type="number"` rend une
+  **chaîne vide** dès que la saisie n'est pas un nombre, et un « 15€ / h » collé serait passé pour
+  un champ vide au lieu du refus nommé.
+  ⚠️ **Deux champs `price`, deux types, et c'est voulu** (`web_site_brief.md` §5.5) :
+  `lessons[].price` et `membership[].price` sont des **nombres**, `other_fees[].price` est du
+  **texte** — l'unité y est variable (« 15€ / h », « 8€ »). Ne pas « harmoniser » l'un sur l'autre.
+  Ordre à l'écran, celui du brief §5 : Identité → Accueil → **Le Club → Infrastructures →
+  Tarifs** → Contact → Réseaux → Partenaires → Mentions légales → Affichage. Dix panneaux dépliés
+  faisant une page trop haute, ils sont désormais **repliés par défaut** (sauf le premier) et
+  chacun affiche son état — « Configuré » / « À compléter » d'après ce qui est **en base**, ou
+  « Modifications non enregistrées » dès qu'une saisie est en cours, pour qu'un repli ne cache
+  jamais du travail non sauvegardé. Le repli n'est qu'un masquage : le panneau reste monté, donc
+  sa saisie et ses fichiers en attente survivent.
 
 ### 6.2 GEN_PROG — background personnalisé
 Le module Programmation Image utilise aujourd'hui un fond figé. En multi-tenant, chaque club
@@ -738,7 +781,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR6a ✅ | 3 | **Socle** : contrat `club_settings.config` (`src/lib/clubConfig.ts`, zod, lecture tolérante) + cloisonnement RLS de `club_settings` (dette §2.4) + **cloisonnement Storage** (D12 : préfixe `club_id/`, policies scopées sur les 4 buckets, `content-images` rapatrié) + mutualisation d'`extractStoragePath` dans `src/lib/storage.ts`. **Aucun formulaire.** | ⚠️ **sensible** — migration Storage : un verrouillage ne se voit ni au build ni au typecheck, contrôle fonctionnel réel exigé (§8.4) |
 | PR6b ✅ | 3 | Section « Configuration du site » au BO (`/admin/site`, `adminOnly`) : un panneau par groupe, chacun avec son propre enregistrement, sur les **trois groupes du contrat** (`brand`, `home`, `contact`) — `src/lib/clubConfigWrite.ts` (schéma **strict** à l'écriture, `UPDATE` + fusion profonde préservant les clés inconnues) + `SiteConfigPage` + `components/siteConfig/`. Images sous `content-images/<club_id>/config/…`. **Aucune migration** — la policy d'écriture et les GRANT étaient déjà en place, et le bucket réutilisé date de PR6a. `src/lib/clubConfig.ts` **inchangé**. | non-bloquante — première PR de la série **sans opération prod** |
 | PR6c ✅ | 3 | Les **quatre groupes globaux** — le *chrome* du site : `social`, `legal`, `settings`, `partners`. Deux **extensions du modèle**, chacune livrée avec le groupe qui l'exerce : le type **`bool`** (branche propre dans le schéma, hors du tuyau des chaînes qui écrirait `'false'` — non vide donc **vrai** ; défaut **positif**, décocher écrit le booléen `false` au lieu d'effacer la clé) et le **groupe-liste** (`partners` reste une **liste à la racine** comme la spec §5.8 que PR9 lira ; `itemsOf()` confine l'union à la lecture et à l'écriture). **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé** (ajout additif). Détail : §6.1. | non-bloquante — **aucune opération prod** |
-| PR6d | 3 | Les **trois pages de contenu** (`club`, `infra`, `pricing`) — ~45 clés — et les **trois extensions** qu'elles seules exercent : **objets imbriqués** (`club.president.*`, `club.coach.*`, `infra.clubhouse.*`, `infra.locker_rooms.*`), **listes de scalaires** (`club.values`, `club.methods`, `club.levels`, `club.coach.credentials`, `infra.clubhouse.images`) et le type **`number`** (`pricing.lessons[].price`). Séparées de PR6c parce que la coupe suit les **extensions de modèle**, pas le volume : les fusionner donnait une PR à cinq extensions et ~55 champs, dont la revue ne tient pas en une passe. Question de fond propre à cette PR : comment la table de specs décrit un objet imbriqué sans rendre `formatIssue` et `groupValueFromConfig` illisibles. | non-bloquante |
+| PR6d ✅ | 3 | Les **trois pages de contenu** (`club`, `infra`, `pricing`) — ~45 clés, 8 listes, 4 objets imbriqués — et les **trois extensions** qu'elles seules exercent, chacune confinée à la lecture et à l'écriture du JSONB : **objets imbriqués** (clé de formulaire **plate et sans point** + `path` sur la spec — une clé pointée aurait cassé `setAtPath` en silence et une URL d'image aurait écrasé l'objet entier ; `mergeGroup` fusionne déjà en profondeur, il suffit de lui donner un objet niché), **listes de scalaires** (`scalar: true` + un seul champ : l'état reste des entrées à une clé, donc rendu / ajout / retrait / réordonnancement / remap des fichiers en attente inchangés, et l'emballage `{value}` ne sort jamais du formulaire) et le type **`number`** (branche propre, **vide ≠ zéro** — clé omise, jamais `0` —, schéma **idempotent** car l'écriture revalide sa propre sortie ; `other_fees[].price` reste du **texte**, c'est voulu). `groupSchema`, `formatIssue`, `setAtPath` et le rendu du panneau n'ont connu **aucune** des trois formes. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. En prime, les dix panneaux sont **repliés par défaut** avec un indicateur « Configuré / À compléter ». ✅ **La configuration est close** — PR9 a son contrat complet. Détail : §6.1. | non-bloquante — **aucune opération prod** |
 | PR7 | 3 | GEN_PROG : background d'affiche par club | non-bloquante |
 | PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
 | PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |
