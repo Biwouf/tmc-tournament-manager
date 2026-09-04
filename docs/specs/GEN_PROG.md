@@ -149,10 +149,20 @@ const transferableMatches = matches.filter(m => !m.wo && m.j2_nom !== "");
 
 ### Template
 
-Image de fond : **`config.posters.tmc_background`** — le fond uploadé par le club depuis
-*Admin › Configuration du site › Affiches* (multi-tenant, PR7). Plus de chemin figé :
-`/tmcs_pentecote.png` était le fond de CAC, et tout autre club aurait généré ses affiches à
-l'entête du premier.
+Image de fond : **`config.posters.tmc_backgrounds`** — la **liste** des fonds uploadés par le
+club depuis *Admin › Configuration du site › Affiches* (multi-tenant, PR7). Plus de chemin
+figé : `/tmcs_pentecote.png` était le fond de CAC, et tout autre club aurait généré ses affiches
+à l'entête du premier.
+
+Chaque fond porte un **nom** et une **image**. Un sélecteur de vignettes
+(`PosterBackgroundPicker`) s'affiche au-dessus de l'aperçu dès qu'un fond existe : le choix vaut
+pour la génération en cours, **n'est pas enregistré**, et retombe sur le premier fond de la
+liste. Le club ajoute, réordonne et **supprime** ses fonds depuis l'écran de configuration.
+
+⚠️ **Sans aucun fond configuré, l'affiche ne peut pas être générée** : le bouton « Télécharger »
+est désactivé et un message renvoie vers `/admin/site`. C'est délibéré — une affiche sur aplat
+uni est un brouillon qu'on diffuse par mégarde, pas un repli acceptable. La garde est aussi dans
+`handleDownload`, pas seulement sur le bouton.
 
 Dimensions : **794 × 1123 px** (A4 portrait, 96 dpi) — dimensions du **rendu**, et **minimum**
 attendu du fond. Le fond n'a pas à faire cette taille au pixel près : ce qui est exigé, ce sont
@@ -177,10 +187,8 @@ définition A4 en pixels ne tombe juste (794 × 1123 = 0,70703, 1414 × 2000 = 0
 contrôle exact refuse le même format venu d'une autre définition. Rien de la mise en page n'est
 configurable — ni coordonnées, ni zones, ni recadrage.
 
-**Sans fond configuré**, l'affiche se génère sur son aplat uni (`#C8102E`) et l'export
-fonctionne : c'est le cas nominal d'un club qui n'a rien uploadé, pas un état d'erreur. Aucun
-repli sur `/tmcs_pentecote.png` — ce serait servir l'identité de CAC à tout autre club depuis le
-code.
+Aucun repli sur `/tmcs_pentecote.png` — ce serait servir l'identité de CAC à tout autre club
+depuis le code. Un club sans fond est **bloqué et prévenu**, pas silencieusement dégradé.
 
 ⚠️ L'`<img>` de fond porte **`crossOrigin="anonymous"`**. Le fond vient désormais du Storage
 Supabase, donc d'une **autre origine** : `html-to-image` inline les images avant de rendre le

@@ -16,11 +16,11 @@
 // `pricing` (PR6d) — les trois pages de contenu. Les dix groupes du `web_site_brief.md` §5 y
 // sont, et PR9 a de quoi rendre la vitrine : LE CONTRAT DE LA VITRINE EST CLOS.
 //
-// `posters` (PR7) est le onzième groupe, et il est D'UNE AUTRE NATURE : ces deux images ne
-// sortent nulle part sur la vitrine, elles servent de fond aux affiches générées par le BO.
-// Il est à part plutôt que glissé dans `brand` précisément pour que PR9 n'ait pas à ignorer
-// deux clés au milieu de l'identité du club. Chaque ajout de groupe est resté ADDITIF, donc
-// sans incrément de version.
+// `posters` (PR7) est le onzième groupe, et il est D'UNE AUTRE NATURE : ces images ne sortent
+// nulle part sur la vitrine, elles servent de fond aux affiches générées par le BO. Il est à
+// part plutôt que glissé dans `brand` précisément pour que PR9 n'ait pas à ignorer deux clés
+// au milieu de l'identité du club. Chaque ajout de groupe est resté ADDITIF, donc sans
+// incrément de version.
 
 import { z } from 'zod';
 
@@ -247,21 +247,39 @@ const settingsSchema = z.object({
 
 // ── posters.* — fonds des affiches générées par le BO (PR7) ─────────────────
 /**
- * Deux fonds, deux écrans du back-office — PAS de la vitrine (`ProgrammationImagePage` et
- * `TeamMatchImagePreview`). Le seul groupe du contrat dans ce cas, d'où sa place à part.
+ * Un fond d'affiche : une image et le NOM qui la désigne au moment de générer.
  *
- * Absent = PAS DE FOND, et c'est le cas NOMINAL (règle 1) : l'affiche se génère sur son aplat
- * uni. Surtout pas de défaut pointant sur `/tmcs_pentecote.png` — ce serait réinstaller
- * l'identité de CAC en dur dans le code, précisément ce que cette migration démonte.
+ * Le nom n'est pas décoratif — c'est ce que lit l'admin dans le sélecteur quand le club a
+ * cinq fonds. Les deux clés sont donc du `text` (et non `optionalText`) et l'écriture les
+ * exige DANS l'entrée : un fond sans image ne sert à rien, un fond sans nom est impossible à
+ * choisir. Même forme que `partners` ou `home.stats` — une liste d'objets.
+ */
+const posterBackgroundSchema = z.object({ name: text, image: text });
+export type PosterBackground = z.infer<typeof posterBackgroundSchema>;
+
+/**
+ * Deux LISTES de fonds, deux écrans du back-office — PAS de la vitrine
+ * (`ProgrammationImagePage` et `TeamMatchImagePreview`). Le seul groupe du contrat dans ce cas,
+ * d'où sa place à part.
+ *
+ * PLUSIEURS fonds par affiche, et non un seul : un club a une affiche d'été, une de tournoi,
+ * une de fin de saison, et choisit au moment de générer. La liste porte aussi la suppression,
+ * sans une ligne de plus (le panneau retire l'entrée et l'objet Storage devenu orphelin).
+ *
+ * ⚠️ Liste VIDE = plus « pas de fond, on génère quand même » : la génération est **refusée**
+ * côté écrans. C'est un revirement assumé par rapport au premier jet de PR7 — une affiche sur
+ * aplat uni n'est pas un repli acceptable, c'est un brouillon qu'on diffuse par mégarde. Le
+ * contrat, lui, ne change pas de règle : `[]` reste une valeur valide et la LECTURE ne jette
+ * jamais ; c'est l'écran qui décide qu'on ne génère pas. Toujours aucun défaut pointant sur
+ * `/tmcs_pentecote.png`, qui réinstallerait l'identité de CAC en dur dans le code.
  *
  * ⚠️ Le fond n'est pas un décor : les textes des deux affiches sont écrits en position absolue
- * à des coordonnées FIGÉES. Le gabarit attendu (794 × 1123 et 1414 × 2000) et les zones à
- * laisser libres sont portés par les specs d'écriture, qui les contrôlent avant l'upload.
+ * à des coordonnées FIGÉES. Les proportions attendues et les zones à laisser libres sont
+ * portées par les specs d'écriture, qui les contrôlent avant l'upload.
  */
 const postersSchema = z.object({
-  /** Clé Storage ou URL publique — même contrat que `brand.logo`. */
-  tmc_background: optionalText,
-  team_match_background: optionalText,
+  tmc_backgrounds: z.array(posterBackgroundSchema).catch([]),
+  team_match_backgrounds: z.array(posterBackgroundSchema).catch([]),
 });
 
 /**

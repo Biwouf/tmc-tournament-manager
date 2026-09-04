@@ -32,10 +32,12 @@
 //   - Le type `number` (`pricing.lessons[].price`, `pricing.membership[].price`) : sa propre
 //     branche de schéma, comme `bool` en PR6c.
 //
-// PR7 ajoute un ONZIÈME groupe, `posters`, qui n'est pas de la vitrine : deux fonds d'affiche
-// consommés par deux écrans du BO. Il apporte la seule extension qu'il exerce — `dimensions`
-// sur `FieldSpec` —, dans l'esprit du `path` de PR6d : un champ DÉCLARATIF de plus, honoré par
-// le seul sélecteur d'image. `groupSchema`, `formatIssue` et `setAtPath` ne le connaissent pas.
+// PR7 ajoute un ONZIÈME groupe, `posters`, qui n'est pas de la vitrine : deux LISTES de fonds
+// d'affiche consommées par deux écrans du BO. Il apporte la seule extension qu'il exerce —
+// `dimensions` sur `FieldSpec` —, dans l'esprit du `path` de PR6d : un champ DÉCLARATIF de
+// plus, honoré par le seul sélecteur d'image. `groupSchema`, `formatIssue` et `setAtPath` ne le
+// connaissent pas, et les listes elles-mêmes ne demandent RIEN de neuf : c'est la forme de
+// `partners` et de `home.stats`.
 import { z } from 'zod';
 import { supabase } from './supabase';
 import { CLUB_CONFIG_VERSION, type ClubConfig } from './clubConfig';
@@ -599,15 +601,27 @@ const SETTINGS: GroupSpec = {
 };
 
 /**
- * PR7 — le seul panneau qui ne concerne PAS le site vitrine : ces deux images sortent dans le
+ * PR7 — le seul panneau qui ne concerne PAS le site vitrine : ces images sortent dans le
  * BACK-OFFICE, en fond des affiches qu'il génère. D'où sa place en DERNIER, après le chrome de
  * la vitrine : il ne s'intercale pas au milieu des panneaux qui, eux, alimentent le site.
  *
- * AUCUN `required` : le vide doit rester un état vivable, puisque c'est celui de tout club au
- * lendemain du déploiement — l'affiche se génère alors sur son aplat uni (brief §9).
+ * DEUX LISTES et non deux champs : un club a plusieurs fonds par affiche (été, tournoi, fin de
+ * saison) et choisit au moment de générer. La forme est celle de `partners` ou `home.stats` —
+ * une liste d'objets —, donc l'ajout, le retrait, le réordonnancement, l'upload différé, le
+ * remap des fichiers en attente et la SUPPRESSION de l'objet Storage devenu orphelin viennent
+ * sans une ligne de plus.
  *
- * Le `help` porte le gabarit ET les zones à laisser libres : c'est le code qui vient écrire
- * dedans, à des coordonnées figées (`ProgrammationImagePage`, `TeamMatchImagePreview`).
+ * Les deux champs d'une entrée sont ⬤, et le ⬤ BLOQUE ici (asymétrie de `fieldSchema` : au
+ * niveau du groupe il est indicatif, dans une entrée de liste il refuse) — c'est exactement ce
+ * qu'on veut : un fond sans image ne sert à rien, un fond sans nom est impossible à choisir
+ * dans le sélecteur. La LISTE VIDE, elle, reste parfaitement valide : c'est l'état de tout club
+ * au lendemain du déploiement. Ce sont les deux ÉCRANS qui refusent alors de générer.
+ *
+ * `singular` distingue les deux listes ('fond TMC' / 'fond rencontres') : elles cohabitent dans
+ * le même panneau, et `formatIssue` s'en sert pour nommer l'entrée fautive.
+ *
+ * Le `help` porte les proportions ET les zones à laisser libres : c'est le code qui vient
+ * écrire dedans, à des coordonnées figées (`ProgrammationImagePage`, `TeamMatchImagePreview`).
  */
 const POSTERS: GroupSpec = {
   kind: 'fields',
@@ -616,20 +630,28 @@ const POSTERS: GroupSpec = {
   hint: 'Fonds des affiches générées depuis le back-office',
   items: [
     {
-      kind: 'field',
-      key: 'tmc_background',
-      label: 'Fond de l’affiche de programmation TMC',
-      type: 'image',
-      dimensions: { width: 794, height: 1123 },
-      help: 'Format A4 portrait (ratio 0,71) — 794 × 1123 px au minimum, plus grand accepté. Repères donnés sur cette base : le titre et la date se surimpriment dans le haut (la date à 170 px) ; la grille des matchs occupe tout l’espace à partir de 305 px, avec 18 px de marge à gauche et à droite. Laissez ces zones libres. Sans fond, l’affiche se génère sur un aplat uni.',
+      kind: 'list',
+      section: 'Affiche de programmation TMC',
+      key: 'tmc_backgrounds',
+      label: 'Fonds disponibles',
+      singular: 'fond TMC',
+      help: 'Format A4 portrait (ratio 0,71) — 794 × 1123 px au minimum, plus grand accepté. Repères donnés sur cette base : le titre et la date se surimpriment dans le haut (la date à 170 px) ; la grille des matchs occupe tout l’espace à partir de 305 px, avec 18 px de marge à gauche et à droite. Laissez ces zones libres. Sans aucun fond, l’affiche ne peut pas être générée.',
+      fields: [
+        { key: 'name', label: 'Nom', type: 'text', required: true, help: 'Ce que vous lirez au moment de choisir.', placeholder: 'Tournoi de la Pentecôte' },
+        { key: 'image', label: 'Image', type: 'image', required: true, dimensions: { width: 794, height: 1123 } },
+      ],
     },
     {
-      kind: 'field',
-      key: 'team_match_background',
-      label: 'Fond de l’affiche des rencontres par équipes',
-      type: 'image',
-      dimensions: { width: 1414, height: 2000 },
-      help: 'Format A4 portrait (ratio 0,71) — 1414 × 2000 px au minimum, plus grand accepté. Repères donnés sur cette base : les rencontres s’écrivent de 245 px à 1780 px, avec 60 px de marge à gauche et à droite. Laissez cette zone libre. Sans fond, l’affiche se génère sur un aplat uni.',
+      kind: 'list',
+      section: 'Affiche des rencontres par équipes',
+      key: 'team_match_backgrounds',
+      label: 'Fonds disponibles',
+      singular: 'fond rencontres',
+      help: 'Format A4 portrait (ratio 0,71) — 1414 × 2000 px au minimum, plus grand accepté. Repères donnés sur cette base : les rencontres s’écrivent de 245 px à 1780 px, avec 60 px de marge à gauche et à droite. Laissez cette zone libre. Sans aucun fond, l’affiche ne peut pas être générée.',
+      fields: [
+        { key: 'name', label: 'Nom', type: 'text', required: true, help: 'Ce que vous lirez au moment de choisir.', placeholder: 'Saison 2026-2027' },
+        { key: 'image', label: 'Image', type: 'image', required: true, dimensions: { width: 1414, height: 2000 } },
+      ],
     },
   ],
 };

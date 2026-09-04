@@ -6,6 +6,7 @@ import PdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
+import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../components/PosterBackgroundPicker';
 import type { ClubEvent } from '../types';
 
 // Worker fourni en tant qu'instance (workerPort) : Vite le bundle correctement
@@ -548,7 +549,14 @@ export default function ProgrammationImagePage() {
   const { clubId } = useClub();
   // Une PAGE monte le hook elle-même. `TeamMatchImagePreview`, lui, reçoit son fond en prop :
   // il est monté deux fois sur le même écran (brief §8).
-  const { config } = useClubConfig();
+  // `loading` n'est pas décoratif : le hook rend les DÉFAUTS avant sa requête, donc une liste
+  // vide. Sans cette garde, « aucun fond configuré » clignoterait à chaque chargement de page.
+  const { config, loading: configLoading } = useClubConfig();
+  const backgrounds = config.posters.tmc_backgrounds;
+  /** Le choix est propre à la génération en cours : rien n'est enregistré, le premier fond
+   *  s'applique par défaut. `?? backgrounds[0]` couvre un index devenu hors bornes. */
+  const [backgroundIndex, setBackgroundIndex] = useState(0);
+  const background = backgrounds[backgroundIndex] ?? backgrounds[0];
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -701,7 +709,10 @@ export default function ProgrammationImagePage() {
   }
 
   async function handleDownload() {
-    if (!posterRef.current) return;
+    // Sans fond, on ne génère pas : une affiche sur aplat uni est un brouillon qu'on diffuse
+    // par mégarde. Le bouton est déjà désactivé — cette garde tient si l'état change entre
+    // le rendu et le clic.
+    if (!background || !posterRef.current) return;
     setIsGenerating(true);
     const pages = posterRef.current.querySelectorAll<HTMLElement>('[data-page]');
     for (let i = 0; i < pages.length; i++) {
@@ -790,13 +801,15 @@ export default function ProgrammationImagePage() {
             {matches.length > 0 && (
               <button
                 onClick={handleDownload}
-                disabled={isGenerating}
+                disabled={isGenerating || !background}
+                title={background ? undefined : 'Aucun fond d’affiche configuré'}
                 className="rounded-lg border border-border px-5 py-2 text-sm font-semibold transition hover:bg-muted disabled:opacity-40"
               >
                 {isGenerating ? 'Génération…' : `Télécharger${pages.length > 1 ? ` (${pages.length} pages)` : ''}`}
               </button>
             )}
           </div>
+          {!configLoading && !background && <PosterBackgroundEmpty poster="la programmation TMC" />}
         </div>
 
         {/* Mise en valeur d'un club */}
@@ -918,6 +931,11 @@ export default function ProgrammationImagePage() {
             <h2 className="text-lg font-semibold">
               Aperçu — {displayMatches.length} match{displayMatches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
             </h2>
+            <PosterBackgroundPicker
+              backgrounds={backgrounds}
+              selectedIndex={backgroundIndex}
+              onSelect={setBackgroundIndex}
+            />
             <div ref={posterRef} className="space-y-6">
               {pages.map((pageMatches, i) => (
                 <div key={i} className="shadow-xl rounded-sm overflow-hidden" style={{ width: W }}>
@@ -925,7 +943,7 @@ export default function ProgrammationImagePage() {
                     matches={pageMatches}
                     date={date}
                     highlightedClub={highlightedClub}
-                    background={config.posters.tmc_background}
+                    background={background?.image}
                   />
                 </div>
               ))}

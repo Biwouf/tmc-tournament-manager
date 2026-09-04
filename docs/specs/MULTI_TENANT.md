@@ -516,8 +516,18 @@ Les ~80 variables du `web_site_brief.md` (`brand.*`, `home.*`, `club.*`, `infra.
 
 > **Livré en PR7.** Les deux affiches générées par le BO reposaient sur un fond **figé aux
 > couleurs de CAC** (`/tmcs_pentecote.png`, `/template_event.png`) : un second club produisait
-> donc des affiches à l'entête du premier. Elles lisent désormais **`config.posters.*`**.
+> donc des affiches à l'entête du premier. Elles lisent désormais **`config.posters.*`**, où
+> chaque affiche a une **liste de fonds nommés** parmi lesquels choisir à la génération.
 
+- **PLUSIEURS fonds par affiche, pas un seul.** Un club a une affiche d'été, une de tournoi, une
+  de fin de saison : `posters.tmc_backgrounds` et `posters.team_match_backgrounds` sont donc des
+  **listes d'objets `{ name, image }`**, à la forme de `partners` ou `home.stats`. Le **nom**
+  n'est pas décoratif — c'est ce que l'admin lit dans le sélecteur quand il a cinq fonds ; les
+  deux clés sont ⬤ **dans l'entrée**, où le ⬤ bloque (asymétrie de `fieldSchema`) : un fond sans
+  image ne sert à rien, un fond sans nom est impossible à choisir. Le choix se fait **à la
+  génération**, n'est **pas enregistré**, et retombe sur le premier fond. La liste apporte au
+  passage la **suppression** — retirer une entrée efface l'objet Storage devenu orphelin — sans
+  une ligne de code de plus.
 - **Un onzième groupe, `posters`**, et non deux clés dans `brand`. Les dix groupes du
   `web_site_brief.md` §5 sont le **contrat de la vitrine**, celui que PR9 lira ; or ces deux
   images ne sortent nulle part sur la vitrine — elles alimentent **deux écrans du back-office**.
@@ -559,12 +569,20 @@ Les ~80 variables du `web_site_brief.md` (`brand.*`, `home.*`, `club.*`, `infra.
   téléchargement seulement**, l'aperçu à l'écran restant parfait. `crossOrigin="anonymous"` est
   désormais posé sur **les deux** `<img>` de fond (le TMC l'avait déjà), et les objets publics
   du Storage servent bien `access-control-allow-origin: *`.
-- **Défaut VIDE, délibérément** : absent = **pas de fond**, l'affiche se génère sur son aplat
-  uni et l'export fonctionne. Un défaut retombant sur `/tmcs_pentecote.png` aurait réinstallé de
-  la logique de tenant **en dur dans le code**, précisément ce que cette migration démonte — et
-  la clause « grandfather » de PR6a a déjà montré le prix d'un contournement temporaire.
-  Contrepartie assumée : une **opération de contenu** après déploiement (l'admin CAC uploade les
-  deux images depuis `/admin/site` → panneau « Affiches »). Les deux fichiers de `public/`
+- **Aucun fond ⇒ génération REFUSÉE.** ⚠️ **Revirement assumé** par rapport au premier jet de
+  PR7, qui laissait l'affiche se générer sur son aplat uni : une affiche sans fond n'est pas un
+  repli acceptable, c'est un brouillon qu'on diffuse par mégarde. Les deux écrans désactivent
+  donc le bouton et affichent un message **nommant le chemin de sortie** (`/admin/site` →
+  « Affiches ») ; la garde est aussi **dans le handler**, pas seulement sur le bouton. Le
+  **contrat**, lui, ne bouge pas : `[]` reste une valeur parfaitement valide et la lecture ne
+  jette jamais — c'est l'**écran** qui refuse, pas le schéma.
+  Toujours **aucun défaut** retombant sur `/tmcs_pentecote.png` : ce serait réinstaller de la
+  logique de tenant **en dur dans le code**, précisément ce que cette migration démonte, et la
+  clause « grandfather » de PR6a a déjà montré le prix d'un contournement temporaire.
+- ⚠️ **L'opération de contenu après déploiement devient BLOQUANTE.** Tant que l'admin CAC n'a pas
+  ajouté au moins un fond par affiche depuis `/admin/site` → « Affiches », le club **ne peut plus
+  générer d'affiche du tout** — là où le premier jet dégradait seulement le rendu. À faire
+  **juste après** le déploiement, pas « quand on aura le temps ». Les deux fichiers de `public/`
   **restent en place** — ils en sont la source, leur retrait viendra quand l'op sera confirmée.
 
 (cf. `docs/specs/GEN_PROG.md`.)
@@ -833,7 +851,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR6b ✅ | 3 | Section « Configuration du site » au BO (`/admin/site`, `adminOnly`) : un panneau par groupe, chacun avec son propre enregistrement, sur les **trois groupes du contrat** (`brand`, `home`, `contact`) — `src/lib/clubConfigWrite.ts` (schéma **strict** à l'écriture, `UPDATE` + fusion profonde préservant les clés inconnues) + `SiteConfigPage` + `components/siteConfig/`. Images sous `content-images/<club_id>/config/…`. **Aucune migration** — la policy d'écriture et les GRANT étaient déjà en place, et le bucket réutilisé date de PR6a. `src/lib/clubConfig.ts` **inchangé**. | non-bloquante — première PR de la série **sans opération prod** |
 | PR6c ✅ | 3 | Les **quatre groupes globaux** — le *chrome* du site : `social`, `legal`, `settings`, `partners`. Deux **extensions du modèle**, chacune livrée avec le groupe qui l'exerce : le type **`bool`** (branche propre dans le schéma, hors du tuyau des chaînes qui écrirait `'false'` — non vide donc **vrai** ; défaut **positif**, décocher écrit le booléen `false` au lieu d'effacer la clé) et le **groupe-liste** (`partners` reste une **liste à la racine** comme la spec §5.8 que PR9 lira ; `itemsOf()` confine l'union à la lecture et à l'écriture). **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé** (ajout additif). Détail : §6.1. | non-bloquante — **aucune opération prod** |
 | PR6d ✅ | 3 | Les **trois pages de contenu** (`club`, `infra`, `pricing`) — ~45 clés, 8 listes, 4 objets imbriqués — et les **trois extensions** qu'elles seules exercent, chacune confinée à la lecture et à l'écriture du JSONB : **objets imbriqués** (clé de formulaire **plate et sans point** + `path` sur la spec — une clé pointée aurait cassé `setAtPath` en silence et une URL d'image aurait écrasé l'objet entier ; `mergeGroup` fusionne déjà en profondeur, il suffit de lui donner un objet niché), **listes de scalaires** (`scalar: true` + un seul champ : l'état reste des entrées à une clé, donc rendu / ajout / retrait / réordonnancement / remap des fichiers en attente inchangés, et l'emballage `{value}` ne sort jamais du formulaire) et le type **`number`** (branche propre, **vide ≠ zéro** — clé omise, jamais `0` —, schéma **idempotent** car l'écriture revalide sa propre sortie ; `other_fees[].price` reste du **texte**, c'est voulu). `groupSchema`, `formatIssue`, `setAtPath` et le rendu du panneau n'ont connu **aucune** des trois formes. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. En prime, les dix panneaux sont **repliés par défaut** avec un indicateur « Configuré / À compléter ». ✅ **La configuration est close** — PR9 a son contrat complet. Détail : §6.1. | non-bloquante — **aucune opération prod** |
-| PR7 ✅ | 3 | GEN_PROG : **fonds d'affiche par club** — onzième groupe `posters` (deux clés, à part des dix groupes de la vitrine et **en dernier** à l'écran), **gabarit contrôlé avant l'upload** (`dimensions` sur `FieldSpec` : **proportions A4 à 2 % près** — et non une définition au pixel près, les deux gabarits étant de l'A4 dont aucune définition en pixels ne tombe juste — plus une taille minimale ; refus nommant le ratio attendu et le reçu), `crossOrigin="anonymous"` sur les deux fonds (sans quoi l'export sort blanc alors que l'aperçu est parfait), **fallback vide** — pas de repli sur les assets CAC, qui réinstallerait du tenant en dur. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. Détail : §6.2. | non-bloquante — mais **une opération de contenu** après déploiement : l'admin CAC uploade les deux fonds depuis `/admin/site` |
+| PR7 ✅ | 3 | GEN_PROG : **fonds d'affiche par club** — onzième groupe `posters` (deux clés, à part des dix groupes de la vitrine et **en dernier** à l'écran), **gabarit contrôlé avant l'upload** (`dimensions` sur `FieldSpec` : **proportions A4 à 2 % près** — et non une définition au pixel près, les deux gabarits étant de l'A4 dont aucune définition en pixels ne tombe juste — plus une taille minimale ; refus nommant le ratio attendu et le reçu), `crossOrigin="anonymous"` sur les deux fonds (sans quoi l'export sort blanc alors que l'aperçu est parfait), **listes de fonds nommés** avec choix à la génération et suppression, et **génération refusée sans aucun fond** — pas de repli sur les assets CAC, qui réinstallerait du tenant en dur. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. Détail : §6.2. | non-bloquante en base — mais ⚠️ **une opération de contenu BLOQUANTE** juste après déploiement : sans au moins un fond par affiche ajouté depuis `/admin/site`, le club ne peut plus générer d'affiche |
 | PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
 | PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |
 | PR9 | 4 | App `web/` (vitrine) : scaffold + résolution tenant + design tokens + 5 pages rendues depuis `club_settings` | nouvelle app |

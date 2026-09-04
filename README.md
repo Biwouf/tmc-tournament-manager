@@ -62,7 +62,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
 - **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
-- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond est celui du club, uploadé dans *Admin › Configuration du site › Affiches* ; sans fond configuré, l'affiche se génère sur un aplat uni
+- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond se choisit parmi les fonds du club, ajoutés dans *Admin › Configuration du site › Affiches* ; **sans aucun fond configuré, la génération est impossible**
 
 ### PWA — navigation
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
@@ -103,11 +103,12 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Le panneau **Partenaires** tient la bande « Ils soutiennent le club » : un logo par partenaire (obligatoire), un nom et un lien facultatifs. Les partenaires se réordonnent, et retirer un partenaire supprime son logo.
 - Le panneau **Affichage des sections** décide des blocs visibles sur le site vitrine (actualités, prochains rendez-vous, partenaires, chiffres clés). Les quatre sont **cochés par défaut** : un club qui n'a jamais ouvert cet écran affiche tout. Décocher masque le bloc **sur le site vitrine seulement** — les actus et les événements restent publiés dans l'application des adhérents.
 - Dans le panneau **Tarifs**, les tarifs des formules d'adhésion et de cours se saisissent **en chiffres seuls** (« 210 ») — laissés vides, aucun tarif n'est affiché, et surtout pas « 0 € ». Les **autres frais** sont l'exception : leur tarif est du texte libre (« 15€ / h »), l'unité y étant variable.
-- Le panneau **Affiches** — le dernier, et le seul qui ne concerne pas le site vitrine — porte les **fonds des deux affiches générées par le back-office** : celle de la programmation TMC et celle des rencontres par équipes.
+- Le panneau **Affiches** — le dernier, et le seul qui ne concerne pas le site vitrine — porte les **fonds des affiches générées par le back-office** : celles de la programmation TMC et celles des rencontres par équipes.
+  - **Plusieurs fonds par affiche.** Chacun porte un **nom** (« Tournoi de la Pentecôte », « Été 2026 ») et une **image** : au moment de générer, vous choisissez lequel appliquer parmi des vignettes. Les fonds s'ajoutent, se réordonnent et **se suppriment** ; retirer un fond efface aussi son image du stockage.
   - **Format attendu : A4 portrait** (ratio 0,71) — *794 × 1123 px minimum* pour la programmation TMC, *1414 × 2000 px minimum* pour les rencontres. **Plus grand est accepté** : un 2480 × 3508 (A4 à 300 dpi) convient pour les deux, et la même image peut servir aux deux affiches.
   - Le fond n'est pas un décor mais un cadre : les textes s'écrivent par-dessus, à des emplacements fixes que le champ indique (haut de l'affiche et grille des matchs d'un côté, bande centrale de l'autre) — **laissez ces zones libres**.
   - Une image aux mauvaises proportions est **refusée au choix du fichier**, en annonçant le ratio attendu et celui reçu ; rien n'est envoyé. Une image trop petite est refusée aussi : elle sortirait floue à l'export.
-  - **Sans fond, l'affiche se génère quand même**, sur son aplat de couleur : le club peut donc utiliser le module avant d'avoir préparé ses visuels.
+  - ⚠️ **Sans aucun fond configuré, l'affiche ne peut pas être générée** — le bouton est désactivé et un message renvoie vers cet écran. Un fond au minimum par affiche est donc à prévoir avant d'utiliser les deux modules.
 - Les images sont envoyées **à l'enregistrement du panneau**, pas au choix du fichier ; remplacer ou retirer une image supprime l'ancienne.
 
 ### Console plateforme (super-admin)
@@ -231,7 +232,7 @@ Deux méthodes disponibles :
 
 Une fois les matches chargés, cliquez sur "Télécharger" pour générer une image JPEG par page.
 - Chaque page contient jusqu'à 8 matches
-- Le fond de l'affiche est celui du club, uploadé dans *Admin › Configuration du site › Affiches*. Sans fond configuré, l'affiche se génère sur un aplat uni.
+- Le fond de l'affiche se choisit **parmi les fonds du club**, ajoutés dans *Admin › Configuration du site › Affiches* : une rangée de vignettes au-dessus de l'aperçu, le premier fond par défaut. **Sans aucun fond configuré, la génération est impossible.**
 
 #### 3. Basculer les matches vers Live Score
 
