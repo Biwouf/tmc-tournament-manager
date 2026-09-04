@@ -602,6 +602,18 @@ Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localeme
   panneau. L'aperçu suit chaque coche (c'est du DOM React), mais **`toJpeg` n'est déclenché
   que par le bouton** : à `pixelRatio: 2` sur une A4, l'appeler à chaque coche ferait ramer
   le panneau.
+- **Fond de l'affiche** (multi-tenant, PR7) : **`config.posters.team_match_background`**, le
+  fond uploadé par le club depuis *Admin › Configuration du site › Affiches* — plus de
+  `/template_event.png` figé aux couleurs de CAC. C'est **`PosterPanel`** qui lit la config et
+  passe l'URL en **prop** : `TeamMatchImagePreview` est monté **deux fois** sur cet écran
+  (aperçu + nœud d'export), et il reste un composant de présentation. Gabarit contrôlé avant
+  l'upload : **proportions A4 (ratio ≈ 0,707) à 2 % près** et **1414 × 2000 px au minimum** —
+  pas une définition au pixel près, un 2480 × 3508 convient. Le contenu s'écrit de `y = 245` à
+  `y = 1780` avec 60 px de marge, et l'`<img>` est en `width/height: 100%` **sans
+  `object-fit`** : une image aux mauvaises proportions y serait **étirée en silence**. Sans fond configuré,
+  l'affiche se génère sur son aplat uni. ⚠️ L'`<img>` porte **`crossOrigin="anonymous"`** :
+  le fond vient du Storage, donc d'une autre origine, et sans cet attribut le **JPEG exporté**
+  sortirait sans fond alors que l'aperçu resterait parfait.
 - **Téléchargement** : `<a download="affiche-rencontres-YYYY-MM-DD.jpg">`, où la date est
   celle du **samedi** du week-end concerné.
 - **États du bouton** : `idle` → « Générer l'affiche » / `loading` → « Génération… » +

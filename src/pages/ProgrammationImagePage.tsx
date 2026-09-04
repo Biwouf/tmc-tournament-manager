@@ -5,6 +5,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import PdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
+import { useClubConfig } from '../hooks/useClubConfig';
 import type { ClubEvent } from '../types';
 
 // Worker fourni en tant qu'instance (workerPort) : Vite le bundle correctement
@@ -237,7 +238,9 @@ function formatDate(dateStr: string): string {
   return `${jours[date.getDay()]} ${date.getDate()} ${mois[date.getMonth()]}`;
 }
 
-// Poster A4 (794 × 1123 px) — template : /public/tmcs_pentecote.png
+// Poster A4 (794 × 1123 px). Le fond est celui du club — `config.posters.tmc_background`
+// (PR7) —, et non plus un chemin figé aux couleurs de CAC. Sans fond configuré, l'affiche se génère
+// sur son aplat uni : c'est le cas NOMINAL d'un club qui n'a rien uploadé.
 const W = 794;
 const H = 1123;
 
@@ -465,7 +468,7 @@ function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: 
   );
 }
 
-function PosterPage({ matches, date, highlightedClub }: { matches: Match[]; date: string; highlightedClub: string | null }) {
+function PosterPage({ matches, date, highlightedClub, background }: { matches: Match[]; date: string; highlightedClub: string | null; background?: string }) {
   return (
     <div
       data-page
@@ -478,13 +481,17 @@ function PosterPage({ matches, date, highlightedClub }: { matches: Match[]; date
         background: '#C8102E',
       }}
     >
-      {/* Image template en fond */}
-      <img
-        src="/tmcs_pentecote.png"
-        alt=""
-        style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, objectFit: 'cover' }}
-        crossOrigin="anonymous"
-      />
+      {/* Image template en fond — celle du club, ou aucune. `crossOrigin` est ce qui laisse
+          `html-to-image` inliner une image servie par le Storage (autre origine) : sans lui,
+          l'aperçu resterait parfait et le JPEG EXPORTÉ sortirait sans fond. */}
+      {background && (
+        <img
+          src={background}
+          alt=""
+          style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, objectFit: 'cover' }}
+          crossOrigin="anonymous"
+        />
+      )}
 
       {/* Date */}
       <div
@@ -539,6 +546,9 @@ function formatEventLabel(ev: Pick<ClubEvent, 'titre' | 'date_debut'>): string {
 
 export default function ProgrammationImagePage() {
   const { clubId } = useClub();
+  // Une PAGE monte le hook elle-même. `TeamMatchImagePreview`, lui, reçoit son fond en prop :
+  // il est monté deux fois sur le même écran (brief §8).
+  const { config } = useClubConfig();
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -911,7 +921,12 @@ export default function ProgrammationImagePage() {
             <div ref={posterRef} className="space-y-6">
               {pages.map((pageMatches, i) => (
                 <div key={i} className="shadow-xl rounded-sm overflow-hidden" style={{ width: W }}>
-                  <PosterPage matches={pageMatches} date={date} highlightedClub={highlightedClub} />
+                  <PosterPage
+                    matches={pageMatches}
+                    date={date}
+                    highlightedClub={highlightedClub}
+                    background={config.posters.tmc_background}
+                  />
                 </div>
               ))}
             </div>

@@ -149,9 +149,44 @@ const transferableMatches = matches.filter(m => !m.wo && m.j2_nom !== "");
 
 ### Template
 
-Image de fond : `/public/tmcs_pentecote.png`  
-Dimensions : **794 × 1123 px** (A4 portrait, 96 dpi)  
-Le template intègre un header (logos) et un footer (sponsors) ; la zone centrale est occupée dynamiquement par la grille de cellules.
+Image de fond : **`config.posters.tmc_background`** — le fond uploadé par le club depuis
+*Admin › Configuration du site › Affiches* (multi-tenant, PR7). Plus de chemin figé :
+`/tmcs_pentecote.png` était le fond de CAC, et tout autre club aurait généré ses affiches à
+l'entête du premier.
+
+Dimensions : **794 × 1123 px** (A4 portrait, 96 dpi) — dimensions du **rendu**, et **minimum**
+attendu du fond. Le fond n'a pas à faire cette taille au pixel près : ce qui est exigé, ce sont
+les **proportions A4** (ratio ≈ 0,707, tolérance 2 %) et une définition au moins égale. Un
+1414 × 2000 ou un 2480 × 3508 conviennent.
+
+**Le fond est un cadre, pas un décor.** Les textes sont écrits en position absolue à des
+coordonnées figées : une image au mauvais gabarit rend l'affiche inutilisable, texte par-dessus
+graphisme. Zones à laisser libres :
+
+| Zone | Occupée par |
+|---|---|
+| `y = 170` | La date, en surimpression sur toute la largeur |
+| `y = 0 → 305` | Le haut du template (header : logos, titre) |
+| `y = 305 → bas`, marges de 18 px | La grille des cellules de match |
+
+Le gabarit est donc **contrôlé avant l'upload** (`SiteConfigFields.tsx`) : **proportions A4 à
+2 % près** — sinon l'image serait déformée sous des textes posés à coordonnées fixes — et
+largeur **au moins** égale à 794 px, l'export se faisant à `pixelRatio: 2`. Un fichier refusé
+l'est en nommant le **ratio** attendu et celui reçu. ⚠️ Ne pas durcir en égalité exacte : aucune
+définition A4 en pixels ne tombe juste (794 × 1123 = 0,70703, 1414 × 2000 = 0,70700), et un
+contrôle exact refuse le même format venu d'une autre définition. Rien de la mise en page n'est
+configurable — ni coordonnées, ni zones, ni recadrage.
+
+**Sans fond configuré**, l'affiche se génère sur son aplat uni (`#C8102E`) et l'export
+fonctionne : c'est le cas nominal d'un club qui n'a rien uploadé, pas un état d'erreur. Aucun
+repli sur `/tmcs_pentecote.png` — ce serait servir l'identité de CAC à tout autre club depuis le
+code.
+
+⚠️ L'`<img>` de fond porte **`crossOrigin="anonymous"`**. Le fond vient désormais du Storage
+Supabase, donc d'une **autre origine** : `html-to-image` inline les images avant de rendre le
+canvas, et sans cet attribut (ou sans en-tête CORS à la source) le **JPEG exporté** sortirait
+sans fond — pendant que l'aperçu à l'écran resterait parfait. Vérifier une régression de ce
+genre demande d'ouvrir le fichier téléchargé, pas de regarder l'écran.
 
 ### Date
 

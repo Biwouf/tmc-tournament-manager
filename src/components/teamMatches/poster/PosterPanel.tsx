@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toJpeg } from 'html-to-image';
+import { useClubConfig } from '../../../hooks/useClubConfig';
 import type { TeamMatch } from '../../../types';
 import TeamMatchImagePreview from '../../TeamMatchImagePreview';
 import type { RencontreEntry } from '../gridTypes';
@@ -59,6 +60,10 @@ export default function PosterPanel({
   entries: RencontreEntry[];
   onClose: () => void;
 }) {
+  // Le fond d'affiche du club (PR7) est lu ICI et passé en prop : `TeamMatchImagePreview` est
+  // monté deux fois plus bas (aperçu réduit + nœud d'export hors viewport), et le hook n'a
+  // aucune raison de tourner deux fois sur le même écran.
+  const { config } = useClubConfig();
   const now = useMemo(() => new Date(), []);
   const groupes = useMemo(() => groupByWeekend(entries, now), [entries, now]);
   const weekend = useMemo(() => currentWeekendRange(now), [now]);
@@ -224,7 +229,10 @@ export default function PosterPanel({
               style={{ width: 1414, transform: 'scale(0.234)', transformOrigin: 'top left' }}
               aria-label="Aperçu de l'affiche"
             >
-              <TeamMatchImagePreview matches={selectedMatches} />
+              <TeamMatchImagePreview
+                matches={selectedMatches}
+                background={config.posters.team_match_background}
+              />
             </div>
           </div>
         </div>
@@ -263,7 +271,10 @@ export default function PosterPanel({
       {/* Affiche hors viewport — requise pour html-to-image */}
       <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>
         <div ref={posterRef}>
-          <TeamMatchImagePreview matches={selectedMatches} />
+          <TeamMatchImagePreview
+            matches={selectedMatches}
+            background={config.posters.team_match_background}
+          />
         </div>
       </div>
     </div>

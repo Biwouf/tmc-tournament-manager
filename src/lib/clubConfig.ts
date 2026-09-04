@@ -13,9 +13,14 @@
 //
 // Périmètre des groupes : `brand`, `home`, `contact` (PR6a), puis `social`, `partners`,
 // `legal`, `settings` (PR6c) — le chrome du site vitrine —, et enfin `club`, `infra`,
-// `pricing` (PR6d) — les trois pages de contenu. Le contrat est désormais COMPLET : les dix
-// groupes du `web_site_brief.md` §5 y sont, et PR9 a de quoi rendre la vitrine. Chaque ajout
-// de groupe est resté ADDITIF, donc sans incrément de version.
+// `pricing` (PR6d) — les trois pages de contenu. Les dix groupes du `web_site_brief.md` §5 y
+// sont, et PR9 a de quoi rendre la vitrine : LE CONTRAT DE LA VITRINE EST CLOS.
+//
+// `posters` (PR7) est le onzième groupe, et il est D'UNE AUTRE NATURE : ces deux images ne
+// sortent nulle part sur la vitrine, elles servent de fond aux affiches générées par le BO.
+// Il est à part plutôt que glissé dans `brand` précisément pour que PR9 n'ait pas à ignorer
+// deux clés au milieu de l'identité du club. Chaque ajout de groupe est resté ADDITIF, donc
+// sans incrément de version.
 
 import { z } from 'zod';
 
@@ -240,6 +245,25 @@ const settingsSchema = z.object({
   show_stats: flag,
 });
 
+// ── posters.* — fonds des affiches générées par le BO (PR7) ─────────────────
+/**
+ * Deux fonds, deux écrans du back-office — PAS de la vitrine (`ProgrammationImagePage` et
+ * `TeamMatchImagePreview`). Le seul groupe du contrat dans ce cas, d'où sa place à part.
+ *
+ * Absent = PAS DE FOND, et c'est le cas NOMINAL (règle 1) : l'affiche se génère sur son aplat
+ * uni. Surtout pas de défaut pointant sur `/tmcs_pentecote.png` — ce serait réinstaller
+ * l'identité de CAC en dur dans le code, précisément ce que cette migration démonte.
+ *
+ * ⚠️ Le fond n'est pas un décor : les textes des deux affiches sont écrits en position absolue
+ * à des coordonnées FIGÉES. Le gabarit attendu (794 × 1123 et 1414 × 2000) et les zones à
+ * laisser libres sont portés par les specs d'écriture, qui les contrôlent avant l'upload.
+ */
+const postersSchema = z.object({
+  /** Clé Storage ou URL publique — même contrat que `brand.logo`. */
+  tmc_background: optionalText,
+  team_match_background: optionalText,
+});
+
 /**
  * Schéma de LECTURE. Chaque groupe a un défaut, donc `{}` est valide et rend l'arbre complet.
  * `.catch()` sur les feuilles : une clé au mauvais type retombe sur son défaut au lieu
@@ -266,6 +290,9 @@ export const clubConfigSchema = z.object({
   settings: settingsSchema
     .catch(() => settingsSchema.parse({}))
     .default(() => settingsSchema.parse({})),
+  posters: postersSchema
+    .catch(() => postersSchema.parse({}))
+    .default(() => postersSchema.parse({})),
 });
 
 export type ClubConfig = z.infer<typeof clubConfigSchema>;

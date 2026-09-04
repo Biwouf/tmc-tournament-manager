@@ -14,7 +14,7 @@
 //
 // Périmètre : les DIX groupes du `web_site_brief.md` §5 — `brand`, `home`, `contact` (PR6a),
 // `social`, `partners`, `legal`, `settings` (PR6c) et les trois pages de contenu `club`,
-// `infra`, `pricing` (PR6d). La configuration est CLOSE.
+// `infra`, `pricing` (PR6d). Le contrat de la VITRINE est CLOS.
 //
 // PR6d apporte les trois dernières extensions du modèle, chacune posée avec le groupe qui
 // l'exerce, et toutes les trois tenues à la même règle que celles de PR6c : l'état de
@@ -31,6 +31,11 @@
 //     de plus ; l'emballage `{ value }` ne sort jamais du formulaire.
 //   - Le type `number` (`pricing.lessons[].price`, `pricing.membership[].price`) : sa propre
 //     branche de schéma, comme `bool` en PR6c.
+//
+// PR7 ajoute un ONZIÈME groupe, `posters`, qui n'est pas de la vitrine : deux fonds d'affiche
+// consommés par deux écrans du BO. Il apporte la seule extension qu'il exerce — `dimensions`
+// sur `FieldSpec` —, dans l'esprit du `path` de PR6d : un champ DÉCLARATIF de plus, honoré par
+// le seul sélecteur d'image. `groupSchema`, `formatIssue` et `setAtPath` ne le connaissent pas.
 import { z } from 'zod';
 import { supabase } from './supabase';
 import { CLUB_CONFIG_VERSION, type ClubConfig } from './clubConfig';
@@ -72,6 +77,20 @@ export type FieldSpec = {
    *  cours de saisie est le cas nominal, au même titre que `config = '{}'`. Dans une ENTRÉE
    *  de liste, en revanche, il bloque — cf. `fieldSchema`. */
   required?: boolean;
+  /** Dimensions du RENDU d'un champ `image` — PR7, les deux fonds d'affiche.
+   *
+   *  Le fond d'une affiche n'est pas un décor : les textes sont écrits en position absolue à
+   *  des coordonnées figées, et une image aux mauvaises proportions rend l'affiche
+   *  INUTILISABLE, texte par-dessus graphisme. Le sélecteur d'image REFUSE donc le fichier
+   *  avant tout upload (`SiteConfigFields.tsx`) — un avertissement se franchit d'un clic, et
+   *  l'affiche fausse ne se voit qu'après diffusion.
+   *
+   *  ⚠️ Ce n'est PAS une définition à respecter au pixel près : ce qui est contrôlé, ce sont
+   *  les PROPORTIONS (à 2 % près) et une taille MINIMALE. Les deux affiches sont de l'A4
+   *  portrait, dont aucune définition en pixels ne tombe juste — exiger l'égalité exacte
+   *  refusait un 1414 × 2000 pour l'affiche 794 × 1123, alors que c'est le même format.
+   *  Déclaratif comme `path` : rien d'autre ne le lit. */
+  dimensions?: { width: number; height: number };
   help?: string;
   placeholder?: string;
 };
@@ -113,7 +132,8 @@ export type ClubConfigGroupKey =
   | 'social'
   | 'partners'
   | 'legal'
-  | 'settings';
+  | 'settings'
+  | 'posters';
 
 /**
  * Deux formes de groupe, parce que le contrat en a deux :
@@ -578,6 +598,42 @@ const SETTINGS: GroupSpec = {
   ],
 };
 
+/**
+ * PR7 — le seul panneau qui ne concerne PAS le site vitrine : ces deux images sortent dans le
+ * BACK-OFFICE, en fond des affiches qu'il génère. D'où sa place en DERNIER, après le chrome de
+ * la vitrine : il ne s'intercale pas au milieu des panneaux qui, eux, alimentent le site.
+ *
+ * AUCUN `required` : le vide doit rester un état vivable, puisque c'est celui de tout club au
+ * lendemain du déploiement — l'affiche se génère alors sur son aplat uni (brief §9).
+ *
+ * Le `help` porte le gabarit ET les zones à laisser libres : c'est le code qui vient écrire
+ * dedans, à des coordonnées figées (`ProgrammationImagePage`, `TeamMatchImagePreview`).
+ */
+const POSTERS: GroupSpec = {
+  kind: 'fields',
+  key: 'posters',
+  label: 'Affiches',
+  hint: 'Fonds des affiches générées depuis le back-office',
+  items: [
+    {
+      kind: 'field',
+      key: 'tmc_background',
+      label: 'Fond de l’affiche de programmation TMC',
+      type: 'image',
+      dimensions: { width: 794, height: 1123 },
+      help: 'Format A4 portrait (ratio 0,71) — 794 × 1123 px au minimum, plus grand accepté. Repères donnés sur cette base : le titre et la date se surimpriment dans le haut (la date à 170 px) ; la grille des matchs occupe tout l’espace à partir de 305 px, avec 18 px de marge à gauche et à droite. Laissez ces zones libres. Sans fond, l’affiche se génère sur un aplat uni.',
+    },
+    {
+      kind: 'field',
+      key: 'team_match_background',
+      label: 'Fond de l’affiche des rencontres par équipes',
+      type: 'image',
+      dimensions: { width: 1414, height: 2000 },
+      help: 'Format A4 portrait (ratio 0,71) — 1414 × 2000 px au minimum, plus grand accepté. Repères donnés sur cette base : les rencontres s’écrivent de 245 px à 1780 px, avec 60 px de marge à gauche et à droite. Laissez cette zone libre. Sans fond, l’affiche se génère sur un aplat uni.',
+    },
+  ],
+};
+
 /** Ordre des panneaux à l'écran — celui du `web_site_brief.md` §5 : identité, puis les pages
  *  (accueil, club, infrastructures, tarifs, contact), puis le chrome. */
 export const CLUB_CONFIG_GROUPS: GroupSpec[] = [
@@ -591,6 +647,8 @@ export const CLUB_CONFIG_GROUPS: GroupSpec[] = [
   PARTNERS,
   LEGAL,
   SETTINGS,
+  // En dernier, à part : le seul groupe qui ne sort pas sur la vitrine (PR7).
+  POSTERS,
 ];
 
 // ── Schéma strict ────────────────────────────────────────────────────────────
