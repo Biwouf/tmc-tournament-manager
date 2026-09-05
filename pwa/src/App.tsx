@@ -59,6 +59,21 @@ function AppShell() {
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
       ?.setAttribute('content', config.brand.color || '#e51828');
 
+    // Icônes de l'ONGLET et de l'écran d'accueil iOS. Le manifest ci-dessous ne couvre que
+    // l'installation Android : sans ces deux lignes, un club configuré gardait le logo CAC
+    // dans son onglet et sur son écran d'accueil iOS. Les liens sont REMPLACÉS et non modifiés
+    // — changer `href` en place laisse Safari sur l'icône déjà en cache — et perdent leur
+    // `type`, rien n'imposant que le logo du club soit un PNG.
+    // ⚠️ Même geste dans `src/App.tsx` (BO), pour le seul `rel="icon"`.
+    for (const rel of ['icon', 'apple-touch-icon']) {
+      const link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+      if (!link) continue;
+      const next = link.cloneNode() as HTMLLinkElement;
+      next.removeAttribute('type');
+      next.href = absoluteLogo;
+      link.replaceWith(next);
+    }
+
     const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
     if (!manifest) return;
     const blob = new Blob([JSON.stringify({

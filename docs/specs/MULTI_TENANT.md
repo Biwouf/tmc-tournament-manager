@@ -598,7 +598,7 @@ aux couleurs de CAC**. Inventaire du dur, par difficulté :
 |---|---|---|
 | Couleurs | `src/index.css` + `pwa/src/index.css` (tokens de teinte 355), dégradé de `body`, états de score teintés marque | **`brand.color`** (+ `color_secondary`, `color_accent`) → tokens CSS posés au runtime |
 | Texte | `src/pages/AppHomePage.tsx` (h1), `pwa/src/components/layout/headerConfig.ts` (titre root), `pwa/src/components/install/InstallBanner.tsx` (slogan), `pwa/index.html` (`<title>`) | **`clubs.name`**, déjà exposé par `useClub()` — aucun nouveau champ requis |
-| Images | `/logo.png` (BO), icônes PWA (`/icons/*`) | Storage préfixé `club_id/` (D12) + champ de config club |
+| Images | `/logo.png` (BO), icônes PWA (`/icons/*`), favicons et `apple-touch-icon` des deux `index.html` | Storage préfixé `club_id/` (D12) + champ de config club |
 | Manifest PWA | `pwa/vite.config.ts` → `name`, `short_name`, `icons` | ⚠️ **figés au build** — voir question ouverte ci-dessous |
 
 > ⚠️ **Question ouverte, à trancher avant PR9/PR13.** Une PWA **unique** servant N clubs (D2)
@@ -615,6 +615,13 @@ aux couleurs de CAC**. Inventaire du dur, par difficulté :
 > assets CAC historiques pour les clubs non configurés. Le `theme-color` et le manifest sont
 > remplacés au runtime quand la configuration est disponible ; le manifest généré par Vite
 > reste le fallback initial.
+
+> **Volet favicon — livré.** `brand.logo` alimente aussi le `rel="icon"` du BO et les
+> `rel="icon"` / `rel="apple-touch-icon"` de la PWA, remplacés au runtime. Le manifest
+> couvrait déjà les icônes d'installation Android, mais **pas** l'onglet ni l'écran d'accueil
+> iOS. Les liens sont remplacés et non modifiés (Safari garde l'icône en cache sinon), et
+> perdent leur `type`. Comme le logo, l'icône n'arrive **qu'après connexion** — la config est
+> `TO authenticated`, l'écran de login garde celle d'`index.html`.
 
 > **Volet couleurs — livré.** Trois clés (`brand.color`, `brand.color_secondary`,
 > `brand.color_accent`) sont converties en tokens CSS par `src/lib/theme.ts` — dupliqué dans

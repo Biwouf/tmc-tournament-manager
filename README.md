@@ -120,6 +120,8 @@ Trois champs dans *Identité du club › Couleurs*, qui repeignent **le back-off
 | **Couleur secondaire** | Boutons secondaires. Laissée vide : dérivée de la principale (même teinte, plus claire). |
 | **Couleur d'accent** | Fonds doux, survols, badges. Laissée vide : dérivée de la principale. |
 
+Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office et à l'application, et d'icône d'écran d'accueil sur iOS et Android. Une image **carrée** rend donc mieux qu'un logo large, que le navigateur déformera.
+
 - La couleur du texte posé sur la principale et la secondaire (blanc ou foncé) est **choisie automatiquement** selon le contraste — une couleur claire ne donne pas du blanc sur blanc.
 - Les couleurs de **sens** ne changent jamais : rouge d'erreur et bouton *Supprimer*, vert/rouge/jaune des résultats gagné / perdu / nul.
 - L'effet est **immédiat** sur cet écran après enregistrement ; les autres écrans le prennent au prochain chargement.
