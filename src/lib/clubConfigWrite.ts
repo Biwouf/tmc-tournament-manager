@@ -176,7 +176,7 @@ const BRAND: GroupSpec = {
   kind: 'fields',
   key: 'brand',
   label: 'Identité du club',
-  hint: 'Nom, logos et couleur du site vitrine',
+  hint: 'Nom, logos et couleurs du club',
   items: [
     { kind: 'field', key: 'name', label: 'Nom du club', type: 'text', required: true, placeholder: 'CAC Tennis Club' },
     { kind: 'field', key: 'short_name', label: 'Nom court', type: 'text', placeholder: 'CAC' },
@@ -187,17 +187,34 @@ const BRAND: GroupSpec = {
     { kind: 'field', key: 'logo_inverse', label: 'Logo pour fond foncé', type: 'image' },
     {
       kind: 'field',
+      section: 'Couleurs',
       key: 'color',
-      label: 'Couleur d’accent du site vitrine',
+      label: 'Couleur principale',
       type: 'color',
       required: true,
-      // Libellé honnête (brief §5) : cette clé n'est consommée par RIEN aujourd'hui. Le BO et
-      // la PWA gardent leur couleur en dur jusqu'à PR7-bis, et le site vitrine n'existe pas
-      // avant PR9. Ne pas laisser croire à un thème qui s'appliquerait ici.
-      help: 'Utilisée par le futur site vitrine uniquement. Ne change ni les couleurs de ce back-office, ni celles de l’application des adhérents.',
-      placeholder: '#C8102E',
+      help: 'Boutons, liens, en-têtes. Teinte l’ensemble de ce back-office et de l’application des adhérents — y compris les fonds, bordures et textes secondaires, qui en sont dérivés.',
+      placeholder: '#E51828',
     },
-    { kind: 'field', key: 'legal_form', label: 'Forme juridique', type: 'text', placeholder: 'Association loi 1901' },
+    {
+      kind: 'field',
+      key: 'color_secondary',
+      label: 'Couleur secondaire',
+      type: 'color',
+      help: 'Laissée vide : dérivée de la couleur principale (même teinte, plus claire).',
+      placeholder: '#F1818A',
+    },
+    {
+      kind: 'field',
+      key: 'color_accent',
+      label: 'Couleur d’accent',
+      type: 'color',
+      // Le mot « accent » vient du `web_site_brief` §4, où il désignait LA couleur de marque.
+      // Ici il reprend son sens CSS : le token `--accent`, un fond pâle. La couleur de marque,
+      // c'est `color` ci-dessus.
+      help: 'Fonds doux, survols, badges. Laissée vide : dérivée de la couleur principale.',
+      placeholder: '#F9C9CD',
+    },
+    { kind: 'field', section: 'Pied de page', key: 'legal_form', label: 'Forme juridique', type: 'text', placeholder: 'Association loi 1901' },
     { kind: 'field', key: 'copyright', label: 'Mention de copyright', type: 'text', help: 'Laissée vide : « © {année} {nom du club} ».' },
   ],
 };

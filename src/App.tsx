@@ -25,6 +25,8 @@ import TeamRencontrePage from './pages/TeamRencontrePage';
 import TeamRencontreForm from './components/teamMatches/TeamRencontreForm';
 import { ClubProvider, useClub, exitSupportClub } from './contexts/ClubContext';
 import { ClubRoleProvider, useClubRole } from './contexts/ClubRoleContext';
+import { useClubConfig } from './hooks/useClubConfig';
+import { useClubTheme } from './hooks/useClubTheme';
 
 function RedirectTournament() {
   const { id } = useParams();
@@ -167,9 +169,42 @@ function GuardedRoutes({ user }: { user: User | null }) {
   );
 }
 
+// Identité visuelle du club appliquée au DOCUMENT (couleurs + favicon). Monté au-dessus du
+// garde d'auth, pour que l'écran « Accès refusé » de PR4 et tout écran rendu hors des routes en
+// bénéficient. Un seul composant, donc UNE seule lecture de `club_settings` : `useClubConfig`
+// n'est pas un provider, deux composants frères en feraient deux.
+//
+// ⚠️ `club_settings` n'est lisible que par un compte authentifié : l'écran de LOGIN garde donc
+// les valeurs d'`index.css` et le favicon d'`index.html`, et l'identité arrive à la connexion
+// (le hook relit sur `onAuthStateChange`). Même limite que le logo et le nom du club depuis
+// PR7-bis.
+function ClubIdentity() {
+  const { config } = useClubConfig();
+  const logo = config.brand.logo;
+
+  useClubTheme(config);
+
+  // Le favicon est REMPLACÉ, pas modifié : changer `href` en place laisse Safari sur l'icône
+  // déjà en cache. `type` saute avec — rien n'impose que le logo du club soit un PNG, et une
+  // annonce fausse vaut moins que l'absence d'annonce, le navigateur sachant renifler.
+  // ⚠️ Même geste dans `pwa/src/App.tsx`, qui en fait autant pour `apple-touch-icon`.
+  useEffect(() => {
+    if (!logo) return;
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) return;
+    const next = link.cloneNode() as HTMLLinkElement;
+    next.removeAttribute('type');
+    next.href = logo;
+    link.replaceWith(next);
+  }, [logo]);
+
+  return null;
+}
+
 function App() {
   return (
     <ClubProvider>
+      <ClubIdentity />
       <AppRoutes />
     </ClubProvider>
   );

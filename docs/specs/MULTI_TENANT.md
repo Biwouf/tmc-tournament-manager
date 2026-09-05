@@ -596,8 +596,9 @@ aux couleurs de CAC**. Inventaire du dur, par difficulté :
 
 | Niveau | Emplacements | Levier |
 |---|---|---|
+| Couleurs | `src/index.css` + `pwa/src/index.css` (tokens de teinte 355), dégradé de `body`, états de score teintés marque | **`brand.color`** (+ `color_secondary`, `color_accent`) → tokens CSS posés au runtime |
 | Texte | `src/pages/AppHomePage.tsx` (h1), `pwa/src/components/layout/headerConfig.ts` (titre root), `pwa/src/components/install/InstallBanner.tsx` (slogan), `pwa/index.html` (`<title>`) | **`clubs.name`**, déjà exposé par `useClub()` — aucun nouveau champ requis |
-| Images | `/logo.png` (BO), icônes PWA (`/icons/*`) | Storage préfixé `club_id/` (D12) + champ de config club |
+| Images | `/logo.png` (BO), icônes PWA (`/icons/*`), favicons et `apple-touch-icon` des deux `index.html` | Storage préfixé `club_id/` (D12) + champ de config club |
 | Manifest PWA | `pwa/vite.config.ts` → `name`, `short_name`, `icons` | ⚠️ **figés au build** — voir question ouverte ci-dessous |
 
 > ⚠️ **Question ouverte, à trancher avant PR9/PR13.** Une PWA **unique** servant N clubs (D2)
@@ -614,6 +615,31 @@ aux couleurs de CAC**. Inventaire du dur, par difficulté :
 > assets CAC historiques pour les clubs non configurés. Le `theme-color` et le manifest sont
 > remplacés au runtime quand la configuration est disponible ; le manifest généré par Vite
 > reste le fallback initial.
+
+> **Volet favicon — livré.** `brand.logo` alimente aussi le `rel="icon"` du BO et les
+> `rel="icon"` / `rel="apple-touch-icon"` de la PWA, remplacés au runtime. Le manifest
+> couvrait déjà les icônes d'installation Android, mais **pas** l'onglet ni l'écran d'accueil
+> iOS. Les liens sont remplacés et non modifiés (Safari garde l'icône en cache sinon), et
+> perdent leur `type`. Comme le logo, l'icône n'arrive **qu'après connexion** — la config est
+> `TO authenticated`, l'écran de login garde celle d'`index.html`.
+
+> **Volet couleurs — livré.** Trois clés (`brand.color`, `brand.color_secondary`,
+> `brand.color_accent`) sont converties en tokens CSS par `src/lib/theme.ts` — dupliqué dans
+> `pwa/src/lib/theme.ts`, à garder synchronisé — et posées sur `<html>` par le BO (`App.tsx`)
+> et la PWA (`AppShell`). Seule la principale est structurante : les deux autres, laissées
+> vides, en sont dérivées, ainsi que TOUS les neutres teintés (`--foreground`, `--muted`,
+> `--border`, `--input`, `--ring`, bas du dégradé de `body`). Avec `#e51828` seul, la sortie
+> reproduit exactement les valeurs historiques de `index.css`.
+>
+> **Hors périmètre, et volontairement :** les couleurs de SENS ne suivent pas le club —
+> `--destructive`, les ~180 classes `red-*` de Tailwind (erreurs de saisie, boutons Supprimer,
+> badge « Éliminée ») et les états de score `win` / `loss` / `draw` / `wo`. Seuls les états
+> teintés marque (`todo`, `next`, `na`) suivent, via `@theme inline`.
+>
+> **Dette restante :** les générateurs d'affiches (`TeamMatchImagePreview.tsx`,
+> `ProgrammationImagePage.tsx`, `public/vs.svg`) gardent `#C8102E` en dur — un club non rouge
+> exportera des affiches rouges. Le `theme_color` de `pwa/vite.config.ts` et de
+> `pwa/index.html` reste figé au build, comme le manifest (même question ouverte ci-dessus).
 
 ### 6.3 Comptes sociaux par club
 Aujourd'hui la publication Facebook utilise des **secrets globaux** (`FACEBOOK_PAGE_ID`,
