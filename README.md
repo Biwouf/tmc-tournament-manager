@@ -94,8 +94,8 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 ### Configuration du site
 Écran *Admin › Configuration du site* (`/admin/site`), réservé aux **administrateurs** du club — un gestionnaire n'y a pas accès.
 
-- Permet de renseigner les informations publiques du club **sans passer par la base** : identité (nom, sport, ville, logos, couleur d'accent), page d'accueil (bandeau, chiffres clés, teasers école et infrastructures, appel à l'action), **Le Club** (président·e, encadrant, valeurs, méthodes et niveaux, programmes, bureau), **Infrastructures** (courts, club house, vestiaires), **Tarifs** (adhésion, cours, autres frais), coordonnées (adresse, téléphone, e-mail, lien Maps, horaires d'accueil), réseaux sociaux, partenaires, mentions légales et affichage des sections.
-- Ces informations alimentent le **futur site vitrine** du club. Elles ne changent **ni le back-office, ni l'application des adhérents** — la couleur d'accent comprise. **Seule exception : le panneau *Affiches*** (voir ci-dessous), qui porte des réglages utilisés par le back-office lui-même.
+- Permet de renseigner les informations publiques du club **sans passer par la base** : identité (nom, sport, ville, logos, **couleurs**), page d'accueil (bandeau, chiffres clés, teasers école et infrastructures, appel à l'action), **Le Club** (président·e, encadrant, valeurs, méthodes et niveaux, programmes, bureau), **Infrastructures** (courts, club house, vestiaires), **Tarifs** (adhésion, cours, autres frais), coordonnées (adresse, téléphone, e-mail, lien Maps, horaires d'accueil), réseaux sociaux, partenaires, mentions légales et affichage des sections.
+- Ces informations alimentent le **futur site vitrine** du club. Elles ne changent **ni le back-office, ni l'application des adhérents**, à **deux exceptions près** : les **couleurs** (voir ci-dessous) et le panneau ***Affiches***, qui porte des réglages utilisés par le back-office lui-même.
 - **Un bouton d'enregistrement par panneau** : corriger un numéro de téléphone ne réécrit pas l'identité du club, et deux personnes qui modifient deux panneaux différents ne s'écrasent pas.
 - Les panneaux sont **repliés par défaut** — cliquer sur un titre le déplie. Chacun indique s'il est *Configuré* ou *À compléter*, ce qui donne une vue d'avancement de la saisie ; un panneau qui porte des **modifications non enregistrées** le signale plutôt que de les cacher, et replier ne perd jamais une saisie en cours.
 - Les champs marqués ⬤ sont ceux qu'attend le site vitrine, mais **un panneau incomplet s'enregistre** : on peut compléter plus tard.
@@ -110,6 +110,20 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
   - Une image aux mauvaises proportions est **refusée au choix du fichier**, en annonçant le ratio attendu et celui reçu ; rien n'est envoyé. Une image trop petite est refusée aussi : elle sortirait floue à l'export.
   - ⚠️ **Sans aucun fond configuré, l'affiche ne peut pas être générée** — le bouton est désactivé et un message renvoie vers cet écran. Un fond au minimum par affiche est donc à prévoir avant d'utiliser les deux modules.
 - Les images sont envoyées **à l'enregistrement du panneau**, pas au choix du fichier ; remplacer ou retirer une image supprime l'ancienne.
+
+#### Couleurs du club
+Trois champs dans *Identité du club › Couleurs*, qui repeignent **le back-office et l'application des adhérents** :
+
+| Champ | Effet |
+|---|---|
+| **Couleur principale** (obligatoire) | Boutons, liens, en-têtes, anneaux de focus. C'est elle qui **teinte tout le reste** : fonds, bordures, textes secondaires et dégradé de la page en sont dérivés. |
+| **Couleur secondaire** | Boutons secondaires. Laissée vide : dérivée de la principale (même teinte, plus claire). |
+| **Couleur d'accent** | Fonds doux, survols, badges. Laissée vide : dérivée de la principale. |
+
+- La couleur du texte posé sur la principale et la secondaire (blanc ou foncé) est **choisie automatiquement** selon le contraste — une couleur claire ne donne pas du blanc sur blanc.
+- Les couleurs de **sens** ne changent jamais : rouge d'erreur et bouton *Supprimer*, vert/rouge/jaune des résultats gagné / perdu / nul.
+- L'effet est **immédiat** sur cet écran après enregistrement ; les autres écrans le prennent au prochain chargement.
+- ⚠️ Les **affiches générées** (Programmation Image, Matches par équipe) gardent pour l'instant le rouge du CAC : elles ne suivent pas encore ces couleurs.
 
 ### Console plateforme (super-admin)
 Réservée au **super-admin** de la plateforme, sur `/super-admin` (carte *Plateforme › Console plateforme* du dashboard). Invisible et inaccessible pour un administrateur de club.

@@ -23,12 +23,17 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
+import { useClubTheme } from '../hooks/useClubTheme';
 import { CLUB_CONFIG_GROUPS, groupValueFromConfig, type GroupValue } from '../lib/clubConfigWrite';
 import SiteConfigPanel from '../components/siteConfig/SiteConfigPanel';
 
 export default function SiteConfigPage() {
   const { clubId, club } = useClub();
   const { config, loading, reload } = useClubConfig();
+
+  // Les couleurs sont déjà appliquées par `App.tsx` ; les réappliquer ICI depuis la config
+  // rechargée après un enregistrement évite d'avoir à recharger la page pour les voir.
+  useClubTheme(config);
 
   // La config est figée au PREMIER chargement, et une seule fois. `reload()` après un
   // enregistrement repasse `loading` à true : sans ce gel, les panneaux seraient démontés puis
@@ -51,10 +56,12 @@ export default function SiteConfigPage() {
               quasi-totalité des panneaux décrit les informations publiques du club : elles
               alimenteront le{' '}
               <span className="font-medium text-foreground">site vitrine</span> et ne changent ni
-              ce back-office, ni l’application des adhérents. Le dernier panneau,{' '}
-              <span className="font-medium text-foreground">Affiches</span>, fait exception : il
-              porte des réglages d’affichage internes, utilisés par les affiches générées ici
-              même.
+              ce back-office, ni l’application des adhérents. Deux exceptions : les{' '}
+              <span className="font-medium text-foreground">couleurs</span> d’
+              <span className="font-medium text-foreground">Identité du club</span>, qui
+              repeignent les deux, et le panneau{' '}
+              <span className="font-medium text-foreground">Affiches</span>, qui porte des
+              réglages d’affichage internes, utilisés par les affiches générées ici même.
             </p>
           </div>
           <Link

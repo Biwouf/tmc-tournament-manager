@@ -25,6 +25,8 @@ import TeamRencontrePage from './pages/TeamRencontrePage';
 import TeamRencontreForm from './components/teamMatches/TeamRencontreForm';
 import { ClubProvider, useClub, exitSupportClub } from './contexts/ClubContext';
 import { ClubRoleProvider, useClubRole } from './contexts/ClubRoleContext';
+import { useClubConfig } from './hooks/useClubConfig';
+import { useClubTheme } from './hooks/useClubTheme';
 
 function RedirectTournament() {
   const { id } = useParams();
@@ -167,9 +169,22 @@ function GuardedRoutes({ user }: { user: User | null }) {
   );
 }
 
+// Monté au-dessus du garde d'auth, pour que l'écran « Accès refusé » de PR4 et tout écran
+// rendu hors des routes soient déjà aux couleurs du club.
+//
+// ⚠️ `club_settings` n'est lisible que par un compte authentifié : l'écran de LOGIN garde donc
+// les valeurs d'`index.css`, et les couleurs arrivent à la connexion (le hook relit sur
+// `onAuthStateChange`). Même limite que le logo et le nom du club depuis PR7-bis.
+function ClubTheme() {
+  const { config } = useClubConfig();
+  useClubTheme(config);
+  return null;
+}
+
 function App() {
   return (
     <ClubProvider>
+      <ClubTheme />
       <AppRoutes />
     </ClubProvider>
   );

@@ -32,23 +32,35 @@ export function useClubConfig(): UseClubConfigResult {
 
     let cancelled = false;
 
-    supabase
-      .from('club_settings')
-      .select('config')
-      .eq('club_id', clubId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        // Ne jamais rendre l'écran inutilisable sur une config illisible : on retombe sur les
-        // défauts. La RLS de PR6a garantit par ailleurs que `data` ne peut pas venir d'un
-        // autre club, même si ce filtre `.eq` se trompait (brief §5, règle 3).
-        if (error) console.error('[useClubConfig] lecture de club_settings impossible', error);
-        setConfig(parseClubConfig(data?.config));
-        setLoading(false);
-      });
+    const load = () =>
+      supabase
+        .from('club_settings')
+        .select('config')
+        .eq('club_id', clubId)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          // Ne jamais rendre l'écran inutilisable sur une config illisible : on retombe sur les
+          // défauts. La RLS de PR6a garantit par ailleurs que `data` ne peut pas venir d'un
+          // autre club, même si ce filtre `.eq` se trompait (brief §5, règle 3).
+          if (error) console.error('[useClubConfig] lecture de club_settings impossible', error);
+          setConfig(parseClubConfig(data?.config));
+          setLoading(false);
+        });
+
+    // `club_settings_select_tenant` est `TO authenticated` : un appel parti avant la
+    // restauration de session revient vide et laisserait la config aux défauts pour toute la
+    // durée de la page. On attend donc la session, et on relit à chaque changement d'auth —
+    // même patron que la copie PWA. Les consommateurs montés DERRIÈRE le garde d'auth n'en
+    // avaient pas besoin ; `<ClubTheme />`, monté au-dessus, si.
+    void supabase.auth.getSession().then(() => load());
+    const { data: auth } = supabase.auth.onAuthStateChange(() => {
+      void load();
+    });
 
     return () => {
       cancelled = true;
+      auth.subscription.unsubscribe();
     };
   }, [clubId, reloadKey]);
 

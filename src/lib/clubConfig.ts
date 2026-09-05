@@ -50,12 +50,17 @@ const brandSchema = z.object({
   logo: optionalText,
   logo_inverse: optionalText,
   /**
-   * Couleur d'accent. Défaut VIDE, volontairement : le brief §3 interdit de toucher aux
-   * couleurs en dur du BO et de la PWA (`#C8102E`) — elles restent la propriété de PR7-bis,
-   * qui décidera comment cette clé les remplace. Y mettre un défaut ici reviendrait à
-   * attribuer une couleur de plateforme que personne n'a arbitrée.
+   * Les trois couleurs du thème — elles pilotent les tokens CSS du BO ET de la PWA
+   * (`src/lib/theme.ts`). Défaut VIDE, volontairement : sans couleur principale, les deux
+   * `index.css` gardent leurs valeurs plutôt que de recevoir une couleur de plateforme que
+   * personne n'a arbitrée.
+   *
+   * Seule `color` est structurante : `color_secondary` et `color_accent` laissées vides sont
+   * DÉRIVÉES d'elle. Les saisir sert aux clubs dont la charte impose ses propres teintes.
    */
   color: optionalText,
+  color_secondary: optionalText,
+  color_accent: optionalText,
   legal_form: optionalText,
   copyright: optionalText,
 });

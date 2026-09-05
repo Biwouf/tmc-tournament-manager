@@ -20,6 +20,9 @@
   --border: 355 50% 88%;
   --input: 355 50% 88%;
   --ring: 355 81% 50%;
+  /* Bas du dégradé de `body`. Token à part plutôt que valeur littérale : comme tous les
+     neutres ci-dessus, il suit la teinte du club (`src/lib/theme.ts`). */
+  --background-tint: 355 60% 97%;
   --radius: 0.8rem;
 }
 
@@ -43,10 +46,24 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  /* États de score TEINTÉS PAR LA MARQUE — ils suivent le thème du club, d'où `@theme inline`
+     et non le bloc `@theme` littéral plus bas. Les valeurs sont celles d'avant, exprimées
+     avec le token qui leur correspondait déjà (`#e51828` = --primary, `#fbe6e8` = --muted,
+     `#8a5c61` = --muted-foreground) ; `na` et sa hachure s'en écartent de 1 à 3 points de
+     saturation, imperceptibles à l'écran. */
+  --color-score-todo: hsl(var(--primary));
+  --color-score-todo-fg: hsl(var(--primary-foreground));
+  --color-score-next: hsl(var(--muted));
+  --color-score-next-fg: hsl(var(--muted-foreground));
+  --color-score-na: hsl(var(--border));
+  --color-score-na-hatch: hsl(var(--background-tint));
 }
 
 /* États de score du module Matches par équipe (grille de saison).
-   Valeurs littérales : ce sont des états métier, pas des variantes du thème club.
+   Valeurs littérales : ce sont des états de SENS (gagné, perdu, nul, forfait), pas des
+   variantes du thème club — un club en vert ne doit pas voir « défaite » virer au vert.
+   Les états teintés par la marque (`todo`, `next`, `na`) sont dans `@theme inline` ci-dessus.
    Tailwind v4 — le thème vit ici, tailwind.config.js n'est plus lu. */
 @theme {
   --color-score-win: #dcfce7;
@@ -61,17 +78,8 @@
   --color-score-draw-fg: #854d0e;
   --color-score-draw-border: #fde68a;
 
-  --color-score-todo: #e51828;
-  --color-score-todo-fg: #ffffff;
-
-  --color-score-next: #fbe6e8;
-  --color-score-next-fg: #8a5c61;
-
   --color-score-wo: #f3f4f6;
   --color-score-wo-fg: #374151;
-
-  --color-score-na: #f2d3d7;      /* bordure pointillée de la cellule inerte */
-  --color-score-na-hatch: #faf0f1; /* hachures diagonales */
 
   --color-finale-header: #fef3c7;
   --color-finale-header-fg: #92400e;
@@ -86,9 +94,9 @@
     @apply bg-background text-foreground antialiased;
     font-family: "Manrope", "Segoe UI", sans-serif;
     background-image:
-      radial-gradient(circle at 8% 12%, hsl(355 75% 88% / 0.45), transparent 35%),
-      radial-gradient(circle at 92% 0%, hsl(355 80% 73% / 0.15), transparent 32%),
-      linear-gradient(to bottom, hsl(var(--background)), hsl(355 60% 97%));
+      radial-gradient(circle at 8% 12%, hsl(var(--accent) / 0.45), transparent 35%),
+      radial-gradient(circle at 92% 0%, hsl(var(--secondary) / 0.15), transparent 32%),
+      linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background-tint)));
     min-height: 100vh;
   }
 }

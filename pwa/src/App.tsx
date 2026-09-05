@@ -15,6 +15,7 @@ import LiveMatchPage from './pages/LiveMatchPage';
 import { useAuth } from './hooks/useAuth';
 import { ClubProvider, useClub } from './contexts/ClubContext';
 import { useClubConfig } from './hooks/useClubConfig';
+import { applyClubTheme } from './lib/theme';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -37,6 +38,17 @@ export default function App() {
 function AppShell() {
   const { club, loading: clubLoading } = useClub();
   const { config } = useClubConfig();
+
+  // Effet à part de celui du manifeste : les couleurs ne dépendent pas de `club`, seulement
+  // de la config. Elles s'appliquent donc dès sa lecture — laquelle est authentifiée, comme le
+  // logo : avant connexion, la PWA garde les valeurs de `index.css`.
+  useEffect(() => {
+    applyClubTheme(document.documentElement, {
+      primary: config.brand.color,
+      secondary: config.brand.color_secondary,
+      accent: config.brand.color_accent,
+    });
+  }, [config]);
 
   useEffect(() => {
     if (!club) return;

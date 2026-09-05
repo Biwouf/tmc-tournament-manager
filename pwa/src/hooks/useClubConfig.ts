@@ -6,6 +6,8 @@ type ClubConfig = {
   brand: {
     logo?: string;
     color?: string;
+    color_secondary?: string;
+    color_accent?: string;
   };
 };
 
@@ -17,10 +19,13 @@ function parseConfig(raw: unknown): ClubConfig {
   const brand = source.brand && typeof source.brand === 'object' && !Array.isArray(source.brand)
     ? source.brand as Record<string, unknown>
     : {};
+  const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
   return {
     brand: {
-      logo: typeof brand.logo === 'string' && brand.logo ? brand.logo : undefined,
-      color: typeof brand.color === 'string' && brand.color ? brand.color : undefined,
+      logo: str(brand.logo),
+      color: str(brand.color),
+      color_secondary: str(brand.color_secondary),
+      color_accent: str(brand.color_accent),
     },
   };
 }
