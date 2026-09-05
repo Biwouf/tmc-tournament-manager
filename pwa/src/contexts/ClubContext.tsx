@@ -32,16 +32,9 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       .single()
       .then(({ data, error }) => {
         if (error || !data) {
-          console.error(`[ClubContext] club "${slug}" introuvable, fallback cac-tennis`, error);
-          supabase
-            .from('clubs')
-            .select('id, slug, name, sport, status')
-            .eq('slug', 'cac-tennis')
-            .single()
-            .then(({ data: fallback }) => {
-              setClub(fallback ?? null);
-              setLoading(false);
-            });
+          console.error(`[ClubContext] club "${slug}" indisponible`, error);
+          setClub(null);
+          setLoading(false);
           return;
         }
         setClub(data);

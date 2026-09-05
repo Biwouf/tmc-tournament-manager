@@ -293,3 +293,14 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `/matches/:id/score` | requise (et ownership pour `live`) | Saisie / consultation d'un live |
 
 Spec fonctionnelle complète : `docs/specs/PWA.MD` et `docs/specs/PWA_LIVE_AUTH.md`.
+
+
+## Correctifs audit — 05/09/2026
+
+- `src/lib/markdown.ts` et `pwa/src/lib/markdown.ts` : contrat de rendu HTML éditorial assaini (copies synchronisées). Utilisé par MarkdownEditor BO et les deux pages de détail PWA.
+- Les deux ClubContext ne substituent plus CAC Tennis à un club indisponible ; le mode support explicite du BO est conservé.
+- `supabase/migrations/20260905_audit_content_permissions.sql` : policies restrictives de rôle et de statut, helper Storage, trigger dernier administrateur. Le rôle n'est plus limité au masquage de l'UI après application de cette migration.
+- `invite-user` : rattachement sans modification des droits existants ; `club-members` : gestion des refus du trigger ; les deux fonctions contrôlent la suspension.
+- `post-to-facebook` : autorisation sur le contenu avant publication et liaison obligatoire des credentials à FACEBOOK_CLUB_ID.
+- `tests/security.test.mjs` : rendu HTML BO/PWA et migration exécutée dans PostgreSQL embarqué PGlite ; `tests/edge-security.test.mjs` : handlers Deno réels avec API locales simulées. Commande `npm run test:security`, aucun service externe touché.
+- État, limites et déploiement : `docs/SECURITY_AUDIT_FIXES.md`.

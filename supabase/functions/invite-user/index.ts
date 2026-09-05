@@ -148,6 +148,15 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  const { data: club, error: clubErr } = await supabaseAdmin
+    .from('clubs').select('status').eq('id', clubId).maybeSingle();
+  if (clubErr) {
+    return jsonResponse(500, { success: false, error: 'Vérification du club impossible.' });
+  }
+  if (!club || (club.status !== 'active' && profile?.is_super_admin !== true)) {
+    return jsonResponse(403, { success: false, error: 'Club indisponible.' });
+  }
+
   const isSuperAdmin = profile?.is_super_admin === true;
   if (!isSuperAdmin && membership?.role !== 'admin') {
     return jsonResponse(403, {
@@ -162,7 +171,7 @@ Deno.serve(async (req: Request) => {
   const attachMember = async (userId: string): Promise<Response | null> => {
     const { error } = await supabaseAdmin
       .from('club_members')
-      .upsert({ club_id: clubId, user_id: userId, role }, { onConflict: 'club_id,user_id' });
+      .upsert({ club_id: clubId, user_id: userId, role }, { onConflict: 'club_id,user_id', ignoreDuplicates: true });
     if (error) {
       console.error('[invite-user] club_members upsert error', {
         email,

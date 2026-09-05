@@ -518,3 +518,16 @@ return (
 - Trombinoscope des joueurs du club
 - Gestion du bar
 - Inscription aux événements depuis la PWA
+
+
+## Correctif sécurité — audit du 05/09/2026
+
+Le rendu éditorial utilise `rehype-raw` puis `rehype-sanitize` avec une liste
+contrôlée de balises/attributs. Le soulignement `<u>` de l'éditeur est conservé ;
+styles, scripts, formulaires et contenus embarqués actifs sont supprimés dans
+l'aperçu BO et les détails PWA. Les liens, listes, images et légendes sont conservés.
+Le contrat réside dans les deux copies de `src/lib/markdown.ts` (BO et PWA),
+validées avec les dépendances propres à chaque application.
+
+La résolution d'un club introuvable/suspendu ne bascule plus vers CAC Tennis.
+Le chargement hors ligne à froid reste une limite à traiter dans le lot PWA suivant.

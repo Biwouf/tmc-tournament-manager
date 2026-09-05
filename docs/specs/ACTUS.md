@@ -394,3 +394,19 @@ supabase/
 - Republication / suppression d'un post Facebook existant.
 - Analytics Facebook.
 - Publication automatique sans action manuelle.
+
+
+## Correctif sécurité — audit du 05/09/2026
+
+Le rendu éditorial utilise `rehype-raw` puis `rehype-sanitize` avec une liste
+contrôlée de balises/attributs. Le soulignement `<u>` de l'éditeur est conservé ;
+styles, scripts, formulaires et contenus embarqués actifs sont supprimés dans
+l'aperçu BO et les détails PWA. Les liens, listes, images et légendes sont conservés.
+Le contrat réside dans les deux copies de `src/lib/markdown.ts` (BO et PWA),
+validées avec les dépendances propres à chaque application.
+
+`post-to-facebook` exige désormais une actualité publiée, un club actif, et un
+appelant admin/manager de ce club ou super-admin. Les credentials Facebook
+historiques sont liés à `FACEBOOK_CLUB_ID` : absence ou club différent = refus
+avant publication. Le mode debug ne contourne pas ces contrôles. La gestion de
+credentials distincts pour plusieurs clubs et l'idempotence restent à livrer.

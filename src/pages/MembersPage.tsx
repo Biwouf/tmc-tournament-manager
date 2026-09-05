@@ -22,8 +22,7 @@ import { useClub } from '../contexts/ClubContext';
 import type { ClubRole } from '../contexts/ClubRoleContext';
 import { supabase } from '../lib/supabase';
 
-// Le rôle définit ce que la personne VOIT dans le back-office. La RLS cloisonne par
-// club, pas par rôle (MULTI_TENANT.md §4.1) : ne pas promettre plus que ça.
+// Les rôles métier sont appliqués côté base ; la présentation reflète ces droits.
 const ROLE_OPTIONS: { value: ClubRole; label: string }[] = [
   { value: 'member', label: 'Membre — Live Score uniquement' },
   { value: 'manager', label: 'Gestionnaire — contenus et outils du club' },
@@ -156,7 +155,7 @@ export default function MembersPage() {
             <p className="mt-2 text-muted-foreground">
               Les comptes ayant accès au back-office de{' '}
               <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>. Le
-              rôle définit ce que la personne voit dans le back-office.
+              rôle définit les modules accessibles et les actions autorisées.
             </p>
           </div>
           <Link

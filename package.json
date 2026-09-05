@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:security": "node --test tests/security.test.mjs tests/edge-security.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
@@ -19,10 +20,12 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.2",
     "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
     "remark-breaks": "^4.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@eslint/js": "^9.39.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^24.10.1",

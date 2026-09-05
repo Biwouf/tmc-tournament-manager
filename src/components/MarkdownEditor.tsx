@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { ReactNode, KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
-import rehypeRaw from 'rehype-raw';
+import { editorialRehypePlugins } from '../lib/markdown';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { STORAGE_BUCKETS, clubPath, sanitizeFilename } from '../lib/storage';
@@ -480,7 +480,7 @@ export default function MarkdownEditor({
           style={{ minHeight: `${rows * 1.5}rem` }}
         >
           {value.trim() ? (
-            <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={[rehypeRaw]}>
+            <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={editorialRehypePlugins}>
               {expandBlankLines(value)}
             </ReactMarkdown>
           ) : (
