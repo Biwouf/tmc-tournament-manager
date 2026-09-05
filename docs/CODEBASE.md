@@ -109,6 +109,11 @@ Stack : React 19, TypeScript, Vite, Tailwind CSS, Supabase (auth + DB + Storage)
 | `App.tsx` | Routeur React Router + guard d'authentification, englobé dans `<ClubProvider>` (attend `club loading === false` avant de rendre les routes) puis `<ClubRoleProvider>` (monté **après** résolution de l'auth et du club). **PR4** — `GuardedRoutes` ajoute : (1) la **garde d'appartenance** — un compte authentifié qui n'est ni membre du club résolu ni super-admin obtient l'écran `NoClubAccess` (refus plein page nommant le club + bouton « Se déconnecter », pas de redirection vers `/login` : la session est bonne, c'est le club qui ne l'est pas) au lieu des routes ; `UNGUARDED_PATHS` (`/login`, `/accept-invite`) reste atteignable ; (2) la **garde de route** `adminOnly` sur `/admin/members` (**PR6b** : et sur `/admin/site`) (redirection vers `/` — l'URL est devinable même carte masquée ; **PR5-bis** : la route était `/admin/invite`, qui redirige désormais en permanence vers `/admin/members` — l'URL est documentée dans le README et peut traîner dans un favori). **PR5** — garde `superAdminOnly` sur `/super-admin` (`isSuperAdmin` **seul**, jamais `role === 'admin'` : c'est une surface plateforme) + composant `SupportBanner`, bandeau collant rendu au-dessus des `<Routes>` tant que `useClub().isSupport` est vrai (« Support — vous consultez *&lt;club&gt;* (suspendu) » + bouton **Quitter** → `exitSupportClub()`). |
 | `main.tsx` | Point d'entrée, monte `<BrowserRouter>` |
 
+La PWA possède aussi `pwa/src/hooks/useClubConfig.ts`, une lecture minimale de
+`club_settings.config` (`brand.logo` / `brand.color`) destinée au dé-branding runtime PR7-bis.
+`pwa/src/App.tsx` met à jour le titre, le `theme-color` et le manifest par tenant ; les assets
+historiques restent les fallbacks pour les clubs sans identité configurée.
+
 ---
 
 ## Flux de données — TMC Planner

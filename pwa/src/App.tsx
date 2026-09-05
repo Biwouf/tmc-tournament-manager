@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppHeader from './components/layout/AppHeader';
 import { HeaderActionProvider } from './components/layout/HeaderActionContext';
@@ -14,6 +14,7 @@ import NewMatchPage from './pages/NewMatchPage';
 import LiveMatchPage from './pages/LiveMatchPage';
 import { useAuth } from './hooks/useAuth';
 import { ClubProvider, useClub } from './contexts/ClubContext';
+import { useClubConfig } from './hooks/useClubConfig';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -34,7 +35,37 @@ export default function App() {
 }
 
 function AppShell() {
-  const { loading: clubLoading } = useClub();
+  const { club, loading: clubLoading } = useClub();
+  const { config } = useClubConfig();
+
+  useEffect(() => {
+    if (!club) return;
+    const name = club.name || 'Application du club';
+    const logo = config.brand.logo || '/icons/icon-192.png';
+    const absoluteLogo = new URL(logo, window.location.href).href;
+    document.title = name;
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+      ?.setAttribute('content', config.brand.color || '#e51828');
+
+    const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+    if (!manifest) return;
+    const blob = new Blob([JSON.stringify({
+      name,
+      short_name: name,
+      description: `L'application de ${name}`,
+      theme_color: config.brand.color || '#e51828',
+      background_color: '#ffffff',
+      display: 'standalone',
+      start_url: `${window.location.origin}/`,
+      icons: [
+        { src: absoluteLogo, sizes: '192x192', type: 'image/png' },
+        { src: absoluteLogo, sizes: '512x512', type: 'image/png' },
+      ],
+    })], { type: 'application/manifest+json' });
+    const url = URL.createObjectURL(blob);
+    manifest.href = url;
+    return () => URL.revokeObjectURL(url);
+  }, [club, config]);
   if (clubLoading) return null;
 
   return (

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClubRole } from '../contexts/ClubRoleContext';
+import { useClub } from '../contexts/ClubContext';
+import { useClubConfig } from '../hooks/useClubConfig';
 
 // `roles` = rôles autorisés à voir la carte (matrice MULTI_TENANT.md §4 / brief PR4 §6).
 // Le masquage est purement UI : la RLS tenant_isolation cloisonne par club, pas par rôle.
@@ -39,7 +41,11 @@ const SECTIONS = [
 
 export default function AppHomePage() {
   const { role, isSuperAdmin } = useClubRole();
+  const { club } = useClub();
+  const { config } = useClubConfig();
   const handleLogout = () => supabase.auth.signOut();
+  const clubName = club?.name ?? 'Club';
+  const logo = config.brand.logo || '/logo.png';
 
   // Super-admin non membre : accès support avec le rôle effectif 'admin'.
   const effectiveRole = isSuperAdmin ? 'admin' : role;
@@ -55,9 +61,9 @@ export default function AppHomePage() {
       <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
         <div className="container mx-auto flex items-start justify-between px-4 py-8">
           <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="CAC Tennis Club" className="h-16 w-16" />
+            <img src={logo} alt={clubName} className="h-16 w-16 object-contain" />
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight">Administration du CAC Tennis</h1>
+              <h1 className="text-3xl font-semibold tracking-tight">Administration de {clubName}</h1>
               <p className="mt-2 text-muted-foreground">Affiche, events, programmation…</p>
             </div>
           </div>
