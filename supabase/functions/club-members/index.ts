@@ -141,6 +141,15 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  const { data: club, error: clubErr } = await supabaseAdmin
+    .from('clubs').select('status').eq('id', clubId).maybeSingle();
+  if (clubErr) {
+    return jsonResponse(500, { success: false, error: 'Vérification du club impossible.' });
+  }
+  if (!club || (club.status !== 'active' && profile?.is_super_admin !== true)) {
+    return jsonResponse(403, { success: false, error: 'Club indisponible.' });
+  }
+
   const isSuperAdmin = profile?.is_super_admin === true;
   if (!isSuperAdmin && membership?.role !== 'admin') {
     return jsonResponse(403, {
@@ -311,7 +320,10 @@ Deno.serve(async (req: Request) => {
         role,
         message: error.message,
       });
-      return jsonResponse(500, { success: false, error: 'Changement de rôle impossible.' });
+      return jsonResponse(error.code === '23514' ? 400 : 500, {
+        success: false,
+        error: error.code === '23514' ? 'Le club doit conserver au moins un administrateur.' : 'Changement de rôle impossible.',
+      });
     }
     return jsonResponse(200, { success: true });
   }
@@ -346,7 +358,10 @@ Deno.serve(async (req: Request) => {
         targetId,
         message: error.message,
       });
-      return jsonResponse(500, { success: false, error: 'Retrait impossible.' });
+      return jsonResponse(error.code === '23514' ? 400 : 500, {
+        success: false,
+        error: error.code === '23514' ? 'Le club doit conserver au moins un administrateur.' : 'Retrait impossible.',
+      });
     }
     return jsonResponse(200, { success: true });
   }

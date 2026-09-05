@@ -5,9 +5,7 @@
 // ⚠️ PR5 : l'override de support ci-dessous est **BO uniquement** — c'est la seule
 // divergence volontaire entre les deux copies.
 //
-// PR2 pose la logique de résolution par slug uniquement. Le volet custom_domain,
-// le préfixe `app-` PWA et la page « club inconnu / suspendu » sont hors périmètre
-// (fallback silencieux sur CAC en attendant PR13).
+// Un club introuvable ou suspendu reste indisponible : aucun repli vers un autre tenant.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 
@@ -64,7 +62,7 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Ordre de résolution (PR5 §7) : override de support → hostname → fallback dev.
+    // Ordre de résolution : override de support → hostname (ou slug de développement).
     const resolve = async () => {
       const override = localStorage.getItem(SUPPORT_CLUB_KEY);
       if (override) {
@@ -91,13 +89,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         .single();
       if (!error && data) return { club: data as Club, isSupport: false };
 
-      console.error(`[ClubContext] club "${slug}" introuvable, fallback cac-tennis`, error);
-      const { data: fallback } = await supabase
-        .from('clubs')
-        .select(CLUB_FIELDS)
-        .eq('slug', 'cac-tennis')
-        .single();
-      return { club: (fallback as Club | null) ?? null, isSupport: false };
+      console.error(`[ClubContext] club "${slug}" indisponible`, error);
+      return { club: null, isSupport: false };
     };
 
     resolve().then((resolved) => {

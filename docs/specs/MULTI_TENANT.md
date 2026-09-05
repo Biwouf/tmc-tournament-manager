@@ -269,15 +269,15 @@ Implémentation :
 - **Multi-club (D5)** : inviter un email déjà titulaire d'un compte le **rattache** au club
   courant sans envoyer d'email (réponse `already_existed`).
 
-> ⚠️ **Limite assumée — le rôle n'est PAS appliqué en base.** `tenant_isolation` (PR3)
-> cloisonne **par club**, pas par rôle. Un `member` reste `authenticated` et membre du club :
-> la RLS lui autorise toujours le CRUD complet sur les 10 tables métier de **son** club. PR4
-> ne fait que **masquer l'UI** — conforme au « le front ne fait que masquer » ci-dessus, mais
-> cela signifie qu'un `member` techniquement outillé peut encore écrire hors Live Score.
-> Ce n'est **pas** un problème d'isolation entre clubs (l'objet de cette migration), c'est une
-> restriction intra-club. La fermer = une PR dédiée (policies par commande
-> `SELECT`/`INSERT`/`UPDATE`/`DELETE` avec un helper `auth_club_role(club_id)`) — **hors PR4**,
-> à décider plus tard, à ne pas improviser.
+**Correctif audit du 05/09/2026 — à déployer :** la migration
+`20260905_audit_content_permissions.sql` ajoute des policies restrictives : admin/manager
+écrivent les modules éditoriaux, TMC et équipes ; member conserve les droits Live Score.
+Les clubs suspendus sont refusés par les règles métier (lecture publique comprise), avec
+exception de support pour le super-admin. Les images déjà publiques ne deviennent pas
+privées. Les fonctions d'invitation/gestion de membres vérifient aussi le statut du club.
+Une réinvitation conserve le rôle existant et un trigger protège le dernier admin.
+Le contrôle exclusif du gestionnaire du score reste un correctif distinct.
+Voir `docs/SECURITY_AUDIT_FIXES.md` pour la validation et l'ordre de déploiement.
 
 > **Dette PR4 — pas de garde d'appartenance côté PWA.** `pwa/` n'a ni `useClubRole()` ni
 > garde : un membre du club A qui ouvre la PWA du club B lit le contenu public (normal, il est

@@ -293,3 +293,21 @@ src/
 ## Licence
 
 MIT
+
+
+## Corrections de sécurité de l'audit PWA (05/09/2026)
+
+Le premier lot limite les écritures métier aux administrateurs/gestionnaires
+(les membres conservent Live Score), bloque les clubs suspendus côté API et
+assainit les contenus HTML affichés. Réinviter un membre ne change plus son rôle ;
+un club ne peut plus perdre son dernier administrateur.
+
+La publication Facebook vérifie le club, le rôle et la publication de l'actualité.
+La variable serveur `FACEBOOK_CLUB_ID` doit identifier le club associé aux
+credentials existants avant de déployer la fonction mise à jour.
+
+Ces protections SQL nécessitent l'application de la nouvelle migration ; elles ne
+s'activent pas par la seule mise à jour du frontend. Voir
+[les consignes et limites](docs/SECURITY_AUDIT_FIXES.md).
+
+Tests isolés, sans connexion à Supabase : `npm run test:security`.

@@ -107,6 +107,7 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const fbPageId = Deno.env.get('FACEBOOK_PAGE_ID');
+  const fbClubId = Deno.env.get('FACEBOOK_CLUB_ID');
   const fbAccessToken = Deno.env.get('FACEBOOK_PAGE_ACCESS_TOKEN');
 
   if (!supabaseUrl || !serviceRoleKey) {
@@ -115,11 +116,11 @@ Deno.serve(async (req: Request) => {
       error: 'Configuration Supabase manquante côté serveur.',
     });
   }
-  if (!fbPageId || !fbAccessToken) {
+  if (!fbPageId || !fbAccessToken || !fbClubId) {
     return jsonResponse(500, {
       success: false,
       error:
-        'Configuration Facebook manquante (FACEBOOK_PAGE_ID / FACEBOOK_PAGE_ACCESS_TOKEN).',
+        'Configuration Facebook manquante (FACEBOOK_PAGE_ID / FACEBOOK_PAGE_ACCESS_TOKEN / FACEBOOK_CLUB_ID).',
     });
   }
 
@@ -148,11 +149,11 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(400, { success: false, error: '`actu_id` manquant.' });
   }
 
-  // --- Récupère l'actu (service role pour bypass RLS si actu en brouillon) ---
+  // --- Charge l'actualité ; autorisation explicite obligatoire ci-dessous ---
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
   const { data: actu, error: actuErr } = await supabaseAdmin
     .from('actus')
-    .select('titre, contenu, image_urls, image_captions')
+    .select('club_id, published, titre, contenu, image_urls, image_captions')
     .eq('id', actuId)
     .single();
 
@@ -162,6 +163,24 @@ Deno.serve(async (req: Request) => {
       error: `Actu introuvable (id: ${actuId})`,
       detail: actuErr ?? null,
     });
+  }
+
+  // Le service role ci-dessus ne prouve aucun droit sur cette actualité.
+  // Les credentials historiques sont utilisables uniquement pour leur club explicite.
+  const [{ data: membership, error: memberErr }, { data: profile, error: profileErr },
+    { data: club, error: clubErr }] = await Promise.all([
+    supabaseAdmin.from('club_members').select('role')
+      .eq('club_id', actu.club_id).eq('user_id', userData.user.id).maybeSingle(),
+    supabaseAdmin.from('profiles').select('is_super_admin')
+      .eq('id', userData.user.id).maybeSingle(),
+    supabaseAdmin.from('clubs').select('status').eq('id', actu.club_id).maybeSingle(),
+  ]);
+  if (memberErr || profileErr || clubErr) {
+    return jsonResponse(500, { success: false, error: 'Vérification des droits impossible.' });
+  }
+  if (club?.status !== 'active' || actu.club_id !== fbClubId || !actu.published ||
+      (profile?.is_super_admin !== true && !['admin', 'manager'].includes(membership?.role ?? ''))) {
+    return jsonResponse(403, { success: false, error: 'Publication non autorisée pour cette actualité.' });
   }
 
   // --- Construit le message texte (sans le titre) ---

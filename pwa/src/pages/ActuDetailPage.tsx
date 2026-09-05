@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
-import rehypeRaw from 'rehype-raw';
+import { editorialRehypePlugins } from '../lib/markdown';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { Actu } from '../types';
@@ -100,7 +100,7 @@ export default function ActuDetailPage() {
         <div className="markdown-body text-foreground">
           <ReactMarkdown
             remarkPlugins={[remarkBreaks]}
-            rehypePlugins={[rehypeRaw]}
+            rehypePlugins={editorialRehypePlugins}
             components={markdownComponents}
           >
             {expandBlankLines(actu.contenu)}
