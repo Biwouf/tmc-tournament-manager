@@ -205,9 +205,14 @@ function MatchCell({ match, size }: { match: TeamMatch; size: SizeClass }) {
 
 interface TeamMatchImagePreviewProps {
   matches: TeamMatch[];
+  /** Fond de l'affiche — `config.posters.team_match_background` du club (PR7). Le composant
+   *  reste de PRÉSENTATION : c'est `PosterPanel` qui lit la config, parce qu'il monte ce
+   *  composant DEUX fois sur le même écran (aperçu + nœud d'export). Absent = aucun fond,
+   *  l'aplat uni suffit et l'affiche se génère. */
+  background?: string;
 }
 
-export default function TeamMatchImagePreview({ matches }: TeamMatchImagePreviewProps) {
+export default function TeamMatchImagePreview({ matches, background }: TeamMatchImagePreviewProps) {
   const size = sizeClassFor(matches.length);
   const gap = size === 'hero' ? 0 : size === 'compact' ? 22 : 32;
   const justify =
@@ -222,8 +227,13 @@ export default function TeamMatchImagePreview({ matches }: TeamMatchImagePreview
       fontFamily: "'Prompt', sans-serif",
     }}>
       <style>{POSTER_STYLES}</style>
-      <img src="/template_event.png" alt=""
-           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
+      {/* `crossOrigin` est indispensable depuis que le fond vient du Storage (autre origine) :
+          `html-to-image` inline les images avant de rendre le canvas, et sans lui l'aperçu
+          resterait parfait pendant que le JPEG EXPORTÉ sortirait sans fond. */}
+      {background && (
+        <img src={background} alt="" crossOrigin="anonymous"
+             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
+      )}
       <div style={{
         position: 'absolute',
         top: CONTENT_TOP, bottom: POSTER_H - CONTENT_BOTTOM,

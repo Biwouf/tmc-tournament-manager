@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toJpeg } from 'html-to-image';
+import { useClubConfig } from '../../../hooks/useClubConfig';
 import type { TeamMatch } from '../../../types';
 import TeamMatchImagePreview from '../../TeamMatchImagePreview';
+import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../../PosterBackgroundPicker';
 import type { RencontreEntry } from '../gridTypes';
 import {
   currentWeekendRange,
@@ -59,6 +61,16 @@ export default function PosterPanel({
   entries: RencontreEntry[];
   onClose: () => void;
 }) {
+  // Le fond d'affiche du club (PR7) est lu ICI et passé en prop : `TeamMatchImagePreview` est
+  // monté deux fois plus bas (aperçu réduit + nœud d'export hors viewport), et le hook n'a
+  // aucune raison de tourner deux fois sur le même écran.
+  // `loading` n'est pas décoratif : le hook rend les DÉFAUTS avant sa requête, donc une liste
+  // vide. Sans cette garde, « aucun fond configuré » clignoterait à chaque ouverture du panneau.
+  const { config, loading: configLoading } = useClubConfig();
+  const backgrounds = config.posters.team_match_backgrounds;
+  /** Choix propre à la génération en cours, non enregistré ; le premier fond par défaut. */
+  const [backgroundIndex, setBackgroundIndex] = useState(0);
+  const background = backgrounds[backgroundIndex] ?? backgrounds[0];
   const now = useMemo(() => new Date(), []);
   const groupes = useMemo(() => groupByWeekend(entries, now), [entries, now]);
   const weekend = useMemo(() => currentWeekendRange(now), [now]);
@@ -76,11 +88,12 @@ export default function PosterPanel({
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const posterRef = useRef<HTMLDivElement>(null);
 
-  // Toute nouvelle sélection invalide l'affiche déjà générée.
+  // Toute nouvelle sélection — de rencontres comme de fond — invalide l'affiche déjà générée :
+  // sans quoi le bouton « Télécharger » servirait le JPEG de l'ancien fond.
   useEffect(() => {
     setGenStatus('idle');
     setDataUrl(null);
-  }, [selectedIds]);
+  }, [selectedIds, backgroundIndex]);
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const atMax = selectedIds.length >= MAX_POSTER_MATCHES;
@@ -114,6 +127,9 @@ export default function PosterPanel({
   // toJpeg reste déclenché par une action explicite : à pixelRatio 2 sur une
   // A4, l'appeler à chaque coche ferait ramer le panneau.
   const handleGenerate = async () => {
+    // Sans fond, on ne génère pas — le bouton est déjà désactivé, cette garde tient si l'état
+    // change entre le rendu et le clic.
+    if (!background) return;
     setGenStatus('loading');
     try {
       const node = posterRef.current;
@@ -216,6 +232,23 @@ export default function PosterPanel({
         coche ; le JPEG n'est calculé qu'à la génération.
       </p>
 
+      {background ? (
+        <div className="mt-4">
+          <PosterBackgroundPicker
+            backgrounds={backgrounds}
+            selectedIndex={backgroundIndex}
+            onSelect={setBackgroundIndex}
+            label="Fond"
+          />
+        </div>
+      ) : (
+        !configLoading && (
+          <div className="mt-4">
+            <PosterBackgroundEmpty poster="les rencontres par équipes" />
+          </div>
+        )
+      )}
+
       {/* Aperçu A4 (le rendu exporté est le nœud hors viewport plus bas) */}
       {selectedMatches.length > 0 && (
         <div className="mt-3 overflow-hidden rounded-xl border border-border">
@@ -224,7 +257,7 @@ export default function PosterPanel({
               style={{ width: 1414, transform: 'scale(0.234)', transformOrigin: 'top left' }}
               aria-label="Aperçu de l'affiche"
             >
-              <TeamMatchImagePreview matches={selectedMatches} />
+              <TeamMatchImagePreview matches={selectedMatches} background={background?.image} />
             </div>
           </div>
         </div>
@@ -233,7 +266,7 @@ export default function PosterPanel({
       <button
         type="button"
         onClick={handleGenerate}
-        disabled={selectedMatches.length === 0 || genStatus === 'loading'}
+        disabled={selectedMatches.length === 0 || genStatus === 'loading' || !background}
         className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
       >
         {genStatus === 'loading' && (
@@ -263,7 +296,7 @@ export default function PosterPanel({
       {/* Affiche hors viewport — requise pour html-to-image */}
       <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>
         <div ref={posterRef}>
-          <TeamMatchImagePreview matches={selectedMatches} />
+          <TeamMatchImagePreview matches={selectedMatches} background={background?.image} />
         </div>
       </div>
     </div>

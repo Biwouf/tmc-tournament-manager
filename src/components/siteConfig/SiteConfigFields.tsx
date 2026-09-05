@@ -5,7 +5,7 @@
 //
 // Rien à voir avec `ConfigurationForm.tsx` / `ConfigDropdown.tsx`, qui sont les réglages d'un
 // TOURNOI TMC (`GlobalConfig`, `TENNIS_RANKINGS`).
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FieldSpec } from '../../lib/clubConfigWrite';
 
 const INPUT_CLASS =
@@ -20,6 +20,13 @@ function FieldLabel({ spec }: { spec: FieldSpec }) {
       {spec.required && (
         <span className="ml-1 text-primary" title="Attendu par le site vitrine — vous pouvez enregistrer sans.">
           ⬤
+        </span>
+      )}
+      {/* PR7 — les proportions sont une CONTRAINTE (le sélecteur refuse ce qui s'en écarte),
+          la taille un MINIMUM : le libellé dit les deux plutôt qu'une définition exacte. */}
+      {spec.dimensions && (
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          à partir de {spec.dimensions.width} × {spec.dimensions.height} px
         </span>
       )}
     </label>
@@ -128,6 +135,56 @@ export function BoolField({
 }
 
 /**
+ * Ce qui compte est le RATIO, pas la taille exacte — et il se compare avec une TOLÉRANCE.
+ *
+ * Les deux gabarits d'affiche sont de l'A4 portrait, mais aucune définition en pixels ne tombe
+ * juste : 794 × 1123 vaut 0,70703, 1414 × 2000 vaut 0,70700, 595 × 842 vaut 0,70665 — tous de
+ * l'A4, aucun égal à l'autre. Un contrôle en produit en croix exact refusait donc un fichier
+ * parfaitement utilisable au seul motif qu'il venait d'une autre définition du même format.
+ *
+ * 2 % de tolérance relative couvre toutes les définitions A4 courantes et refuse toujours ce
+ * qui casse vraiment l'affiche : un 4:5 (0,80) est à 13 %, un 3:2 à 94 %. Un écart de 2 % au
+ * pire déforme d'un demi-pourcent de hauteur, invisible.
+ */
+const RATIO_TOLERANCE = 0.02;
+
+/** `0.70703` → `0,71` : c'est ce que lit l'admin, pas une valeur de calcul. */
+function formatRatio(width: number, height: number): string {
+  return (width / height).toFixed(2).replace('.', ',');
+}
+
+/**
+ * Contrôle du GABARIT avant tout upload — PR7, les deux fonds d'affiche.
+ *
+ * REFUSER et non avertir : un avertissement se franchit d'un clic, et l'affiche fausse ne se
+ * voit qu'après diffusion. Rend le message d'erreur, ou `null` si le fichier convient.
+ *
+ * Deux règles, et deux seulement :
+ *   - les PROPORTIONS, à 2 % près — le fond des rencontres est rendu en `width/height: 100%`
+ *     sans `object-fit`, une image aux mauvaises proportions y serait ÉTIRÉE en silence ;
+ *   - une définition AU MOINS égale à celle du rendu — l'affiche est exportée à `pixelRatio: 2`,
+ *     une image plus petite serait visiblement floue. Plus grande, elle est bienvenue.
+ */
+async function checkDimensions(
+  file: File,
+  expected: { width: number; height: number },
+): Promise<string | null> {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return 'Fichier image illisible — choisissez un PNG ou un JPEG.';
+  const { width, height } = bitmap;
+  bitmap.close();
+
+  const target = expected.width / expected.height;
+  if (Math.abs(width / height - target) / target > RATIO_TOLERANCE) {
+    return `Proportions incompatibles : attendu un ratio de ${formatRatio(expected.width, expected.height)} (largeur ÷ hauteur), par exemple ${expected.width} × ${expected.height} px — reçu ${width} × ${height} px, soit ${formatRatio(width, height)}.`;
+  }
+  if (width < expected.width) {
+    return `Image trop petite : l’affiche est rendue en ${expected.width} × ${expected.height} px, une image de ${width} × ${height} px y serait floue.`;
+  }
+  return null;
+}
+
+/**
  * Upload DIFFÉRÉ : le fichier choisi ici n'atteint le Storage qu'à l'enregistrement du
  * panneau. Uploader à la sélection laisserait un objet orphelin dans le bucket dès qu'on
  * change d'avis, et supprimerait l'ancienne image avant d'être sûr que l'écriture passe.
@@ -147,6 +204,16 @@ export function ImageField({
   onPick: (file: File) => void;
   onClear: () => void;
 }) {
+  /** Refus de gabarit (PR7). Purement local : le fichier refusé n'atteint jamais l'état du
+   *  panneau, donc encore moins le Storage. */
+  const [formatError, setFormatError] = useState<string | null>(null);
+
+  const handlePick = async (picked: File) => {
+    const error = spec.dimensions ? await checkDimensions(picked, spec.dimensions) : null;
+    setFormatError(error);
+    if (!error) onPick(picked);
+  };
+
   // Aperçu du fichier en attente. L'URL est révoquée dès qu'un autre fichier est choisi ou
   // que le champ est démonté — sans quoi chaque changement d'image fuit un blob.
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
@@ -174,12 +241,15 @@ export function ImageField({
             accept="image/*"
             onChange={(e) => {
               const picked = e.target.files?.[0];
-              if (picked) onPick(picked);
+              if (picked) void handlePick(picked);
               // Permet de re-choisir le même fichier après un « Annuler ».
               e.target.value = '';
             }}
             className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-muted-foreground hover:file:bg-muted"
           />
+          {formatError && (
+            <p className="text-xs font-medium text-destructive">{formatError}</p>
+          )}
           {file ? (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{file.name}</span>

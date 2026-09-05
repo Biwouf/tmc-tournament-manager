@@ -7,9 +7,15 @@
 //
 // DIX groupes, dans l'ordre du `web_site_brief.md` §5 : l'identité et les pages du site
 // (`brand`, `home`, puis `club`, `infra`, `pricing` — PR6d —, puis `contact`), et enfin son
-// chrome (`social`, `partners`, `legal`, `settings` — PR6c). La configuration est CLOSE.
+// chrome (`social`, `partners`, `legal`, `settings` — PR6c). La configuration de la VITRINE
+// est CLOSE.
 //
-// Dix panneaux dépliés faisaient une page trop haute : ils sont REPLIÉS par défaut, sauf le
+// PR7 ajoute un onzième panneau, « Affiches », en DERNIER et à part : c'est le seul qui ne
+// concerne pas le site vitrine — ces deux images sortent dans ce back-office. D'où le chapeau
+// ci-dessous, qui distingue désormais les deux natures au lieu de promettre que rien de cet
+// écran ne change le BO.
+//
+// Onze panneaux dépliés feraient une page trop haute : ils sont REPLIÉS par défaut, sauf le
 // premier, et chacun affiche son état (« Configuré » / « À compléter ») — ce qui donne en prime
 // une vue d'avancement au club qui remplit sa config. Le repli n'est qu'un masquage : chaque
 // panneau reste monté et garde sa saisie en cours, qu'il signale plutôt que de la cacher.
@@ -40,10 +46,15 @@ export default function SiteConfigPage() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">Configuration du site</h1>
             <p className="mt-2 max-w-3xl text-muted-foreground">
-              Les informations publiques de{' '}
-              <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>.
-              Elles alimenteront le <span className="font-medium text-foreground">site vitrine</span>{' '}
-              du club — elles ne changent ni ce back-office, ni l’application des adhérents.
+              Les réglages de{' '}
+              <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>. La
+              quasi-totalité des panneaux décrit les informations publiques du club : elles
+              alimenteront le{' '}
+              <span className="font-medium text-foreground">site vitrine</span> et ne changent ni
+              ce back-office, ni l’application des adhérents. Le dernier panneau,{' '}
+              <span className="font-medium text-foreground">Affiches</span>, fait exception : il
+              porte des réglages d’affichage internes, utilisés par les affiches générées ici
+              même.
             </p>
           </div>
           <Link
