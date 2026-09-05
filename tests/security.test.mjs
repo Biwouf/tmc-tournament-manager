@@ -61,6 +61,12 @@ test('PostgreSQL: role isolation, suspension, Storage and last-admin invariant',
         SELECT club_id FROM club_members WHERE user_id=auth.uid() $$;
       CREATE FUNCTION storage.foldername(name text) RETURNS text[] LANGUAGE sql AS $$
         SELECT (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'),1)-1] $$;
+      ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY clubs_select_anon ON clubs FOR SELECT TO anon USING (true);
+      CREATE POLICY clubs_select_authenticated ON clubs FOR SELECT TO authenticated USING (true);
+      ALTER TABLE club_members ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY club_members_select_own ON club_members FOR SELECT TO authenticated USING (user_id = auth.uid());
+      GRANT SELECT ON club_members TO authenticated;
       GRANT SELECT ON clubs TO anon, authenticated;
       INSERT INTO clubs VALUES ('${id(1)}','cac-tennis','active'),('${id(2)}','other','active'),('${id(3)}','suspended','suspended');
       INSERT INTO profiles VALUES ('${id(999)}',true);
@@ -106,6 +112,14 @@ test('PostgreSQL: role isolation, suspension, Storage and last-admin invariant',
       assert.equal((await asUser(301,`UPDATE ${table} SET title='bad' WHERE club_id='${id(3)}' RETURNING id`)).rows.length,0);
     }
     assert.equal((await asUser(103,`UPDATE live_matches SET title='score' WHERE club_id='${id(1)}' RETURNING id`)).rows.length,1,'member retains Live Score');
+    // The PWA creates a match before anyone takes score ownership.
+    for (const user of [101,102,103]) {
+      assert.equal((await asUser(user,`INSERT INTO live_matches VALUES ('${id(44)}','${id(1)}','new match') RETURNING id`)).rows.length,1, `${user} creates a match in own club`);
+    }
+    for (const [user, club] of [[103,2],[201,1],[301,3],[404,1]]) {
+      await assert.rejects(asUser(user,`INSERT INTO live_matches VALUES ('${id(44)}','${id(club)}','forbidden')`),/row-level security/, `${user} cannot create a match in club ${club}`);
+    }
+
     for (const [user, path, expected] of [
       [101,`${id(1)}/logo.png`,true], [102,`${id(1)}/logo.png`,true],
       [103,`${id(1)}/logo.png`,false], [201,`${id(1)}/logo.png`,false],
