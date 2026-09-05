@@ -1,6 +1,6 @@
 # MULTI_TENANT.md — Passage en architecture multi-tenant (SaaS)
 
-> **Statut : en cours — PR1 à PR5 livrées (cf. tableau « Découpage en PR » ci-dessous).**
+> **Statut : en cours — PR1 à PR7-bis livrées (cf. tableau « Découpage en PR » ci-dessous).**
 > Document maître. À lire avant d'attaquer n'importe quelle phase ci-dessous.
 > Chaque phase fera l'objet de son propre brief dans `docs/briefs/` au moment de l'implémentation.
 > Source : `docs/briefs/multi_tenant_archi.md` (vision) + `docs/briefs/web_site_brief.md` (site vitrine).
@@ -609,6 +609,12 @@ aux couleurs de CAC**. Inventaire du dur, par difficulté :
 > pendant. Le volet texte (`clubs.name`) est en revanche livrable indépendamment et à tout
 > moment.
 
+> **Livré en PR7-bis.** Le BO affiche `clubs.name` et le logo `brand.logo` du club courant. La
+> PWA reprend le même nom et le même logo depuis `club_settings.config`, avec repli vers les
+> assets CAC historiques pour les clubs non configurés. Le `theme-color` et le manifest sont
+> remplacés au runtime quand la configuration est disponible ; le manifest généré par Vite
+> reste le fallback initial.
+
 ### 6.3 Comptes sociaux par club
 Aujourd'hui la publication Facebook utilise des **secrets globaux** (`FACEBOOK_PAGE_ID`,
 `FACEBOOK_PAGE_ACCESS_TOKEN`) côté Edge Function `post-to-facebook`. En multi-tenant, ces
@@ -852,7 +858,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR6c ✅ | 3 | Les **quatre groupes globaux** — le *chrome* du site : `social`, `legal`, `settings`, `partners`. Deux **extensions du modèle**, chacune livrée avec le groupe qui l'exerce : le type **`bool`** (branche propre dans le schéma, hors du tuyau des chaînes qui écrirait `'false'` — non vide donc **vrai** ; défaut **positif**, décocher écrit le booléen `false` au lieu d'effacer la clé) et le **groupe-liste** (`partners` reste une **liste à la racine** comme la spec §5.8 que PR9 lira ; `itemsOf()` confine l'union à la lecture et à l'écriture). **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé** (ajout additif). Détail : §6.1. | non-bloquante — **aucune opération prod** |
 | PR6d ✅ | 3 | Les **trois pages de contenu** (`club`, `infra`, `pricing`) — ~45 clés, 8 listes, 4 objets imbriqués — et les **trois extensions** qu'elles seules exercent, chacune confinée à la lecture et à l'écriture du JSONB : **objets imbriqués** (clé de formulaire **plate et sans point** + `path` sur la spec — une clé pointée aurait cassé `setAtPath` en silence et une URL d'image aurait écrasé l'objet entier ; `mergeGroup` fusionne déjà en profondeur, il suffit de lui donner un objet niché), **listes de scalaires** (`scalar: true` + un seul champ : l'état reste des entrées à une clé, donc rendu / ajout / retrait / réordonnancement / remap des fichiers en attente inchangés, et l'emballage `{value}` ne sort jamais du formulaire) et le type **`number`** (branche propre, **vide ≠ zéro** — clé omise, jamais `0` —, schéma **idempotent** car l'écriture revalide sa propre sortie ; `other_fees[].price` reste du **texte**, c'est voulu). `groupSchema`, `formatIssue`, `setAtPath` et le rendu du panneau n'ont connu **aucune** des trois formes. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. En prime, les dix panneaux sont **repliés par défaut** avec un indicateur « Configuré / À compléter ». ✅ **La configuration est close** — PR9 a son contrat complet. Détail : §6.1. | non-bloquante — **aucune opération prod** |
 | PR7 ✅ | 3 | GEN_PROG : **fonds d'affiche par club** — onzième groupe `posters` (deux clés, à part des dix groupes de la vitrine et **en dernier** à l'écran), **gabarit contrôlé avant l'upload** (`dimensions` sur `FieldSpec` : **proportions A4 à 2 % près** — et non une définition au pixel près, les deux gabarits étant de l'A4 dont aucune définition en pixels ne tombe juste — plus une taille minimale ; refus nommant le ratio attendu et le reçu), `crossOrigin="anonymous"` sur les deux fonds (sans quoi l'export sort blanc alors que l'aperçu est parfait), **listes de fonds nommés** avec choix à la génération et suppression, et **génération refusée sans aucun fond** — pas de repli sur les assets CAC, qui réinstallerait du tenant en dur. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. Détail : §6.2. | non-bloquante en base — mais ⚠️ **une opération de contenu BLOQUANTE** juste après déploiement : sans au moins un fond par affiche ajouté depuis `/admin/site`, le club ne peut plus générer d'affiche |
-| PR7-bis | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logos/icônes via Storage `club_id/`, manifest PWA au runtime | non-bloquante — le volet texte est livrable seul |
+| PR7-bis ✅ | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logo via `brand.logo` sous Storage `club_id/`, manifest PWA au runtime avec fallback Vite | non-bloquante — aucune migration |
 | PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |
 | PR9 | 4 | App `web/` (vitrine) : scaffold + résolution tenant + design tokens + 5 pages rendues depuis `club_settings` | nouvelle app |
 | PR10 | 4 | Flux actus & events branchés sur la vitrine (filtrés `club_id`) | non-bloquante |

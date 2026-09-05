@@ -1,6 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveHeader, type HeaderAction } from './headerConfig';
 import { useHeaderActionState } from './HeaderActionContext';
+import { useClub } from '../../contexts/ClubContext';
+import { useClubConfig } from '../../hooks/useClubConfig';
 
 const isIOS = () =>
   typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -57,6 +59,9 @@ export default function AppHeader() {
   const navigate = useNavigate();
   const cfg = resolveHeader(location.pathname);
   const action = useHeaderActionState();
+  const { club } = useClub();
+  const { config } = useClubConfig();
+  const clubName = club?.name ?? cfg.title;
 
   const handleBack = () => {
     if (cfg.backTo) navigate(cfg.backTo);
@@ -71,16 +76,15 @@ export default function AppHeader() {
       {cfg.mode === 'root' ? (
         <>
           <img
-            src="/icons/icon-192.png"
-            alt=""
-            aria-hidden="true"
-            className="h-8 w-8 rounded-full object-cover shrink-0"
+            src={config.brand.logo || '/icons/icon-192.png'}
+            alt={clubName}
+            className="h-8 w-8 rounded-full object-contain shrink-0"
           />
           <h1
             className="flex-1 truncate text-foreground tracking-tight"
             style={{ fontSize: 17, fontWeight: 800 }}
           >
-            {cfg.title}
+            {cfg.title === 'CAC Tennis' ? clubName : cfg.title}
           </h1>
         </>
       ) : (

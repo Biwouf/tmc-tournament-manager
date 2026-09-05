@@ -1,8 +1,13 @@
 import { useEffect } from 'react';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
+import { useClub } from '../../contexts/ClubContext';
+import { useClubConfig } from '../../hooks/useClubConfig';
 
 export default function InstallBanner() {
   const { variant, promptInstall, dismiss } = useInstallPrompt();
+  const { club } = useClub();
+  const { config } = useClubConfig();
+  const clubName = club?.name ?? 'votre club';
 
   useEffect(() => {
     if (variant === null) return;
@@ -38,8 +43,8 @@ export default function InstallBanner() {
 
       <div className="flex gap-3" style={{ paddingRight: 18 }}>
         <img
-          src="/logo.png"
-          alt="CAC Tennis"
+          src={config.brand.logo || '/logo.png'}
+          alt={clubName}
           className="shrink-0"
           style={{
             width: 44,
@@ -53,7 +58,7 @@ export default function InstallBanner() {
             className="text-primary-foreground"
             style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 14, lineHeight: 1.25 }}
           >
-            Le CAC, toujours sur toi
+            {clubName}, toujours sur toi
           </div>
           <div
             className="text-primary-foreground/80"

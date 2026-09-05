@@ -13,8 +13,9 @@ const ClubContext = createContext<ClubContextValue>({ clubId: null, club: null, 
 function resolveSlug(): string {
   const host = window.location.hostname;
   const match = host.match(/^([a-z0-9-]+)\.feelike\.app$/);
-  if (match) return match[1];
-  return (import.meta.env.VITE_DEV_CLUB_SLUG as string | undefined) ?? 'cac-tennis';
+  if (match) return match[1].replace(/^app-/, '');
+  const configuredSlug = (import.meta.env.VITE_DEV_CLUB_SLUG as string | undefined) ?? 'cac-tennis';
+  return configuredSlug.replace(/^app-/, '');
 }
 
 export function ClubProvider({ children }: { children: ReactNode }) {
