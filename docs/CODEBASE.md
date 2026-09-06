@@ -254,7 +254,13 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `lib/supabase.ts` | Client Supabase avec `persistSession: true` + `autoRefreshToken: true` (durée du JWT à régler dans le dashboard Supabase) |
 | `lib/pwa.ts` | Helper `isStandalone()` — détecte si l'app tourne en mode PWA installée (display-mode standalone ou iOS Safari `navigator.standalone`) |
 | `contexts/ClubContext.tsx` | **Copie** de `src/contexts/ClubContext.tsx` (BO) — `ClubProvider` + `useClub()`, résolution du tenant par hostname. Englobe `<HeaderActionProvider>` dans `pwa/src/App.tsx` (gate `loading`). Toutes les queries PWA filtrent par `clubId` (+ `clubId` ajouté aux `queryKey` TanStack Query). Porte le même écran bloquant PR3 que le BO quand la résolution échoue. À synchroniser manuellement avec le BO. |
-| `hooks/useAuth.ts` | Hook React partagé : retourne `{ user, loading }`, écoute `onAuthStateChange` |
+| `hooks/useAuth.ts` | Lit le contexte de session partagé `{ user, loading }`, sans abonnement individuel. |
+| `contexts/AuthProvider.tsx` | Abonnement Auth unique, restauration par INITIAL_SESSION. |
+| `contexts/SessionQueryProvider.tsx` | Cache Query neuf lorsque l'identité change ; conserve le cache au renouvellement du JWT. |
+| `lib/queryClient.ts` | Factory du QueryClient PWA : fraîcheur par défaut 60 s, un retry. Live surcharge à 0 s. |
+| `hooks/useClubConfig.ts` | Lecture authentifiée mutualisée par club et compte, cache 5 min ; logo et couleurs conservés. |
+| `lib/liveMatchesSubscription.ts` | Realtime de liste : INSERT/UPDATE par club, DELETE selon IDs en cache, regroupement 250 ms et revalidation après reconnexion. |
+| `pages/MatchesPage.tsx` | Liste Live : polling de secours 30 s, abonnement filtré, profils par ensemble d'IDs avec cache 5 min. |
 | `hooks/useInstallPrompt.ts` | Hook qui gère la bannière d'installation : capture `beforeinstallprompt` (Android), détecte iOS Safari, gère le dismiss 7 jours via `localStorage` (`cac:installPromptDismissedAt`). Retourne `{ variant, promptInstall, dismiss }`. |
 | `hooks/usePullToRefresh.ts` | Hook générique tirer-pour-rafraîchir basé sur Pointer Events. S'active uniquement sur `pointerType === 'touch'` quand `containerRef.scrollTop === 0`. Retourne `{ pullProgress, isDragging }`. Seuil interne de 80 px ; déclenche `onRefresh` au release si seuil atteint. |
 | `liveScoreRules.ts` | **Copie** de `src/liveScoreRules.ts` (BO). À synchroniser manuellement si les règles de score changent. |
@@ -309,3 +315,5 @@ Spec fonctionnelle complète : `docs/specs/PWA.MD` et `docs/specs/PWA_LIVE_AUTH.
 - `post-to-facebook` : autorisation sur le contenu avant publication et liaison obligatoire des credentials à FACEBOOK_CLUB_ID. ⚠️ **Ce dernier point est caduc depuis PR8** : les credentials sont par club en base, `FACEBOOK_CLUB_ID` n'est plus lu et le secret peut être retiré du dashboard. Le **contrôle d'accès**, lui, est conservé intégralement.
 - `tests/security.test.mjs` : rendu HTML BO/PWA et migration exécutée dans PostgreSQL embarqué PGlite ; `tests/edge-security.test.mjs` : handlers Deno réels avec API locales simulées. Commande `npm run test:security`, aucun service externe touché. **PR8 étend la même suite** (26 tests) : RLS et `GRANT` par colonne de `club_social_credentials` sous PGlite, autorisation de `social-credentials`, et la propriété que chaque club publie avec **son** token — celle qui remplace le binding `FACEBOOK_CLUB_ID`.
 - État, limites et déploiement : `docs/SECURITY_AUDIT_FIXES.md`.
+
+- `tests/pwa-network.test.mjs` : tests React/DOM avec Supabase simulé, comptage des requêtes, navigation, rafraîchissement, session, rafales Live, suppression et reconnexion. Commande `npm run test:pwa-network`.

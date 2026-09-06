@@ -349,10 +349,11 @@ VitePWA({
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
     runtimeCaching: [
       {
-        // Cache des appels Supabase REST (stale-while-revalidate)
-        urlPattern: ({ url }) => url.hostname.includes('supabase.co'),
+        // Assets Storage uniquement ; ne jamais cacher REST/Auth/Realtime dans le SW.
+        urlPattern: ({ url }) => url.hostname.includes('supabase.co') &&
+          url.pathname.startsWith('/storage/v1/object/public/'),
         handler: 'StaleWhileRevalidate',
-        options: { cacheName: 'supabase-api', expiration: { maxAgeSeconds: 60 * 5 } },
+        options: { cacheName: 'supabase-storage', expiration: { maxAgeSeconds: 60 * 5 } },
       },
     ],
   },
@@ -531,3 +532,31 @@ validées avec les dépendances propres à chaque application.
 
 La résolution d'un club introuvable/suspendu ne bascule plus vers CAC Tennis.
 Le chargement hors ligne à froid reste une limite à traiter dans le lot PWA suivant.
+
+
+## Réduction des appels réseau — septembre 2026
+
+- Un `AuthProvider` partage la session entre les consommateurs. `INITIAL_SESSION` remplace
+  les lectures `getSession()` répétées ; le renouvellement du JWT ne recharge pas la configuration.
+- `SessionQueryProvider` crée un cache mémoire distinct à chaque connexion/déconnexion ou changement
+  de compte. Aucune donnée de la session précédente n'est réutilisée. Les clés restent scopées par club.
+- Les contenus (actus, événements, détails et rencontres) restent frais 60 secondes : navigation
+  aller-retour et focus pendant ce délai ne déclenchent pas de nouvelle lecture. Après expiration,
+  retour sur la page, retour au premier plan ou reconnexion réseau revalident les données.
+  Le tirer-pour-rafraîchir reste immédiat, même pendant ce délai. Il n'y a pas de polling éditorial.
+- La configuration visuelle est mutualisée par TanStack Query pendant 5 minutes : une seule
+  requête pour le shell, le header et la bannière. Aucune lecture de `club_settings` en anonyme,
+  conformément aux permissions actuelles. Retour aux valeurs par défaut à la déconnexion.
+- Le Live garde `staleTime: 0`, Realtime et le polling de secours toutes les 30 secondes
+  (suspendu en arrière-plan par TanStack Query). Les INSERT/UPDATE sont filtrés par club et les
+  notifications regroupées par fenêtres de 250 ms. Les DELETE, non filtrables côté Realtime,
+  ne déclenchent une lecture que si leur ID figure dans le cache courant. Une reconnexion du
+  canal revalide la liste. Seule la clé exacte du club est invalidée.
+- Les noms des gestionnaires Live sont chargés par ensemble d'IDs triés, en cache 5 minutes :
+  modifier le score n'entraîne plus une nouvelle lecture des mêmes profils. La sélection est limitée
+  à `id, prenom, nom`. Ceci ne remplace pas le futur durcissement RLS de `profiles`.
+- Aucune requête d'équipes n'est lancée si la saison ne contient aucune compétition.
+- Ce cache est en mémoire ; aucune réponse REST/Auth/Realtime n'est ajoutée au Service Worker.
+
+Validation : `npm run test:pwa-network` (React réel en DOM simulé, Supabase simulé).
+Aucune migration ni Edge Function à déployer pour ce lot.

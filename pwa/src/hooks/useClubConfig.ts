@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 
@@ -33,34 +34,21 @@ function parseConfig(raw: unknown): ClubConfig {
 /** PR7-bis — lecture minimale de l'identité visuelle du club pour la PWA. */
 export function useClubConfig() {
   const { clubId } = useClub();
-  const [config, setConfig] = useState<ClubConfig>(DEFAULT_CONFIG);
-
-  useEffect(() => {
-    if (!clubId) return;
-    let cancelled = false;
-
-    const load = async () => {
+  const { user, loading } = useAuth();
+  const { data: config = DEFAULT_CONFIG } = useQuery({
+    queryKey: ['club-config', clubId, user?.id],
+    // club_settings n'est pas public : inutile de lancer des requêtes anon vouées au refus.
+    enabled: !!clubId && !!user && !loading,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('club_settings')
         .select('config')
         .eq('club_id', clubId)
         .maybeSingle();
-      if (cancelled) return;
-      if (error) console.error('[useClubConfig] lecture de club_settings impossible', error);
-      setConfig(parseConfig(data?.config));
-    };
-
-    // La policy de lecture est authentifiée : recharger après restauration de session,
-    // sinon le premier appel peut partir en anon et laisser l'identité par défaut.
-    void supabase.auth.getSession().then(() => load());
-    const { data: auth } = supabase.auth.onAuthStateChange(() => {
-      void load();
-    });
-    return () => {
-      cancelled = true;
-      auth.subscription.unsubscribe();
-    };
-  }, [clubId]);
-
+      if (error) throw error;
+      return parseConfig(data?.config);
+    },
+  });
   return { config };
 }
