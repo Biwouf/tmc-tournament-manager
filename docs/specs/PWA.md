@@ -569,3 +569,11 @@ commandes pendant l'enregistrement. Les conflits entre fenêtres et reprises de 
 sont détectés avec `live_matches.revision`. Les erreurs offrent une relecture explicite,
 sans rejouer automatiquement une écriture. Un match libéré ou géré par un autre compte
 reste consultable en lecture seule depuis son écran. Voir `LIVE_SCORE.md`, section Fiabilité.
+
+
+### Visibilité des résultats Live
+
+L'onglet Live conserve les matchs terminés pendant sept jours après `finished_at`.
+Les matchs en attente/en cours et ceux sans date de fin restent visibles. Le filtre est
+appliqué dans la requête Supabase ; il remplace la restriction à `match_date >= aujourd'hui`.
+Les données restent en base. Voir la règle commune BO/PWA dans `LIVE_SCORE.md`.

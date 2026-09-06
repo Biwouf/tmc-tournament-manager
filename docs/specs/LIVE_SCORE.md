@@ -588,3 +588,17 @@ au dashboard. Les visiteurs peuvent lire les matchs en attente, en cours et term
 clubs actifs. Aucun droit d'écriture anonyme ; les contrôles de version et de propriétaire
 restent inchangés. Le filtre de dates de la liste PWA reste identique pour tous les visiteurs.
 Appliquer cette migration après celle de versionnement sur dev, puis prod.
+
+
+### Visibilité à sept jours — BO et PWA
+
+Les listes excluent à la source les matchs `finished` dont `finished_at` est strictement
+antérieur à maintenant moins 7 × 24 heures. La PWA ne filtre plus sur `match_date` : les
+résultats des jours précédents restent visibles durant ces sept jours, et les matchs
+encore en cours ne disparaissent pas au changement de jour. Les matchs sans `finished_at`
+restent visibles pour ne pas les masquer sur une hypothèse. La règle est évaluée à chaque
+chargement/rafraîchissement de la liste. Les fiches accessibles par lien restent consultables.
+
+Aucune suppression en base. Les liens `team_match_lines.live_match_id` et la synchronisation
+des résultats interclubs sont conservés. Une future purge nécessite de définir la durée de
+conservation et de garantir la synchronisation des résultats avant suppression.

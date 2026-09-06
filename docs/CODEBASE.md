@@ -333,3 +333,5 @@ Spec fonctionnelle complète : `docs/specs/PWA.MD` et `docs/specs/PWA_LIVE_AUTH.
 - `tests/live-score-client.test.mjs` et `tests/live-score-sql.test.mjs` : `npm run test:live-score`.
 
 - `20260908_live_matches_public_read.sql` : lecture publique explicite des matchs des clubs actifs, aucune écriture anon ; régression couverte dans `tests/live-score-sql.test.mjs`.
+
+- `src/lib/liveMatchVisibility.ts` et `pwa/src/lib/liveMatchVisibility.ts` : filtre PostgREST commun (copies) excluant les matchs terminés depuis plus de 7 jours selon `finished_at`. Consommé par les listes Live BO/PWA ; aucune suppression.

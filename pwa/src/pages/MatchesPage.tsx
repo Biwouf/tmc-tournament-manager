@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { liveMatchVisibilityFilter } from '../lib/liveMatchVisibility';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, Profile } from '../types';
@@ -10,22 +11,17 @@ import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
 async function fetchMatches(clubId: string | null): Promise<LiveMatch[]> {
-  const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
-
   const { data, error } = await supabase
     .from('live_matches')
     .select('*')
     .eq('club_id', clubId)
-    .gte('match_date', today)
+    .or(liveMatchVisibilityFilter())
     .order('match_date', { ascending: true })
     .order('start_time', { ascending: true, nullsFirst: false });
 
   if (error) throw error;
 
-  return (data as LiveMatch[]).filter((m) => {
-    if (m.status === 'finished' && m.match_date < today) return false;
-    return true;
-  });
+  return (data as LiveMatch[]) ?? [];
 }
 
 export default function MatchesPage() {
@@ -118,7 +114,7 @@ export default function MatchesPage() {
       )}
 
       {!isLoading && matches?.length === 0 && (
-        <p className="text-center text-muted-foreground py-8">Aucun match prévu aujourd'hui.</p>
+        <p className="text-center text-muted-foreground py-8">Aucun match à afficher.</p>
       )}
 
       {liveMatches.length > 0 && (

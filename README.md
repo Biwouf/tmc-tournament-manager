@@ -364,3 +364,5 @@ Pré-requis : appliquer `supabase/migrations/20260907_live_match_consistency.sql
 les nouveaux clients, puis recharger les deux applications. Tests : `npm run test:live-score`.
 
 La migration `20260908_live_matches_public_read.sql` permet aux visiteurs non connectés de suivre les matchs des clubs actifs ; la connexion reste nécessaire pour leur gestion.
+
+Les listes Live du BO et de la PWA masquent les matchs terminés depuis plus de sept jours après `finished_at`. Les données restent conservées en base ; aucune migration n’est nécessaire pour ce filtre.
