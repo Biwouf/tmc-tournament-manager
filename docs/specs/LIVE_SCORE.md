@@ -525,3 +525,66 @@ RLS : lecture libre `authenticated` + `anon` (noms affichés dans les warnings B
 ## Évolutions v2
 
 - Auth admin dans la PWA pour la saisie du score directement depuis l'app publique.
+
+
+## Fiabilité des écritures — septembre 2026
+
+Les pages de saisie BO et PWA utilisent le même contrat (`hooks/useLiveMatch.ts` et
+`lib/liveMatchWrites.ts`, copies à synchroniser).
+
+- Une sauvegarde à la fois, verrouillée avant le prochain rendu React. Les boutons de score,
+  abandon et annulation sont désactivés pendant la requête. Le score affiché est confirmé par
+  le serveur : aucun état optimiste n'est présenté comme enregistré.
+- `live_matches.revision` est un entier initialisé à 0, incrémenté par trigger pour toute
+  mise à jour, y compris service role. Les clients incluent la version lue dans les filtres
+  UPDATE/DELETE et exigent une ligne retournée. Une version dépassée ou une ligne inaccessible
+  produit une erreur explicite, jamais un succès silencieux.
+- Les notifications Realtime et réponses ne remplacent l'état affiché que si leur version
+  est plus récente. Un accusé retardé ne peut pas annuler une reprise de contrôle.
+- Erreur/conflit : relecture serveur sans rejouer automatiquement l'écriture incertaine,
+  message visible et bouton de rechargement. Requêtes bornées à 15 secondes. Revalidation
+  au retour réseau/focus, à la souscription/reconnexion Realtime et toutes les 30 secondes
+  lorsque l'écran est visible. Les réponses d'un ancien écran sont ignorées.
+- Le gestionnaire conserve la main sur la fin, l'abandon et l'annulation de fin. Un autre
+  utilisateur voit l'écran en lecture seule. Le changement de gestionnaire ne permet pas
+  de modifier les scores dans la même écriture. Le démarrage d'un match en attente conserve
+  ses scores et ses joueurs. La libération conserve les scores et remet le match en attente.
+- En base, seul le gestionnaire peut modifier le match ; la reprise explicite reste possible
+  pour un membre autorisé par la RLS du club. Un match en attente peut être supprimé par un
+  membre ; un match démarré, seulement par son gestionnaire ou un admin/manager du club.
+  Les créations doivent être en attente, sans gestionnaire. Le déplacement d'un match vers
+  un autre club est refusé. Les opérations de maintenance serveur et la FK events
+  ON DELETE SET NULL restent fonctionnelles.
+
+### Déploiement et vérification
+
+Appliquer `20260907_live_match_consistency.sql` sur le projet de développement **avant**
+de tester ces clients, puis en production avant le déploiement BO/PWA. Aucun changement
+supplémentaire d'Edge Function. Faire recharger les anciennes sessions : leurs écritures
+respectent le nouveau contrôle de gestionnaire, mais elles n'envoient pas de version et ne
+bénéficient donc pas du contrôle de concurrence des nouveaux clients.
+
+`npm run test:live-score` exécute les hooks BO/PWA avec React et Supabase simulé, ainsi que
+la migration réelle dans PGlite sur le schéma Live. Scénarios : double clic, réponse ancienne,
+reprise, erreur réseau, absence de ligne modifiée, abandon/annulation, libération/démarrage,
+isolation du club et suppression de l'événement parent. Les conflits SQL sont simulés par
+écritures successives portant la même version, pas par deux connexions PostgreSQL simultanées.
+
+Avant merge : deux sessions du projet de dev, score lent, reprise pendant saisie, fin et
+annulation par le propriétaire, mode hors ligne puis rechargement. Les tests isolés ne
+remplacent pas ce contrôle du Supabase réellement déployé.
+
+
+Correctif de transition : les lectures et écritures refusent une `revision` absente ou
+invalide avec un message de rechargement, avant tout appel de mutation. Une réponse Realtime
+incomplète est ignorée ; une lecture valide peut remplacer un ancien état local dépourvu de
+version (page restée ouverte lors de la migration ou du rechargement Vite).
+
+
+### Lecture publique explicite
+
+`20260908_live_matches_public_read.sql` crée la policy SELECT `anon` jusque-là laissée
+au dashboard. Les visiteurs peuvent lire les matchs en attente, en cours et terminés des
+clubs actifs. Aucun droit d'écriture anonyme ; les contrôles de version et de propriétaire
+restent inchangés. Le filtre de dates de la liste PWA reste identique pour tous les visiteurs.
+Appliquer cette migration après celle de versionnement sur dev, puis prod.

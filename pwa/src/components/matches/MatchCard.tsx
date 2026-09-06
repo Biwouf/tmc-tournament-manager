@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../lib/supabase';
+import { writeLiveMatch, deleteLiveMatch } from '../../lib/liveMatchWrites';
 import { useClub } from '../../contexts/ClubContext';
 import type { LiveMatch, LiveMatchWinner, Profile } from '../../types';
 import LiveBadge from './LiveBadge';
@@ -144,18 +144,12 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
     if (!userId) return;
     setBusy(true);
     setActionError(null);
-    const { error } = await supabase
-      .from('live_matches')
-      .update({
-        status: 'live',
-        scored_by: userId,
-        court,
-        started_at: new Date().toISOString(),
-      })
-      .eq('id', match.id)
-      .eq('club_id', clubId);
+    const { error } = await writeLiveMatch(match, clubId, {
+      status: 'live', scored_by: userId, court, started_at: new Date().toISOString(),
+    }).then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       setActionError(error.message);
+      void refresh();
       setBusy(false);
       return;
     }
@@ -174,13 +168,11 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
     }
     setBusy(true);
     setActionError(null);
-    const { error } = await supabase
-      .from('live_matches')
-      .update({ status: 'pending', scored_by: null })
-      .eq('id', match.id)
-      .eq('club_id', clubId);
+    const { error } = await writeLiveMatch(match, clubId, { status: 'pending', scored_by: null })
+      .then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       setActionError(error.message);
+      void refresh();
       setBusy(false);
       return;
     }
@@ -196,13 +188,11 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
     if (!userId) return;
     setBusy(true);
     setActionError(null);
-    const { error } = await supabase
-      .from('live_matches')
-      .update({ scored_by: userId })
-      .eq('id', match.id)
-      .eq('club_id', clubId);
+    const { error } = await writeLiveMatch(match, clubId, { scored_by: userId })
+      .then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       setActionError(error.message);
+      void refresh();
       setBusy(false);
       return;
     }
@@ -215,9 +205,10 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
     if (!confirm('Supprimer ce match ? Cette action est irréversible.')) return;
     setBusy(true);
     setActionError(null);
-    const { error } = await supabase.from('live_matches').delete().eq('id', match.id).eq('club_id', clubId);
+    const { error } = await deleteLiveMatch(match, clubId).then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       setActionError(error.message);
+      void refresh();
       setBusy(false);
       return;
     }

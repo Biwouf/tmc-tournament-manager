@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:live-score": "node --test tests/live-score-sql.test.mjs tests/live-score-client.test.mjs",
     "test:pwa-network": "node --test tests/pwa-network.test.mjs",
     "test:security": "node --test tests/security.test.mjs tests/edge-security.test.mjs"
   },
