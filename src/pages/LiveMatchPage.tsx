@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, LiveMatchWinner } from '../types';
+import { useLiveMatch } from '../hooks/useLiveMatch';
 import { getMatchWinner, getTeamLabel } from '../liveScoreRules';
 import LiveScoreEntry from '../components/LiveScoreEntry';
 
@@ -46,52 +47,15 @@ function teamLabel(m: LiveMatch, team: 1 | 2): string {
 export default function LiveMatchPage() {
   const { id } = useParams();
   const { clubId } = useClub();
-  const [match, setMatch] = useState<LiveMatch | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [savingError, setSavingError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { match, loading, error, saving, savingError, save, reload } = useLiveMatch(id, clubId, currentUserId);
   const [showRetireConfirm, setShowRetireConfirm] = useState(false);
-
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setCurrentUserId(data.session?.user.id ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUserId(session?.user.id ?? null);
     });
+    return () => subscription.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (!id) return;
-    supabase
-      .from('live_matches')
-      .select('*')
-      .eq('id', id)
-      .eq('club_id', clubId)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          setError(error?.message ?? 'Match introuvable');
-          setLoading(false);
-          return;
-        }
-        setMatch(data as LiveMatch);
-        setLoading(false);
-      });
-
-    const channel = supabase
-      .channel(`live_match_bo_${id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${id}` },
-        (payload) => {
-          setMatch(payload.new as LiveMatch);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [id, clubId]);
 
   const applyPatch = async (patch: Partial<LiveMatch>) => {
     if (!match) return;
@@ -109,18 +73,7 @@ export default function LiveMatchPage() {
       };
     }
 
-    // Optimistic local update
-    setMatch({ ...match, ...finalPatch });
-
-    const { error } = await supabase.from('live_matches').update(finalPatch).eq('id', match.id).eq('club_id', clubId);
-    if (error) {
-      setSavingError(error.message);
-      // Revert local state to server truth
-      const { data } = await supabase.from('live_matches').select('*').eq('id', match.id).eq('club_id', clubId).single();
-      if (data) setMatch(data as LiveMatch);
-    } else {
-      setSavingError(null);
-    }
+    await save(finalPatch);
   };
 
   const handleCancelFinish = async () => {
@@ -131,10 +84,7 @@ export default function LiveMatchPage() {
       finished_at: null,
       retired_player: null,
     };
-    setMatch({ ...match, ...patch });
-    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id).eq('club_id', clubId);
-    if (error) setSavingError(error.message);
-    else setSavingError(null);
+    await save(patch);
   };
 
   const handleRetire = async (retiredPlayer: LiveMatchWinner) => {
@@ -146,10 +96,7 @@ export default function LiveMatchPage() {
       retired_player: retiredPlayer,
       finished_at: new Date().toISOString(),
     };
-    setMatch({ ...match, ...patch });
-    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id).eq('club_id', clubId);
-    if (error) setSavingError(error.message);
-    else setSavingError(null);
+    await save(patch);
   };
 
   const handleLogout = () => supabase.auth.signOut();
@@ -162,6 +109,7 @@ export default function LiveMatchPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-red-600">{error ?? 'Match introuvable'}</p>
+        <button onClick={() => void reload()}>Réessayer</button>
         <Link to="/live-score" className="text-sm text-muted-foreground hover:underline">
           ← Retour à la liste
         </Link>
@@ -233,6 +181,7 @@ export default function LiveMatchPage() {
             </p>
             <button
               onClick={handleCancelFinish}
+            disabled={saving || !!savingError || match.scored_by !== currentUserId}
               className="mt-3 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
             >
               Annuler la fin de match
@@ -247,12 +196,8 @@ export default function LiveMatchPage() {
         )}
 
         {(() => {
-          const hasLostControl =
-            match.status === 'live' &&
-            currentUserId !== null &&
-            match.scored_by !== null &&
-            match.scored_by !== currentUserId;
-          const canRetire = match.status === 'live' && !hasLostControl;
+        const hasLostControl = !currentUserId || match.scored_by !== currentUserId;
+        const canRetire = match.status === 'live' && !hasLostControl && !saving && !savingError;
           return (
             <>
               {hasLostControl && (
@@ -260,7 +205,7 @@ export default function LiveMatchPage() {
                   ⚠️ Ce live a été repris par quelqu'un d'autre. Vous êtes en lecture seule.
                 </div>
               )}
-              <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl} />
+              <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl || saving || !!savingError} />
               {canRetire && (
                 <div className="mt-4">
                   {!showRetireConfirm ? (
@@ -307,9 +252,11 @@ export default function LiveMatchPage() {
           );
         })()}
 
-        {savingError && (
+        <p role="status" className="text-sm text-muted-foreground">{saving ? 'Enregistrement…' : savingError ? 'Score à vérifier' : 'Score synchronisé'}</p>
+      {savingError && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             Erreur de sauvegarde : {savingError}
+          <button onClick={() => void reload()} className="ml-2 underline">Recharger le score</button>
           </div>
         )}
       </main>

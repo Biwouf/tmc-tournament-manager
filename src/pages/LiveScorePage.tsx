@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { writeLiveMatch, deleteLiveMatch } from '../lib/liveMatchWrites';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, Profile } from '../types';
@@ -76,18 +77,14 @@ export default function LiveScorePage() {
     const { matchId, value } = courtDialog;
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData.session?.user.id ?? null;
-    const { error } = await supabase
-      .from('live_matches')
-      .update({
-        status: 'live',
-        scored_by: uid,
-        court: value.trim() || null,
-        started_at: new Date().toISOString(),
-      })
-      .eq('id', matchId)
-      .eq('club_id', clubId);
+    const target = matches.find(m => m.id === matchId);
+    if (!target || !uid) return;
+    const { error } = await writeLiveMatch(target, clubId, {
+      status: 'live', scored_by: uid, court: value.trim() || null, started_at: new Date().toISOString(),
+    }).then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       alert(`Erreur : ${error.message}`);
+      void fetchMatches();
       return;
     }
     setCourtDialog(null);
@@ -108,13 +105,13 @@ export default function LiveScorePage() {
 
   const confirmTakeover = async () => {
     if (!takeoverDialog || !currentUserId) return;
-    const { error } = await supabase
-      .from('live_matches')
-      .update({ scored_by: currentUserId })
-      .eq('id', takeoverDialog.matchId)
-      .eq('club_id', clubId);
+    const target = matches.find(m => m.id === takeoverDialog.matchId);
+    if (!target) return;
+    const { error } = await writeLiveMatch(target, clubId, { scored_by: currentUserId })
+      .then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       alert(`Erreur : ${error.message}`);
+      void fetchMatches();
       return;
     }
     const matchId = takeoverDialog.matchId;
@@ -126,7 +123,7 @@ export default function LiveScorePage() {
     const team1 = `${m.j1_prenom} ${m.j1_nom}`;
     const team2 = `${m.j2_prenom} ${m.j2_nom}`;
     if (!window.confirm(`Supprimer le match ${team1} vs ${team2} ?`)) return;
-    const { error } = await supabase.from('live_matches').delete().eq('id', m.id).eq('club_id', clubId);
+    const { error } = await deleteLiveMatch(m, clubId).then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       alert(`Erreur suppression : ${error.message}`);
       return;

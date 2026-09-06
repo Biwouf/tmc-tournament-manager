@@ -560,3 +560,12 @@ Le chargement hors ligne à froid reste une limite à traiter dans le lot PWA su
 
 Validation : `npm run test:pwa-network` (React réel en DOM simulé, Supabase simulé).
 Aucune migration ni Edge Function à déployer pour ce lot.
+
+
+### Saisie Live confirmée
+
+Depuis le lot fiabilité Live, la saisie attend la confirmation serveur et désactive les
+commandes pendant l'enregistrement. Les conflits entre fenêtres et reprises de contrôle
+sont détectés avec `live_matches.revision`. Les erreurs offrent une relecture explicite,
+sans rejouer automatiquement une écriture. Un match libéré ou géré par un autre compte
+reste consultable en lecture seule depuis son écran. Voir `LIVE_SCORE.md`, section Fiabilité.

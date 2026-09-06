@@ -351,3 +351,16 @@ Le cache mémoire est renouvelé au changement de compte et à la déconnexion.
 
 Vérification locale : `npm run test:pwa-network` à la racine, puis `npm --prefix pwa run build`.
 Ce lot ne nécessite aucune migration Supabase ni déploiement d'Edge Function.
+
+
+### Fiabilité du Live Score (BO et PWA)
+
+La saisie affiche « Enregistrement… » pendant la confirmation du score et bloque brièvement
+les commandes. Une reprise depuis un autre compte passe l'ancien gestionnaire en lecture seule.
+En cas de conflit ou de coupure, un message propose de recharger le score sans répéter
+l'écriture. Les notifications retardées ne remplacent plus un score plus récent.
+
+Pré-requis : appliquer `supabase/migrations/20260907_live_match_consistency.sql` avant
+les nouveaux clients, puis recharger les deux applications. Tests : `npm run test:live-score`.
+
+La migration `20260908_live_matches_public_read.sql` permet aux visiteurs non connectés de suivre les matchs des clubs actifs ; la connexion reste nécessaire pour leur gestion.

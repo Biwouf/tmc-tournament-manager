@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, LiveMatchWinner } from '../types';
+import { useLiveMatch } from '../hooks/useLiveMatch';
 import { getMatchWinner, getTeamLabel } from '../liveScoreRules';
 import LiveScoreEntry from '../components/matches/LiveScoreEntry';
 import { useAuth } from '../hooks/useAuth';
@@ -36,72 +36,13 @@ function teamLabel(m: LiveMatch, team: 1 | 2): string {
   return parts.join(' / ');
 }
 
-function flashAndRedirect(navigate: ReturnType<typeof useNavigate>, msg: string) {
-  sessionStorage.setItem('matches:flash', msg);
-  navigate('/matches', { replace: true });
-}
-
 export default function LiveMatchPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { clubId } = useClub();
 
-  const [match, setMatch] = useState<LiveMatch | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [savingError, setSavingError] = useState<string | null>(null);
+  const { match, loading, error, saving, savingError, save, reload } = useLiveMatch(id, clubId, user?.id ?? null);
   const [showRetireConfirm, setShowRetireConfirm] = useState(false);
-
-  useEffect(() => {
-    if (!id || authLoading) return;
-    if (!user) return; // RequireAuth gère la redirection vers /login
-    let cancelled = false;
-    supabase
-      .from('live_matches')
-      .select('*')
-      .eq('id', id)
-      .eq('club_id', clubId)
-      .single()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data) {
-          setError(error?.message ?? 'Match introuvable');
-          setLoading(false);
-          return;
-        }
-        const m = data as LiveMatch;
-
-        // Guard d'accès :
-        if (m.status === 'pending') {
-          flashAndRedirect(navigate, "Ce match n'est pas en cours.");
-          return;
-        }
-        if (m.status === 'live' && m.scored_by !== user.id) {
-          flashAndRedirect(navigate, "Ce live est géré par quelqu'un d'autre.");
-          return;
-        }
-
-        setMatch(m);
-        setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [id, user, authLoading, navigate, clubId]);
-
-  useEffect(() => {
-    if (!id || !user) return;
-    const channel = supabase
-      .channel(`live_match_pwa_${id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${id}` },
-        (payload) => {
-          setMatch(payload.new as LiveMatch);
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [id, user]);
 
   const applyPatch = async (patch: Partial<LiveMatch>) => {
     if (!match) return;
@@ -118,16 +59,7 @@ export default function LiveMatchPage() {
       };
     }
 
-    setMatch({ ...match, ...finalPatch });
-
-    const { error } = await supabase.from('live_matches').update(finalPatch).eq('id', match.id).eq('club_id', clubId);
-    if (error) {
-      setSavingError(error.message);
-      const { data } = await supabase.from('live_matches').select('*').eq('id', match.id).eq('club_id', clubId).single();
-      if (data) setMatch(data as LiveMatch);
-    } else {
-      setSavingError(null);
-    }
+    await save(finalPatch);
   };
 
   const handleCancelFinish = async () => {
@@ -138,10 +70,7 @@ export default function LiveMatchPage() {
       finished_at: null,
       retired_player: null,
     };
-    setMatch({ ...match, ...patch });
-    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id).eq('club_id', clubId);
-    if (error) setSavingError(error.message);
-    else setSavingError(null);
+    await save(patch);
   };
 
   const handleRetire = async (retiredPlayer: LiveMatchWinner) => {
@@ -153,10 +82,7 @@ export default function LiveMatchPage() {
       retired_player: retiredPlayer,
       finished_at: new Date().toISOString(),
     };
-    setMatch({ ...match, ...patch });
-    const { error } = await supabase.from('live_matches').update(patch).eq('id', match.id).eq('club_id', clubId);
-    if (error) setSavingError(error.message);
-    else setSavingError(null);
+    await save(patch);
   };
 
   if (authLoading || loading) {
@@ -167,6 +93,7 @@ export default function LiveMatchPage() {
     return (
       <div className="p-6 flex flex-col items-center gap-3">
         <p className="text-red-600 text-sm">{error ?? 'Match introuvable'}</p>
+        <button onClick={() => void reload()}>Réessayer</button>
         <Link to="/matches" className="text-sm text-muted-foreground hover:underline">
           ← Retour à la liste
         </Link>
@@ -219,6 +146,7 @@ export default function LiveMatchPage() {
           </p>
           <button
             onClick={handleCancelFinish}
+            disabled={saving || !!savingError || match.scored_by !== user?.id}
             className="mt-2 min-h-11 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
           >
             Annuler la fin de match
@@ -227,12 +155,8 @@ export default function LiveMatchPage() {
       )}
 
       {(() => {
-        const hasLostControl =
-          match.status === 'live' &&
-          user !== null &&
-          match.scored_by !== null &&
-          match.scored_by !== user.id;
-        const canRetire = match.status === 'live' && !hasLostControl;
+        const hasLostControl = !user?.id || match.scored_by !== user?.id;
+        const canRetire = match.status === 'live' && !hasLostControl && !saving && !savingError;
         return (
           <>
             {hasLostControl && (
@@ -240,7 +164,7 @@ export default function LiveMatchPage() {
                 Ce live a été repris par quelqu'un d'autre. Vous êtes en lecture seule.
               </div>
             )}
-            <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl} />
+            <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl || saving || !!savingError} />
             {canRetire && (
               !showRetireConfirm ? (
                 <button
@@ -285,9 +209,11 @@ export default function LiveMatchPage() {
         );
       })()}
 
+      <p role="status" className="text-sm text-muted-foreground">{saving ? 'Enregistrement…' : savingError ? 'Score à vérifier' : 'Score synchronisé'}</p>
       {savingError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           Erreur de sauvegarde : {savingError}
+          <button onClick={() => void reload()} className="ml-2 underline">Recharger le score</button>
         </div>
       )}
     </div>

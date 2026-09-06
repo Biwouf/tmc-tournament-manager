@@ -317,3 +317,19 @@ Spec fonctionnelle complète : `docs/specs/PWA.MD` et `docs/specs/PWA_LIVE_AUTH.
 - État, limites et déploiement : `docs/SECURITY_AUDIT_FIXES.md`.
 
 - `tests/pwa-network.test.mjs` : tests React/DOM avec Supabase simulé, comptage des requêtes, navigation, rafraîchissement, session, rafales Live, suppression et reconnexion. Commande `npm run test:pwa-network`.
+
+
+## Fiabilité Live — septembre 2026
+
+- `src/hooks/useLiveMatch.ts` et `pwa/src/hooks/useLiveMatch.ts` : copies du contrôleur de
+  saisie confirmée, verrou d'écriture, réception versionnée, relecture/reconnexion et erreur.
+  Les deux `pages/LiveMatchPage.tsx` consomment ce hook ; ils ne font plus de sauvegarde optimiste.
+- `src/lib/liveMatchWrites.ts` et `pwa/src/lib/liveMatchWrites.ts` : copies des lectures et
+  UPDATE/DELETE conditionnés par `revision`, ligne retournée obligatoire, timeout 15 s.
+  Consommés aussi par `src/pages/LiveScorePage.tsx` et `pwa/src/components/matches/MatchCard.tsx`.
+- `LiveMatch.revision` dans les deux types est alimenté exclusivement par le serveur.
+- `supabase/migrations/20260907_live_match_consistency.sql` : versionnement et contrôle de
+  propriétaire, reprise/démarrage limités aux champs de gestion, suppression et invariant club.
+- `tests/live-score-client.test.mjs` et `tests/live-score-sql.test.mjs` : `npm run test:live-score`.
+
+- `20260908_live_matches_public_read.sql` : lecture publique explicite des matchs des clubs actifs, aucune écriture anon ; régression couverte dans `tests/live-score-sql.test.mjs`.
