@@ -171,6 +171,7 @@ Voir `docs/specs/` :
 - La publication d'une actu sur la page Facebook du club (Edge Function `post-to-facebook`, checkboxes dans `ActuForm`) est décrite dans **`ACTUS.md`** — il n'y a jamais eu de `ACTUS_FACEBOOK.md`, malgré les renvois qu'on trouve encore dans les en-têtes de code. **PR8** : les identifiants ne sont plus les secrets globaux `FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_ACCESS_TOKEN` mais la table `club_social_credentials`, par club.
 - `TEAM_MATCHES.md` — module Matches par équipe (référentiel saisons/compétitions/équipes/étapes, rencontres, matches individuels, bascule Live Score, photos → actu)
 - `PWA_PULL_TO_REFRESH.md` — pull-to-refresh PWA sur Actus & Événements (`usePullToRefresh` + `PullToRefreshWrapper`)
+- `WEB_SITE.md` — **site vitrine public `web/`** (PR9) : les 5 pages rendues depuis `club_settings.config`, résolution du tenant, règle « config vide = cas nominal », design tokens, RLS `anon`
 
 ## Edge Functions Supabase
 
@@ -203,6 +204,8 @@ Voir `docs/specs/` :
 - **Multi-tenant — configuration du site (PR6b)** : **aucune migration**, et c'est la propriété qui justifiait de séparer cette PR de PR6a. La policy d'écriture (`club_settings_update_club_admin`) et les `GRANT` (`SELECT` PR1, `INSERT, UPDATE` PR5) sont déjà en place ; les images de configuration réutilisent le bucket **`content-images`** sous `clubPath(clubId, 'config', …)`, dont les policies scopées au club datent de PR6a — un bucket dédié aurait coûté un bucket, 3 policies, une ligne du garde-fou §7 de `20260822` et un passage complet de la checklist §8.4. Déploiement : le push Vercel sur `main` suffit — pas d'Edge Function, pas de config dashboard, pas d'opération de données. **Rollback** : revert du code, **rien à défaire en base** (les configs déjà saisies restent lisibles, `parseClubConfig` tolérant les clés qu'il ne connaît pas). PR6b est en revanche la **première PR qui écrit** dans `club_settings.config` : c'est elle qui éprouve pour de bon le contrat et la RLS de PR6a, d'où le contrôle du refus d'écriture pour un `manager` et pour un club voisin.
 - **Multi-tenant — gestion des membres (PR5-bis)** : **aucune migration** — `club_members` garde ses deux policies `SELECT` (`club_members_select_own` PR1, `club_members_select_super_admin` PR5) et son seul `GRANT SELECT`. Lecture **et** écritures passent par la nouvelle Edge Function `club-members` en service role (cf. table ci-dessus) : l'email et `last_sign_in_at` vivant dans `auth.users`, le service role est de toute façon obligatoire pour que la liste soit lisible — avoir en plus des policies RLS donnerait deux sources pour la même liste, sur la table qui porte l'autorisation de toute l'app. Côté BO : `MembersPage` (`/admin/members`, `adminOnly`) **absorbe** `InvitePage` (supprimée ; `/admin/invite` redirige en permanence), la carte du dashboard devient « Membres », et le parsing d'erreur non-2xx est extrait dans `lib/functions.ts` (partagé `invite-user` / `club-members`). `invite-user` est **inchangée**. Le garde-fou « au moins un admin par club » (script PR4 §3) est porté **côté serveur** dans la function ; le front ne fait que désactiver les contrôles. ⚠️ Déploiement **manuel** de la function : `supabase functions deploy club-members` (dev puis prod). Rollback : supprimer la function, revenir au script SQL PR4 — aucun SQL à défaire. Dette **non** traitée ici (PR dédiée) : le rôle reste du masquage UI, `tenant_isolation` cloisonne par club et pas par rôle (`MULTI_TENANT.md` §4.1).
 - **Multi-tenant — comptes sociaux par club (PR8)** : migration `supabase/migrations/20260906_club_social_credentials.sql`, idempotente. ⚠️ **Datée du 06 bien qu'écrite le 05** — l'audit a posé `20260905_audit_content_permissions.sql` entre-temps, et la CLI dérive la `version` des chiffres de tête : deux `20260905_*` feraient échouer `db push` sur `schema_migrations_pkey`. Table **`club_social_credentials`** (`club_id`, `platform`, `page_id`, `page_name`, `token`, `token_expires_at`, `connected_by`, PK composite `(club_id, platform)`) — **séparée de `club_settings`** parce que ce dernier a vocation à être lu, et que PR9 y ouvrira une lecture `anon` : un token de Page n'a rien à faire dans un JSONB dont la trajectoire est l'exposition publique (décision **D10**). **RLS** : une seule policy, `SELECT` réservé à l'**admin d'un club ACTIF** (`EXISTS` explicite, et **non** le helper `can_manage_club_content()` de l'audit du 05/09 : celui-ci rend vrai pour `admin` **et** `manager`, bon périmètre pour les contenus éditoriaux, mauvais ici — un gestionnaire publie sur la page sans avoir à savoir à quel compte elle est reliée ; le statut du club suit la règle `active_club_access` de l'audit) **ou** au super-admin, lui **sans** condition de statut (sans wildcard `*.feelike.app`, l'accès support est le seul moyen d'atteindre un 2ᵉ club). Jamais `anon`, jamais `manager`, jamais `member`. **La vraie barrière est le `GRANT` par colonne** (précédent `2026081801_profiles_column_grants.sql`) : la RLS ne sait pas restreindre une colonne, `authenticated` reçoit donc `SELECT` sur tout **sauf `token`** — le secret ne redescend jamais dans un bundle, seule l'Edge Function en *service role* le lit. **Aucune policy d'écriture**, comme `club_members` en PR5-bis : écrire ici suppose d'avoir validé le token auprès de Facebook, ce qu'un client ne peut pas faire — tout passe par `social-credentials`. Durcissement ultérieur possible sans toucher au reste (§6.3) : chiffrer la seule colonne `token` via le Vault Supabase. ⚠️ **Trois opérations manuelles** : appliquer la migration, déployer **deux** functions (`social-credentials` **nouvelle**, `post-to-facebook` **modifiée**), puis **connecter la page de CAC** depuis `/admin/social` — la coupure des secrets globaux est **nette**, la publication Facebook de CAC est cassée entre le déploiement et cette saisie. Rollback : `DROP TABLE public.club_social_credentials` + redéployer la version précédente de `post-to-facebook`.
+
+- **Multi-tenant — lecture publique de `club_settings` (PR9)** : migration `supabase/migrations/2026090601_club_settings_public_read.sql`, idempotente et **non bloquante** (elle n'ajoute qu'un droit de lecture). ⚠️ **Suffixée `01`** : `20260906` est déjà pris par PR8, et la CLI dérive la `version` des chiffres de tête. Contenu : policy `club_settings_select_anon` (`FOR SELECT TO anon USING (true)`) + `GRANT SELECT … TO anon`. C'est ce que `20260629_multi_tenant_socle.sql` annonçait (« l'exposition anon (vitrine) arrive avec la Phase 4 ») et ce que `20260822_config_storage_tenant.sql` avait laissé de côté : **sans elle la vitrine rend un site entièrement vide**, symptôme côté React, cause en base. `USING (true)` n'est pas une fuite — la policy RESTRICTIVE `active_club_access` (audit du 05/09) couvre déjà `club_settings` pour `anon` et exige `clubs.status = 'active'`, les deux se composant en ET : un club suspendu reste invisible. Le cloisonnement **par club** n'est, lui, pas assuré par la RLS pour `anon` (patron existant d'`actus` / `events`) : c'est l'app qui filtre par `club_id`, et la config d'un autre club actif est lisible par qui connaît son id — ce sont les données d'un site public. Le groupe `posters` devient public par ricochet (colonne `config` unique, la RLS ne restreint pas une clé de JSONB) : des fonds d'affiche déjà stockés dans un bucket public, rien de sensible — les secrets vivent dans `club_social_credentials` (PR8, décision D10). La lecture `authenticated` (`club_settings_select_tenant`) et les écritures ne sont pas touchées. Rollback : `DROP POLICY club_settings_select_anon` + `REVOKE SELECT … FROM anon` — la vitrine s'éteint, le BO continue. Détail : `docs/specs/WEB_SITE.md` §5.
 
 - **Matches par équipe — championnat terminé** : migration `supabase/migrations/20260820_team_competitions_terminee.sql`, idempotente. `ALTER TABLE team_competitions ADD COLUMN IF NOT EXISTS terminee BOOLEAN NOT NULL DEFAULT false`. Pas de policy à ajouter (`team_competitions` est déjà couverte par `tenant_isolation`), **pas de GRANT de colonne** non plus : le `GRANT` de `20260606_team_matches.sql` porte sur la table entière sans liste de colonnes — contrairement à `profiles` (cf. `2026081801`), la nouvelle colonne est donc immédiatement écrivable par `authenticated`. Le flag est **explicite** (case à cocher dans `/team-matches/admin`), jamais dérivé d'un calcul sur les étapes : une compétition peut être finie alors qu'une phase finale reste programmée.
 
@@ -304,6 +307,69 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `/matches/:id/score` | requise (et ownership pour `live`) | Saisie / consultation d'un live |
 
 Spec fonctionnelle complète : `docs/specs/PWA.MD` et `docs/specs/PWA_LIVE_AUTH.md`.
+
+
+## Site vitrine — `web/`
+
+Projet Vite/React autonome dans le dossier `web/`, livré par **PR9**. Site **public** servi sur
+`<slug>.feelike.app`, rendu **entièrement** depuis `club_settings.config` du club résolu par
+sous-domaine : aucun contenu en dur, deux clubs donnent deux sites avec le même bundle.
+Consomme Supabase en `anon` uniquement — **aucune authentification**.
+
+Stack : React 19, TypeScript, Vite, Tailwind CSS v4 (`@tailwindcss/vite`), React Router v7,
+Supabase JS, `zod`. **Pas** de `vite-plugin-pwa` (l'app installable est `pwa/`), **pas** de
+TanStack Query (la vitrine lit une ligne au montage et n'a rien à invalider — c'est PR10, avec
+ses flux paginés, qui décidera d'en introduire un). Police `Manrope` **auto-hébergée**
+(`@fontsource-variable/manrope`), pas de Google Fonts : un site public français ne doit pas
+appeler `fonts.gstatic.com` à chaque visite.
+
+Déploiement : projet Vercel séparé, Root Directory = `web/`.
+
+> ⚠️ **Deux dépendances de base à ne pas casser.** (1) La lecture `anon` de `club_settings`
+> vient de la migration `2026090601_club_settings_public_read.sql` : sans elle, la vitrine
+> affiche un site *entièrement vide* sans lever d'erreur. (2) `web/src/lib/clubConfig.ts` est
+> une **copie** de `src/lib/clubConfig.ts` — toute divergence est un bug silencieux (une clé lue
+> par la vitrine que le BO n'écrit pas, ou l'inverse).
+
+### Structure `web/src/`
+
+| Fichier | Rôle |
+|---|---|
+| `App.tsx` | Providers + chrome (header / footer / drawer de contact) + routes des 5 pages + remise à zéro du scroll à la navigation |
+| `index.css` | Tokens « conviviale » sur `:root`, exposés à Tailwind par `@theme inline` ; classes `.shell`, `.section`, `.eyebrow`, `.title`, `.btn*`, `.card`, `.field` |
+| `lib/supabase.ts` | Client `anon` avec **`persistSession: false`** et `autoRefreshToken: false` — site public, il n'y a pas de session à garder |
+| `lib/clubConfig.ts` | **Copie** de `src/lib/clubConfig.ts` (BO), synchronisée manuellement — même patron que `pwa/src/liveScoreRules.ts` et `pwa/src/lib/theme.ts` |
+| `lib/configImage.ts` | Valeur d'image de config → URL affichable : URL publique complète (ce qu'écrit `SiteConfigPanel`) **ou** clé Storage nue (ce que tolère le contrat). Vide → `null`, et `null` masque le bloc |
+| `lib/tokens.ts` | `brand.color` → `--brand` / `--brand-dark` (luminosité × 0,84) / `--brand-soft` (10 % d'opacité). Fallback `#e51828`, seule couleur en dur tolérée. Le jeu de tokens de `src/lib/theme.ts` (BO + PWA) n'est **pas** réutilisé : la vitrine a le sien |
+| `lib/price.ts` | Montant du contrat (nombre) → texte français. Aucune période n'est ajoutée (« / an »…) : le contrat n'en porte pas |
+| `contexts/SiteContext.tsx` | Résolution du tenant par hostname (`<slug>.feelike.app`, sinon `VITE_DEV_CLUB_SLUG`), lecture de `clubs` puis `club_settings` — **deux round-trips, une seule fois**, aucune page ne requête —, `parseClubConfig()` appelé une fois, pose des tokens de marque et du `document.title`, écran bloquant si le club est introuvable ou suspendu. `useSite()` rend `{ club, config, clubName }` |
+| `contexts/ContactDrawerContext.tsx` | État du drawer de contact, ouvert depuis le header, le menu mobile, le hero, les bannières CTA et le bouton flottant |
+| `components/layout/` | `Header` (sticky + menu mobile), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader`, `navItems.ts` |
+| `components/home/` | `HeroSection`, `StatsSection`, `SchoolTeaserSection`, `InfraTeaserSection`, `PartnersSection`, `CtaSection` |
+| `components/club/` | `PresidentSection`, `ValuesSection`, `CoachSection`, `ProgramsSection`, `BoardSection` |
+| `components/infra/` | `CourtsSection`, `ClubhouseSection`, `LockerRoomsSection` |
+| `components/pricing/` | `LessonsSection`, `MembershipSection`, `OtherFeesSection`, `PricingCtaSection` |
+| `components/contact/` | `ContactForm` (champs fixes, **soumission désactivée jusqu'à PR11**), `ContactDetailsSection`, `OpeningHoursSection` |
+| `pages/` | `HomePage`, `ClubPage`, `InfraPage`, `PricingPage`, `ContactPage` — assemblage seul |
+
+**Une section = un composant = un fichier** : PR10, PR11 et PR12 partent toutes les trois de
+`web/` et seront développées en parallèle.
+
+### Routes de la vitrine
+
+| Route | Contenu |
+|---|---|
+| `/` | Accueil — `home.*`, `partners`, `settings.*` (emplacements `// PR10` pour les flux actus/agenda) |
+| `/club` | Le Club — `club.*` |
+| `/infrastructures` | Infrastructures — `infra.*` |
+| `/tarifs` | Tarifs — `pricing.*` |
+| `/contact` | Contact — `contact.*` + formulaire à champs fixes |
+| `*` | Rend l'accueil (une vitrine n'a pas de 404 utile ; la page « club inconnu » est PR13) |
+
+> **Règle de rendu non négociable** : `config = '{}'` est le cas **nominal** (club fraîchement
+> provisionné). Une valeur absente **masque son bloc** — jamais de titre suivi du néant, jamais
+> d'`<img>` sans `src`, jamais de placeholder ni de valeur d'exemple en repli. Une page dont
+> tout le contenu est vide rend le chrome et rien d'autre. Spec complète : `docs/specs/WEB_SITE.md`.
 
 
 ## Correctifs audit — 05/09/2026

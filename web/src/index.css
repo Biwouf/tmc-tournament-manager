@@ -1,0 +1,176 @@
+@import 'tailwindcss';
+/* Police auto-hébergée : un site public français ne doit pas appeler fonts.gstatic.com à
+   chaque visite (même raisonnement RGPD que le choix de Brevo, D7). */
+@import '@fontsource-variable/manrope';
+
+/* ─── Tokens « conviviale » — web_site_brief.md §4 ────────────────────────────
+   Les trois tokens de marque sont REMPLACÉS au runtime à partir de `brand.color`
+   (`lib/tokens.ts`, appelé par `SiteContext`). Les valeurs ci-dessous sont celles du brief :
+   elles servent de repli avant la résolution du club et si la couleur n'est pas saisie. */
+:root {
+  --brand: #e51828;
+  --brand-dark: #c01420;
+  --brand-soft: rgba(229, 24, 40, 0.1);
+  --bg: #f7f2ec;
+  --bg2: #efe6db;
+  --card: #ffffff;
+  --text: #2a201f;
+  --muted: #8a7d77;
+  --line: #e8ddd0;
+  --radius: 20px;
+  --radius-sm: 13px;
+  --shadow: 0 16px 44px rgba(70, 35, 20, 0.1);
+}
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-soft: var(--brand-soft);
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-card: var(--card);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --radius-card: var(--radius);
+  --radius-soft: var(--radius-sm);
+  --shadow-soft: var(--shadow);
+  --font-sans: 'Manrope Variable', Manrope, 'Segoe UI', system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* Aucune page ne doit déborder horizontalement (critère de succès du brief). */
+    overflow-x: hidden;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  /* Gouttière commune à toutes les sections. */
+  .shell {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+  @media (min-width: 900px) {
+    .shell {
+      padding-left: 40px;
+      padding-right: 40px;
+    }
+  }
+
+  .section {
+    padding-top: clamp(44px, 6vw, 80px);
+    padding-bottom: clamp(44px, 6vw, 80px);
+  }
+
+  /* Sur-titre en pastille — l'iconographie « pill » de la direction conviviale. */
+  .eyebrow {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brand);
+  }
+
+  .title {
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.12;
+  }
+
+  .lede {
+    color: var(--muted);
+    font-size: 16.5px;
+    line-height: 1.65;
+  }
+
+  /* Boutons pleinement arrondis (brief §4). */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 26px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 15.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--brand);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--brand-dark);
+  }
+
+  .btn-outline {
+    background: transparent;
+    border-color: currentColor;
+    color: inherit;
+  }
+  .btn-outline:hover {
+    background: var(--brand-soft);
+  }
+
+  .btn-light {
+    background: #fff;
+    color: var(--brand);
+  }
+  .btn-light:hover {
+    transform: translateY(-2px);
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .field {
+    width: 100%;
+    margin-top: 6px;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 15px;
+    color: var(--text);
+  }
+  .field:focus {
+    outline: 2px solid var(--brand-soft);
+    border-color: var(--brand);
+  }
+
+  .field-label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text);
+  }
+}

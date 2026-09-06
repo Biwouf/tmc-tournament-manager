@@ -158,8 +158,13 @@ avant authentification (§3). `club_members` est déjà restreinte (`user_id = a
 > `club_settings_select_tenant` (patron `tenant_isolation`) et a ajouté
 > `club_settings_update_club_admin` (`EXISTS` sur `club_members` avec `role = 'admin'`), les
 > policies super-admin de PR5 étant conservées. Garde-fou `pg_policies` inclus, façon PR3.
-> La lecture `anon` **n'est pas ouverte** : PR9 ouvrira une lecture restreinte aux clés
-> publiques quand la vitrine en aura besoin.
+> La lecture `anon` a été ouverte par **PR9**
+> (`2026090601_club_settings_public_read.sql`), la vitrine en ayant besoin. **Pas** « restreinte
+> aux clés publiques » comme l'annonçait cette note : `config` est une colonne unique et la RLS
+> ne sait pas restreindre une clé de JSONB. On expose donc la colonne entière — décision
+> assumée, motivée en §7 — plutôt que d'inventer une vue filtrée. Le cloisonnement `anon` reste
+> celui d'`actus` / `events` : `active_club_access` coupe les clubs suspendus, et le filtre par
+> club est fait par l'app.
 
 Pour `profiles`, le cloisonnement passe par `club_members` (un profil est visible s'il partage
 un club avec le demandeur) — attention à ne pas casser la lecture `anon` dont dépend
@@ -735,6 +740,10 @@ identifiants doivent être **par club** — décision **D10** :
 
 ## 7. Site vitrine (nouvelle app)
 
+> **Livré en PR9** pour tout ce qui est *statique*. La spec versionnée du résultat est
+> **`docs/specs/WEB_SITE.md`** — c'est elle qu'il faut lire en premier désormais, les deux
+> fichiers ci-dessous vivant dans `docs/briefs/`, qui est gitignoré.
+
 Référence structurelle complète : **`docs/briefs/web_site_brief.md`** (5 pages, arborescence
 HTML, variables, design tokens « convivial »). Maquette : `docs/briefs/struct_web_site.html`.
 
@@ -962,7 +971,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR7 ✅ | 3 | GEN_PROG : **fonds d'affiche par club** — onzième groupe `posters` (deux clés, à part des dix groupes de la vitrine et **en dernier** à l'écran), **gabarit contrôlé avant l'upload** (`dimensions` sur `FieldSpec` : **proportions A4 à 2 % près** — et non une définition au pixel près, les deux gabarits étant de l'A4 dont aucune définition en pixels ne tombe juste — plus une taille minimale ; refus nommant le ratio attendu et le reçu), `crossOrigin="anonymous"` sur les deux fonds (sans quoi l'export sort blanc alors que l'aperçu est parfait), **listes de fonds nommés** avec choix à la génération et suppression, et **génération refusée sans aucun fond** — pas de repli sur les assets CAC, qui réinstallerait du tenant en dur. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. Détail : §6.2. | non-bloquante en base — mais ⚠️ **une opération de contenu BLOQUANTE** juste après déploiement : sans au moins un fond par affiche ajouté depuis `/admin/site`, le club ne peut plus générer d'affiche |
 | PR7-bis ✅ | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logo via `brand.logo` sous Storage `club_id/`, manifest PWA au runtime avec fallback Vite | non-bloquante — aucune migration |
 | PR8 ✅ | 3 | **Comptes sociaux par club** : table `club_social_credentials` (RLS **SELECT admin-d'un-club-actif** + **`GRANT` par colonne excluant `token`**, aucune policy d'écriture), Edge Function **`social-credentials`** (valide le token auprès de Facebook **avant** d'écrire, déduit la page du token), écran BO `/admin/social`, et `post-to-facebook` qui lit les identifiants **du club de l'actu**. Retire `FACEBOOK_CLUB_ID`, la rustine de l'audit du 05/09 qui liait les credentials globaux à un club unique ; **conserve intégralement** son contrôle d'accès. Suite `npm run test:security` étendue (26 tests). Flux OAuth Facebook **hors périmètre** (voir §6.3). Détail : §6.3. | ⚠️ **opérations prod** : migration `20260906` (datée du 06 pour ne pas collisionner avec celle de l'audit), déploiement de **deux** functions (`social-credentials` nouvelle, `post-to-facebook` modifiée), **saisie du token de CAC** — coupure nette, la publication est cassée entre les deux — puis retrait du secret `FACEBOOK_CLUB_ID` |
-| PR9 | 4 | App `web/` (vitrine) : scaffold + résolution tenant + design tokens + 5 pages rendues depuis `club_settings` | nouvelle app |
+| PR9 ✅ | 4 | **App `web/`** (vitrine) : scaffold Vite/React autonome, résolution du tenant par sous-domaine (`SiteContext`, patron `ClubContext` amputé de la session), design tokens « conviviale » dérivés de `brand.color`, et les **5 pages** rendues depuis `club_settings.config`. Le contrat est consommé par une **copie** de `src/lib/clubConfig.ts`, à garder synchronisée. Règle de rendu : `config = '{}'` est le cas **nominal** — une valeur absente masque son bloc, jamais de placeholder ni de valeur d'exemple en repli. Les blocs de flux de l'accueil ne rendent **rien** (PR10) et la soumission du formulaire de contact est **désactivée** (PR11) : un bouton inerte vaut mieux qu'un formulaire qui perd les messages. Dette laissée ouverte : **SEO / Open Graph / titres par page**. Détail : `docs/specs/WEB_SITE.md`. | ⚠️ **opération prod** : migration `2026090601_club_settings_public_read.sql` (lecture `anon` de `club_settings`) — non bloquante, mais **sans elle la vitrine rend un site vide**. Puis nouveau projet Vercel, Root Directory `web/`. Aucun domaine à configurer : le wildcard est PR13 |
 | PR10 | 4 | Flux actus & events branchés sur la vitrine (filtrés `club_id`) | non-bloquante |
 | PR11 | 4 | Edge Function `contact-form` (Brevo) + table `contact_messages` + réception BO | non-bloquante |
 | PR12 | 4 | Pont d'installation PWA depuis la vitrine (mobile) | non-bloquante |
