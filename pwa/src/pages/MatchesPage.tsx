@@ -6,6 +6,7 @@ import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, Profile } from '../types';
 import MatchCard from '../components/matches/MatchCard';
 import { useAuth } from '../hooks/useAuth';
+import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
 async function fetchMatches(clubId: string | null): Promise<LiveMatch[]> {
@@ -37,40 +38,29 @@ export default function MatchesPage() {
   const { data: matches, isLoading, isError } = useQuery({
     queryKey: ['matches', clubId],
     queryFn: () => fetchMatches(clubId),
+    staleTime: 0, // Le Live se recharge immédiatement au retour sur cet écran.
     refetchInterval: 30_000,
   });
 
-  const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
+  const scorerIds = [...new Set((matches ?? []).flatMap((m) => m.scored_by ? [m.scored_by] : []))].sort();
+  const { data: profilesMap = {} } = useQuery({
+    queryKey: ['match-profiles', clubId, scorerIds],
+    enabled: scorerIds.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, prenom, nom')
+        .in('id', scorerIds);
+      if (error) throw error;
+      return Object.fromEntries((data as Profile[]).map((p) => [p.id, p]));
+    },
+  });
 
   useEffect(() => {
-    if (!matches) return;
-    const ids = [...new Set(matches.filter((m) => m.scored_by).map((m) => m.scored_by!))];
-    if (ids.length === 0) {
-      setProfilesMap({});
-      return;
-    }
-    supabase
-      .from('profiles')
-      .select('*')
-      .in('id', ids)
-      .then(({ data }) => {
-        if (!data) return;
-        const map: Record<string, Profile> = {};
-        for (const p of data as Profile[]) map[p.id] = p;
-        setProfilesMap(map);
-      });
-  }, [matches]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('live_matches_pwa')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_matches' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['matches'] });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient]);
+    if (!clubId) return;
+    return subscribeToMatchList(supabase, queryClient, clubId);
+  }, [queryClient, clubId]);
 
   // Lecture du flash venant d'une redirection (ex: /matches/:id/score → /matches)
   useEffect(() => {

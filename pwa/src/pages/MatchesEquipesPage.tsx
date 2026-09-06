@@ -54,6 +54,7 @@ export default function MatchesEquipesPage() {
         .eq('club_id', clubId)
         .eq('saison_id', currentSaisonId);
       if (e1) throw e1;
+      if (!comps?.length) return { competitions: [], equipes: [] };
       const { data: eqs, error: e2 } = await supabase
         .from('team_equipes')
         .select('*')

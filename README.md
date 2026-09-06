@@ -338,3 +338,16 @@ s'activent pas par la seule mise à jour du frontend. Voir
 [les consignes et limites](docs/SECURITY_AUDIT_FIXES.md).
 
 Tests isolés, sans connexion à Supabase : `npm run test:security`.
+
+
+### PWA : cache et appels réseau
+
+Les contenus consultés sont réutilisés pendant 60 secondes lors des allers-retours entre pages.
+Le tirer-pour-rafraîchir force toujours leur rechargement. L'identité visuelle du club est
+chargée une seule fois pour les composants qui l'utilisent (cache 5 minutes).
+Le Live conserve ses notifications temps réel et son contrôle de secours toutes les 30 secondes ;
+les rafales de notifications sont regroupées et les profils ne sont plus rechargés à chaque score.
+Le cache mémoire est renouvelé au changement de compte et à la déconnexion.
+
+Vérification locale : `npm run test:pwa-network` à la racine, puis `npm --prefix pwa run build`.
+Ce lot ne nécessite aucune migration Supabase ni déploiement d'Edge Function.
