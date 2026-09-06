@@ -182,6 +182,11 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
   2. Si « Publier aussi sur Facebook » coché : appel à l'Edge Function `post-to-facebook` avec `{ actu_id, debug }`.
   3. Affichage d'un état de chargement inline, puis message vert (lien vers le post) ou rouge (erreur détaillée).
   4. Navigation vers `/actus` seulement après le retour de l'Edge Function.
+- **PR8** — la case reste proposée **même si aucune page n'est connectée** : `club_social_credentials`
+  n'est lisible que par un **admin** du club, or un `manager` publie des actus. Le formulaire ne peut
+  donc pas savoir si le club est connecté ; c'est l'Edge Function qui le dit, au clic, par un message
+  d'erreur nommant l'écran à visiter. Griser la case pour tout le monde demanderait d'ouvrir la lecture
+  de la table aux rôles non-admins — le contraire de la décision D10.
 
 ---
 
@@ -213,12 +218,23 @@ Chaque aperçu contient :
 
 `supabase/functions/post-to-facebook/index.ts`
 
-### Variables d'environnement (Supabase Secrets)
+### Identifiants Facebook — par club (PR8)
 
-| Clé | Valeur |
+Depuis la migration multi-tenant **PR8** (`MULTI_TENANT.md` §6.3, décision **D10**), les
+identifiants ne sont plus des secrets globaux d'Edge Function mais une ligne de la table
+**`club_social_credentials`**, propre au club de l'actu :
+
+| Colonne | Valeur |
 |---|---|
-| `FACEBOOK_PAGE_ID` | ID numérique de la page Facebook |
-| `FACEBOOK_PAGE_ACCESS_TOKEN` | Page Access Token longue durée |
+| `page_id` | ID numérique de la page Facebook — **déduit du token**, jamais saisi |
+| `page_name` | Nom de la page, pour l'affichage BO seulement |
+| `token` | Page Access Token longue durée. **Jamais lisible côté client** (`GRANT` par colonne) |
+| `token_expires_at` | Échéance connue du token, ou `NULL` |
+
+Un administrateur du club les renseigne depuis **Admin › Comptes sociaux** (`/admin/social`).
+Les secrets `FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_ACCESS_TOKEN` ne sont **plus lus**, et il
+n'existe **aucun repli** sur eux : un club sans page connectée voit sa publication refusée
+avec un message explicite, plutôt que de publier sur la page d'un autre club.
 
 ### Input (POST body JSON)
 
@@ -226,20 +242,35 @@ Chaque aperçu contient :
 { actu_id: string; debug: boolean; }
 ```
 
-### Authentification
+### Authentification et autorisation
 
 L'Edge Function vérifie `Authorization: Bearer {supabase_jwt}`. Rejeter avec 401 si absent.
 
+**Audit du 05/09/2026** — le JWT ne suffit plus. L'actu est chargée avec son `club_id` et
+son `published`, et la publication exige **quatre** conditions : club **actif**, actualité
+**publiée**, appelant **admin ou manager** de ce club (un `member` est refusé — il ne voit
+que le Live Score au back-office) **ou** super-admin. Le mode debug ne contourne rien.
+
+**PR8** ne touche pas à ce contrôle — il ne dépendait pas des credentials. Elle en retire en
+revanche un cinquième terme, `actu.club_id !== FACEBOOK_CLUB_ID` : ce garde-fou liait les
+credentials **globaux** à un club unique faute de pouvoir en avoir plusieurs. Une fois les
+credentials en base par club, ce n'est plus une variable d'environnement qui protège, c'est
+**l'absence de ligne** — un club sans page connectée ne publie nulle part.
+
 ### Algorithme
 
-**1.** Récupérer l'actu :
+**1.** Récupérer l'actu, **avec son `club_id`** — c'est lui qui commande l'autorisation
+ci-dessus *et* le choix de la page :
 ```ts
 const { data: actu } = await supabaseAdmin
   .from('actus')
-  .select('titre, contenu, image_urls, image_captions')
+  .select('club_id, titre, contenu, image_urls, image_captions')
   .eq('id', actu_id)
   .single();
 ```
+
+**1 bis.** Charger les identifiants du club (`club_social_credentials`, `platform = 'facebook'`).
+Aucune ligne → **400** « Aucune page Facebook n'est connectée pour ce club. »
 
 **2.** Construire le message texte — seul `contenu` est envoyé, dépouillé du Markdown (images inline, HTML, marqueurs MD). Conserver les sauts de ligne.
 
@@ -285,7 +316,9 @@ Erreur : `{ "success": false, "error": "...", "detail": { ... } }`
 | Non authentifié | `"Erreur d'authentification — reconnectez-vous."` |
 | Échec upload image | `"Erreur lors de l'upload de l'image {url} : {msg} (code {code})"` |
 | Échec création post | `"Erreur lors de la création du post Facebook : {msg} (code {code})"` |
-| Token expiré (code 190) | `"Le token Facebook a expiré — veuillez le renouveler dans les variables d'environnement Supabase."` |
+| Token expiré (code 190) | `"Le token Facebook a expiré — un administrateur peut le renouveler depuis Admin → Comptes sociaux."` |
+| Aucune page connectée (PR8) | `"Aucune page Facebook n'est connectée pour ce club. Un administrateur peut la connecter depuis Admin → Comptes sociaux."` |
+| Actu d'un autre club (PR8) | `"Cette actualité appartient à un autre club."` |
 | Erreur réseau | `"Erreur réseau lors de la communication avec Facebook."` |
 
 ### Mode debug
@@ -410,3 +443,10 @@ appelant admin/manager de ce club ou super-admin. Les credentials Facebook
 historiques sont liés à `FACEBOOK_CLUB_ID` : absence ou club différent = refus
 avant publication. Le mode debug ne contourne pas ces contrôles. La gestion de
 credentials distincts pour plusieurs clubs et l'idempotence restent à livrer.
+
+> **Mise à jour — PR8 (06/09/2026).** Les credentials distincts par club sont livrés :
+> table `club_social_credentials`, écran *Admin › Comptes sociaux*, lecture en service role
+> par la function. `FACEBOOK_CLUB_ID` n'est **plus lu** et son secret peut être retiré du
+> dashboard — il n'avait de sens que pour des credentials globaux. Les quatre conditions
+> d'autorisation ci-dessus sont **conservées telles quelles**. **L'idempotence reste à
+> livrer** : republier deux fois la même actu crée toujours deux posts.

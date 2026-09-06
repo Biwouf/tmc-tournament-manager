@@ -47,6 +47,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Statut **brouillon** ou **publié** ; deux boutons distincts dans le formulaire
 - Date de première publication conservée (`published_at` jamais écrasée)
 - Actions sur la liste : modifier, publier, dépublier, supprimer
+- **Publication simultanée sur la page Facebook du club**, en cochant l'option au moment de publier (avec un mode *debug* qui crée un post caché, visible des seuls administrateurs de la page). Nécessite qu'une page soit connectée — voir *Comptes sociaux*.
 - Table `actus` exposée en lecture publique au rôle `anon` (préparation PWA, uniquement les actus publiées)
 
 ### Matches par équipe
@@ -126,6 +127,15 @@ Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office 
 - Les couleurs de **sens** ne changent jamais : rouge d'erreur et bouton *Supprimer*, vert/rouge/jaune des résultats gagné / perdu / nul.
 - L'effet est **immédiat** sur cet écran après enregistrement ; les autres écrans le prennent au prochain chargement.
 - ⚠️ Les **affiches générées** (Programmation Image, Matches par équipe) gardent pour l'instant le rouge du CAC : elles ne suivent pas encore ces couleurs.
+
+### Comptes sociaux
+Écran *Admin › Comptes sociaux* (`/admin/social`), réservé aux **administrateurs** du club.
+
+- Connecte la **page Facebook** sur laquelle le club publie ses actualités. Chaque club a la sienne : rien n'est partagé entre clubs.
+- Un seul champ à remplir, le **token d'accès de la Page**. Il n'y a **pas d'ID de page à saisir** : la page est reconnue à partir du token, et son vrai nom s'affiche une fois la connexion établie — c'est la confirmation qu'on a connecté la bonne.
+- Le token est **vérifié auprès de Facebook avant d'être enregistré**. Un token invalide, expiré, ou qui est en réalité un token *utilisateur* et non un token de *Page*, est refusé en le disant — et ne remplace pas une connexion qui fonctionnait.
+- Le token **n'est jamais réaffiché** ensuite, ni renvoyé au navigateur : l'écran montre la page connectée et l'échéance du token, pas le secret. Pour le renouveler, on en colle un nouveau.
+- **Tant qu'aucune page n'est connectée**, l'option « Publier aussi sur Facebook » d'une actu échoue avec un message qui renvoie ici. L'option reste proposée aux gestionnaires : eux publient les actus, mais ne voient pas les identifiants.
 
 ### Console plateforme (super-admin)
 Réservée au **super-admin** de la plateforme, sur `/super-admin` (carte *Plateforme › Console plateforme* du dashboard). Invisible et inaccessible pour un administrateur de club.
@@ -319,8 +329,9 @@ assainit les contenus HTML affichés. Réinviter un membre ne change plus son r�
 un club ne peut plus perdre son dernier administrateur.
 
 La publication Facebook vérifie le club, le rôle et la publication de l'actualité.
-La variable serveur `FACEBOOK_CLUB_ID` doit identifier le club associé aux
-credentials existants avant de déployer la fonction mise à jour.
+La variable serveur `FACEBOOK_CLUB_ID` devait identifier le club associé aux
+credentials existants — **elle n'est plus lue depuis que chaque club a sa propre
+page connectée** (voir *Comptes sociaux* plus haut) et peut être retirée.
 
 Ces protections SQL nécessitent l'application de la nouvelle migration ; elles ne
 s'activent pas par la seule mise à jour du frontend. Voir
