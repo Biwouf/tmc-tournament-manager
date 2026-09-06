@@ -43,7 +43,7 @@ const supabase = {
   },
   from(table) {
     const builder = {
-      select() { return this; }, eq() { return this; }, gte() { return this; },
+      select() { return this; }, or() { return this; }, eq() { return this; }, gte() { return this; },
       order() { return this; }, in() { return this; }, range() { return this; },
       maybeSingle() { return this; },
       then(done, fail) {

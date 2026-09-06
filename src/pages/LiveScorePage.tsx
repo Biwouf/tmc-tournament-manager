@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { writeLiveMatch, deleteLiveMatch } from '../lib/liveMatchWrites';
+import { liveMatchVisibilityFilter } from '../lib/liveMatchVisibility';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, Profile } from '../types';
@@ -30,6 +31,7 @@ export default function LiveScorePage() {
       .from('live_matches')
       .select('*')
       .eq('club_id', clubId)
+      .or(liveMatchVisibilityFilter())
       .order('match_date', { ascending: true })
       .order('start_time', { ascending: true, nullsFirst: true });
     if (error) {
