@@ -20,7 +20,7 @@ après celle-ci : elles rétabliraient d'anciens helpers/policies.
 
 ## Validation
 
-- `npm run test:security` : 18 tests, dont la migration exécutée deux fois sur une base PostgreSQL PGlite isolée.
+- `npm run test:security` : 18 tests à la livraison de ce lot, dont la migration exécutée deux fois sur une base PostgreSQL PGlite isolée. **26 depuis PR8**, qui étend la même suite (RLS et `GRANT` par colonne de `club_social_credentials`, autorisation de `social-credentials`, publication avec le token du club).
 - Matrice SQL : écritures autorisées admin/manager, refus member et autre club, impossibilité de déplacer une ligne vers un club non autorisé, suspension, lecture anonyme d'un club suspendu, support super-admin, accès Live du membre, chemins Storage modernes et legacy.
 - Trigger : refus de suppression/rétrogradation du dernier admin, retrait permis lorsqu'un autre admin existe. Le verrou est présent ; les transactions concurrentes sur plusieurs connexions restent à tester en staging (PGlite utilise ici une connexion).
 - Fonctions Deno : exécution des handlers réels via transpilation TypeScript et doubles d'API. Cas autorisés/refusés Facebook, zéro publication en cas de refus, réinvitation sans changement de rôle, suspension des fonctions de gestion.
@@ -35,7 +35,7 @@ réelles de production, ni un test des Edge Functions dans le runtime hébergé 
 ## Déploiement proposé — non exécuté
 
 1. En staging, inventorier les policies réelles et vérifier les rôles attribués aux comptes. Les comptes utilisés pour l'édition doivent être admin ou manager.
-2. Configurer **FACEBOOK_CLUB_ID** avec l'UUID du club propriétaire des credentials Facebook existants. Une valeur absente entraîne un refus, jamais un fallback vers une page globale.
+2. ~~Configurer **FACEBOOK_CLUB_ID** avec l'UUID du club propriétaire des credentials Facebook existants.~~ **Caduc depuis PR8** (06/09/2026) : les credentials sont par club en base, la variable n'est plus lue. À la place, connecter la page de chaque club depuis *Admin › Comptes sociaux* — sans ligne, la publication est refusée ; toujours pas de fallback vers une page globale.
 3. Déployer `post-to-facebook`, `invite-user` et `club-members` corrigées. La réinvitation n'écrase déjà plus les droits, même avant la migration.
 4. Appliquer `supabase/migrations/20260905_audit_content_permissions.sql` en staging. Tester avec les trois rôles et deux clubs, notamment une rétrogradation simultanée de deux admins.
 5. Déployer BO/PWA et contrôler les contenus éditoriaux réels ainsi que la suspension. Garder une session super-admin pour support.
@@ -52,7 +52,7 @@ dernier admin. Les fichiers d'images déjà publics/cachés restent publics apr�
 - U2 : contrôle serveur du gestionnaire, concurrence, détection des écritures vides et resynchronisation des scores.
 - P1–P5 / U1, U3, U4 : cache, configuration partagée, Realtime/polling, volume des réponses, pagination, lazy loading, états de chargement et dates.
 - U5/U6 : configuration publique restreinte, identité d'installation, contrat hors ligne et tests mobiles des gestes/safe areas.
-- Credentials Facebook distincts par club et protection contre les publications répétées.
+- ~~Credentials Facebook distincts par club~~ **livrés par PR8** (06/09/2026) ; la protection contre les publications répétées reste à faire.
 - Qualification/mises à jour des dépendances, dont le chemin d'extraction PDF.
 
 Ces points ne sont pas présentés comme corrigés par ce premier lot.

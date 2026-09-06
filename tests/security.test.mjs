@@ -37,6 +37,91 @@ for (const prefix of ['', 'pwa/']) {
   });
 }
 
+// PR8 — `club_social_credentials`. Deux propriétés distinctes s'y jouent : la RLS choisit
+// QUI voit une ligne, et le GRANT par colonne décide qu'un token ne sort jamais de la base.
+// La seconde est la vraie barrière — la RLS ne sait pas restreindre une colonne — donc elle
+// mérite son assertion propre.
+test('PostgreSQL: social credentials are admin-only and never expose the token', async () => {
+  const db = new PGlite();
+  const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
+  try {
+    await db.exec(`
+      CREATE ROLE anon; CREATE ROLE authenticated;
+      CREATE SCHEMA auth;
+      CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$
+        SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      GRANT USAGE ON SCHEMA public, auth TO anon, authenticated;
+      CREATE TYPE club_role AS ENUM ('admin','manager','member');
+      CREATE TABLE auth.users (id uuid PRIMARY KEY);
+      CREATE TABLE clubs (id uuid PRIMARY KEY, slug text, status text);
+      CREATE TABLE profiles (id uuid PRIMARY KEY, is_super_admin boolean DEFAULT false);
+      CREATE TABLE club_members (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        club_id uuid REFERENCES clubs(id) ON DELETE CASCADE, user_id uuid,
+        role club_role, UNIQUE(club_id,user_id));
+      CREATE FUNCTION public.is_super_admin() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+        SELECT coalesce((SELECT is_super_admin FROM profiles WHERE id=auth.uid()), false) $$;
+      -- Défini par 20260418_events.sql, hors du périmètre chargé ici.
+      CREATE FUNCTION public.set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN NEW.updated_at = now(); RETURN NEW; END $$;
+      -- RLS et GRANT de PR1 reproduits à l'identique : la policy testée plus bas fait un
+      -- EXISTS sur club_members, donc elle s'évalue SOUS la RLS de cette table. Un EXISTS
+      -- qui interrogerait l'appartenance de quelqu'un d'AUTRE rendrait faux en silence.
+      ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY clubs_select_anon ON clubs FOR SELECT TO anon USING (true);
+      CREATE POLICY clubs_select_authenticated ON clubs FOR SELECT TO authenticated USING (true);
+      ALTER TABLE club_members ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY club_members_select_own ON club_members FOR SELECT TO authenticated USING (user_id = auth.uid());
+      GRANT SELECT ON club_members TO authenticated;
+      GRANT SELECT ON clubs TO anon, authenticated;
+      INSERT INTO clubs VALUES ('${id(1)}','cac-tennis','active'),('${id(2)}','other','active'),('${id(3)}','suspended','suspended');
+      INSERT INTO profiles VALUES ('${id(999)}',true);
+      INSERT INTO auth.users VALUES ('${id(101)}');
+      INSERT INTO club_members(club_id,user_id,role) VALUES
+        ('${id(1)}','${id(101)}','admin'), ('${id(1)}','${id(102)}','manager'), ('${id(1)}','${id(103)}','member'),
+        ('${id(2)}','${id(201)}','admin'), ('${id(3)}','${id(301)}','admin');
+    `);
+    const migration = await text('supabase/migrations/20260906_club_social_credentials.sql');
+    await db.exec(migration);
+    await db.exec(migration); // Idempotency matters for manual SQL Editor deployments.
+    await db.exec(`
+      INSERT INTO club_social_credentials (club_id, platform, page_id, page_name, token, connected_by)
+      VALUES ('${id(1)}','facebook','page-cac','CAC Tennis','secret-cac','${id(101)}'),
+             ('${id(3)}','facebook','page-susp','Suspendu','secret-susp',NULL);
+    `);
+    async function asUser(user, sql, role = 'authenticated') {
+      await db.exec(`BEGIN; SET LOCAL ROLE ${role}; SELECT set_config('request.jwt.claim.sub','${user ? id(user) : ''}',true);`);
+      try { return await db.query(sql); } finally { await db.exec('ROLLBACK'); }
+    }
+    const readable = 'club_id, platform, page_id, page_name, token_expires_at';
+    // Seul l'admin du club actif voit la ligne. Le gestionnaire publie sur la page mais n'a
+    // pas à savoir à quel compte elle est reliée.
+    for (const [user, rows, label] of [
+      [101, 1, 'admin of the club'], [102, 0, 'manager'], [103, 0, 'member'],
+      [201, 0, 'admin of another club'], [301, 0, 'admin of a suspended club'],
+    ]) {
+      assert.equal((await asUser(user, `SELECT ${readable} FROM club_social_credentials WHERE club_id='${id(1)}'`)).rows.length, rows, label);
+    }
+    // Le super-admin voit tout, y compris un club suspendu : c'est l'accès support (PR5).
+    assert.equal((await asUser(999, `SELECT ${readable} FROM club_social_credentials`)).rows.length, 2, 'super-admin');
+    // `anon` n'a aucun GRANT — la vitrine et la PWA n'ont rien à faire ici.
+    await assert.rejects(asUser(null, `SELECT ${readable} FROM club_social_credentials`, 'anon'), /permission denied/);
+
+    // LE point de la migration : même l'admin qui voit sa ligne ne peut pas lire le token.
+    await assert.rejects(asUser(101, `SELECT token FROM club_social_credentials`), /permission denied/, 'token column');
+    await assert.rejects(asUser(101, `SELECT * FROM club_social_credentials`), /permission denied/, 'select star');
+    await assert.rejects(asUser(999, `SELECT token FROM club_social_credentials`), /permission denied/, 'not even the super-admin');
+
+    // Aucune écriture depuis un client : tout passe par l'Edge Function en service role.
+    for (const sql of [
+      `INSERT INTO club_social_credentials (club_id, platform, page_id, token) VALUES ('${id(1)}','facebook','x','y')`,
+      `UPDATE club_social_credentials SET page_id='x' WHERE club_id='${id(1)}'`,
+      `DELETE FROM club_social_credentials WHERE club_id='${id(1)}'`,
+    ]) {
+      await assert.rejects(asUser(101, sql), /permission denied/, sql.split(' ')[0]);
+    }
+  } finally { await db.close(); }
+});
+
 test('PostgreSQL: role isolation, suspension, Storage and last-admin invariant', async () => {
   const db = new PGlite();
   const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;

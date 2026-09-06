@@ -35,6 +35,7 @@ const SECTIONS = [
     items: [
       { to: '/admin/members', label: 'Membres', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
       { to: '/admin/site', label: 'Configuration du site', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
+      { to: '/admin/social', label: 'Comptes sociaux', description: 'Connecter la page Facebook sur laquelle les actus sont publiées.', roles: ['admin'] },
     ],
   },
 ] as const;

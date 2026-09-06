@@ -655,7 +655,81 @@ identifiants doivent être **par club** — décision **D10** :
   sans changer le reste du schéma.
 - Récupération du token = **flux de connexion Facebook** (l'admin autorise l'app et choisit
   sa page) — détail d'implémentation de la Phase 3.
-- (cf. `docs/specs/ACTUS_FACEBOOK.md` à mettre à jour.)
+- (cf. `docs/specs/ACTUS.md` — il n'y a jamais eu de `ACTUS_FACEBOOK.md`.)
+
+> **Livré en PR8** — conforme à D10, avec **un écart assumé** sur le dernier point.
+>
+> **Table** `club_social_credentials` : `(club_id, platform)` en clé primaire — un club a au
+> plus un compte par plateforme, et c'est la cible naturelle de l'upsert « reconnecter ».
+> `platform` est un TEXT contraint (`CHECK IN ('facebook')`) et non un enum : Instagram est
+> hors périmètre, et étendre un CHECK coûte moins qu'un `ALTER TYPE`.
+>
+> **Le `GRANT` par colonne est la vraie barrière, pas la RLS** — celle-ci ne sait restreindre
+> qu'une ligne. `authenticated` reçoit `SELECT` sur toutes les colonnes **sauf `token`**
+> (précédent `2026081801_profiles_column_grants.sql`) : un admin de club voit à quelle page
+> son club est connecté et quand le token expire, le secret ne redescend **jamais** dans un
+> bundle. La policy `SELECT` reste admin-du-club-ou-super-admin comme spécifié.
+>
+> **Aucune policy d'écriture** — même choix qu'en PR5-bis pour `club_members` : écrire ici
+> suppose d'avoir **validé** le token auprès de Facebook, ce qu'un client ne peut pas faire.
+> Tout passe par l'Edge Function `social-credentials`, qui vérifie l'appelant (admin de CE
+> club, ou super-admin — le `club_id` du front ne fait pas foi), interroge Graph API, puis
+> écrit en service role. Le refus intervient **avant** l'écriture : un token invalide ne
+> remplace pas une connexion qui marche.
+>
+> **La page est déduite du token, jamais saisie.** `GET /me?fields=id,name&metadata=1` avec un
+> Page Access Token résout vers la page elle-même, et `metadata.type` dit `page` ou `user`.
+> Le contrôle compte : un token *utilisateur* collé par erreur répond `/me` sans broncher, on
+> stockerait le compte personnel de l'admin, et la publication échouerait des semaines plus
+> tard sans indice — c'est le piège que tend la procédure d'obtention du token, où le token
+> utilisateur longue durée est une étape intermédiaire qui ressemble en tout point au bon.
+> Demander l'ID de page à la main, c'est de toute façon inviter la faute de frappe qui publie
+> ailleurs.
+>
+> ⚠️ **Leçon d'implémentation.** La première version sondait le champ `category`, en pariant
+> qu'il existe sur un nœud Page et pas sur un nœud User. Pari perdu au premier essai réel :
+> Graph API a répondu `(#100) Tried accessing nonexisting field (category)`, sans le suffixe
+> `on node type (User)` que le code cherchait — donc un refus incompréhensible là où le
+> diagnostic devait être évident. **Ne pas déduire le type d'un nœud de la présence d'un
+> champ** : `metadata=1` est le mécanisme d'introspection documenté, il ne dépend d'aucune
+> supposition sur le schéma.
+>
+> **Coupure nette des secrets globaux, sans repli.** `post-to-facebook` ne lit plus
+> `FACEBOOK_PAGE_ID` / `FACEBOOK_PAGE_ACCESS_TOKEN` du tout. Un repli aurait été confortable
+> le jour du déploiement et faux tous les jours suivants : un club mal configuré aurait publié
+> **sur la page de CAC**, exactement la fuite que cette PR ferme.
+>
+> **Croisement avec l'audit du 05/09/2026.** L'audit a fermé, entre l'écriture de cette PR
+> et son merge, le trou que PR8 devait fermer au passage : `post-to-facebook` chargeait
+> l'actu par son id en service role **sans aucun contrôle de club**. Son correctif — club
+> actif, actualité publiée, appelant admin/manager ou super-admin — est **conservé
+> intégralement** : il ne dépendait pas des credentials.
+>
+> PR8 lui retire en revanche un terme, `actu.club_id !== FACEBOOK_CLUB_ID`. Ce garde-fou
+> liait les credentials **globaux** à un club unique, faute de pouvoir en avoir plusieurs :
+> c'était la rustine qui tenait jusqu'à cette PR. Il devient sans objet, et le secret
+> `FACEBOOK_CLUB_ID` est à retirer du dashboard après déploiement. Ce que PR8 protège à sa
+> place n'est plus une variable d'environnement mais **l'absence de ligne** — un club sans
+> page connectée ne publie nulle part.
+>
+> Deux alignements sur l'audit, adoptés plutôt que subis : la policy `SELECT` exige un club
+> **actif** (règle `active_club_access`), et la function `social-credentials` reprend le
+> contrôle de statut ajouté à `invite-user` / `club-members` — super-admin excepté, gérer un
+> club suspendu étant précisément un geste de support. En revanche le helper
+> `can_manage_club_content()` de l'audit n'est **pas** réutilisé ici : il rend vrai pour
+> `admin` **et** `manager`, or cette table est admin-only.
+>
+> **Écart assumé — le flux OAuth n'est PAS livré.** L'admin colle un Page Access Token
+> longue durée, l'écran le valide et affiche la page reconnue. Un « Se connecter avec
+> Facebook » exigerait une app Meta avec `pages_show_list` + `pages_manage_posts` en
+> **Advanced Access**, donc App Review et vérification business — et un redirect URI **exact**
+> par sous-domaine, or `*.feelike.app` n'existe pas avant **PR13**. C'était livrer à l'aveugle
+> du code invérifiable. En pratique, c'est l'exploitant de la plateforme qui pose le token à
+> l'onboarding d'un club. À reprendre en PR dédiée quand l'app Meta sera validée **et** le
+> wildcard en place.
+>
+> **Durcissement resté optionnel** : le token est en clair en base. Le chiffrer via le Vault
+> Supabase ne toucherait que cette colonne — ni le schéma, ni les policies, ni l'écran.
 
 ---
 
@@ -807,7 +881,7 @@ D8 = migrer en place. Étapes de la migration de données (à exécuter une fois
    gestionnaire en `admin`, les autres en `manager`/`member`).
 4. Migrer la config vitrine CAC dans `club_settings` (valeurs de la maquette comme point de
    départ).
-5. Déplacer les secrets Facebook globaux vers la config par club de CAC.
+5. Déplacer les secrets Facebook globaux vers la config par club de CAC — **fait en PR8**, par la saisie du token depuis `/admin/social` (les secrets d'environnement ne sont plus lus).
 6. Préfixer les clés `localStorage` TMC par `club_id`.
 
 Risque principal : ordre des migrations + RLS. **Activer/durcir la RLS multi-tenant seulement
@@ -843,8 +917,10 @@ dédié dans `docs/briefs/` au moment de l'implémentation.
 ### Phase 3 — Config tenant administrable au BO
 - Section « Configuration du site » (formulaires par préfixe → `club_settings.config`).
 - GEN_PROG background par club (§6.2).
-- Comptes sociaux par club + `post-to-facebook` multi-tenant (§6.3).
+- Comptes sociaux par club + `post-to-facebook` multi-tenant (§6.3) — **PR8**.
 - ✅ *Verif* : deux clubs avec branding/Facebook distincts publient chacun sur leur page.
+  Vérifier aussi le **refus** : publier depuis un club sans page connectée doit échouer avec
+  le message qui nomme `/admin/social`, et non partir sur la page de CAC.
 
 ### Phase 4 — Site vitrine
 - Nouvelle app `web/`, rendu depuis `club_settings.config`, flux actus/events par `club_id`.
@@ -885,7 +961,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR6d ✅ | 3 | Les **trois pages de contenu** (`club`, `infra`, `pricing`) — ~45 clés, 8 listes, 4 objets imbriqués — et les **trois extensions** qu'elles seules exercent, chacune confinée à la lecture et à l'écriture du JSONB : **objets imbriqués** (clé de formulaire **plate et sans point** + `path` sur la spec — une clé pointée aurait cassé `setAtPath` en silence et une URL d'image aurait écrasé l'objet entier ; `mergeGroup` fusionne déjà en profondeur, il suffit de lui donner un objet niché), **listes de scalaires** (`scalar: true` + un seul champ : l'état reste des entrées à une clé, donc rendu / ajout / retrait / réordonnancement / remap des fichiers en attente inchangés, et l'emballage `{value}` ne sort jamais du formulaire) et le type **`number`** (branche propre, **vide ≠ zéro** — clé omise, jamais `0` —, schéma **idempotent** car l'écriture revalide sa propre sortie ; `other_fees[].price` reste du **texte**, c'est voulu). `groupSchema`, `formatIssue`, `setAtPath` et le rendu du panneau n'ont connu **aucune** des trois formes. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. En prime, les dix panneaux sont **repliés par défaut** avec un indicateur « Configuré / À compléter ». ✅ **La configuration est close** — PR9 a son contrat complet. Détail : §6.1. | non-bloquante — **aucune opération prod** |
 | PR7 ✅ | 3 | GEN_PROG : **fonds d'affiche par club** — onzième groupe `posters` (deux clés, à part des dix groupes de la vitrine et **en dernier** à l'écran), **gabarit contrôlé avant l'upload** (`dimensions` sur `FieldSpec` : **proportions A4 à 2 % près** — et non une définition au pixel près, les deux gabarits étant de l'A4 dont aucune définition en pixels ne tombe juste — plus une taille minimale ; refus nommant le ratio attendu et le reçu), `crossOrigin="anonymous"` sur les deux fonds (sans quoi l'export sort blanc alors que l'aperçu est parfait), **listes de fonds nommés** avec choix à la génération et suppression, et **génération refusée sans aucun fond** — pas de repli sur les assets CAC, qui réinstallerait du tenant en dur. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. Détail : §6.2. | non-bloquante en base — mais ⚠️ **une opération de contenu BLOQUANTE** juste après déploiement : sans au moins un fond par affiche ajouté depuis `/admin/site`, le club ne peut plus générer d'affiche |
 | PR7-bis ✅ | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logo via `brand.logo` sous Storage `club_id/`, manifest PWA au runtime avec fallback Vite | non-bloquante — aucune migration |
-| PR8 | 3 | `club_social_credentials` (RLS admin-only) + connexion Facebook + `post-to-facebook` multi-tenant | non-bloquante |
+| PR8 ✅ | 3 | **Comptes sociaux par club** : table `club_social_credentials` (RLS **SELECT admin-d'un-club-actif** + **`GRANT` par colonne excluant `token`**, aucune policy d'écriture), Edge Function **`social-credentials`** (valide le token auprès de Facebook **avant** d'écrire, déduit la page du token), écran BO `/admin/social`, et `post-to-facebook` qui lit les identifiants **du club de l'actu**. Retire `FACEBOOK_CLUB_ID`, la rustine de l'audit du 05/09 qui liait les credentials globaux à un club unique ; **conserve intégralement** son contrôle d'accès. Suite `npm run test:security` étendue (26 tests). Flux OAuth Facebook **hors périmètre** (voir §6.3). Détail : §6.3. | ⚠️ **opérations prod** : migration `20260906` (datée du 06 pour ne pas collisionner avec celle de l'audit), déploiement de **deux** functions (`social-credentials` nouvelle, `post-to-facebook` modifiée), **saisie du token de CAC** — coupure nette, la publication est cassée entre les deux — puis retrait du secret `FACEBOOK_CLUB_ID` |
 | PR9 | 4 | App `web/` (vitrine) : scaffold + résolution tenant + design tokens + 5 pages rendues depuis `club_settings` | nouvelle app |
 | PR10 | 4 | Flux actus & events branchés sur la vitrine (filtrés `club_id`) | non-bloquante |
 | PR11 | 4 | Edge Function `contact-form` (Brevo) + table `contact_messages` + réception BO | non-bloquante |

@@ -1,6 +1,18 @@
 // Supabase Edge Function — post-to-facebook
 // Publishes an actu (titre + contenu Markdown + images) to the club Facebook page.
-// Spec : docs/specs/ACTUS_FACEBOOK.md
+// Spec : docs/specs/ACTUS.md + docs/specs/MULTI_TENANT.md §6.3
+//
+// PR8 — multi-tenant : les identifiants ne viennent plus des variables d'environnement
+// (`FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN`) mais de `club_social_credentials`,
+// ligne du club de l'actu. Aucun repli sur les anciens secrets : un club sans page
+// connectée doit échouer avec un message clair, pas publier sur la page d'un autre.
+//
+// Ce faisant, PR8 retire aussi `FACEBOOK_CLUB_ID` — le garde-fou posé par l'audit du
+// 05/09/2026, qui liait les credentials GLOBAUX à un club unique faute de pouvoir en
+// avoir plusieurs. Il devient sans objet dès que chaque club a les siens.
+//
+// Le CONTRÔLE D'ACCÈS de cet audit est conservé intégralement (club actif, actualité
+// publiée, appelant admin/manager ou super-admin) : il ne dépendait pas des credentials.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -81,7 +93,7 @@ function dedupe<T>(items: T[]): T[] {
 function fbErrorMessage(err: FbError | undefined, prefix: string): string {
   if (!err) return `${prefix} : erreur Facebook inconnue`;
   if (err.code === 190) {
-    return 'Le token Facebook a expiré — veuillez le renouveler dans les variables d’environnement Supabase.';
+    return 'Le token Facebook a expiré — un administrateur peut le renouveler depuis Admin → Comptes sociaux.';
   }
   return `${prefix} : ${err.message ?? 'erreur inconnue'} (code ${err.code ?? '?'})`;
 }
@@ -106,21 +118,11 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const fbPageId = Deno.env.get('FACEBOOK_PAGE_ID');
-  const fbClubId = Deno.env.get('FACEBOOK_CLUB_ID');
-  const fbAccessToken = Deno.env.get('FACEBOOK_PAGE_ACCESS_TOKEN');
 
   if (!supabaseUrl || !serviceRoleKey) {
     return jsonResponse(500, {
       success: false,
       error: 'Configuration Supabase manquante côté serveur.',
-    });
-  }
-  if (!fbPageId || !fbAccessToken || !fbClubId) {
-    return jsonResponse(500, {
-      success: false,
-      error:
-        'Configuration Facebook manquante (FACEBOOK_PAGE_ID / FACEBOOK_PAGE_ACCESS_TOKEN / FACEBOOK_CLUB_ID).',
     });
   }
 
@@ -150,6 +152,9 @@ Deno.serve(async (req: Request) => {
   }
 
   // --- Charge l'actualité ; autorisation explicite obligatoire ci-dessous ---
+  // `club_id` sert à DEUX choses distinctes : autoriser l'appelant, et choisir la page
+  // Facebook. Aucune des deux ne peut se fier au front — le body ne porte qu'un id d'actu,
+  // c'est la ligne en base qui dit à quel club elle appartient.
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
   const { data: actu, error: actuErr } = await supabaseAdmin
     .from('actus')
@@ -165,23 +170,67 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  const clubId = actu.club_id as string;
+
   // Le service role ci-dessus ne prouve aucun droit sur cette actualité.
-  // Les credentials historiques sont utilisables uniquement pour leur club explicite.
+  //
+  // ⚠️ Le terme `actu.club_id !== fbClubId` de l'audit du 05/09 A DISPARU, et c'est le
+  // fond de PR8 : il liait les credentials GLOBAUX à un club unique (`FACEBOOK_CLUB_ID`),
+  // faute de pouvoir en avoir plusieurs. Maintenant que chaque club a les siens en base,
+  // le garde-fou n'est plus une variable d'environnement mais l'absence de ligne — un club
+  // sans page connectée ne publie nulle part, au lieu de publier chez CAC.
+  //
+  // Le RESTE du contrôle est conservé tel quel : club actif, actualité publiée, appelant
+  // admin/manager de ce club ou super-admin. `member` est exclu — il ne voit que le Live
+  // Score au back-office (§4 des rôles), lui laisser la publication Facebook serait plus
+  // permissif que l'écran d'où part l'appel.
   const [{ data: membership, error: memberErr }, { data: profile, error: profileErr },
     { data: club, error: clubErr }] = await Promise.all([
     supabaseAdmin.from('club_members').select('role')
-      .eq('club_id', actu.club_id).eq('user_id', userData.user.id).maybeSingle(),
+      .eq('club_id', clubId).eq('user_id', userData.user.id).maybeSingle(),
     supabaseAdmin.from('profiles').select('is_super_admin')
       .eq('id', userData.user.id).maybeSingle(),
-    supabaseAdmin.from('clubs').select('status').eq('id', actu.club_id).maybeSingle(),
+    supabaseAdmin.from('clubs').select('status').eq('id', clubId).maybeSingle(),
   ]);
   if (memberErr || profileErr || clubErr) {
     return jsonResponse(500, { success: false, error: 'Vérification des droits impossible.' });
   }
-  if (club?.status !== 'active' || actu.club_id !== fbClubId || !actu.published ||
+  if (club?.status !== 'active' || !actu.published ||
       (profile?.is_super_admin !== true && !['admin', 'manager'].includes(membership?.role ?? ''))) {
     return jsonResponse(403, { success: false, error: 'Publication non autorisée pour cette actualité.' });
   }
+
+  // --- Identifiants Facebook DU CLUB (PR8) ---
+  // Lus en service role : la colonne `token` n'est lisible par personne d'autre
+  // (GRANT par colonne, migration 20260906).
+  const { data: credential, error: credentialErr } = await supabaseAdmin
+    .from('club_social_credentials')
+    .select('page_id, token')
+    .eq('club_id', clubId)
+    .eq('platform', 'facebook')
+    .maybeSingle();
+
+  if (credentialErr) {
+    console.error('[post-to-facebook] credential lookup error', {
+      clubId,
+      message: credentialErr.message,
+    });
+    return jsonResponse(500, {
+      success: false,
+      error: 'Lecture des identifiants Facebook impossible.',
+    });
+  }
+
+  if (!credential) {
+    return jsonResponse(400, {
+      success: false,
+      error:
+        'Aucune page Facebook n’est connectée pour ce club. Un administrateur peut la connecter depuis Admin → Comptes sociaux.',
+    });
+  }
+
+  const fbPageId = credential.page_id as string;
+  const fbAccessToken = credential.token as string;
 
   // --- Construit le message texte (sans le titre) ---
   const message = stripMarkdown(actu.contenu ?? '').trim();
@@ -212,6 +261,7 @@ Deno.serve(async (req: Request) => {
   const images = dedupe([...explicit, ...inline.map((i) => i.url)]);
   console.log('[post-to-facebook] images détectées', {
     actu_id: actuId,
+    club_id: clubId,
     explicit_count: explicit.length,
     explicit,
     inline_count: inline.length,
