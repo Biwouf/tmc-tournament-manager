@@ -43,6 +43,14 @@ Transverses : header sticky (logo + nom + ville + nav + CTA), menu mobile, foote
 (réutilise `contact.*`). Toute autre URL rend l'accueil — une vitrine n'a pas de 404 utile, et
 la page « club inconnu » est PR13.
 
+Les deux boutons du bandeau d’accueil sont fixes : **« Nous contacter »** ouvre le drawer
+et **« Découvrir le club »** navigue vers `/club`. Ils apparaissent dès que le bandeau a du
+contenu ; leurs libellés ne font pas partie de la configuration. Les anciennes clés
+`home.hero_cta_primary` et `home.hero_cta_secondary` sont ignorées à la lecture et ne sont
+plus proposées dans le BO. Sur une image, le bouton secondaire reprend le fond blanc
+translucide (14 %, 24 % au survol), la bordure blanche à 40 % et le flou de 6 px de la maquette.
+Sans image, il conserve un contour et un texte foncé lisibles sur le fond clair.
+
 **Drapeaux `settings.*`** (défaut positif) : `show_stats` masque la bande chiffres clés,
 `show_partners` la bande partenaires. `show_news` / `show_events` sont lus par le contrat mais
 ne commandent rien tant que PR10 n'a pas branché les flux.
@@ -109,7 +117,7 @@ function resolveSlug(): string {
 | Table / bucket | Accès `anon` | Posé par |
 |---|---|---|
 | `clubs` | `SELECT` `USING (true)` + GRANT | `20260629_multi_tenant_socle.sql` (PR1) |
-| `club_settings` | `SELECT` `USING (true)` + GRANT | **`2026090601_club_settings_public_read.sql` (PR9)** |
+| `club_settings` | `SELECT` `USING (true)` + GRANT | **`20260909_club_settings_public_read.sql` (PR9)** |
 | bucket `content-images` | lecture publique | `20260822_config_storage_tenant.sql` (PR6a) |
 
 Trois propriétés à connaître avant de toucher à cette migration :
@@ -202,7 +210,7 @@ npm run dev
 ```
 
 `VITE_DEV_CLUB_SLUG` choisit le club rendu tant que le wildcard `*.feelike.app` n'existe pas.
-Le club visé doit être **actif** et la migration `2026090601` appliquée sur l'environnement,
+Le club visé doit être **actif** et la migration `20260909` appliquée sur l'environnement,
 sinon la vitrine rend un site vide (la RLS renvoie une config vide, pas une erreur).
 
 Déploiement : projet Vercel séparé, Root Directory `web/`, build `npm run build`, output `dist`.

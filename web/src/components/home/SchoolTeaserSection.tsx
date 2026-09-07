@@ -37,7 +37,7 @@ export default function SchoolTeaserSection() {
           {home.school_teaser_cta && (
             <button
               type="button"
-              onClick={() => navigate('/club')}
+              onClick={() => navigate('/tarifs')}
               className="btn btn-light mt-7"
             >
               {home.school_teaser_cta}

@@ -5,7 +5,7 @@
 //
 // Rien à voir avec `ConfigurationForm.tsx` / `ConfigDropdown.tsx`, qui sont les réglages d'un
 // TOURNOI TMC (`GlobalConfig`, `TENNIS_RANKINGS`).
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FieldSpec } from '../../lib/clubConfigWrite';
 
 const INPUT_CLASS =
@@ -207,8 +207,14 @@ export function ImageField({
   /** Refus de gabarit (PR7). Purement local : le fichier refusé n'atteint jamais l'état du
    *  panneau, donc encore moins le Storage. */
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragDepth = useRef(0);
 
   const handlePick = async (picked: File) => {
+    if (!picked.type.startsWith('image/')) {
+      setFormatError('Choisissez un fichier image.');
+      return;
+    }
     const error = spec.dimensions ? await checkDimensions(picked, spec.dimensions) : null;
     setFormatError(error);
     if (!error) onPick(picked);
@@ -227,7 +233,37 @@ export function ImageField({
   return (
     <div>
       <FieldLabel spec={spec} />
-      <div className="flex flex-wrap items-start gap-3">
+      <div
+        className={`flex flex-wrap items-start gap-3 rounded-lg border-2 border-dashed p-3 transition-colors ${
+          isDragging ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'
+        }`}
+        onDragEnter={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return;
+          event.preventDefault();
+          dragDepth.current += 1;
+          setIsDragging(true);
+        }}
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setIsDragging(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          dragDepth.current = 0;
+          setIsDragging(false);
+          const files = event.dataTransfer.files;
+          if (files.length !== 1) {
+            setFormatError('Déposez une seule image à la fois.');
+            return;
+          }
+          void handlePick(files[0]);
+        }}
+      >
         {shown && (
           <img
             src={shown}
@@ -235,9 +271,13 @@ export function ImageField({
             className="h-20 w-20 rounded-lg border border-border bg-muted/40 object-contain"
           />
         )}
-        <div className="flex min-w-[14rem] flex-1 flex-col gap-2">
+        <div className="flex min-w-0 basis-56 flex-1 flex-col gap-2">
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            {isDragging ? 'Déposez l’image ici' : 'Glissez une image ici ou choisissez un fichier.'}
+          </p>
           <input
             type="file"
+            aria-label={spec.label}
             accept="image/*"
             onChange={(e) => {
               const picked = e.target.files?.[0];
@@ -248,7 +288,7 @@ export function ImageField({
             className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-muted-foreground hover:file:bg-muted"
           />
           {formatError && (
-            <p className="text-xs font-medium text-destructive">{formatError}</p>
+            <p role="alert" className="text-xs font-medium text-destructive">{formatError}</p>
           )}
           {file ? (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

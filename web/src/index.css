@@ -71,6 +71,15 @@
     }
   }
 
+  .home-stats {
+    margin-top: 40px;
+  }
+
+  /* Le chevauchement des chiffres clés n'a de sens qu'après un hero visible. */
+  .home-hero + .home-stats {
+    margin-top: -40px;
+  }
+
   .section {
     padding-top: clamp(44px, 6vw, 80px);
     padding-bottom: clamp(44px, 6vw, 80px);
@@ -134,6 +143,18 @@
   }
   .btn-outline:hover {
     background: var(--brand-soft);
+  }
+
+  /* Bouton du hero : fond translucide et flou de la maquette de référence. */
+  .btn-hero-secondary {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .btn-hero-secondary:hover {
+    background: rgba(255, 255, 255, 0.24);
   }
 
   .btn-light {

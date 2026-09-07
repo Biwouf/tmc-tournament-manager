@@ -5,9 +5,10 @@
 -- lecture `authenticated` sans y toucher. Sans cette migration, l'app `web/` (rôle `anon`)
 -- ne lit RIEN et rend une coquille vide — le symptôme ressemble à un bug React, il est ici.
 --
--- Nommage : `2026090601` et non `20260906`, déjà pris par PR8 (`club_social_credentials`).
--- La CLI dérive la `version` des chiffres de tête : deux `20260906_*` feraient échouer
--- `db push` sur `schema_migrations_pkey`.
+-- Nommage : `20260909` et non la date de la PR — le numéro doit se classer APRÈS
+-- `20260908_live_matches_public_read.sql` (live-score, déjà appliquée sur dev). La CLI dérive
+-- la `version` des chiffres de tête et refuse d'insérer une migration antérieure au dernier
+-- cran déjà appliqué.
 --
 -- Non bloquante : elle n'AJOUTE qu'un droit de lecture. Ni la lecture `authenticated`
 -- (`club_settings_select_tenant`), ni les écritures (admin de club, super-admin) ne bougent.

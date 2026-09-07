@@ -11,13 +11,7 @@ export default function HeroSection() {
   const { home } = config;
   const image = configImageUrl(home.hero_image);
 
-  const hasContent =
-    image ||
-    home.hero_eyebrow ||
-    home.hero_title ||
-    home.hero_subtitle ||
-    home.hero_cta_primary ||
-    home.hero_cta_secondary;
+  const hasContent = image || home.hero_eyebrow || home.hero_title || home.hero_subtitle;
   if (!hasContent) return null;
 
   // Sans image de fond, le hero reste lisible sur le fond secondaire : on ne pose pas un
@@ -25,7 +19,7 @@ export default function HeroSection() {
   const onImage = Boolean(image);
 
   return (
-    <section className={`relative ${onImage ? 'text-white' : 'bg-bg2 text-text'}`}>
+    <section className={`home-hero relative ${onImage ? 'text-white' : 'bg-bg2 text-text'}`}>
       {image && (
         <>
           <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -50,24 +44,18 @@ export default function HeroSection() {
             {home.hero_subtitle}
           </p>
         )}
-        {(home.hero_cta_primary || home.hero_cta_secondary) && (
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            {home.hero_cta_primary && (
-              <button type="button" onClick={openDrawer} className="btn btn-primary">
-                {home.hero_cta_primary}
-              </button>
-            )}
-            {home.hero_cta_secondary && (
-              <button
-                type="button"
-                onClick={() => navigate('/club')}
-                className={`btn ${onImage ? 'btn-light' : 'btn-outline'}`}
-              >
-                {home.hero_cta_secondary}
-              </button>
-            )}
-          </div>
-        )}
+        <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+          <button type="button" onClick={openDrawer} className="btn btn-primary">
+            Nous contacter
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/club')}
+            className={`btn ${onImage ? 'btn-hero-secondary' : 'btn-outline'}`}
+          >
+            Découvrir le club
+          </button>
+        </div>
       </div>
     </section>
   );

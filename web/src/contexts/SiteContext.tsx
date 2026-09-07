@@ -57,7 +57,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       // `maybeSingle` : un club dont la ligne `club_settings` manquerait rend le site avec la
       // config par défaut plutôt qu'un écran d'erreur. Le trigger `clubs_create_settings` (PR5)
       // la crée, mais la vitrine n'a aucune raison de tomber s'il a été contourné.
-      // ⚠️ Sans la migration `2026090601_club_settings_public_read.sql`, la RLS rend ici une
+      // ⚠️ Sans la migration `20260909_club_settings_public_read.sql`, la RLS rend ici une
       // réponse VIDE en `anon` : le site s'affiche, entièrement vide. Le symptôme est côté
       // rendu, la cause est en base.
       const { data: settings } = await supabase

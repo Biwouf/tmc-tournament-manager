@@ -78,8 +78,6 @@ const homeSchema = z.object({
   hero_eyebrow: optionalText,
   hero_title: text,
   hero_subtitle: text,
-  hero_cta_primary: optionalText,
-  hero_cta_secondary: optionalText,
   stats: z.array(statSchema).catch([]),
   school_teaser_eyebrow: optionalText,
   school_teaser_title: optionalText,
