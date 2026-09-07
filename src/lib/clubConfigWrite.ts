@@ -229,8 +229,6 @@ const HOME: GroupSpec = {
     { kind: 'field', key: 'hero_eyebrow', label: 'Sur-titre', type: 'text', placeholder: 'Tennis · Tarn-et-Garonne' },
     { kind: 'field', key: 'hero_title', label: 'Titre', type: 'text', required: true },
     { kind: 'field', key: 'hero_subtitle', label: 'Paragraphe d’introduction', type: 'longtext', required: true },
-    { kind: 'field', key: 'hero_cta_primary', label: 'Bouton principal', type: 'text', required: true, placeholder: 'Nous contacter' },
-    { kind: 'field', key: 'hero_cta_secondary', label: 'Bouton secondaire', type: 'text', placeholder: 'Découvrir le club' },
     {
       kind: 'list',
       section: 'Chiffres clés',

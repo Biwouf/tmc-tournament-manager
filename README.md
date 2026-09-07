@@ -96,7 +96,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 Écran *Admin › Configuration du site* (`/admin/site`), réservé aux **administrateurs** du club — un gestionnaire n'y a pas accès.
 
 - Permet de renseigner les informations publiques du club **sans passer par la base** : identité (nom, sport, ville, logos, **couleurs**), page d'accueil (bandeau, chiffres clés, teasers école et infrastructures, appel à l'action), **Le Club** (président·e, encadrant, valeurs, méthodes et niveaux, programmes, bureau), **Infrastructures** (courts, club house, vestiaires), **Tarifs** (adhésion, cours, autres frais), coordonnées (adresse, téléphone, e-mail, lien Maps, horaires d'accueil), réseaux sociaux, partenaires, mentions légales et affichage des sections.
-- Ces informations alimentent le **futur site vitrine** du club. Elles ne changent **ni le back-office, ni l'application des adhérents**, à **deux exceptions près** : les **couleurs** (voir ci-dessous) et le panneau ***Affiches***, qui porte des réglages utilisés par le back-office lui-même.
+- Ces informations alimentent le **site vitrine** du club (voir *Site vitrine* ci-dessous). Elles ne changent **ni le back-office, ni l'application des adhérents**, à **deux exceptions près** : les **couleurs** (voir ci-dessous) et le panneau ***Affiches***, qui porte des réglages utilisés par le back-office lui-même.
 - **Un bouton d'enregistrement par panneau** : corriger un numéro de téléphone ne réécrit pas l'identité du club, et deux personnes qui modifient deux panneaux différents ne s'écrasent pas.
 - Les panneaux sont **repliés par défaut** — cliquer sur un titre le déplie. Chacun indique s'il est *Configuré* ou *À compléter*, ce qui donne une vue d'avancement de la saisie ; un panneau qui porte des **modifications non enregistrées** le signale plutôt que de les cacher, et replier ne perd jamais une saisie en cours.
 - Les champs marqués ⬤ sont ceux qu'attend le site vitrine, mais **un panneau incomplet s'enregistre** : on peut compléter plus tard.
@@ -127,6 +127,14 @@ Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office 
 - Les couleurs de **sens** ne changent jamais : rouge d'erreur et bouton *Supprimer*, vert/rouge/jaune des résultats gagné / perdu / nul.
 - L'effet est **immédiat** sur cet écran après enregistrement ; les autres écrans le prennent au prochain chargement.
 - ⚠️ Les **affiches générées** (Programmation Image, Matches par équipe) gardent pour l'instant le rouge du CAC : elles ne suivent pas encore ces couleurs.
+
+### Site vitrine
+Site **public** du club, servi sur `<slug>.feelike.app` (application séparée, dossier `web/`).
+
+- **Cinq pages** : Accueil, Le Club, Infrastructures, Tarifs, Contact — plus un panneau de contact accessible depuis n'importe quelle page.
+- **Tout le contenu vient de l'écran *Configuration du site*** : textes, images, tarifs, horaires, partenaires, mentions légales, et la **couleur** du club, qui colore boutons, badges et liens du site.
+- **Ce qui n'est pas renseigné ne s'affiche pas.** Un club qui vient d'être créé a un site vide mais propre : pas de bloc à moitié rempli, pas de cadre d'image cassé, aucun texte d'exemple emprunté à un autre club. Remplir un panneau au back-office fait apparaître la section correspondante au rechargement.
+- Les sections *Actualités* et *Prochains rendez-vous* de l'accueil, ainsi que l'**envoi** du formulaire de contact, arrivent dans une prochaine livraison : en attendant, le formulaire est affiché mais son bouton est inactif, et les blocs d'actualités ne s'affichent pas du tout.
 
 ### Comptes sociaux
 Écran *Admin › Comptes sociaux* (`/admin/social`), réservé aux **administrateurs** du club.
@@ -191,6 +199,16 @@ Faire de même pour la PWA :
 ```bash
 cp pwa/.env.example pwa/.env.local
 # puis renseigner les mêmes clés du projet Supabase de DEV
+```
+
+Et pour le site vitrine :
+
+```bash
+cd web && npm install
+cp .env.example .env.local
+# puis renseigner les mêmes clés du projet Supabase de DEV
+# VITE_DEV_CLUB_SLUG choisit le club affiché en local (en production, c'est le sous-domaine)
+npm run dev
 ```
 
 Notes :

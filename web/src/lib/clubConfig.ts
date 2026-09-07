@@ -1,3 +1,8 @@
+// ⚠️ COPIE de `src/lib/clubConfig.ts` (back-office), synchronisée MANUELLEMENT — même patron
+// que `pwa/src/liveScoreRules.ts` et `pwa/src/lib/theme.ts`. Le jour où le contrat bouge, les
+// deux fichiers bougent ensemble : toute divergence est un bug silencieux (une clé lue par la
+// vitrine que le BO n'écrit pas, ou l'inverse). Ne rien « simplifier » ici.
+//
 // Multi-tenant — PR6a : contrat de `club_settings.config` (MULTI_TENANT.md §6.1).
 //
 // Source unique du schéma, des défauts et de la lecture. Écrit pour être déplaçable tel quel
