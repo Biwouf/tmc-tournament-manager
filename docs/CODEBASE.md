@@ -343,7 +343,7 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 | `lib/price.ts` | Montant du contrat (nombre) → texte français. Aucune période n'est ajoutée (« / an »…) : le contrat n'en porte pas |
 | `contexts/SiteContext.tsx` | Snapshot SSR injecté, aucune requête navigateur. `useSite()` expose club, config, nom, origine et activation de l’optimiseur. |
 | `contexts/ContactDrawerContext.tsx` | État du drawer de contact, ouvert depuis le header, le menu mobile, le hero, les bannières CTA et le bouton flottant |
-| `components/layout/` | `Header` (sticky + menu mobile), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader`, navigation publiée issue de `lib/site.ts` |
+| `components/layout/` | `Header` (sticky + menu mobile fixe hors du header flouté, défilable sur petit écran), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader`, navigation publiée issue de `lib/site.ts` |
 | `components/home/` | `HeroSection`, `StatsSection`, `SchoolTeaserSection`, `InfraTeaserSection`, `PartnersSection`, `CtaSection` |
 | `components/club/` | `PresidentSection`, `ValuesSection`, `CoachSection`, `ProgramsSection`, `BoardSection` |
 | `components/infra/` | `CourtsSection`, `ClubhouseSection`, `LockerRoomsSection` |

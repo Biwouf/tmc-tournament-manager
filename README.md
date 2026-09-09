@@ -129,6 +129,8 @@ Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office 
 - ⚠️ Les **affiches générées** (Programmation Image, Matches par équipe) gardent pour l'instant le rouge du CAC : elles ne suivent pas encore ces couleurs.
 
 ### Site vitrine
+
+Sur mobile, le menu de navigation couvre entièrement la page et reste défilable sur les petits écrans.
 Site **public** du club, servi sur `<slug>.feelike.app` (application séparée, dossier `web/`).
 
 - **Cinq pages** : Accueil, Le Club, Infrastructures, Tarifs, Contact — plus un panneau de contact accessible depuis n'importe quelle page.
