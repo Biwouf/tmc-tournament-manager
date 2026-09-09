@@ -1,3 +1,4 @@
+import MemberProfileEditor from '../components/courses/MemberProfileEditor';
 // Multi-tenant — PR5-bis : gestion des membres d'un club par un admin de ce club.
 // Spec : docs/specs/MULTI_TENANT.md §4.2.
 //
@@ -44,6 +45,7 @@ export default function MembersPage() {
   const { clubId, club } = useClub();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  const [editingProfile, setEditingProfile] = useState<string | null>(null);
   const [members, setMembers] = useState<ClubMember[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyMember, setBusyMember] = useState<string | null>(null);
@@ -57,19 +59,25 @@ export default function MembersPage() {
 
   const load = useCallback(async () => {
     if (!clubId) return;
-    setLoadError(null);
     const result = await listClubMembers(clubId);
     if (!result.success) {
       setLoadError(result.error);
       setMembers([]);
       return;
     }
+    setLoadError(null);
     setMembers(result.members);
   }, [clubId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    if (clubId) listClubMembers(clubId).then(result => {
+      if (cancelled) return;
+      if (result.success) { setLoadError(null); setMembers(result.members); }
+      else { setLoadError(result.error); setMembers([]); }
+    });
+    return () => { cancelled = true; };
+  }, [clubId]);
 
   const adminCount = useMemo(
     () => (members ?? []).filter((m) => m.role === 'admin').length,
@@ -191,6 +199,7 @@ export default function MembersPage() {
             </div>
           )}
 
+          {clubId && editingProfile && <MemberProfileEditor key={editingProfile} clubId={clubId} userId={editingProfile} onClose={() => setEditingProfile(null)} onSaved={load} />}
           {members === null ? (
             <p className="text-sm text-muted-foreground">Chargement…</p>
           ) : members.length === 0 ? (
@@ -223,6 +232,7 @@ export default function MembersPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" className="course-button" onClick={() => setEditingProfile(m.user_id)}>Modifier le profil</button>
                         <select
                           value={m.role}
                           onChange={(e) => handleRoleChange(m, e.target.value as ClubRole)}

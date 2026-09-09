@@ -401,3 +401,35 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 - `20260908_live_matches_public_read.sql` : lecture publique explicite des matchs des clubs actifs, aucune écriture anon ; régression couverte dans `tests/live-score-sql.test.mjs`.
 
 - `src/lib/liveMatchVisibility.ts` et `pwa/src/lib/liveMatchVisibility.ts` : filtre PostgREST commun (copies) excluant les matchs terminés depuis plus de 7 jours selon `finished_at`. Consommé par les listes Live BO/PWA ; aucune suppression.
+
+## Cours — lot back-office (septembre 2026)
+
+Spec : `docs/specs/COURSES.md`. Livraison et déploiement : `docs/COURSES_BO_DELIVERY.md`.
+
+| Fichier | Rôle |
+|---|---|
+| `src/pages/CoursesPage.tsx` | `/courses`, liste admin à venir/passés, compteurs par quota, annulation/suppression |
+| `src/pages/CourseFormPage.tsx` | `/courses/new`, `/courses/:id/edit`, date Europe/Paris avec gestion des heures ambiguës/inexistantes, durée et quotas |
+| `src/pages/CourseTypesPage.tsx` | `/courses/types`, types, images, archivage et suppression conditionnelle |
+| `src/pages/CourseRegistrationsPage.tsx` | `/courses/:id/registrations`, décisions, ajout admin, recherche membres, historique, correction du quota |
+| `src/components/courses/CourseUI.tsx` | Shell admin, erreur accessible et pagination commune |
+| `src/components/courses/MemberProfileEditor.tsx` | Édition admin du prénom/nom/sexe, intégrée à Membres et aux inscriptions |
+| `src/components/courses/RegistrationHistory.tsx` | Historique des inscriptions et événements du membre dans le club, paginé |
+| `src/hooks/useCourseAdmin.ts` | Commandes sans succès optimiste, verrou de double clic et clé de retry conservée après erreur |
+| `src/hooks/useCourseClock.ts` | Horloge d'affichage BO ; la base reste autoritaire pour les délais |
+| `src/lib/courses.ts` | Types, RPC, messages d'erreur, date Europe/Paris, upload/validation des images |
+
+`MembersPage` expose l'édition de profil. `AcceptInvitePage` ne fait plus d'upsert d'identité,
+uniquement le choix du mot de passe. La nouvelle migration révoque l'écriture directe du
+profil par son propriétaire ; admin/super-admin passe par RPC. `profile_details` porte le
+sexe sans modifier la lecture publique des noms utilisée par Live Score.
+
+`2026091001_courses.sql` : tables, RLS, GRANT, RPC BO et Storage. Transport BO regroupé en
+`course_admin_read`/`course_admin_command`. Chaque mutation verrouille le club puis le cours ;
+un trigger de retrait du club annule les inscriptions futures actives. Les futures écritures
+PWA doivent utiliser les mêmes verrous. Aucun endpoint public Cours dans ce premier lot.
+
+`tests/courses-sql.test.mjs` et `tests/courses-client.test.mjs` : `npm run test:courses`.
+
+`tests/courses-concurrency.test.mjs` : test opt-in sur PostgreSQL réel, deux connexions ;
+`tests/helpers/courses-fixture.mjs` : socle SQL de test partagé avec PGlite.

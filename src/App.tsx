@@ -1,3 +1,7 @@
+import CoursesPage from './pages/CoursesPage';
+import CourseFormPage from './pages/CourseFormPage';
+import CourseTypesPage from './pages/CourseTypesPage';
+import CourseRegistrationsPage from './pages/CourseRegistrationsPage';
 import { useState, useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
@@ -158,6 +162,11 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <Route path="/team-matches/rencontre/new" element={auth(<TeamRencontreForm />)} />
         <Route path="/team-matches/rencontre/:id" element={auth(<TeamRencontrePage />)} />
         <Route path="/team-matches/rencontre/:id/edit" element={auth(<TeamRencontreForm />)} />
+        <Route path="/courses" element={auth(adminOnly(<CoursesPage />))} />
+        <Route path="/courses/new" element={auth(adminOnly(<CourseFormPage key="new" />))} />
+        <Route path="/courses/types" element={auth(adminOnly(<CourseTypesPage />))} />
+        <Route path="/courses/:id/edit" element={auth(adminOnly(<CourseFormPage />))} />
+        <Route path="/courses/:id/registrations" element={auth(adminOnly(<CourseRegistrationsPage />))} />
         <Route path="/admin/members" element={auth(adminOnly(<MembersPage />))} />
         <Route path="/admin/site" element={auth(adminOnly(<SiteConfigPage />))} />
         <Route path="/admin/social" element={auth(adminOnly(<SocialAccountsPage />))} />

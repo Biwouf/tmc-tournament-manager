@@ -1026,3 +1026,15 @@ Reste à préciser **au fil de l'implémentation** (détails, pas de blocage de 
 À chaque phase implémentée, mettre à jour : `docs/CODEBASE.md` (nouveaux fichiers/tables),
 le `docs/specs/*` du module touché (GEN_PROG, ACTUS_FACEBOOK, PWA…), et `README.md` (côté
 utilisateur). Créer `docs/specs/WEB_SITE.md` à la Phase 4.
+
+### Module Cours — droits du lot BO
+
+Les routes `/courses/*`, les demandes des autres membres et l'édition prénom/nom/sexe sont
+réservées aux admins du club actif et aux super-admins. Les managers ne peuvent pas écrire
+ces données. La barrière serveur est `course_is_admin` + RPC privée ; ne pas réutiliser
+`can_manage_club_content` qui autorise aussi les managers. Le profil est global au compte,
+mais un admin ne peut éditer que les membres de son club. Le sexe est privé dans
+`profile_details`. Le membre ne modifie pas son profil en V1.
+
+Le retrait d'un membre annule atomiquement ses inscriptions futures actives dans ce club.
+Spec : `COURSES.md` ; déploiement : `../COURSES_BO_DELIVERY.md`.

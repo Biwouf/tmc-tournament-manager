@@ -33,6 +33,7 @@ const SECTIONS = [
     label: 'Admin',
     hint: 'Réservé aux administrateurs',
     items: [
+      { to: '/courses', label: 'Cours', description: 'Programmer les cours et valider les inscriptions.', roles: ['admin'] },
       { to: '/admin/members', label: 'Membres', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
       { to: '/admin/site', label: 'Configuration du site', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
       { to: '/admin/social', label: 'Comptes sociaux', description: 'Connecter la page Facebook sur laquelle les actus sont publiées.', roles: ['admin'] },

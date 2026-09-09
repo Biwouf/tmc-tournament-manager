@@ -424,3 +424,16 @@ jamais chargement de tous les membres/historiques dans chaque cellule.
 
 Le périmètre de cette tâche reste documentaire : aucune migration appliquée, aucun compte
 modifié, aucune notification envoyée. La spec est maintenue dans son worktree dédié.
+
+## 12. État d'implémentation — premier lot BO
+
+Le commanditaire a autorisé le développement BO sans attendre les maquettes. Le lot couvre
+les écrans admin, profils et mutations serveur décrits dans `docs/COURSES_BO_DELIVERY.md`.
+La PWA (catalogue, demandes membres, H−4, disparition à +24 h) reste à implémenter.
+
+Ajustements techniques du BO : opérations serveur regroupées en `course_admin_read` et
+`course_admin_command`, pagination offset bornée à 50 avec ordre déterministe ; verrou
+commun du club avant le cours pour coordonner le retrait des membres. Le contrat métier
+ci-dessus reste applicable au lot PWA suivant. Les images sont validées en signature et
+par décodage dans le client ; Storage impose MIME/taille, sans inspection serveur des octets.
+Voir le document de livraison pour les prérequis de déploiement et les limites de validation.
