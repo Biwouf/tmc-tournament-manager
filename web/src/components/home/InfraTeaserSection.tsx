@@ -9,7 +9,7 @@ export default function InfraTeaserSection() {
   if (items.length === 0) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:84px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h2 className="title">Les infrastructures</h2>
         <Link to="/infrastructures" className="text-[15px] font-bold text-brand">
@@ -22,7 +22,7 @@ export default function InfraTeaserSection() {
           return (
             <div
               key={index}
-              className="relative overflow-hidden rounded-card border border-line bg-card shadow-soft"
+              className="card-lift relative overflow-hidden rounded-card border border-line bg-card shadow-soft"
             >
               {image && (
                 <>

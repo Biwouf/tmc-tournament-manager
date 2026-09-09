@@ -10,7 +10,7 @@ export default function ClubPage() {
   const { config } = useSite();
   return (
     <>
-      <PageHeader title={config.club.page_title} />
+      <PageHeader overline="Le club" title={config.club.page_title} narrowTitle />
       <PresidentSection />
       <ValuesSection />
       <CoachSection />

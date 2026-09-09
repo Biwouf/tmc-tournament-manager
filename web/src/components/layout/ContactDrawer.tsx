@@ -23,7 +23,7 @@ export default function ContactDrawer() {
       <button
         type="button"
         onClick={openDrawer}
-        className="btn btn-primary fixed right-5 bottom-5 z-30 shadow-soft"
+        className="btn btn-primary btn-lift fixed right-5 bottom-5 z-30 shadow-soft"
       >
         Nous contacter
       </button>

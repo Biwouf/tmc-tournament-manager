@@ -13,7 +13,7 @@ export default function PartnersSection() {
 
   return (
     <section className="bg-bg2">
-      <div className="shell section">
+      <div className="shell section [--sec-top:84px] pb-[84px]">
         <p className="text-center text-[13px] font-bold tracking-[0.14em] text-muted uppercase">
           Ils soutiennent le club
         </p>

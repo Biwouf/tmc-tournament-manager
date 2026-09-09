@@ -80,9 +80,21 @@
     margin-top: -40px;
   }
 
+  /* Rythme vertical de la maquette : chaque section ne porte QUE son écart au bloc du dessus
+     (`padding:<haut> 40px 0`), jamais de padding bas. Doubler haut + bas — ce que faisait la
+     première version — écartait les sections de deux fois trop. La respiration avant le footer
+     est posée une seule fois, sur `<main>` (`.page-end`), et non sur la dernière section : sur
+     un club à config partielle, la dernière section rendue n'est pas toujours la même.
+     `--sec-top` porte la valeur relevée section par section dans la maquette ; le défaut est
+     celui d'une section courante de page intérieure. */
   .section {
-    padding-top: clamp(44px, 6vw, 80px);
-    padding-bottom: clamp(44px, 6vw, 80px);
+    padding-top: var(--sec-top, 70px);
+    padding-bottom: 0;
+  }
+
+  /* Maquette : `… 40px 90px` sur la dernière section de chaque page. */
+  .page-end {
+    padding-bottom: 90px;
   }
 
   /* Sur-titre en pastille — l'iconographie « pill » de la direction conviviale. */
@@ -100,6 +112,16 @@
     font-weight: 800;
     letter-spacing: -0.01em;
     line-height: 1.12;
+  }
+
+  /* En-tête des pages intérieures (maquette 1734-1737, 1831-1834, 1886-1889, 1958-1961).
+     Le H1 y est PLUS GRAND que les `.title` de section : c'est l'accroche de la page. */
+  .page-h1 {
+    font-size: clamp(34px, 5vw, 56px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    margin-top: 10px;
   }
 
   .lede {
@@ -170,6 +192,36 @@
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
+  }
+
+  /* Élévation au survol (maquette : `style-hover="transform:translateY(-4px)"`, 1635/1797/1897).
+     Réservée aux CARTES — un bloc `--card` + `--shadow` qui se lit comme un objet cliquable :
+     tarifs, programmes, teasers d'infrastructures, courts, membres du bureau. Les pastilles de
+     valeurs en sont exclues, ce sont des étiquettes.
+     L'animation d'ENTRÉE de la maquette (`cacFadeUp`, 1537) n'est volontairement pas reprise. */
+  .card-lift {
+    transition: transform 0.2s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-4px);
+  }
+
+  /* Le −2px des boutons de la maquette (1676 déjà porté par `.btn-light`, 2039 le flottant). */
+  .btn-lift:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  /* Un visiteur qui a demandé moins d'animation n'en reçoit aucune. */
+  @media (prefers-reduced-motion: reduce) {
+    .card-lift,
+    .btn {
+      transition: none;
+    }
+    .card-lift:hover,
+    .btn-lift:hover:not(:disabled),
+    .btn-light:hover {
+      transform: none;
+    }
   }
 
   .field {

@@ -9,7 +9,7 @@ export default function ClubhouseSection() {
   if (!clubhouse.title && !clubhouse.text && images.length === 0) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:74px]">
       <div className="grid items-center gap-10 md:grid-cols-2">
         <div>
           {clubhouse.title && <h2 className="title">{clubhouse.title}</h2>}
@@ -18,13 +18,20 @@ export default function ClubhouseSection() {
           )}
         </div>
         {images.length > 0 && (
-          <div className="grid gap-4">
+          /* Maquette 1860-1862 : DANS la moitié droite, une seconde grille à deux colonnes.
+             Les images sont donc des carrés d'un quart de la largeur du contenu, et non des
+             visuels pleine largeur. Une seule image occupe sa colonne, pas toute la moitié. */
+          <div className="grid grid-cols-2 gap-[14px]">
             {images.map((url, index) => (
               <img
                 key={index}
                 src={url}
                 alt=""
-                className="aspect-[16/9] w-full rounded-card object-cover shadow-soft"
+                /* Décalage volontaire d'une colonne sur deux (maquette : `margin-top:24px`
+                   sur la 2ᵉ image). L'alternance se poursuit au-delà de deux images. */
+                className={`aspect-square w-full rounded-soft object-cover shadow-soft ${
+                  index % 2 === 1 ? 'mt-6' : ''
+                }`}
               />
             ))}
           </div>
