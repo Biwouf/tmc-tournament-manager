@@ -516,6 +516,51 @@ Les ~80 variables du `web_site_brief.md` (`brand.*`, `home.*`, `club.*`, `infra.
   « Modifications non enregistrées » dès qu'une saisie est en cours, pour qu'un repli ne cache
   jamais du travail non sauvegardé. Le repli n'est qu'un masquage : le panneau reste monté, donc
   sa saisie et ses fichiers en attente survivent.
+- **Livré en PR9-ter** — le **point d'intérêt** des images de configuration. Une image de config
+  est rendue en `object-fit: cover` dans un conteneur à ratio fixe : elle est **recadrée**, et un
+  portrait dont le visage n'est pas au centre est coupé. Le module Actus avait déjà résolu ce
+  problème (`actus.image_focal_points`) ; c'en est la reprise pour `club_settings.config`.
+  **Forme retenue : une CLÉ SŒUR optionnelle** à côté de la clé image — `hero_image_focal` à côté
+  de `hero_image`, `president.photo_focal` à côté de `president.photo` — et **non** une
+  transformation d'`image: string` en objet, qui aurait cassé `SiteConfigPanel`, `setAtPath`,
+  `groupSchema` et la vitrine d'un coup. `{ x, y }` en pourcentages, **exactement** la forme
+  d'`ActuFocalPoint`, si bien que `focalPointStyle` se réutilise tel quel. Une clé sœur
+  **absente** rend `50% 50%` — le comportement d'avant : **aucune régression possible sur une
+  config existante**, et c'est le critère qui valide cette forme. Ajout **additif** ⇒ **aucune
+  migration**, `CLUB_CONFIG_VERSION` **toujours à 1** (inchangé de PR6a à PR9-ter).
+  **10 images couvertes**, celles que la vitrine rend en `cover` : `home.hero_image`,
+  `home.school_teaser_image`, `home.infra_teaser[].image`, `club.president.photo`,
+  `club.coach.photo`, `club.programs[].image`, `club.board[].photo`, `infra.courts[].image`,
+  `infra.clubhouse.images[]`, `infra.locker_rooms.image`. **Exclus** : `brand.logo`,
+  `brand.logo_inverse` et `partners[].logo` (rendus en `contain`, jamais coupés — un point
+  d'intérêt y serait un réglage sans effet) et les deux listes de `posters` (jamais rendues sur
+  la vitrine).
+  Côté **spec**, le point d'intérêt est **déclaratif**, dans l'esprit du `path` de PR6d et du
+  `dimensions` de PR7 : **`focal: true`** sur le champ `image`, et la clé sœur, son chemin JSONB
+  et son libellé en sont **dérivés** (`focalSpecOf`). Impossible de les faire diverger, et
+  impossible de poser une clé **contenant un point** — le piège que PR6d documente. La spec
+  dérivée devient ensuite un champ comme un autre (`expandedItems`), tandis que le **panneau**
+  garde `itemsOf` : un point d'intérêt n'est pas un champ de plus à l'écran, il se règle **sur
+  l'aperçu de son image entière**, à proportions conservées, sans recadrage ni déplacement
+  au clic. Les coordonnées sont celles de l’image source ; la vitrine les applique à ses cadres.
+  `asFocal` accepte la chaîne de saisie et l’objet validé, afin de conserver la pastille
+  après un clic comme après un enregistrement. Le schéma d’écriture accepte explicitement
+  les clés absentes à la seconde validation et borne les deux formes entre 0 et 100.
+  Deux invariants portés par l'écriture : **vide ⇒ clé OMISE** (une image sans point d'intérêt
+  n'écrit **rien**, surtout pas `{ x: 50, y: 50 }` — c'est ce qui garde une config intacte tant
+  qu'on n'y touche pas, et ce qui fait qu'un « Recentrer » revient à l'état initial) et **le
+  focal n'est écrit que si une image l'accompagne** (`dropOrphanFocals` — retirer l'image retire
+  sa clé sœur, sinon elle se rappliquerait à la prochaine image posée là). `mergeGroup` traite
+  désormais `undefined` comme un **retrait** et non comme une valeur, sans quoi la fusion
+  profonde — dont c'est justement le rôle — aurait préservé la clé qu'on veut voir disparaître.
+  ⚠️ **Un seul cas particulier, et il est dans le contrat** : `infra.clubhouse.images` est un
+  `list<image>` dont les entrées sont des **chaînes**, sans place pour une clé sœur. Son point
+  d'intérêt vit dans un **tableau parallèle** `clubhouse.images_focal`, indexé comme `images` —
+  le patron d'`actus.image_focal_points` —, `null` tenant la place d'une image non recadrée, et
+  la clé est **omise** tant qu'aucune photo n'est recadrée.
+  En prime, le libellé de `*.page_title` passe de « Titre de la page » à **« Accroche de la
+  page »** : depuis PR9-bis ce champ n'est plus le nom de la page mais l'accroche affichée
+  **sous** un sur-titre en dur (`WEB_SITE.md` §2). Aucune donnée n'est modifiée.
 
 ### 6.2 GEN_PROG — background personnalisé
 
@@ -972,6 +1017,7 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR7-bis ✅ | 3 | **Dé-branding BO + PWA** (cf. §6.2-bis) : textes via `clubs.name`, logo via `brand.logo` sous Storage `club_id/`, manifest PWA au runtime avec fallback Vite | non-bloquante — aucune migration |
 | PR8 ✅ | 3 | **Comptes sociaux par club** : table `club_social_credentials` (RLS **SELECT admin-d'un-club-actif** + **`GRANT` par colonne excluant `token`**, aucune policy d'écriture), Edge Function **`social-credentials`** (valide le token auprès de Facebook **avant** d'écrire, déduit la page du token), écran BO `/admin/social`, et `post-to-facebook` qui lit les identifiants **du club de l'actu**. Retire `FACEBOOK_CLUB_ID`, la rustine de l'audit du 05/09 qui liait les credentials globaux à un club unique ; **conserve intégralement** son contrôle d'accès. Suite `npm run test:security` étendue (26 tests). Flux OAuth Facebook **hors périmètre** (voir §6.3). Détail : §6.3. | ⚠️ **opérations prod** : migration `20260906` (datée du 06 pour ne pas collisionner avec celle de l'audit), déploiement de **deux** functions (`social-credentials` nouvelle, `post-to-facebook` modifiée), **saisie du token de CAC** — coupure nette, la publication est cassée entre les deux — puis retrait du secret `FACEBOOK_CLUB_ID` |
 | PR9 ✅ | 4 | **App `web/`** (vitrine) : scaffold Vite/React autonome, résolution du tenant par sous-domaine (`SiteContext`, patron `ClubContext` amputé de la session), design tokens « conviviale » dérivés de `brand.color`, et les **5 pages** rendues depuis `club_settings.config`. Le contrat est consommé par une **copie** de `src/lib/clubConfig.ts`, à garder synchronisée. Règle de rendu : `config = '{}'` est le cas **nominal** — une valeur absente masque son bloc, jamais de placeholder ni de valeur d'exemple en repli. Les blocs de flux de l'accueil ne rendent **rien** (PR10) et la soumission du formulaire de contact est **désactivée** (PR11) : un bouton inerte vaut mieux qu'un formulaire qui perd les messages. Dette laissée ouverte : **SEO / Open Graph / titres par page**. Détail : `docs/specs/WEB_SITE.md`. | ⚠️ **opération prod** : migration `20260909_club_settings_public_read.sql` (lecture `anon` de `club_settings`) — non bloquante, mais **sans elle la vitrine rend un site vide**. Puis nouveau projet Vercel, Root Directory `web/`. Aucun domaine à configurer : le wildcard est PR13 |
+| PR9-ter ✅ | 2 | Le **point d'intérêt** des images de configuration — **clé sœur** `<champ>_focal` (`{ x, y }` en %, la forme d'`ActuFocalPoint`) à côté de chaque image que la vitrine recadre en `cover` (**10 images**), et **non** une transformation d'`image: string` en objet. Clé absente ⇒ `50% 50%`, le comportement d'avant : **cadrage centré conservé sans réglage**. Les tests de régression couvrent sélection, enregistrement, rechargement et recentrage pour les images simples et les deux formes de listes, avec persistance simulée. La reprise n’a pas inclus de vérification manuelle sur les données réelles des deux clubs. Déclaratif (`focal: true` sur le champ image, clé et chemin **dérivés**), donc **aucune clé de formulaire pointée**. **Vide ⇒ clé omise** et **image retirée ⇒ focal retiré** (`dropOrphanFocals` ; `mergeGroup` traite `undefined` comme un retrait). Seul cas particulier : `infra.clubhouse.images`, un `list<image>` aux entrées scalaires, dont le focal vit dans un **tableau parallèle** `images_focal` — le patron d'`actus.image_focal_points`. **Aucune migration**, `CLUB_CONFIG_VERSION` **inchangé**. En prime : libellé `*.page_title` → « Accroche de la page » (dette `WEB_SITE.md` §2 fermée), **favicon** de la vitrine posé depuis `brand.logo` (aucun repli sur un logo de club) et bandeau `/tarifs` remis aux valeurs de la maquette. Détail : §6.1. | non-bloquante — **aucune opération prod** |
 | PR10 | 4 | Flux actus & events branchés sur la vitrine (filtrés `club_id`) | non-bloquante |
 | PR11 | 4 | Edge Function `contact-form` (Brevo) + table `contact_messages` + réception BO | non-bloquante |
 | PR12 | 4 | Pont d'installation PWA depuis la vitrine (mobile) | non-bloquante |
