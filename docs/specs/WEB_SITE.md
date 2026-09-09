@@ -132,6 +132,10 @@ statut, identité et configuration proviennent du même snapshot SQL. Le rôle r
   `VITE_ENV=development` et sans `VERCEL_ENV`.
 - Preview : repli explicite seulement sur les hôtes `VERCEL_URL` et `VERCEL_BRANCH_URL`, avec
   `VERCEL_ENV=preview`. Aucun repli générique sur `*.vercel.app`.
+- Alias Vercel de production : seul `VERCEL_PROJECT_PRODUCTION_URL`, s’il est en
+  `.vercel.app` et avec `VERCEL_ENV=production`, affiche `VITE_DEV_CLUB_SLUG`. Cet alias
+  reste `noindex`, sans redirection vers le domaine canonique et sans sitemap indexable.
+  Les autres hôtes Vercel restent refusés.
 - Club absent ou suspendu : 404 sans contenu du club. Erreur réseau, DB ou relation
   `club_settings` invisible : 503 + `Retry-After: 60`, jamais un faux site vide.
 
@@ -328,8 +332,8 @@ public statique ; il est uniquement le template privé de la fonction. Le manife
 bundle autonome et son template sont vérifiés par `check:build`.
 
 Variables build : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_ENV`, et
-`VITE_DEV_CLUB_SLUG` en local/preview. Variables système Vercel à exposer au runtime :
-`VERCEL_ENV`, `VERCEL_URL`, `VERCEL_BRANCH_URL`. Production : `VITE_ENV=production` sur la base
+`VITE_DEV_CLUB_SLUG` en local/preview et pour l’alias Vercel de production. Variables système Vercel à exposer au runtime :
+`VERCEL_ENV`, `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_PROJECT_PRODUCTION_URL`. Production : `VITE_ENV=production` sur la base
 prod ; preview : base dev et `VITE_ENV=development`. Les variables VITE sont intégrées au
 build : tout changement de projet Supabase nécessite un rebuild. Aucune clé service role.
 La migration `20260909` déjà appliquée en production reste requise ; aucune nouvelle migration

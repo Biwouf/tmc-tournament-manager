@@ -17,7 +17,7 @@ assert.equal(pattern.pathname, '^/storage/v1/object/public/content-images/.*$');
 
 // Exécute le bundle EXACT de la fonction, avec données locales (aucun accès DB).
 const originalFetch = globalThis.fetch;
-const previous = { env: process.env.VERCEL_ENV, url: process.env.VERCEL_URL };
+const previous = { env: process.env.VERCEL_ENV, url: process.env.VERCEL_URL, productionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL };
 process.env.VERCEL_ENV = 'preview'; process.env.VERCEL_URL = 'build-check.vercel.app';
 let queries = 0;
 globalThis.fetch = async url => {
@@ -50,10 +50,29 @@ try {
     }
   }
   assert.equal(queries, 6);
+  process.env.VERCEL_ENV = 'production';
+  process.env.VERCEL_PROJECT_PRODUCTION_URL = 'web-eight-kappa-94.vercel.app';
+  for (const [host, url, status] of [
+    ['web-eight-kappa-94.vercel.app', '/', 200],
+    ['web-eight-kappa-94.vercel.app', '/club', 200],
+    ['web-eight-kappa-94.vercel.app', '/club/', 308],
+    ['web-eight-kappa-94.vercel.app', '/sitemap.xml', 200],
+    ['unknown.vercel.app', '/', 404],
+  ]) {
+    let result;
+    await handler({ url, method: 'GET', headers: { host } }, {
+      writeHead(code, headers) { result = { code, headers }; }, end(body) { result.body = body; },
+    });
+    assert.equal(result.code, status, `${host}${url}`);
+    assert.match(result.headers['X-Robots-Tag'], /noindex/);
+    if (status === 308) assert.equal(result.headers.Location, '/club');
+    if (status === 200) assert.equal(result.headers.Location, undefined);
+    if (url === '/sitemap.xml') assert.doesNotMatch(result.body, /<loc>/);
+  }
   console.log('Bundle Vercel autonome : HTML, HEAD, 404, previews, sitemap, robots et assets vérifiés.');
 } finally {
   globalThis.fetch = originalFetch;
-  for (const [key, value] of [['VERCEL_ENV', previous.env], ['VERCEL_URL', previous.url]]) {
+  for (const [key, value] of [['VERCEL_ENV', previous.env], ['VERCEL_URL', previous.url], ['VERCEL_PROJECT_PRODUCTION_URL', previous.productionUrl]]) {
     if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
 }

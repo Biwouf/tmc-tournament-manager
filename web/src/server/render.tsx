@@ -4,7 +4,7 @@ import App from '../App';
 import { isPublished, isReadyForIndexing, pageAt, PAGES } from '../lib/site';
 import { escapeHtml, headMarkup, jsonForHtml } from '../lib/seo';
 import { brandTokens } from '../lib/tokens';
-import { hostname, isProduction, loadSite, SiteError, type Runtime } from './tenant';
+import { hostname, isProduction, isProductionAlias, loadSite, SiteError, type Runtime } from './tenant';
 
 export type HttpResult = { status: number; headers: Record<string, string>; body: string };
 const noCache = {
@@ -37,7 +37,8 @@ export async function renderRequest(
     const page = pageAt(path);
     if (!page && !['/robots.txt', '/sitemap.xml'].includes(path)) return unavailable(404, 'Page introuvable');
     const site = await loadSite(request.host, runtime, fetcher);
-    const production = isProduction(runtime);
+    // L’alias Vercel sert le site sans indexation ni redirection vers le futur domaine canonique.
+    const production = isProduction(runtime) && !isProductionAlias(request.host, runtime);
     const ready = isReadyForIndexing(site.config);
     const headers: Record<string, string> = { ...noCache, 'Content-Type': 'text/html; charset=utf-8' };
     if (!production || !ready) headers['X-Robots-Tag'] = 'noindex, follow';

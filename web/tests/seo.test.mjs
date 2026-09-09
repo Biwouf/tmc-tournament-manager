@@ -252,3 +252,52 @@ test('BO : publication booléenne et surcharges validées sans modifier les cont
   }
   assert.deepEqual(raw, original);
 });
+
+
+test('alias Vercel de production : club configuré, noindex et aucune redirection vers feelike', async () => {
+  const { request, calls } = fixture();
+  const host = 'web-eight-kappa-94.vercel.app';
+  const prod = { ...runtime, productionHost: host };
+  for (const path of ['/', '/club', '/contact', '/robots.txt', '/sitemap.xml']) {
+    const response = await request(path, host, prod);
+    assert.equal(response.status, 200, path);
+    assert.match(response.headers['X-Robots-Tag'], /noindex/);
+    assert.equal(response.headers.Location, undefined);
+    if (path === '/sitemap.xml') assert.doesNotMatch(response.body, /<loc>/);
+    if (path === '/robots.txt') assert.doesNotMatch(response.body, /Sitemap:/);
+    if (path === '/') {
+      assert.match(response.body, /Bienvenue chez alpha/);
+      assert.match(response.body, /<meta name="robots" content="noindex, follow"/);
+    }
+  }
+  const redirect = await request('/club/?utm_source=test', host, prod);
+  assert.equal(redirect.status, 308);
+  assert.equal(redirect.headers.Location, '/club?utm_source=test');
+  const selected = await request('/?club=beta', host, prod);
+  assert.equal(bootstrap(selected.body).club.slug, 'alpha');
+  assert.equal((await request('/inconnue', host, prod)).status, 404);
+  for (const invalidHost of ['evil.vercel.app', 'web-eight-kappa-94.vercel.app.evil.test']) {
+    assert.equal((await request('/', invalidHost, prod)).status, 404);
+  }
+  assert.equal((await request('/', host, { ...prod, deploymentEnv: 'preview' })).status, 404);
+  for (const devSlug of [undefined, '', 'admin', 'missing']) {
+    assert.equal((await request('/', host, { ...prod, devSlug })).status, 404);
+  }
+  assert.ok(calls.length > 0);
+});
+
+test('alias Vercel : statut et publication conservés, domaines canoniques inchangés', async () => {
+  const { request, rows } = fixture();
+  const host = 'web-eight-kappa-94.vercel.app';
+  const prod = { ...runtime, productionHost: host };
+  rows[0].custom_domain = 'club-alpha.example';
+  assert.equal((await request('/', host, prod)).status, 200);
+  assert.equal((await request('/', 'alpha.feelike.app', prod)).headers.Location, 'https://club-alpha.example/');
+  const canonical = await request('/', 'club-alpha.example', prod);
+  assert.equal(canonical.status, 200);
+  assert.equal(canonical.headers['X-Robots-Tag'], undefined);
+  rows[0].club_settings.config.club.published = false;
+  assert.equal((await request('/club', host, prod)).status, 404);
+  rows[0].status = 'suspended';
+  assert.equal((await request('/', host, prod)).status, 404);
+});
