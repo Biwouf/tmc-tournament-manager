@@ -301,3 +301,72 @@ test('alias Vercel : statut et publication conservés, domaines canoniques incha
   rows[0].status = 'suspended';
   assert.equal((await request('/', host, prod)).status, 404);
 });
+
+test('favicon SSR : logo du bon club, URL Storage et absence de logo', async () => {
+  const { request, rows } = fixture();
+  for (const slug of ['alpha', 'beta']) {
+    const result = await request('/', `${slug}.feelike.app`);
+    const head = result.body.split('</head>')[0];
+    assert.match(head, new RegExp(`<link rel="icon" href="https://images.example/${slug}.png">`));
+    assert.equal((head.match(/rel="icon"/g) || []).length, 1);
+  }
+  const { configImageUrl } = await vite.ssrLoadModule('/src/lib/configImage.ts');
+  rows[0].club_settings.config.brand.logo = 'id-alpha/config/logo club.svg';
+  assert.ok((await request()).body.includes(`<link rel="icon" href="${configImageUrl('id-alpha/config/logo club.svg')}">`));
+  rows[0].club_settings.config.brand.logo = 'https://images.example/logo.svg?x="quoted"&y=1';
+  assert.match((await request()).body, /<link rel="icon" href="https:\/\/images.example\/logo.svg\?x=&quot;quoted&quot;&amp;y=1">/);
+  rows[0].club_settings.config.brand.logo = '';
+  assert.doesNotMatch((await request()).body, /rel="icon"/);
+});
+
+test('points d’intérêt SSR : dix champs, club house aligné et données d’hydratation', async () => {
+  const { request, rows } = fixture();
+  const c = rows[0].club_settings.config;
+  const focal = { x: 80, y: 10 };
+  const photo = name => `https://images.example/${name}.jpg`;
+  Object.assign(c.home, {
+    hero_image: photo('hero'), hero_image_focal: focal,
+    school_teaser_image: photo('school'), school_teaser_image_focal: focal,
+    infra_teaser: [{ label: 'Courts', image: photo('teaser'), image_focal: focal }],
+  });
+  Object.assign(c.club.president, { photo: photo('president'), photo_focal: focal });
+  Object.assign(c.club, {
+    coach: { name: 'Coach', photo: photo('coach'), photo_focal: focal },
+    programs: [{ name: 'Programme', image: photo('program'), image_focal: focal }],
+    board: [{ name: 'Membre', photo: photo('board'), photo_focal: focal }],
+  });
+  c.infra.courts = [{ label: 'Courts', image: photo('courts'), image_focal: focal }];
+  c.infra.clubhouse = { title: 'Club house', images: ['', photo('clubhouse')], images_focal: [null, focal] };
+  c.infra.locker_rooms = { image: photo('lockers'), image_focal: focal };
+  for (const [path, names] of [
+    ['/', ['hero', 'school', 'teaser']],
+    ['/club', ['president', 'coach', 'program', 'board']],
+    ['/infrastructures', ['courts', 'clubhouse', 'lockers']],
+  ]) {
+    const result = await request(path);
+    assert.equal(result.status, 200);
+    const images = result.body.match(/<img\b[^>]*>/g) || [];
+    for (const name of names) {
+      const image = images.find(tag => tag.includes(`src="${photo(name)}"`));
+      assert.ok(image, name);
+      assert.match(image, /style="object-position:80% 10%"/, name);
+      assert.match(image, name === 'hero' ? /fetchPriority="high"/ : /loading="lazy"/, name);
+    }
+    assert.deepEqual(bootstrap(result.body).config.home.hero_image_focal, focal);
+  }
+  c.home.hero_image_focal = { x: 101, y: 10 };
+  const invalid = (await request()).body.match(/<img\b[^>]*>/g).find(tag => tag.includes(`src="${photo('hero')}"`));
+  assert.match(invalid, /style="object-position:50% 50%"/);
+});
+
+test('image Storage optimisée : priorité hero et point d’intérêt restent appliqués', async () => {
+  const { request, rows } = fixture();
+  Object.assign(rows[0].club_settings.config.home, {
+    hero_image: 'id-alpha/config/hero.jpg', hero_image_focal: { x: 75, y: 20 },
+  });
+  const result = await request();
+  const hero = result.body.match(/<img\b[^>]*>/g).find(tag => tag.includes('fetchPriority="high"'));
+  assert.match(hero, /style="object-position:75% 20%"/);
+  assert.match(hero, /srcSet="[^\"]*480w[^\"]*1920w/);
+  assert.match(hero, /src="\/_vercel\/image\?/);
+});

@@ -4,6 +4,7 @@ import { useSite } from '../../contexts/SiteContext';
 import { useContactDrawer } from '../../contexts/ContactDrawerContext';
 import { isPublished, PAGES } from '../../lib/site';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Hero de l'accueil — titre réel, ou nom du club en l'absence de titre. */
 export default function HeroSection() {
@@ -20,7 +21,7 @@ export default function HeroSection() {
     <section className={`home-hero relative ${onImage ? 'text-white' : 'bg-bg2 text-text'}`}>
       {image && (
         <>
-          <ConfigImage sizes="100vw" fetchPriority="high" loading="eager" decoding="async" src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <ConfigImage sizes="100vw" fetchPriority="high" loading="eager" decoding="async" src={image} alt="" className="absolute inset-0 h-full w-full object-cover" style={focalPointStyle(home.hero_image_focal)} />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/20" />
         </>
       )}

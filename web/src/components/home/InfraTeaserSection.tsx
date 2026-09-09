@@ -3,6 +3,7 @@ import { isPublished, PAGES } from '../../lib/site';
 import { Link } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Teaser infrastructures — `home.infra_teaser`. Trois cartes recommandées, la liste décide. */
 export default function InfraTeaserSection() {
@@ -28,7 +29,7 @@ export default function InfraTeaserSection() {
             >
               {image && (
                 <>
-                  <ConfigImage sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" loading="lazy" decoding="async" src={image} alt={item.label} className="aspect-[4/3] w-full object-cover" />
+                  <ConfigImage sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" loading="lazy" decoding="async" src={image} alt={item.label} className="aspect-[4/3] w-full object-cover" style={focalPointStyle(item.image_focal)} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 </>
               )}

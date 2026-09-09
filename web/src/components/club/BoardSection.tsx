@@ -1,6 +1,7 @@
 import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /**
  * Initiales d'un membre : première lettre des deux premiers mots du nom (maquette : rien —
@@ -44,6 +45,7 @@ export default function BoardSection() {
                   src={photo}
                   alt={member.name}
                   className="aspect-square w-full rounded-card border border-line object-cover shadow-soft"
+                  style={focalPointStyle(member.photo_focal)}
                 />
               ) : (
                 short && (

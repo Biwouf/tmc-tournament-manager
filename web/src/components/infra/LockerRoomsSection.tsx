@@ -1,6 +1,7 @@
 import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Vestiaires — `infra.locker_rooms.*`. */
 export default function LockerRoomsSection() {
@@ -17,6 +18,7 @@ export default function LockerRoomsSection() {
             src={image}
             alt={lockers.title || 'Vestiaires'}
             className="aspect-[16/10] w-full rounded-card object-cover shadow-soft"
+            style={focalPointStyle(lockers.image_focal)}
           />
         )}
         <div>

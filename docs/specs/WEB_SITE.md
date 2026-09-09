@@ -72,10 +72,12 @@ que le H1 reprend la config lorsqu’elle est renseignée. Si `page_title` est v
 serveur fournit un H1 de repli dérivé de la page et du club (§3), en conservant le sur-titre
 et la mise en forme. `PageHeader` ne rend jamais `null`.
 
-⚠️ **Dette** : le libellé du champ au BO (`/admin/site`) dit encore « Titre H1 de la page »
-alors que ce champ est devenu une accroche. Le corriger touche `src/` — c'est repris dans
-`PR9ter`. Les clubs déjà configurés y ont souvent saisi le nom de la page, qui fait alors
-doublon avec le sur-titre.
+✅ **Dette fermée par PR9-ter** : le libellé du champ au BO (`/admin/site`) disait « Titre de la
+page » — et non « Titre H1 de la page », comme l'annonçaient à tort cette note et le brief
+PR9-ter §6 — alors que ce champ est devenu une **accroche**. Il dit désormais **« Accroche de la
+page »**, avec une aide nommant le sur-titre en dur de la page concernée. Les clubs déjà
+configurés y ont souvent saisi le nom de la page, qui fait alors doublon avec le sur-titre : le
+libellé corrigé le leur signale, mais **aucune donnée n'est modifiée**.
 
 L'accueil n'est pas concerné : son bandeau a sa propre structure.
 
@@ -145,6 +147,12 @@ le sous-domaine est redirigé en 308 vers le domaine personnalisé, les slashs f
 normalisés. Les paramètres de suivi ne sont pas dans la canonical et ne changent pas le club.
 Les headers forwarded et les paramètres de requête ne choisissent jamais un tenant.
 
+**Favicon (PR9-ter)** : `lib/seo.ts` génère le lien d’icône depuis `brand.logo` dans
+le HTML initial, avec une URL absolue échappée et sans imposer de type d’image.
+Sans logo, aucun lien d’icône n’est ajouté. Chaque navigation charge un nouveau
+document (`reloadDocument`) : la vitrine ne modifie plus le favicon via un effet
+navigateur. Le provider reste celui du snapshot SSR, sans requête supplémentaire.
+
 **Actualisation : aucun cache HTML, de données ou CDN**, `Cache-Control: private, no-store,
 max-age=0`, `CDN-Cache-Control: no-store`, `Vercel-CDN-Cache-Control: no-store`. Une sauvegarde BO
 ou suspension est visible à la requête suivante ; aucune purge ou webhook nécessaire. Aucun
@@ -206,6 +214,7 @@ Trois propriétés à connaître avant de toucher à cette migration :
 | `lib/supabase.ts` | Client `anon`, **`persistSession: false`** (site public, aucune auth) |
 | `lib/clubConfig.ts` | **Copie** de `src/lib/clubConfig.ts`, synchronisée manuellement. Ne rien y diverger. |
 | `lib/configImage.ts` | Valeur de config → URL affichable. Accepte une URL publique complète (ce qu'écrit le BO) **ou** une clé Storage nue (ce que tolère le contrat). Vide → `null`, et `null` masque le bloc. |
+| `lib/focalPoint.ts` | `focalPointStyle(fp)` → `{ objectPosition: 'x% y%' }`, repli `50% 50%`. **3ᵉ copie** de `pwa/src/utils/focalPoint.ts`, synchronisée manuellement comme `lib/clubConfig.ts` — corps identique, seul le type importé diffère (`ClubConfigFocalPoint` ici, `ActuFocalPoint` là-bas). |
 | `lib/tokens.ts` | Dérive `--brand` / `--brand-dark` / `--brand-soft` de `brand.color`. Fallback `#e51828` (brief §4) — seule couleur en dur tolérée. |
 | `lib/price.ts` | Montant du contrat (nombre) → texte. La **période** n'est pas de son ressort : « / an » est ajouté en dur par les composants de tarifs (§7). |
 | `contexts/SiteContext.tsx` | Provider du snapshot serveur ; `useSite()` rend `{ club, config, clubName, origin, optimizeImages }`. |
@@ -265,6 +274,58 @@ La respiration avant le footer (`90px` dans la maquette, portée par la dernièr
 posée **une seule fois sur `<main>`** (`.page-end`) : sur un club à config partielle, la
 dernière section rendue n'est pas toujours la même, et l'accrocher à un composant donné la
 ferait disparaître avec lui.
+
+### Point d'intérêt des images (PR9-ter)
+
+Une image de config est rendue en `object-fit: cover` dans un conteneur à ratio fixe : elle est
+**recadrée**, et un portrait dont le visage n'est pas au centre est coupé. Le contrat porte donc
+une **clé sœur optionnelle** à côté de chaque clé image recadrée — `hero_image_focal` à côté de
+`hero_image` — et la vitrine l'applique par `focalPointStyle()`. **Clé absente → `50% 50%`**,
+c'est-à-dire le comportement d'avant : aucune config existante ne change d'aspect.
+
+**Les 10 images couvertes** (relevées composant par composant : ce sont exactement celles que la
+vitrine rend en `cover`) :
+
+| Champ de config | Composant | Cadre |
+|---|---|---|
+| `home.hero_image` | `HeroSection` | fond plein du bandeau |
+| `home.school_teaser_image` | `SchoolTeaserSection` | moitié de la carte, `min-h-64` |
+| `home.infra_teaser[].image` | `InfraTeaserSection` | `4/3` |
+| `club.president.photo` | `PresidentSection` | médaillon rond `176×176` |
+| `club.coach.photo` | `CoachSection` | `4/5` |
+| `club.programs[].image` | `ProgramsSection` | `16/9` |
+| `club.board[].photo` | `BoardSection` | carré |
+| `infra.courts[].image` | `CourtsSection` | `16/10` |
+| `infra.clubhouse.images[]` | `ClubhouseSection` | carré |
+| `infra.locker_rooms.image` | `LockerRoomsSection` | `16/10` |
+
+**Exclus, et c'est délibéré** : `brand.logo` / `brand.logo_inverse` (header, footer) et
+`partners[].logo` sont rendus en **`object-contain`** — ils ne sont jamais coupés, un point
+d'intérêt y serait un réglage sans effet ; les deux listes de `posters` ne sortent pas sur la
+vitrine.
+
+⚠️ **`infra.clubhouse.images` est le seul cas particulier** : c'est un `list<image>` dont les
+entrées sont des **chaînes**, sans place pour une clé sœur. Son point d'intérêt vit dans un
+**tableau parallèle** `clubhouse.images_focal`, indexé comme `images` (le patron
+d'`actus.image_focal_points`), `null` tenant la place d'une image non recadrée. `ClubhouseSection`
+**apparie image et focal AVANT de filtrer** les valeurs vides — filtrer d'abord décalerait tous
+les cadrages suivants d'un cran.
+
+Le sélecteur du BO affiche l’image entière à proportions conservées : le clic et la
+pastille utilisent les coordonnées de l’image source. L’aperçu reste immobile lors
+de la sélection ; seuls les cadres de la vitrine appliquent le recadrage.
+
+### Bandeau d'inscription de `/tarifs` (PR9-ter)
+
+`pricing.cta_*` est un bandeau **sombre** (`--text`) — dernier appel de la page, il doit trancher
+sur le fond : `padding: clamp(32px, 4vw, 52px)`, `flex` `space-between`, `gap:24px`, `flex-wrap`,
+h3 `clamp(22px,3vw,30px)/800`, texte 16 px à 78 % de blanc (`margin-top:6px`), bouton
+`15px 30px` / 16 px / 700 sur `--brand`, rayon 999 px, survol `--brand-dark`.
+
+⚠️ **À ne pas confondre avec `home.cta_*`** (`home/CtaSection.tsx`), un bloc **différent** et
+volontairement plus haut : `padding: clamp(40px, 6vw, 72px)`, centré, avec son cercle décoratif
+en `position:absolute` sur un conteneur en `overflow:hidden`. La maquette les distingue ; les
+aligner l'un sur l'autre les rendrait interchangeables.
 
 ### « / an » sur les prix
 

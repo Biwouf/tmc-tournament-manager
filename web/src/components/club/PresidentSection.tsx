@@ -1,6 +1,7 @@
 import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Mot du président·e — `club.president.*`. */
 export default function PresidentSection() {
@@ -19,6 +20,7 @@ export default function PresidentSection() {
                 src={photo}
                 alt={president.name || ''}
                 className="mx-auto h-44 w-44 rounded-full border-4 border-brand-soft object-cover"
+                style={focalPointStyle(president.photo_focal)}
               />
             )}
             {president.name && <div className="mt-4 text-lg font-extrabold">{president.name}</div>}

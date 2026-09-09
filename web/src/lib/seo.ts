@@ -74,8 +74,10 @@ export function structuredData(site: Site, page: Page) {
 }
 export function headMarkup(site: Site, page: Page, indexable: boolean): string {
   const m = metadata(site, page);
+  const favicon = configImageUrl(site.config.brand.logo);
   const esc = escapeHtml;
   return `<title>${esc(m.title)}</title>
+${favicon ? `<link rel="icon" href="${esc(favicon)}">` : ''}
 <meta name="description" content="${esc(m.description)}">
 <meta name="robots" content="${indexable ? 'index, follow' : 'noindex, follow'}">
 <link rel="canonical" href="${esc(m.canonical)}">
