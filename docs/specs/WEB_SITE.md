@@ -42,6 +42,11 @@ Transverses : header sticky (logo + nom + ville + nav + CTA), menu mobile, foote
 (`brand.*` + `contact.*` + `social.*` + `legal.*`), bouton flottant et drawer de contact
 (réutilise `contact.*`). Toute autre URL retourne une vraie réponse HTTP 404.
 
+Le menu mobile couvre tout le viewport avec un fond opaque, y compris le bouton flottant
+de contact. Il est rendu hors du header flouté : le `backdrop-filter` du header ferait
+sinon de celui-ci le bloc contenant du menu `fixed`. Le menu défile indépendamment
+si sa hauteur dépasse celle de l’écran.
+
 Les deux boutons du bandeau d’accueil sont fixes : **« Nous contacter »** ouvre le drawer
 et le lien **« Découvrir le club »** navigue vers `/club` si cette page est publiée.
 Leurs libellés ne font pas partie de la configuration. Les anciennes clés

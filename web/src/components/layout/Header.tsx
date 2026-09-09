@@ -28,45 +28,50 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
-      <div className="shell flex items-center gap-7 py-3">
-        <NavLink reloadDocument to="/" className="flex items-center gap-3">
-          {identity}
-        </NavLink>
+    <>
+      <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
+        <div className="shell flex items-center gap-7 py-3">
+          <NavLink reloadDocument to="/" className="flex items-center gap-3">
+            {identity}
+          </NavLink>
 
-        <nav className="ml-auto hidden items-center gap-1 lg:flex">
-          {PAGES.filter(page => isPublished(config, page)).map((item) => (
-            <NavLink reloadDocument
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-[14.5px] font-semibold transition-colors hover:bg-brand-soft hover:text-brand ${
-                  isActive ? 'text-brand' : 'text-text'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-          <button type="button" onClick={openDrawer} className="btn btn-primary ml-3 px-5 py-2.5">
-            Nous contacter
+          <nav className="ml-auto hidden items-center gap-1 lg:flex">
+            {PAGES.filter(page => isPublished(config, page)).map((item) => (
+              <NavLink reloadDocument
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
+                className={({ isActive }) =>
+                  `rounded-full px-4 py-2 text-[14.5px] font-semibold transition-colors hover:bg-brand-soft hover:text-brand ${
+                    isActive ? 'text-brand' : 'text-text'
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+            <button type="button" onClick={openDrawer} className="btn btn-primary ml-3 px-5 py-2.5">
+              Nous contacter
+            </button>
+          </nav>
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Ouvrir le menu"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            className="ml-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-xl text-white lg:hidden"
+          >
+            ≡
           </button>
-        </nav>
+        </div>
+      </header>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Ouvrir le menu"
-          className="ml-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-xl text-white lg:hidden"
-        >
-          ≡
-        </button>
-      </div>
-
+      {/* Hors du header : backdrop-blur crée un bloc contenant pour les descendants fixed. */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-bg p-6 lg:hidden">
-          <div className="flex items-center justify-between">
+        <div id="mobile-menu" className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-bg p-6 lg:hidden">
+          <div className="flex shrink-0 items-center justify-between">
             <div className="flex items-center gap-3">{identity}</div>
             <button
               type="button"
@@ -98,12 +103,12 @@ export default function Header() {
               setMenuOpen(false);
               openDrawer();
             }}
-            className="btn btn-primary mt-6 w-full"
+            className="btn btn-primary mt-6 w-full shrink-0"
           >
             Nous contacter
           </button>
         </div>
       )}
-    </header>
+    </>
   );
 }
