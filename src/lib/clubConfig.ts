@@ -65,6 +65,13 @@ const brandSchema = z.object({
   copyright: optionalText,
 });
 
+// SEO : publication automatique si du contenu existe ; deux surcharges facultatives.
+const pageSeoFields = {
+  published: z.boolean().catch(true).default(true),
+  seo_title: optionalText,
+  seo_description: optionalText,
+};
+
 // ── home.* — page d'accueil vitrine (web_site_brief §5.2) ────────────────────
 const statSchema = z.object({ value: text, label: text });
 const infraTeaserSchema = z.object({
@@ -74,6 +81,7 @@ const infraTeaserSchema = z.object({
 });
 
 const homeSchema = z.object({
+  ...pageSeoFields,
   hero_image: optionalText,
   hero_eyebrow: optionalText,
   hero_title: text,
@@ -121,6 +129,7 @@ const programSchema = z.object({
 const boardMemberSchema = z.object({ name: text, role: text, photo: optionalText });
 
 const clubSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   president: presidentSchema
     .catch(() => presidentSchema.parse({}))
@@ -155,6 +164,7 @@ const lockerRoomsSchema = z.object({
 });
 
 const infraSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   courts: z.array(courtSchema).catch([]),
   clubhouse: clubhouseSchema
@@ -186,6 +196,7 @@ const membershipSchema = z.object({ name: text, subtitle: optionalText, price: a
 const otherFeeSchema = z.object({ label: text, price: text });
 
 const pricingSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   season: optionalText,
   note: optionalText,
@@ -201,6 +212,7 @@ const pricingSchema = z.object({
 const openingHourSchema = z.object({ day: text, time: text });
 
 const contactSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   address_street: optionalText,
   address_postal_code: optionalText,
@@ -242,6 +254,7 @@ const legalSchema = z.object({
 const flag = z.boolean().catch(true).default(true);
 
 const settingsSchema = z.object({
+  search_indexing: flag,
   show_news: flag,
   show_events: flag,
   show_partners: flag,

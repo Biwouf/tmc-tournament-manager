@@ -1,13 +1,9 @@
+import { useLocation } from 'react-router-dom';
+import { useSite } from '../../contexts/SiteContext';
+import { pageAt, pageHeading } from '../../lib/site';
+
 /**
- * En-tête des pages intérieures (maquette 1734-1737, 1831-1834, 1886-1889, 1958-1961).
- *
- * Deux niveaux : un SUR-TITRE en dur, propre à la page, puis `*.page_title` en H1 sous lui.
- * Le sur-titre nomme la page (« Le club ») ; le H1 porte l'accroche que le club a écrite —
- * c'est pour ça qu'il est le seul des deux à venir de la config.
- *
- * Conséquence sur la règle §10 de PR9 : `page_title` vide fait disparaître le H1, **pas**
- * l'en-tête. Le sur-titre est en dur, il ne peut pas manquer, et un bandeau qui ne porte que le
- * nom de la page n'est pas un bloc creux. Le composant ne rend donc jamais `null`.
+ * En-tête des pages intérieures : H1 dérivé de la page et du club si non saisi.
  */
 export default function PageHeader({
   overline,
@@ -22,6 +18,11 @@ export default function PageHeader({
   /** `max-width:18ch` sur le H1 — seule la page club le porte (maquette 1736). */
   narrowTitle?: boolean;
 }) {
+  const site = useSite();
+  const { pathname } = useLocation();
+  const page = pageAt(pathname);
+  title = title?.trim() || (page ? pageHeading(site, page) : site.clubName);
+
   return (
     <div className="shell pt-16">
       <span className="eyebrow">{overline}</span>

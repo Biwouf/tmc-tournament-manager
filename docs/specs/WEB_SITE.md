@@ -9,7 +9,7 @@
 
 ## 1. Ce que c'est
 
-Un site vitrine **public**, servi sur `<slug>.feelike.app`, **entièrement** rendu depuis
+Un site vitrine **public**, servi sur `<slug>.feelike.app`, **entièrement** rendu côté serveur depuis
 `club_settings.config` du club résolu par sous-domaine. Aucun contenu n'est écrit en dur : deux
 clubs différents donnent deux sites différents avec le même bundle.
 
@@ -22,7 +22,7 @@ clubs différents donnent deux sites différents avec le même bundle.
 | Stack | React 19, TypeScript, Vite, Tailwind CSS v4 (`@tailwindcss/vite`), React Router v7, `@supabase/supabase-js`, `zod` |
 
 **Pas de** `vite-plugin-pwa` (l'app installable est `pwa/`), **pas de** TanStack Query : la
-vitrine lit *une* ligne au montage et n'a rien à invalider. Police **`Manrope` auto-hébergée**
+vitrine lit une jointure par requête HTTP et ne conserve aucun cache de contenu. Police **`Manrope` auto-hébergée**
 (`@fontsource-variable/manrope`) et non Google Fonts — un site public français ne doit pas
 appeler `fonts.gstatic.com` à chaque visite (même raisonnement RGPD que le choix de Brevo, D7).
 
@@ -40,12 +40,11 @@ appeler `fonts.gstatic.com` à chaque visite (même raisonnement RGPD que le cho
 
 Transverses : header sticky (logo + nom + ville + nav + CTA), menu mobile, footer
 (`brand.*` + `contact.*` + `social.*` + `legal.*`), bouton flottant et drawer de contact
-(réutilise `contact.*`). Toute autre URL rend l'accueil — une vitrine n'a pas de 404 utile, et
-la page « club inconnu » est PR13.
+(réutilise `contact.*`). Toute autre URL retourne une vraie réponse HTTP 404.
 
 Les deux boutons du bandeau d’accueil sont fixes : **« Nous contacter »** ouvre le drawer
-et **« Découvrir le club »** navigue vers `/club`. Ils apparaissent dès que le bandeau a du
-contenu ; leurs libellés ne font pas partie de la configuration. Les anciennes clés
+et le lien **« Découvrir le club »** navigue vers `/club` si cette page est publiée.
+Leurs libellés ne font pas partie de la configuration. Les anciennes clés
 `home.hero_cta_primary` et `home.hero_cta_secondary` sont ignorées à la lecture et ne sont
 plus proposées dans le BO. Sur une image, le bouton secondaire reprend le fond blanc
 translucide (14 %, 24 % au survol), la bordure blanche à 40 % et le flou de 6 px de la maquette.
@@ -64,9 +63,9 @@ un **sur-titre EN DUR**, puis `*.page_title` en H1 sous lui.
 | `/contact` | `Contact` | `contact.page_title` |
 
 Le sur-titre **nomme la page** ; le H1 porte **l'accroche** que le club a écrite. C'est pour ça
-que le H1 est le seul des deux à venir de la config — et que `page_title` fait disparaître le H1
-sans faire disparaître l'en-tête (§3) : un bandeau réduit au nom de la page n'est pas un bloc
-creux, et le sur-titre étant en dur, il ne peut pas manquer. `PageHeader` ne rend jamais `null`.
+que le H1 reprend la config lorsqu’elle est renseignée. Si `page_title` est vide, le rendu
+serveur fournit un H1 de repli dérivé de la page et du club (§3), en conservant le sur-titre
+et la mise en forme. `PageHeader` ne rend jamais `null`.
 
 ⚠️ **Dette** : le libellé du champ au BO (`/admin/site`) dit encore « Titre H1 de la page »
 alors que ce champ est devenu une accroche. Le corriger touche `src/` — c'est repris dans
@@ -92,15 +91,16 @@ premier écran que voit un nouveau client, pas un cas limite.
 - Pas de « Lorem », pas de placeholder gris, **aucune valeur d'exemple d'un club existant en
   repli**.
 - Une liste vide (`stats`, `partners`, `courts`, `programs`, `board`…) → section entière absente.
-- Une page dont tout le contenu est vide reste accessible et rend le chrome (header/footer).
-  Pas de 404.
+- Une page intérieure sans contenu utile, ou retirée (`published: false`), retourne 404 et
+  disparaît de la navigation et du sitemap. Un titre, une photo ou un bouton seuls ne suffisent
+  pas. L’accueil vide reste accessible avec le nom du club en H1, en `noindex`.
 - Le nom affiché est `brand.name || clubs.name` : `brand.name` peut être vide, `clubs.name` est
   toujours renseigné (c'est la console qui le crée). Le repli est fait **une fois**, dans
-  `SiteContext`.
+  le chargement serveur, puis transmis à `SiteContext`.
 - Le formulaire de contact fait exception : ses champs sont **fixes** (non configurables), il
-  est donc rendu même sur une config vide.
+  reste disponible dans le drawer même sur une config vide ; la page Contact exige des coordonnées.
 - Le **sur-titre** des pages intérieures fait exception pour la même raison : il est en dur (§2).
-  `page_title` vide fait tomber le H1, pas l'en-tête.
+  `page_title` vide utilise le H1 de repli.
 - **Seul placeholder toléré de la vitrine** : les **initiales** d'un membre du bureau sans photo
   (`club.board[].photo` est optionnel au contrat). Il ne comble pas une entrée absente — il
   complète une entrée **par ailleurs renseignée**, dont le nom et le rôle s'affichent, et évite
@@ -111,34 +111,54 @@ C'est le pendant, côté rendu, de la règle 2 de `clubConfig.ts` (« la lecture
 
 ---
 
-## 4. Résolution du tenant
+## 4. Rendu serveur et résolution du tenant
 
-`web/src/contexts/SiteContext.tsx` — même patron que `src/contexts/ClubContext.tsx` (BO) et sa
-copie PWA, **amputé de tout ce qui suppose une session** :
+**Vite + React conservés**, sans changement de framework. `server/tenant.ts` résout le club
+sur chaque requête HTTP, puis `server/render.tsx` rend les composants dans un `StaticRouter`.
+Une lecture REST `clubs?select=…,club_settings(config)` filtre **le slug ou le domaine exact** :
+statut, identité et configuration proviennent du même snapshot SQL. Le rôle reste `anon`.
 
-| Dans le BO | Dans `web/` |
-|---|---|
-| Override de support `localStorage` | ❌ supprimé (pas de super-admin sur un site public) |
-| Requête `clubs` authentifiée | ✅ identique, en `anon` |
-| Écran bloquant si club introuvable | ✅ conservé, habillé aux tokens de la vitrine |
-| — | ✅ charge **aussi** `club_settings.config` dans la même passe |
+- `<slug>.feelike.app` : résolution du slug, sans repli ; `admin`, `www`, `api`, `app` et
+  `app-*` sont réservés.
+- Domaine personnalisé : correspondance exacte avec `clubs.custom_domain`. Cette colonne
+  n’est à remplir qu’après vérification et rattachement DNS/Vercel par la plateforme ; la PR
+  ne provisionne aucun domaine et n’ajoute pas d’UI custom domain.
+- Localhost / loopback : `VITE_DEV_CLUB_SLUG` explicite, **uniquement** avec
+  `VITE_ENV=development` et sans `VERCEL_ENV`.
+- Preview : repli explicite seulement sur les hôtes `VERCEL_URL` et `VERCEL_BRANCH_URL`, avec
+  `VERCEL_ENV=preview`. Aucun repli générique sur `*.vercel.app`.
+- Club absent ou suspendu : 404 sans contenu du club. Erreur réseau, DB ou relation
+  `club_settings` invisible : 503 + `Retry-After: 60`, jamais un faux site vide.
 
-```ts
-function resolveSlug(): string {
-  const host = window.location.hostname;
-  const match = host.match(/^([a-z0-9-]+)\.feelike\.app$/);
-  if (match) return match[1];
-  return (import.meta.env.VITE_DEV_CLUB_SLUG as string | undefined) ?? 'cac-tennis';
-}
-```
+L’origine canonique vient de la fiche du club : `https://<slug>.feelike.app`, ou son
+`custom_domain`. Elle n’est jamais construite aveuglément à partir du Host. En production,
+le sous-domaine est redirigé en 308 vers le domaine personnalisé, les slashs finaux sont
+normalisés. Les paramètres de suivi ne sont pas dans la canonical et ne changent pas le club.
+Les headers forwarded et les paramètres de requête ne choisissent jamais un tenant.
 
-- Le préfixe `app-` (PWA, D9) n'est pas traité : c'est un autre projet Vercel. Un
-  `app-<slug>.feelike.app` arrivant ici ne résoudrait aucun slug — comportement correct.
-- **Deux round-trips au montage, pas plus** : `clubs` (slug → id, name, sport, status) puis
-  `club_settings` (config). `parseClubConfig()` est appelé **une fois**, dans le provider ; les
-  pages reçoivent un `ClubConfig` normalisé, jamais du JSON brut, et **ne requêtent rien**.
-- Club introuvable ou suspendu → écran bloquant sobre. La vraie page « club inconnu » (design,
-  slug dans l'URL) est PR13.
+**Actualisation : aucun cache HTML, de données ou CDN**, `Cache-Control: private, no-store,
+max-age=0`, `CDN-Cache-Control: no-store`, `Vercel-CDN-Cache-Control: no-store`. Une sauvegarde BO
+ou suspension est visible à la requête suivante ; aucune purge ou webhook nécessaire. Aucun
+état de club mutable au niveau du module serveur. Le coût est une lecture Supabase et un rendu
+par requête ; mesurer la latence avant d’ajouter un cache. Un éventuel cache futur devra être
+indexé par origine + club + route + version et purgé aussi lors des suspensions.
+
+`SiteContext` ne charge plus de données : il reçoit le snapshot assaini, sérialisé avec
+échappement dans `#site-data`. Les fonds d’affiches BO, les clés inconnues et les groupes de
+pages explicitement retirées n’y sont pas inclus. Cette projection n’est **pas** un contrôle
+RLS de confidentialité : la configuration source reste publique selon les règles existantes.
+
+`hydrateRoot` réutilise exactement ce snapshot. Les liens React Router portent
+`reloadDocument` : chaque navigation actualise le contenu, les métadonnées et les statuts
+ensemble. Le retour depuis le cache de navigation navigateur provoque aussi un rechargement.
+Une page déjà ouverte n’est pas un abonnement temps réel : les mises à jour prennent effet au
+prochain chargement/navigation. Le drawer reste interactif sans requête supplémentaire.
+
+La feuille `src/index.css` est liée directement dans le head de `index.html`, sans import
+JavaScript : le navigateur attend les styles avant de peindre le contenu SSR, en dev comme
+en production. Vite transforme ce lien en asset CSS au build. Les tokens de marque rendus
+par le serveur utilisent `html:root` pour primer sur les valeurs `:root` de repli, même si
+Vite déplace la feuille CSS après le style de marque.
 
 ---
 
@@ -171,17 +191,17 @@ Trois propriétés à connaître avant de toucher à cette migration :
 
 | Fichier | Rôle |
 |---|---|
-| `main.tsx` | Montage + `BrowserRouter` |
-| `App.tsx` | Providers, chrome (header / footer / drawer), routes des 5 pages, remise à zéro du scroll |
+| `main.tsx` | Hydratation du snapshot SSR + `BrowserRouter` |
+| `App.tsx` | Snapshot en prop, providers, chrome, routes des 5 pages et garde de publication |
 | `index.css` | Tokens « conviviale », mapping `@theme inline` vers Tailwind, classes `.shell` / `.section` (+ `--sec-top`) / `.page-end` / `.page-h1` / `.btn` / `.card` / `.card-lift` / `.field` |
 | `lib/supabase.ts` | Client `anon`, **`persistSession: false`** (site public, aucune auth) |
 | `lib/clubConfig.ts` | **Copie** de `src/lib/clubConfig.ts`, synchronisée manuellement. Ne rien y diverger. |
 | `lib/configImage.ts` | Valeur de config → URL affichable. Accepte une URL publique complète (ce qu'écrit le BO) **ou** une clé Storage nue (ce que tolère le contrat). Vide → `null`, et `null` masque le bloc. |
 | `lib/tokens.ts` | Dérive `--brand` / `--brand-dark` / `--brand-soft` de `brand.color`. Fallback `#e51828` (brief §4) — seule couleur en dur tolérée. |
 | `lib/price.ts` | Montant du contrat (nombre) → texte. La **période** n'est pas de son ressort : « / an » est ajouté en dur par les composants de tarifs (§7). |
-| `contexts/SiteContext.tsx` | Résolution du tenant + config + application des tokens + `document.title`. `useSite()` rend `{ club, config, clubName }`. |
+| `contexts/SiteContext.tsx` | Provider du snapshot serveur ; `useSite()` rend `{ club, config, clubName, origin, optimizeImages }`. |
 | `contexts/ContactDrawerContext.tsx` | Ouverture/fermeture du drawer, appelée depuis le header, le menu mobile, le hero, les bannières CTA et le bouton flottant. |
-| `components/layout/` | `Header` (sticky + menu mobile), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader`, `navItems.ts` |
+| `components/layout/` | `Header` (sticky + menu mobile), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader` (H1 de repli) ; navigation dérivée de `lib/site.ts` |
 | `components/home/` | `HeroSection`, `StatsSection`, `SchoolTeaserSection`, `InfraTeaserSection`, `PartnersSection`, `CtaSection` |
 | `components/club/` | `PresidentSection`, `ValuesSection`, `CoachSection`, `ProgramsSection`, `BoardSection` |
 | `components/infra/` | `CourtsSection`, `ClubhouseSection`, `LockerRoomsSection` |
@@ -267,25 +287,101 @@ neutralisé sous `@media (prefers-reduced-motion: reduce)`.
 | Envoi du formulaire de contact | **PR11** — le markup est complet (c'est du design), la **soumission est désactivée** : un bouton inerte vaut mieux qu'un formulaire qui perd les messages d'un vrai visiteur |
 | Bannière d'installation PWA | **PR12** |
 | Wildcard DNS, page « club inconnu » soignée | **PR13** |
-| **SEO / Open Graph / `<title>` par page** | **dette ouverte** — seul le titre d'onglet global (nom du club) est posé. Une vitrine publique a besoin du reste ; ce n'est dans aucune PR du plan. |
+| SEO / GEO technique | Socle implémenté : voir §10 et `docs/SEO_GEO_AUDIT_WEB.md`. Validation du domaine public après déploiement à effectuer. |
 | Page `/mentions-legales` dédiée | hors périmètre — `legal.*` alimente le footer |
 | i18n, mode sombre, analytics | non demandés (une balise tierce est une décision RGPD, pas un détail de scaffold) |
 
 ---
 
-## 9. Développement local
+## 9. Développement, tests et déploiement
+
+Projets npm séparés : `npm ci` à la racine pour le BO, puis `npm --prefix web ci` pour la vitrine.
+Node **22.x**. Ne pas lancer le serveur Vite seul : il ne sert pas le contrat HTTP SSR.
 
 ```bash
 cd web
-npm install
-cp .env.example .env.local   # puis renseigner les clés du projet Supabase de DEV
-npm run dev
+cp .env.example .env.local   # seulement si absent ; clés Supabase DEV
+npm run dev -- --port 0     # port libre affiché dans le terminal
+npm test                   # fixtures locales, aucune écriture Supabase
+npm run build              # client + bundle SSR + Build Output API
+npm run check:build         # exécute la fonction empaquetée avec données simulées
+npm run preview -- --port 0 # serveur du build, port libre
+npm run check:http -- http://127.0.0.1:PORT
 ```
 
-`VITE_DEV_CLUB_SLUG` choisit le club rendu tant que le wildcard `*.feelike.app` n'existe pas.
-Le club visé doit être **actif** et la migration `20260909` appliquée sur l'environnement,
-sinon la vitrine rend un site vide (la RLS renvoie une config vide, pas une erreur).
+`check:http` accepte seulement un serveur local et `VITE_ENV=development` ; il contrôle les
+routes puis lit au plus deux clubs actifs de dev pour comparer leurs snapshots. L’absence de
+second club est signalée ; les tests concurrents sur deux fixtures ne dépendent pas de la base.
+Aucun de ces scripts n’enregistre de contenu. Le dev refuse de démarrer si `VITE_ENV` n’est
+pas `development`. La preview locale d’un build de dev conserve le `noindex`.
 
-Déploiement : projet Vercel séparé, Root Directory `web/`, build `npm run build`, output `dist`.
-Variables : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_ENV` (+ `VITE_DEV_CLUB_SLUG` en
-preview). Rien à déployer côté Edge Functions.
+**Vercel** : projet séparé, Root Directory **`web/`**, preset **Other** (`framework: null`),
+Node 22.x, installation `npm ci`, build `npm run build`. Retirer l’ancien override Output
+Directory `dist` et le rewrite SPA vers `index.html`. Le build produit
+**`.vercel/output/config.json` + `functions/site.func/` + `static/assets/`**. Aucun `index.html`
+public statique ; il est uniquement le template privé de la fonction. Le manifest Node, le
+bundle autonome et son template sont vérifiés par `check:build`.
+
+Variables build : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_ENV`, et
+`VITE_DEV_CLUB_SLUG` en local/preview. Variables système Vercel à exposer au runtime :
+`VERCEL_ENV`, `VERCEL_URL`, `VERCEL_BRANCH_URL`. Production : `VITE_ENV=production` sur la base
+prod ; preview : base dev et `VITE_ENV=development`. Les variables VITE sont intégrées au
+build : tout changement de projet Supabase nécessite un rebuild. Aucune clé service role.
+La migration `20260909` déjà appliquée en production reste requise ; aucune nouvelle migration
+ni Edge Function dans cette PR.
+
+Avant d’ouvrir à l’indexation : rattacher le domaine canonique et HTTPS (wildcard PR13),
+vérifier la protection des previews, puis contrôler **sur Vercel** les 200/404/503, les
+redirections et les en-têtes sans JS. Tester aussi `/_vercel/image` et la taille effectivement
+servie sur mobile. Le test local du bundle ne simule pas le CDN ou l’optimiseur Vercel.
+Aucun déploiement n’a été effectué dans cette tâche.
+
+## 10. Publication, SEO / GEO et images
+
+`lib/site.ts` porte les cinq routes, les titres H1 de repli, la disponibilité et la préparation
+à l’indexation. `lib/seo.ts` génère titre, description, canonical absolue, Open Graph et JSON-LD
+dès le HTML initial. Les descriptions résument les textes de la page ; elles n’ajoutent pas de
+prestations ou d’informations locales. Les horaires libres ne deviennent pas des heures structurées.
+
+**Configuration automatique** : aucun champ SEO obligatoire, aucune saisie de canonical ou de
+JSON-LD. Chaque groupe de page dispose de `published` (défaut `true`) et de `seo_title` /
+`seo_description` facultatifs, repliés dans le BO. Un titre SEO saisi ne publie pas une page
+vide. `settings.search_indexing` (défaut `true`) permet de suspendre globalement l’indexation.
+Contrat JSONB additif, version 1 inchangée, copies BO/vitrine synchronisées.
+
+L’indexation exige **toutes** les conditions suivantes :
+
+- `VERCEL_ENV=production` et `VITE_ENV=production` ;
+- accueil accessible et avec contenu, `settings.search_indexing` actif ;
+- tarifs accessibles : saison, au moins une formule/prestation, nom et montant de chaque
+  formule, libellé/prix de chaque autre frais (zéro est un prix valide) ;
+- contact accessible : rue, code postal, ville, et téléphone ou email.
+
+Sinon les pages accessibles restent en `noindex, follow`. Cela ne remplace pas une validation
+éditoriale : textes de test, orthographe, exactitude des horaires et saison sont à contrôler
+par le club. Une page intérieure vide ou retirée retourne 404. Le sitemap ne contient que les
+pages publiées d’un site prêt à indexer en production ; il est vide en dev/preview et pendant
+la préparation. `robots.txt` reste explorable (`Allow: /`) pour que les moteurs puissent lire
+`noindex` ; il annonce le sitemap seulement en production prête. Un `Disallow` ne remplace pas
+la directive d’exclusion. Les erreurs ont également `X-Robots-Tag: noindex, follow`.
+
+Le JSON-LD relie une entité `SportsClub` stable (`origine/#club`) à chaque `WebPage`. Nom,
+logo, adresse, téléphone, email et profils officiels proviennent exclusivement des données
+également visibles. Aucun avis, note, coordonnée GPS, statut officiel ou horaire précis inventé.
+Pas de priorité à `llms.txt`, pas de promesse de classement, résultat enrichi ou citation IA.
+
+**Images** : `ConfigImage` conserve les originaux et les ratios CSS, réserve les dimensions
+des logos, diffère les images sous le bandeau et donne la priorité au hero. Les alternatives
+informatives viennent des libellés existants. Sur Vercel seulement, les photos raster du bucket
+`content-images/<club_id>/…` utilisent `srcset` / `sizes` et l’optimiseur natif (WebP négocié,
+qualité 75, six largeurs bornées). Les URL externes, SVG et GIF restent inchangées. Le build
+limite l’optimiseur au bucket public du projet Supabase configuré ; les URLs contiennent le
+club et le chemin complet. Un échec d’optimisation revient à la source originale après
+hydratation. Le BO donne un nouveau chemin à chaque upload, ce qui renouvelle aussi le cache
+image. Une suspension retire les pages, **pas** les fichiers du bucket déjà public.
+L’optimisation consomme le quota du projet Vercel ; aucune transformation n’est simulée en local.
+
+Choix techniques : [SSR Vite](https://vite.dev/guide/ssr.html),
+[Build Output API Vercel](https://vercel.com/docs/build-output-api/configuration),
+[fonctions Node](https://vercel.com/docs/build-output-api/primitives),
+[noindex Google](https://developers.google.com/search/docs/crawling-indexing/block-indexing).

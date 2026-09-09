@@ -45,3 +45,6 @@ supabase/.temp/
 
 # Feuille de pointage (document local, non versionné)
 public/Feuille de pointage.pdf
+
+# Sortie Vercel et état CLI local
+.vercel/

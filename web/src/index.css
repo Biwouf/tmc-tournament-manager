@@ -5,8 +5,8 @@
 
 /* ─── Tokens « conviviale » — web_site_brief.md §4 ────────────────────────────
    Les trois tokens de marque sont REMPLACÉS au runtime à partir de `brand.color`
-   (`lib/tokens.ts`, appelé par `SiteContext`). Les valeurs ci-dessous sont celles du brief :
-   elles servent de repli avant la résolution du club et si la couleur n'est pas saisie. */
+   (`lib/tokens.ts`, rendu dans le head par le serveur avec le sélecteur `html:root`).
+   Les valeurs ci-dessous sont les valeurs de repli du brief. */
 :root {
   --brand: #e51828;
   --brand-dark: #c01420;
