@@ -10,6 +10,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { parseClubConfig, type ClubConfig } from '../lib/clubConfig';
+import { configImageUrl } from '../lib/configImage';
 import { applyBrandTokens } from '../lib/tokens';
 
 export type Club = { id: string; slug: string; name: string; sport: string; status: string };
@@ -34,6 +35,41 @@ function resolveSlug(): string {
   const match = host.match(/^([a-z0-9-]+)\.feelike\.app$/);
   if (match) return match[1];
   return (import.meta.env.VITE_DEV_CLUB_SLUG as string | undefined) ?? 'cac-tennis';
+}
+
+/**
+ * L'icône d'onglet, depuis `brand.logo` — PR9-ter §6-bis.a.
+ *
+ * MÊME GESTE que `pwa/src/App.tsx` et `src/App.tsx` (BO), aux trois points qui comptent :
+ *   1. le `<link>` est REMPLACÉ (`cloneNode` + `replaceWith`) et jamais muté — changer `href`
+ *      en place laisse Safari sur l'icône déjà en cache ;
+ *   2. l'attribut `type` est retiré : rien n'impose que le logo d'un club soit un PNG ;
+ *   3. l'URL est ABSOLUE — ici via `configImageUrl`, qui accepte aussi bien une URL publique
+ *      qu'une clé Storage, les deux formes que le contrat décrit.
+ *
+ * DEUX différences avec la PWA, assumées :
+ *   - la PWA fait `if (!link) continue`, son `index.html` portant déjà les liens. `web/` n'en a
+ *     AUCUN, et on CRÉE donc l'élément plutôt que d'en poser un neutre dans `index.html` : un
+ *     lien neutre demanderait un fichier de repli, c'est-à-dire une icône de plateforme que
+ *     personne n'a arbitrée — ou un 404 visible le temps de la résolution. Ici, tant qu'aucun
+ *     logo n'est lu, il n'y a simplement pas de lien.
+ *   - la PWA se replie sur `/icons/icon-192.png` faute de logo. PAS ICI : `brand.logo` vide
+ *     laisse l'onglet à l'icône par défaut du navigateur. Un repli sur un fichier de la
+ *     plateforme — a fortiori sur le logo de CAC — réinstallerait l'identité d'un club en dur,
+ *     ce que PR7-bis a précisément retiré du BO et de la PWA.
+ *
+ * Pas d'`apple-touch-icon` : la vitrine n'est pas installable, il n'y en a pas à mettre à jour.
+ */
+function applyFavicon(logo: string | undefined) {
+  const href = configImageUrl(logo);
+  if (!href) return;
+  const existing = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  const next = (existing?.cloneNode() as HTMLLinkElement | undefined) ?? document.createElement('link');
+  next.rel = 'icon';
+  next.removeAttribute('type');
+  next.href = href;
+  if (existing) existing.replaceWith(next);
+  else document.head.appendChild(next);
 }
 
 export function SiteProvider({ children }: { children: ReactNode }) {
@@ -74,6 +110,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
       if (resolved) {
         applyBrandTokens(document.documentElement, resolved.config.brand.color);
         document.title = resolved.clubName;
+        applyFavicon(resolved.config.brand.logo);
       }
       setValue(resolved);
       setLoading(false);
