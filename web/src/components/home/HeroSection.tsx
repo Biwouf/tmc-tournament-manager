@@ -1,19 +1,17 @@
-import { useNavigate } from 'react-router-dom';
+import ConfigImage from '../ConfigImage';
+import { Link } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
 import { useContactDrawer } from '../../contexts/ContactDrawerContext';
+import { isPublished, PAGES } from '../../lib/site';
 import { configImageUrl } from '../../lib/configImage';
 import { focalPointStyle } from '../../lib/focalPoint';
 
-/** Hero de l'accueil — `home.hero_*`. Absent en entier si rien n'est saisi. */
+/** Hero de l'accueil — titre réel, ou nom du club en l'absence de titre. */
 export default function HeroSection() {
-  const { config } = useSite();
+  const { config, clubName } = useSite();
   const { openDrawer } = useContactDrawer();
-  const navigate = useNavigate();
   const { home } = config;
   const image = configImageUrl(home.hero_image);
-
-  const hasContent = image || home.hero_eyebrow || home.hero_title || home.hero_subtitle;
-  if (!hasContent) return null;
 
   // Sans image de fond, le hero reste lisible sur le fond secondaire : on ne pose pas un
   // voile sombre sur du vide, et le texte garde l'encre du thème.
@@ -23,12 +21,7 @@ export default function HeroSection() {
     <section className={`home-hero relative ${onImage ? 'text-white' : 'bg-bg2 text-text'}`}>
       {image && (
         <>
-          <img
-            src={image}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            style={focalPointStyle(home.hero_image_focal)}
-          />
+          <ConfigImage sizes="100vw" fetchPriority="high" loading="eager" decoding="async" src={image} alt="" className="absolute inset-0 h-full w-full object-cover" style={focalPointStyle(home.hero_image_focal)} />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/20" />
         </>
       )}
@@ -38,11 +31,9 @@ export default function HeroSection() {
             {home.hero_eyebrow}
           </span>
         )}
-        {home.hero_title && (
-          <h1 className="max-w-3xl text-[clamp(32px,5.5vw,56px)] leading-[1.08] font-extrabold tracking-tight">
-            {home.hero_title}
-          </h1>
-        )}
+        <h1 className="max-w-3xl text-[clamp(32px,5.5vw,56px)] leading-[1.08] font-extrabold tracking-tight">
+            {home.hero_title || clubName}
+        </h1>
         {home.hero_subtitle && (
           <p
             className={`mt-5 max-w-2xl text-[17px] leading-relaxed ${onImage ? 'text-white/85' : 'text-muted'}`}
@@ -54,13 +45,12 @@ export default function HeroSection() {
           <button type="button" onClick={openDrawer} className="btn btn-primary">
             Nous contacter
           </button>
-          <button
-            type="button"
-            onClick={() => navigate('/club')}
+          {isPublished(config, PAGES[1]) && <Link reloadDocument
+            to="/club"
             className={`btn ${onImage ? 'btn-hero-secondary' : 'btn-outline'}`}
           >
             Découvrir le club
-          </button>
+          </Link>}
         </div>
       </div>
     </section>

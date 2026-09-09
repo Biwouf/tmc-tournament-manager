@@ -1,3 +1,4 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 import { focalPointStyle } from '../../lib/focalPoint';
@@ -15,7 +16,7 @@ export default function PresidentSection() {
         {(photo || president.name || president.role) && (
           <div className="text-center">
             {photo && (
-              <img
+              <ConfigImage loading="lazy" decoding="async"
                 src={photo}
                 alt={president.name || ''}
                 className="mx-auto h-44 w-44 rounded-full border-4 border-brand-soft object-cover"

@@ -375,8 +375,21 @@ export default function SiteConfigPanel({
           </div>
         )}
 
+        {itemsOf(group).some((item) => item.kind === 'field' && item.advanced) && (
+          <details className="mb-5 rounded-lg border border-input p-4">
+            <summary className="cursor-pointer text-sm font-medium">Référencement — surcharges facultatives</summary>
+            <p className="my-3 text-xs text-muted-foreground">Aucune saisie nécessaire : les titres et descriptions sont calculés depuis vos contenus.</p>
+            <div className="flex flex-col gap-4">
+              {itemsOf(group).map((item) => item.kind === 'field' && item.advanced ? (
+                <ScalarField key={item.key} spec={item} value={(value[item.key] as string) ?? ''}
+                  onChange={(text) => edit((prev) => ({ ...prev, [item.key]: text }))} />
+              ) : null)}
+            </div>
+          </details>
+        )}
+
         <div className="flex flex-col gap-5">
-          {withHeadings(itemsOf(group)).map(({ item, heading }) => (
+          {withHeadings(itemsOf(group).filter((item) => !(item.kind === 'field' && item.advanced))).map(({ item, heading }) => (
             <div key={item.key} className="flex flex-col gap-5">
               {heading && (
                 <h3 className="mt-1 text-sm font-semibold text-card-foreground">{heading}</h3>

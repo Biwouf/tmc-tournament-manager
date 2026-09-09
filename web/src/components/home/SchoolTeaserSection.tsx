@@ -1,12 +1,13 @@
-import { useNavigate } from 'react-router-dom';
+import ConfigImage from '../ConfigImage';
+import { Link } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
+import { isPublished, PAGES } from '../../lib/site';
 import { configImageUrl } from '../../lib/configImage';
 import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Teaser école — `home.school_teaser_*`. Le bloc image disparaît seul si aucune image. */
 export default function SchoolTeaserSection() {
   const { config } = useSite();
-  const navigate = useNavigate();
   const { home } = config;
   const image = configImageUrl(home.school_teaser_image);
 
@@ -35,24 +36,16 @@ export default function SchoolTeaserSection() {
           {home.school_teaser_text && (
             <p className="mt-4 leading-relaxed text-white/85">{home.school_teaser_text}</p>
           )}
-          {home.school_teaser_cta && (
-            <button
-              type="button"
-              onClick={() => navigate('/tarifs')}
+          {home.school_teaser_cta && isPublished(config, PAGES[3]) && (
+            <Link reloadDocument
+              to="/tarifs"
               className="btn btn-light mt-7"
             >
               {home.school_teaser_cta}
-            </button>
+            </Link>
           )}
         </div>
-        {image && (
-          <img
-            src={image}
-            alt=""
-            className="h-full min-h-64 w-full object-cover"
-            style={focalPointStyle(home.school_teaser_image_focal)}
-          />
-        )}
+        {image && <ConfigImage loading="lazy" decoding="async" src={image} alt={home.school_teaser_title || ''} className="h-full min-h-64 w-full object-cover" style={focalPointStyle(home.school_teaser_image_focal)} />}
       </div>
     </section>
   );

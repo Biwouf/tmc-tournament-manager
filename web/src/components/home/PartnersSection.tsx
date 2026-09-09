@@ -1,3 +1,4 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 
@@ -20,7 +21,7 @@ export default function PartnersSection() {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           {partners.map((partner, index) => {
             const logo = (
-              <img
+              <ConfigImage loading="lazy" decoding="async"
                 src={partner.logo!}
                 alt={partner.name || ''}
                 className="max-h-12 w-auto object-contain"

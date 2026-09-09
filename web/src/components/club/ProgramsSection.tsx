@@ -1,3 +1,4 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 import { focalPointStyle } from '../../lib/focalPoint';
@@ -16,14 +17,7 @@ export default function ProgramsSection() {
           const image = configImageUrl(program.image);
           return (
             <article key={index} className="card card-lift overflow-hidden">
-              {image && (
-                <img
-                  src={image}
-                  alt=""
-                  className="aspect-[16/9] w-full object-cover"
-                  style={focalPointStyle(program.image_focal)}
-                />
-              )}
+              {image && <ConfigImage loading="lazy" decoding="async" src={image} alt={program.name} className="aspect-[16/9] w-full object-cover" style={focalPointStyle(program.image_focal)} />}
               <div className="p-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <h3 className="text-lg font-extrabold">{program.name}</h3>

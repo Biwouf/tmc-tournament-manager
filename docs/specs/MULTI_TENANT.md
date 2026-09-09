@@ -1072,3 +1072,29 @@ Reste à préciser **au fil de l'implémentation** (détails, pas de blocage de 
 À chaque phase implémentée, mettre à jour : `docs/CODEBASE.md` (nouveaux fichiers/tables),
 le `docs/specs/*` du module touché (GEN_PROG, ACTUS_FACEBOOK, PWA…), et `README.md` (côté
 utilisateur). Créer `docs/specs/WEB_SITE.md` à la Phase 4.
+
+## 14. Socle SEO / GEO vitrine — septembre 2026
+
+La dette SEO de PR9 est traitée dans le worktree dédié : **React/Vite conservés**, SSR Node
+par requête via la Build Output API Vercel. Une lecture jointe anon `clubs` / `club_settings`,
+filtrée par slug ou custom domain exact, remplace les deux lectures au montage navigateur.
+**Aucun cache de contenu** : aucun partage possible entre clubs/routes ; les enregistrements
+BO et suspensions sont pris en compte au prochain chargement, sans webhook de purge.
+
+Le domaine canonique est dérivé de `clubs.slug` ou de `clubs.custom_domain` (à remplir
+uniquement après vérification/provisioning plateforme). Pas de nouveau champ de domaine ni
+de configuration JSON-LD dans le BO. Le fallback de club est limité au dev et aux hôtes de
+preview explicitement reconnus. HTTP 404 pour les clubs inconnus/suspendus, routes inconnues
+et pages intérieures vides/retirées ; 503 pour les échecs temporaires de lecture.
+
+Configuration additive version 1 : `published` (défaut true), `seo_title` et
+`seo_description` facultatifs par groupe de page ; `settings.search_indexing` (défaut true).
+Les surcharges SEO restent repliées et les valeurs automatiques restent la norme. Les
+coordonnées et tarifs complets conditionnent l’ouverture à l’indexation en production.
+Les previews sont en noindex ; robots, sitemap et JSON-LD sont générés par club et requête.
+
+Aucune nouvelle migration : `20260909_club_settings_public_read.sql` est confirmée appliquée
+en production. Aucun transfert dev → prod, aucune écriture DB et aucun déploiement dans cette
+tâche. PR10 (flux), PR11 (envoi contact), PR12 (PWA) restent hors périmètre. PR13 garde le
+provisioning wildcard et le polish des erreurs ; le contrat HTTP 404 est déjà posé ici.
+Détails techniques, tests et procédure Vercel : `WEB_SITE.md` §4, §9, §10.

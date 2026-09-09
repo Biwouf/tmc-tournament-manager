@@ -121,6 +121,7 @@ export type FieldSpec = {
   focal?: true;
   help?: string;
   placeholder?: string;
+  advanced?: boolean;
 };
 
 export type ListSpec = {
@@ -783,6 +784,23 @@ const POSTERS: GroupSpec = {
     },
   ],
 };
+
+// Les réglages restent automatiques. Les deux surcharges sont repliées dans le BO.
+for (const group of [HOME, CLUB, INFRA, PRICING, CONTACT]) {
+  if (group.kind !== 'fields') continue;
+  group.items.push(
+    { kind: 'field', key: 'published', label: 'Rendre cette page accessible', type: 'bool',
+      section: 'Publication', help: 'Automatique si la page contient des informations. Décocher retire la page du site, des menus et du sitemap. Ce réglage ne rend pas privées les données de configuration.' },
+    { kind: 'field', key: 'seo_title', label: 'Titre pour les moteurs (facultatif)', type: 'text', advanced: true,
+      help: 'Vide : titre calculé depuis la page, la ville et le club.' },
+    { kind: 'field', key: 'seo_description', label: 'Description pour les moteurs (facultative)', type: 'longtext', advanced: true,
+      help: 'Vide : résumé calculé depuis les informations publiées. Ne mentionnez que des faits présents sur la page.' },
+  );
+}
+if (SETTINGS.kind === 'fields') SETTINGS.items.push({
+  kind: 'field', key: 'search_indexing', label: 'Autoriser le référencement du site prêt à publier', type: 'bool',
+  help: 'Automatique sur le domaine de production lorsque les tarifs (saison et montants) et le contact (adresse complète, téléphone ou email) sont renseignés et accessibles. Décocher suspend l’indexation. Les previews sont toujours exclues.',
+});
 
 /** Ordre des panneaux à l'écran — celui du `web_site_brief.md` §5 : identité, puis les pages
  *  (accueil, club, infrastructures, tarifs, contact), puis le chrome. */

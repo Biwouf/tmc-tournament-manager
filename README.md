@@ -130,11 +130,18 @@ Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office 
 - ⚠️ Les **affiches générées** (Programmation Image, Matches par équipe) gardent pour l'instant le rouge du CAC : elles ne suivent pas encore ces couleurs.
 
 ### Site vitrine
+
+Sur mobile, le menu de navigation couvre entièrement la page et reste défilable sur les petits écrans.
 Site **public** du club, servi sur `<slug>.feelike.app` (application séparée, dossier `web/`).
 
 - **Cinq pages** : Accueil, Le Club, Infrastructures, Tarifs, Contact — plus un panneau de contact accessible depuis n'importe quelle page.
 - **Tout le contenu vient de l'écran *Configuration du site*** : textes, images, tarifs, horaires, partenaires, mentions légales, et la **couleur** du club, qui colore boutons, badges et liens du site.
 - **Ce qui n'est pas renseigné ne s'affiche pas.** Un club qui vient d'être créé a un site vide mais propre : pas de bloc à moitié rempli, pas de cadre d'image cassé, aucun texte d'exemple emprunté à un autre club. Remplir un panneau au back-office fait apparaître la section correspondante au rechargement.
+- **Référencement automatique** : contenu et métadonnées sont présents dans le HTML initial. Les titres, descriptions, URL canoniques et données structurées viennent des informations publiées. Aucun champ SEO obligatoire.
+- **Affichage initial** : les styles sont chargés avant l’affichage du contenu, y compris en développement, sans attendre le JavaScript.
+- **Publication des pages** : une page intérieure vide est retirée du menu et retourne 404. La case *Rendre cette page accessible* permet aussi de la retirer explicitement. Deux surcharges facultatives (titre et description pour les moteurs) sont repliées dans chaque panneau.
+- **Pendant la préparation**, le site reste exclu de l’indexation. L’ouverture automatique exige un domaine de production, une page Tarifs avec saison et prix renseignés, et un Contact avec adresse complète et téléphone ou email. Le panneau *Affichage des sections* permet de suspendre le référencement. Les previews restent toujours exclues ; les textes et coordonnées doivent être relus avant publication.
+- Les mises à jour du BO sont reprises à chaque navigation ou rechargement, sans purge manuelle. Les photos originales sont conservées ; Vercel peut les servir à une taille adaptée à l’écran.
 - Les sections *Actualités* et *Prochains rendez-vous* de l'accueil, ainsi que l'**envoi** du formulaire de contact, arrivent dans une prochaine livraison : en attendant, le formulaire est affiché mais son bouton est inactif, et les blocs d'actualités ne s'affichent pas du tout.
 
 ### Comptes sociaux
@@ -209,8 +216,16 @@ cd web && npm install
 cp .env.example .env.local
 # puis renseigner les mêmes clés du projet Supabase de DEV
 # VITE_DEV_CLUB_SLUG choisit le club affiché en local (en production, c'est le sous-domaine)
-npm run dev
+npm run dev -- --port 0
+# Tests : npm test ; npm run build ; npm run check:build
 ```
+
+Déploiement de la vitrine : preset Vercel **Other**, Root `web/`, Node 22,
+build `npm run build`, sortie Build Output API (retirer l’ancien override `dist`).
+Le domaine Vercel de production fourni par `VERCEL_PROJECT_PRODUCTION_URL` affiche
+le club défini par `VITE_DEV_CLUB_SLUG`, en `noindex`. Les domaines des clubs gardent
+leur résolution et leur référencement habituels.
+Procédure : [WEB_SITE.md](docs/specs/WEB_SITE.md#9-développement-tests-et-déploiement).
 
 Notes :
 - `.env` et `.env.local` sont gitignorés : **aucune clé réelle n'est versionnée**.
