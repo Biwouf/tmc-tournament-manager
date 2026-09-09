@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
 import { useContactDrawer } from '../../contexts/ContactDrawerContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Hero de l'accueil — `home.hero_*`. Absent en entier si rien n'est saisi. */
 export default function HeroSection() {
@@ -22,7 +23,12 @@ export default function HeroSection() {
     <section className={`home-hero relative ${onImage ? 'text-white' : 'bg-bg2 text-text'}`}>
       {image && (
         <>
-          <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img
+            src={image}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            style={focalPointStyle(home.hero_image_focal)}
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/20" />
         </>
       )}

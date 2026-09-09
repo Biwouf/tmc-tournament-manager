@@ -5,7 +5,7 @@
 //
 // Rien à voir avec `ConfigurationForm.tsx` / `ConfigDropdown.tsx`, qui sont les réglages d'un
 // TOURNOI TMC (`GlobalConfig`, `TENNIS_RANKINGS`).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { FieldSpec } from '../../lib/clubConfigWrite';
 
 const INPUT_CLASS =
@@ -185,24 +185,123 @@ async function checkDimensions(
 }
 
 /**
+ * Le POINT D'INTÉRÊT d'une image recadrée — PR9-ter.
+ *
+ * Le clic se mesure sur l'image ENTIÈRE, à proportions conservées. Un aperçu en
+ * `cover` mesurerait les coordonnées dans le cadre rogné, puis déplacerait le sujet
+ * au clic suivant. Le conteneur épouse ici l'image sans marge ni bande vide ; ses
+ * pourcentages correspondent donc à ceux de l'image source, quel que soit son ratio.
+ * La vitrine applique ensuite le point choisi à ses différents cadres en `cover`.
+ *
+ * La valeur est la CHAÎNE de l'état de formulaire, `'<x> <y>'`, et `''` vaut « pas de point
+ * d'intérêt » — donc le centre, et donc AUCUNE clé écrite dans le JSONB. « Recentrer » remet
+ * cette chaîne vide plutôt que `'50 50'` : recentrer, c'est revenir à l'état d'avant, pas
+ * inscrire un centre explicite.
+ *
+ * Les pourcentages sont ARRONDIS à l'entier. Un point d'intérêt n'a pas besoin de mieux (1 %
+ * d'une image de 400 px, c'est 4 px) et le JSONB reste lisible à l'œil.
+ */
+function FocalPointPicker({
+  src,
+  value,
+  onChange,
+}: {
+  src: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [x, y] = value.trim() ? value.trim().split(/\s+/).map(Number) : [50, 50];
+  const isSet = value.trim() !== '';
+
+  const pick = (event: MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const clamp = (v: number) => Math.round(Math.max(0, Math.min(100, v)));
+    onChange(
+      `${clamp(((event.clientX - rect.left) / rect.width) * 100)} ${clamp(
+        ((event.clientY - rect.top) / rect.height) * 100,
+      )}`,
+    );
+  };
+
+  return (
+    <div className="mt-2.5">
+      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-foreground">
+          Point d’intérêt{' '}
+          <span className="font-normal text-muted-foreground">
+            — cliquez sur ce qui doit rester visible quand l’image est recadrée.
+          </span>
+        </span>
+        {/* Garder la place du bouton évite de déplacer l'image au premier clic. */}
+        <button
+          type="button"
+          disabled={!isSet}
+          onClick={() => onChange('')}
+          className={`rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted ${isSet ? '' : 'invisible'}`}
+        >
+          Recentrer
+        </button>
+      </div>
+      <div className="max-w-md">
+        <div className="relative w-fit max-w-full">
+          <img
+            src={src}
+            alt=""
+            onLoad={() => setLoaded(true)}
+            onError={() => setLoaded(false)}
+            className="block h-auto max-h-80 w-auto max-w-full rounded-lg"
+          />
+          {loaded && (
+            <div
+              role="presentation"
+              onClick={pick}
+              title="Cliquez pour définir le point d’intérêt"
+              className="absolute inset-0 cursor-crosshair rounded-lg"
+            />
+          )}
+          {loaded && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
+              style={{ left: `${x}%`, top: `${y}%`, backgroundColor: 'rgba(0,0,0,0.7)' }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Upload DIFFÉRÉ : le fichier choisi ici n'atteint le Storage qu'à l'enregistrement du
  * panneau. Uploader à la sélection laisserait un objet orphelin dans le bucket dès qu'on
  * change d'avis, et supprimerait l'ancienne image avant d'être sûr que l'écriture passe.
+ *
+ * PR9-ter — quand la spec porte `focal: true`, le sélecteur de point d'intérêt s'ouvre SOUS le
+ * champ, sur l'aperçu de l'image en place ou du fichier en attente. Ce n'est volontairement pas
+ * un item de plus dans la spec du groupe : le point d'intérêt n'existe que par son image, et se
+ * règle donc là où on la voit.
  */
 export function ImageField({
   spec,
   value,
   file,
+  focal = '',
   onPick,
   onClear,
+  onFocalChange,
 }: {
   spec: FieldSpec;
   /** URL enregistrée, ou '' si aucune. */
   value: string;
   /** Fichier choisi et pas encore envoyé. */
   file: File | null;
+  /** Point d'intérêt de l'état de formulaire, `'<x> <y>'` — `''` = centré. */
+  focal?: string;
   onPick: (file: File) => void;
   onClear: () => void;
+  onFocalChange?: (value: string) => void;
 }) {
   /** Refus de gabarit (PR7). Purement local : le fichier refusé n'atteint jamais l'état du
    *  panneau, donc encore moins le Storage. */
@@ -315,6 +414,10 @@ export function ImageField({
           )}
         </div>
       </div>
+      {/* Aucune image : rien à cadrer, et un sélecteur sur du vide n'aurait rien à montrer. */}
+      {spec.focal && onFocalChange && shown && (
+        <FocalPointPicker key={shown} src={shown} value={focal} onChange={onFocalChange} />
+      )}
       <FieldHelp help={spec.help} />
     </div>
   );

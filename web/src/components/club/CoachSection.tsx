@@ -1,5 +1,6 @@
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Encadrement — `club.coach.*` + `club.methods` + `club.levels`. */
 export default function CoachSection() {
@@ -21,6 +22,7 @@ export default function CoachSection() {
             src={photo}
             alt={coach.name || ''}
             className="aspect-[4/5] w-full rounded-card object-cover shadow-soft"
+            style={focalPointStyle(coach.photo_focal)}
           />
         )}
         <div>

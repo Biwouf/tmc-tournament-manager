@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Teaser école — `home.school_teaser_*`. Le bloc image disparaît seul si aucune image. */
 export default function SchoolTeaserSection() {
@@ -44,7 +45,14 @@ export default function SchoolTeaserSection() {
             </button>
           )}
         </div>
-        {image && <img src={image} alt="" className="h-full min-h-64 w-full object-cover" />}
+        {image && (
+          <img
+            src={image}
+            alt=""
+            className="h-full min-h-64 w-full object-cover"
+            style={focalPointStyle(home.school_teaser_image_focal)}
+          />
+        )}
       </div>
     </section>
   );

@@ -38,9 +38,22 @@
 // plus, honoré par le seul sélecteur d'image. `groupSchema`, `formatIssue` et `setAtPath` ne le
 // connaissent pas, et les listes elles-mêmes ne demandent RIEN de neuf : c'est la forme de
 // `partners` et de `home.stats`.
+//
+// PR9-ter pose le POINT D'INTÉRÊT des images recadrées, et le pose lui aussi en DÉCLARATIF :
+// `focal: true` sur le champ image, et rien d'autre à écrire dans la table. La clé sœur
+// (`hero_image` → `hero_image_focal`), son chemin JSONB et son libellé en sont DÉRIVÉS
+// (`focalSpecOf`), ce qui rend impossible de les faire diverger — et de poser une clé
+// contenant un point, qui casserait `setAtPath` en silence. La spec dérivée est ensuite un
+// champ comme un autre : `groupSchema`, `formatIssue`, `groupValueFromConfig` et
+// `configFromGroupValue` la voient par `expandedItems`, sans savoir d'où elle vient.
+//
+// Une seule exception, et elle est dans le contrat, pas ici : `infra.clubhouse.images` est un
+// `list<image>` dont les entrées sont des CHAÎNES — aucune place pour une clé sœur. Son focal
+// vit dans un TABLEAU PARALLÈLE, `images_focal` (patron d'`actus.image_focal_points`), le seul
+// endroit de ce fichier qui demande deux lignes de plus.
 import { z } from 'zod';
 import { supabase } from './supabase';
-import { CLUB_CONFIG_VERSION, type ClubConfig } from './clubConfig';
+import { CLUB_CONFIG_VERSION, type ClubConfig, type ClubConfigFocalPoint } from './clubConfig';
 
 // ── Specs ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +75,10 @@ export type FieldType =
   | 'email'
   | 'tel'
   | 'bool'
-  | 'number';
+  | 'number'
+  /** PR9-ter — jamais écrit à la main dans la table : c'est le type des specs DÉRIVÉES de
+   *  `focalSpecOf`, à partir d'un `focal: true` sur un champ `image`. */
+  | 'focal';
 
 export type FieldSpec = {
   /** Clé de l'ÉTAT DE FORMULAIRE. Plate, et SANS POINT : `setAtPath` découpe les chemins de
@@ -93,6 +109,16 @@ export type FieldSpec = {
    *  refusait un 1414 × 2000 pour l'affiche 794 × 1123, alors que c'est le même format.
    *  Déclaratif comme `path` : rien d'autre ne le lit. */
   dimensions?: { width: number; height: number };
+  /** PR9-ter — cette image est-elle RECADRÉE par la vitrine (`object-fit: cover`) ?
+   *
+   *  Si oui, elle mérite un point d'intérêt : sans lui, un portrait dont le visage n'est pas au
+   *  centre est coupé. Le drapeau suffit — la clé sœur, son chemin et son libellé en découlent
+   *  (`focalSpecOf`), et le sélecteur se règle sur l'aperçu du champ image lui-même.
+   *
+   *  ⚠️ À ne PAS poser sur une image qui n'est pas recadrée : un logo est rendu en `contain`
+   *  (jamais coupé) et les fonds d'affiche de `posters` ne sortent pas sur la vitrine. Un point
+   *  d'intérêt y serait un réglage sans effet. */
+  focal?: true;
   help?: string;
   placeholder?: string;
 };
@@ -170,6 +196,61 @@ function pathOf(item: ItemSpec): string[] {
   return item.path ?? [item.key];
 }
 
+// ── Point d'intérêt : une seule règle de nommage, dérivée ────────────────────
+
+/**
+ * La clé SŒUR d'une clé image — `hero_image` → `hero_image_focal`.
+ *
+ * UNE règle, valable partout à la fois : dans le JSONB, dans l'état de formulaire, et dans les
+ * chemins de fichiers en attente du panneau (`board.0.photo` → `board.0.photo_focal`, que
+ * `setAtPath` découpe correctement puisque le suffixe ne contient pas de point).
+ */
+export function focalKey(key: string): string {
+  return `${key}_focal`;
+}
+
+/** La spec DÉRIVÉE du point d'intérêt d'un champ image — jamais écrite à la main. */
+function focalSpecOf(spec: FieldSpec): FieldSpec {
+  const path = spec.path ?? [spec.key];
+  return {
+    key: focalKey(spec.key),
+    label: `Point d’intérêt — ${spec.label}`,
+    type: 'focal',
+    path: [...path.slice(0, -1), focalKey(path[path.length - 1])],
+  };
+}
+
+/** Le chemin du TABLEAU PARALLÈLE d'un `list<image>` — `['clubhouse', 'images_focal']`. */
+function focalListPath(list: ListSpec): string[] {
+  const path = list.path ?? [list.key];
+  return [...path.slice(0, -1), focalKey(path[path.length - 1])];
+}
+
+/** Le champ de point d'intérêt d'une liste de scalaires d'images, s'il y en a un. */
+function scalarFocalField(list: ListSpec): FieldSpec | undefined {
+  return list.scalar && list.fields[0]?.focal ? focalSpecOf(list.fields[0]) : undefined;
+}
+
+/** Les champs d'une entrée de liste, specs de point d'intérêt COMPRISES. */
+function expandFields(fields: FieldSpec[]): FieldSpec[] {
+  return fields.flatMap((field) => (field.focal ? [field, focalSpecOf(field)] : [field]));
+}
+
+/**
+ * Les items d'un groupe, specs de point d'intérêt COMPRISES — ce que voient le schéma, la
+ * lecture et l'écriture.
+ *
+ * ⚠️ Le PANNEAU garde `itemsOf` : un point d'intérêt n'est pas un champ de plus à l'écran, il
+ * se règle sur l'aperçu du champ image qui le porte (`ImageField`). C'est ce qui laisse le
+ * rendu, les sous-titres `section` et l'indicateur « Configuré » aveugles à tout ceci.
+ */
+function expandedItems(group: GroupSpec): ItemSpec[] {
+  return itemsOf(group).flatMap<ItemSpec>((item) => {
+    if (item.kind === 'list') return [{ ...item, fields: expandFields(item.fields) }];
+    return item.focal ? [item, { kind: 'field', ...focalSpecOf(item) }] : [item];
+  });
+}
+
 // L'ordre des clés suit celui de `clubConfig.ts`, pour que les deux fichiers se relisent
 // en vis-à-vis.
 const BRAND: GroupSpec = {
@@ -225,7 +306,7 @@ const HOME: GroupSpec = {
   label: 'Page d’accueil du site vitrine',
   hint: 'Bandeau, chiffres clés et teasers',
   items: [
-    { kind: 'field', section: 'Bandeau d’accueil', key: 'hero_image', label: 'Image de fond', type: 'image', required: true },
+    { kind: 'field', section: 'Bandeau d’accueil', key: 'hero_image', label: 'Image de fond', type: 'image', required: true, focal: true },
     { kind: 'field', key: 'hero_eyebrow', label: 'Sur-titre', type: 'text', placeholder: 'Tennis · Tarn-et-Garonne' },
     { kind: 'field', key: 'hero_title', label: 'Titre', type: 'text', required: true },
     { kind: 'field', key: 'hero_subtitle', label: 'Paragraphe d’introduction', type: 'longtext', required: true },
@@ -245,7 +326,7 @@ const HOME: GroupSpec = {
     { kind: 'field', key: 'school_teaser_title', label: 'Titre', type: 'text', required: true },
     { kind: 'field', key: 'school_teaser_text', label: 'Texte', type: 'longtext', required: true },
     { kind: 'field', key: 'school_teaser_cta', label: 'Bouton', type: 'text' },
-    { kind: 'field', key: 'school_teaser_image', label: 'Image', type: 'image', required: true },
+    { kind: 'field', key: 'school_teaser_image', label: 'Image', type: 'image', required: true, focal: true },
     {
       kind: 'list',
       section: 'Teaser infrastructures',
@@ -256,7 +337,7 @@ const HOME: GroupSpec = {
       fields: [
         { key: 'label', label: 'Libellé', type: 'text', required: true, placeholder: 'Courts extérieurs' },
         { key: 'detail', label: 'Détail', type: 'text' },
-        { key: 'image', label: 'Image', type: 'image' },
+        { key: 'image', label: 'Image', type: 'image', focal: true },
       ],
     },
     { kind: 'field', section: 'Bandeau d’appel final', key: 'cta_title', label: 'Titre', type: 'text', required: true },
@@ -271,7 +352,15 @@ const CONTACT: GroupSpec = {
   label: 'Contact et coordonnées',
   hint: 'Adresse, téléphone et horaires d’accueil',
   items: [
-    { kind: 'field', key: 'page_title', label: 'Titre de la page Contact', type: 'text', required: true },
+    {
+      kind: 'field',
+      key: 'page_title',
+      label: 'Accroche de la page',
+      type: 'text',
+      required: true,
+      help: 'Affichée SOUS le sur-titre « Contact », qui est en dur sur la page. C’est une phrase d’accroche, pas le nom de la page — le répéter ferait doublon.',
+      placeholder: 'Une question ? Nous vous répondons.',
+    },
     { kind: 'field', key: 'address_street', label: 'Rue', type: 'text', required: true },
     { kind: 'field', key: 'address_postal_code', label: 'Code postal', type: 'text', required: true },
     { kind: 'field', key: 'address_city', label: 'Ville', type: 'text', required: true },
@@ -306,13 +395,21 @@ const CLUB: GroupSpec = {
   label: 'Le Club',
   hint: 'Président·e, encadrant, valeurs, programmes et bureau',
   items: [
-    { kind: 'field', key: 'page_title', label: 'Titre de la page', type: 'text', required: true, placeholder: 'Le Club' },
+    {
+      kind: 'field',
+      key: 'page_title',
+      label: 'Accroche de la page',
+      type: 'text',
+      required: true,
+      help: 'Affichée SOUS le sur-titre « Le club », qui est en dur sur la page. C’est une phrase d’accroche, pas le nom de la page — le répéter ferait doublon.',
+      placeholder: 'Un club familial où l’on progresse ensemble',
+    },
 
     // Objet imbriqué : clés de formulaire PLATES, chemin réel dans `path`. Les sous-titres
     // `section` de PR6b suffisent à présenter l'objet à l'écran — pas de structure nouvelle.
     { kind: 'field', section: 'Le président·e', key: 'president_name', path: ['president', 'name'], label: 'Nom', type: 'text', required: true, placeholder: 'Prénom Nom' },
     { kind: 'field', key: 'president_role', path: ['president', 'role'], label: 'Fonction', type: 'text', required: true, placeholder: 'Présidente du club' },
-    { kind: 'field', key: 'president_photo', path: ['president', 'photo'], label: 'Portrait', type: 'image', required: true },
+    { kind: 'field', key: 'president_photo', path: ['president', 'photo'], label: 'Portrait', type: 'image', required: true, focal: true },
     { kind: 'field', key: 'president_quote', path: ['president', 'quote'], label: 'Le mot du président·e', type: 'longtext', required: true },
 
     {
@@ -339,7 +436,7 @@ const CLUB: GroupSpec = {
       fields: [{ key: 'value', label: 'Diplôme ou classement', type: 'text', required: true, placeholder: 'Diplômé d’État' }],
     },
     { kind: 'field', key: 'coach_bio', path: ['coach', 'bio'], label: 'Biographie et pédagogie', type: 'longtext', required: true },
-    { kind: 'field', key: 'coach_photo', path: ['coach', 'photo'], label: 'Portrait', type: 'image', required: true },
+    { kind: 'field', key: 'coach_photo', path: ['coach', 'photo'], label: 'Portrait', type: 'image', required: true, focal: true },
 
     {
       kind: 'list',
@@ -370,7 +467,7 @@ const CLUB: GroupSpec = {
         { key: 'age', label: 'Âge', type: 'text', placeholder: '4 – 17 ans' },
         { key: 'frequency', label: 'Fréquence', type: 'text', placeholder: '1h / semaine' },
         { key: 'description', label: 'Description', type: 'longtext' },
-        { key: 'image', label: 'Image', type: 'image' },
+        { key: 'image', label: 'Image', type: 'image', focal: true },
       ],
     },
 
@@ -383,7 +480,7 @@ const CLUB: GroupSpec = {
       fields: [
         { key: 'name', label: 'Nom', type: 'text', required: true, placeholder: 'Prénom Nom' },
         { key: 'role', label: 'Fonction', type: 'text', required: true, placeholder: 'Trésorier' },
-        { key: 'photo', label: 'Portrait', type: 'image' },
+        { key: 'photo', label: 'Portrait', type: 'image', focal: true },
       ],
     },
   ],
@@ -395,7 +492,15 @@ const INFRA: GroupSpec = {
   label: 'Infrastructures',
   hint: 'Courts, club house et vestiaires',
   items: [
-    { kind: 'field', key: 'page_title', label: 'Titre de la page', type: 'text', required: true, placeholder: 'Nos infrastructures' },
+    {
+      kind: 'field',
+      key: 'page_title',
+      label: 'Accroche de la page',
+      type: 'text',
+      required: true,
+      help: 'Affichée SOUS le sur-titre « Les infrastructures », qui est en dur sur la page. C’est une phrase d’accroche, pas le nom de la page — le répéter ferait doublon.',
+      placeholder: 'Six courts, un club house et des vestiaires rénovés',
+    },
 
     {
       kind: 'list',
@@ -408,7 +513,7 @@ const INFRA: GroupSpec = {
         { key: 'count', label: 'Nombre', type: 'text', required: true, placeholder: '4' },
         { key: 'label', label: 'Libellé', type: 'text', required: true, placeholder: 'Courts extérieurs' },
         { key: 'detail', label: 'Détail', type: 'text', placeholder: 'Béton poreux, éclairés' },
-        { key: 'image', label: 'Image', type: 'image' },
+        { key: 'image', label: 'Image', type: 'image', focal: true },
       ],
     },
 
@@ -424,12 +529,12 @@ const INFRA: GroupSpec = {
       singular: 'photo',
       scalar: true,
       help: 'Deux photos recommandées.',
-      fields: [{ key: 'value', label: 'Photo', type: 'image', required: true }],
+      fields: [{ key: 'value', label: 'Photo', type: 'image', required: true, focal: true }],
     },
 
     { kind: 'field', section: 'Vestiaires', key: 'locker_rooms_title', path: ['locker_rooms', 'title'], label: 'Titre', type: 'text' },
     { kind: 'field', key: 'locker_rooms_text', path: ['locker_rooms', 'text'], label: 'Description', type: 'longtext' },
-    { kind: 'field', key: 'locker_rooms_image', path: ['locker_rooms', 'image'], label: 'Photo', type: 'image' },
+    { kind: 'field', key: 'locker_rooms_image', path: ['locker_rooms', 'image'], label: 'Photo', type: 'image', focal: true },
   ],
 };
 
@@ -444,7 +549,15 @@ const PRICING: GroupSpec = {
   label: 'Tarifs',
   hint: 'Adhésion, cours et autres frais',
   items: [
-    { kind: 'field', key: 'page_title', label: 'Titre de la page', type: 'text', required: true, placeholder: 'Nos tarifs' },
+    {
+      kind: 'field',
+      key: 'page_title',
+      label: 'Accroche de la page',
+      type: 'text',
+      required: true,
+      help: 'Affichée SOUS le sur-titre « Tarifs », qui est en dur sur la page. C’est une phrase d’accroche, pas le nom de la page — le répéter ferait doublon.',
+      placeholder: 'Une adhésion simple, des cours pour tous les niveaux',
+    },
     { kind: 'field', key: 'season', label: 'Saison', type: 'text', placeholder: '2025 / 2026' },
     { kind: 'field', key: 'note', label: 'Mention', type: 'text', placeholder: 'Licence FFT incluse' },
 
@@ -759,16 +872,93 @@ function amountSchema(spec: FieldSpec, insideList: boolean) {
     .transform((v) => (typeof v === 'number' ? v : v === '' ? undefined : Number(v)));
 }
 
+const FOCAL_ERROR = 'n’est pas un point d’intérêt valide';
+
+/** `'37 62'` → `{ x: 37, y: 62 }`. `undefined` = pas de point d'intérêt, `null` = saisie
+ *  invalide (que l'écran ne sait pas produire — le sélecteur ne rend que des pourcentages). */
+function focalFromForm(raw: string): ClubConfigFocalPoint | undefined | null {
+  const parts = raw.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return undefined;
+  if (parts.length !== 2) return null;
+  const [x, y] = parts.map(Number);
+  const inRange = (v: number) => Number.isFinite(v) && v >= 0 && v <= 100;
+  return inRange(x) && inRange(y) ? { x, y } : null;
+}
+
+/**
+ * Un POINT D'INTÉRÊT — sa propre branche, comme `boolSchema` et `amountSchema`, et pour la même
+ * raison : l'état de formulaire est fait de CHAÎNES (`'37 62'`, deux pourcentages) là où le
+ * JSONB porte l'objet `{ x, y }` du contrat.
+ *
+ * VIDE → `undefined`, et la clé est alors OMISE à l'écriture (`listForConfig` pour une entrée
+ * de liste, `mergeGroup` pour un champ de groupe). Une image sans point d'intérêt n'écrit PAS
+ * `{ x: 50, y: 50 }` : elle n'écrit rien. C'est ce qui garde l'ajout additif — une config à
+ * laquelle on ne touche pas ne gagne aucune clé — et ce qui fait qu'un point d'intérêt remis au
+ * centre revient à l'état initial plutôt qu'à un centre « explicite ».
+ *
+ * IDEMPOTENT, comme `amountSchema` et pour la même raison : `saveClubConfigGroup` revalide la
+ * valeur que le panneau lui repasse, déjà passée une fois par ici. L'objet `{ x, y }` et
+ * l'`undefined` sont donc acceptés en entrée au même titre que la chaîne saisie.
+ */
+const focalSchema = z
+  .union([z.string(), z.object({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) }), z.undefined()], {
+    error: FOCAL_ERROR,
+  })
+  .transform((v) => (typeof v === 'string' ? focalFromForm(v) : v))
+  .refine((v) => v !== null, FOCAL_ERROR)
+  .transform((v) => v ?? undefined)
+  // Le nettoyage des images absentes supprime leur clé avant la seconde validation.
+  .optional();
+
 /** Le schéma d'un champ, quel que soit son type. `insideList` porte l'asymétrie du ⬤. */
 function itemFieldSchema(spec: FieldSpec, insideList: boolean): z.ZodType {
   if (spec.type === 'bool') return boolSchema;
   if (spec.type === 'number') return amountSchema(spec, insideList);
+  // Un point d'intérêt n'est jamais ⬤ et n'a pas de format à contrôler : rien à faire de
+  // `insideList` ici. Une image sans point d'intérêt est le cas nominal.
+  if (spec.type === 'focal') return focalSchema;
   return fieldSchema(spec, insideList);
+}
+
+/**
+ * « Le point d'intérêt n'est écrit que si une image l'accompagne. »
+ *
+ * Retirer l'image doit retirer son point d'intérêt : une clé sœur orpheline se rappliquerait
+ * telle quelle à la PROCHAINE image posée au même endroit, et resterait dans le JSONB sans rien
+ * désigner. C'est un invariant du GROUPE — un champ ne voit pas son voisin —, donc il se pose
+ * ici, après la validation champ par champ.
+ *
+ * Un fichier en attente d'envoi COMPTE comme une image : le panneau valide une projection où
+ * chaque chemin en attente porte une valeur non vide (`withPendingImages`), si bien que régler
+ * le point d'intérêt sur un fichier tout juste choisi fonctionne.
+ */
+function dropOrphanFocals(group: GroupSpec, value: Record<string, unknown>): GroupValue {
+  const next = { ...value };
+  for (const item of itemsOf(group)) {
+    if (item.kind === 'list') {
+      const withFocal = item.fields.filter((field) => field.focal);
+      if (withFocal.length === 0) continue;
+      const entries = (Array.isArray(next[item.key]) ? next[item.key] : []) as Record<
+        string,
+        unknown
+      >[];
+      next[item.key] = entries.map((entry) => {
+        const row = { ...entry };
+        for (const field of withFocal) {
+          if (!row[field.key]) delete row[focalKey(field.key)];
+        }
+        return row;
+      });
+    } else if (item.focal && !value[item.key]) {
+      delete next[focalKey(item.key)];
+    }
+  }
+  return next as GroupValue;
 }
 
 function groupSchema(group: GroupSpec) {
   const shape: Record<string, z.ZodType> = {};
-  for (const item of itemsOf(group)) {
+  for (const item of expandedItems(group)) {
     shape[item.key] =
       item.kind === 'list'
         ? z.array(
@@ -776,7 +966,7 @@ function groupSchema(group: GroupSpec) {
           )
         : itemFieldSchema(item, false);
   }
-  return z.object(shape);
+  return z.object(shape).transform((value) => dropOrphanFocals(group, value));
 }
 
 function ordinal(n: number): string {
@@ -786,7 +976,10 @@ function ordinal(n: number): string {
 /** « 2ᵉ horaire — « Jour » est obligatoire. » plutôt qu'un « formulaire invalide » global. */
 function formatIssue(group: GroupSpec, issue: { path: PropertyKey[]; message: string }): string {
   const [head, index, leaf] = issue.path;
-  const item = itemsOf(group).find((i) => i.key === head);
+  // Les specs DÉRIVÉES comprises : un point d'intérêt invalide se nomme par son libellé, pas
+  // par sa clé. Inatteignable depuis l'écran (le sélecteur ne rend que des pourcentages), mais
+  // un JSONB écrit à la main peut le produire.
+  const item = expandedItems(group).find((i) => i.key === head);
 
   if (item?.kind === 'list' && typeof index === 'number') {
     const field = item.fields.find((f) => f.key === leaf);
@@ -823,8 +1016,30 @@ function asAmount(v: unknown): string {
   return typeof v === 'number' && Number.isFinite(v) ? String(v) : '';
 }
 
+/**
+ * Un point d'intérêt vient du JSONB en OBJET et l'état de formulaire est fait de chaînes :
+ * `{ x: 37, y: 62 }` → `'37 62'`. Absent, `null` (le trou d'un tableau parallèle) ou malformé
+ * → chaîne vide, qui EST « pas de point d'intérêt ». La lecture ne juge pas.
+ *
+ * Exportée pour le PANNEAU, et pour une raison précise : `validateClubConfigGroup` rend le
+ * point d'intérêt en OBJET, et le panneau range cette sortie telle quelle dans son état après
+ * un enregistrement (l'entorse documentée sur `GroupValue`). Le sélecteur lit donc l'état par
+ * ici en acceptant les DEUX formes : chaîne pendant la saisie, objet après validation.
+ */
+export function asFocal(v: unknown): string {
+  const point = typeof v === 'string' ? focalFromForm(v) : v;
+  if (!isPlainObject(point)) return '';
+  const { x, y } = point;
+  return typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= 100 &&
+    typeof y === 'number' && Number.isFinite(y) && y >= 0 && y <= 100
+    ? `${x} ${y}`
+    : '';
+}
+
 function asFormValue(spec: FieldSpec, raw: unknown): string {
-  return spec.type === 'number' ? asAmount(raw) : asText(raw);
+  if (spec.type === 'number') return asAmount(raw);
+  if (spec.type === 'focal') return asFocal(raw);
+  return asText(raw);
 }
 
 /** Lit la valeur au chemin réel du JSONB — `['president', 'photo']`. */
@@ -851,16 +1066,27 @@ export function groupValueFromConfig(group: GroupSpec, config: ClubConfig): Grou
         ? (raw as Record<string, unknown>)
         : {};
   const value: GroupValue = {};
-  for (const item of itemsOf(group)) {
+  for (const item of expandedItems(group)) {
     // Le `path` d'un objet imbriqué ne va pas plus loin qu'ici : la clé de l'état reste plate.
     const raw = readAt(source, pathOf(item));
     if (item.kind === 'list') {
       const entries = Array.isArray(raw) ? raw : [];
+      // Le TABLEAU PARALLÈLE d'un `list<image>`, replié dans l'entrée du formulaire : à partir
+      // d'ici, un point d'intérêt de liste de scalaires est un champ d'entrée comme un autre.
+      const focalField = scalarFocalField(item);
+      const focals = focalField ? readAt(source, focalListPath(item)) : undefined;
+      const focalList = Array.isArray(focals) ? focals : [];
       value[item.key] = item.scalar
         ? // Une liste de scalaires est EMBALLÉE dans des entrées à une clé, le temps du
           // formulaire : c'est ce qui lui donne l'ajout, le retrait et le réordonnancement de
           // n'importe quelle autre liste, sans une ligne de rendu de plus.
-          entries.map((entry) => ({ [item.fields[0].key]: asFormValue(item.fields[0], entry) }))
+          entries.map((entry, index) => {
+            const row: ListEntry = {
+              [item.fields[0].key]: asFormValue(item.fields[0], entry),
+            };
+            if (focalField) row[focalField.key] = asFocal(focalList[index]);
+            return row;
+          })
         : entries.map((entry) => {
             const row = isPlainObject(entry) ? entry : {};
             return Object.fromEntries(
@@ -901,7 +1127,9 @@ export function groupValueFromConfig(group: GroupSpec, config: ClubConfig): Grou
  *     `[{ value: 'Respect' }, …]`. Stocker l'emballage ferait diverger le JSONB de sa spec,
  *     ce que la décision `partners` de PR6c a déjà refusé une fois ;
  *   - une clé à `undefined` est OMISE — c'est ce que rend `amountSchema` pour un montant vide,
- *     et « pas de tarif » ne doit devenir ni `0`, ni `null`.
+ *     et « pas de tarif » ne doit devenir ni `0`, ni `null`. C'est aussi ce que rend
+ *     `focalSchema` pour une image sans point d'intérêt, et c'est ce qui garde une entrée de
+ *     liste jamais recadrée à la main IDENTIQUE à ce qu'elle était.
  */
 function listForConfig(list: ListSpec, raw: unknown): unknown[] {
   const entries = (Array.isArray(raw) ? raw : []) as Record<string, unknown>[];
@@ -929,14 +1157,35 @@ function setAt(target: Record<string, unknown>, path: string[], value: unknown) 
  * `mergeGroup` reçoit alors un objet DÉJÀ niché, et sa fusion profonde préexistante suffit :
  * poser `club.president.twitter` à la main survit à un enregistrement du panneau.
  */
+/**
+ * Le TABLEAU PARALLÈLE des points d'intérêt d'un `list<image>` — `infra.clubhouse.images_focal`,
+ * aligné index par index sur `images`, `null` pour une image sans point d'intérêt.
+ *
+ * `undefined` — donc clé OMISE — tant qu'AUCUNE image n'en porte : une liste de photos qu'on n'a
+ * jamais recadrée ne gagne pas un tableau de `null` au premier enregistrement. C'est le pendant,
+ * pour les listes de scalaires, de la clé sœur omise des autres images.
+ */
+function scalarFocalsForConfig(list: ListSpec, raw: unknown): unknown[] | undefined {
+  const focalField = scalarFocalField(list);
+  if (!focalField) return undefined;
+  const entries = (Array.isArray(raw) ? raw : []) as Record<string, unknown>[];
+  const focals = entries.map((entry) => entry[focalField.key] ?? null);
+  return focals.some((focal) => focal !== null) ? focals : undefined;
+}
+
 function configFromGroupValue(group: GroupSpec, value: GroupValue): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const item of itemsOf(group)) {
+  for (const item of expandedItems(group)) {
     setAt(
       out,
       pathOf(item),
       item.kind === 'list' ? listForConfig(item, value[item.key]) : value[item.key],
     );
+    // La seule forme que la clé sœur ne sait pas prendre : l'entrée d'un `list<image>` est une
+    // CHAÎNE, elle n'a pas de place pour un voisin. Le focal sort donc à côté de la liste.
+    if (item.kind === 'list' && scalarFocalField(item)) {
+      setAt(out, focalListPath(item), scalarFocalsForConfig(item, value[item.key]));
+    }
   }
   return out;
 }
@@ -945,6 +1194,14 @@ function mergeGroup(previous: unknown, next: Record<string, unknown>): Record<st
   const base = isPlainObject(previous) ? previous : {};
   const merged: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(next)) {
+    // `undefined` n'est pas une valeur, c'est un RETRAIT — la clé sœur d'une image qu'on vient
+    // d'enlever, ou le tableau parallèle d'une liste dont plus aucune photo n'est recadrée. La
+    // laisser passer garderait la valeur d'AVANT, que `mergeGroup` a justement pour rôle de
+    // préserver. Aucun autre type du contrat ne rend `undefined` au niveau du groupe.
+    if (value === undefined) {
+      delete merged[key];
+      continue;
+    }
     const existing = base[key];
     merged[key] =
       isPlainObject(existing) && isPlainObject(value) ? mergeGroup(existing, value) : value;
