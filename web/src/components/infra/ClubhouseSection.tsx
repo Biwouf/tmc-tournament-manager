@@ -1,3 +1,4 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 
@@ -23,10 +24,10 @@ export default function ClubhouseSection() {
              visuels pleine largeur. Une seule image occupe sa colonne, pas toute la moitié. */
           <div className="grid grid-cols-2 gap-[14px]">
             {images.map((url, index) => (
-              <img
+              <ConfigImage loading="lazy" decoding="async"
                 key={index}
                 src={url}
-                alt=""
+                alt={clubhouse.title || 'Club house'}
                 /* Décalage volontaire d'une colonne sur deux (maquette : `margin-top:24px`
                    sur la 2ᵉ image). L'alternance se poursuit au-delà de deux images. */
                 className={`aspect-square w-full rounded-soft object-cover shadow-soft ${

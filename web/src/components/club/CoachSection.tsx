@@ -1,3 +1,4 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 
@@ -17,7 +18,7 @@ export default function CoachSection() {
       <h2 className="title">L'encadrement</h2>
       <div className="mt-8 grid gap-10 md:grid-cols-[320px_1fr]">
         {photo && (
-          <img
+          <ConfigImage loading="lazy" decoding="async"
             src={photo}
             alt={coach.name || ''}
             className="aspect-[4/5] w-full rounded-card object-cover shadow-soft"

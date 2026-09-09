@@ -1,3 +1,4 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 
@@ -39,7 +40,7 @@ export default function BoardSection() {
           return (
             <div key={index} className="card-lift text-center">
               {photo ? (
-                <img
+                <ConfigImage loading="lazy" decoding="async"
                   src={photo}
                   alt={member.name}
                   className="aspect-square w-full rounded-card border border-line object-cover shadow-soft"

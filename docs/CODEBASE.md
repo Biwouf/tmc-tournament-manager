@@ -318,8 +318,7 @@ Consomme Supabase en `anon` uniquement — **aucune authentification**.
 
 Stack : React 19, TypeScript, Vite, Tailwind CSS v4 (`@tailwindcss/vite`), React Router v7,
 Supabase JS, `zod`. **Pas** de `vite-plugin-pwa` (l'app installable est `pwa/`), **pas** de
-TanStack Query (la vitrine lit une ligne au montage et n'a rien à invalider — c'est PR10, avec
-ses flux paginés, qui décidera d'en introduire un). Police `Manrope` **auto-hébergée**
+TanStack Query (lecture jointe côté serveur à chaque requête, sans cache de contenu). Police `Manrope` **auto-hébergée**
 (`@fontsource-variable/manrope`), pas de Google Fonts : un site public français ne doit pas
 appeler `fonts.gstatic.com` à chaque visite.
 
@@ -327,7 +326,7 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 
 > ⚠️ **Deux dépendances de base à ne pas casser.** (1) La lecture `anon` de `club_settings`
 > vient de la migration `20260909_club_settings_public_read.sql` : sans elle, la vitrine
-> affiche un site *entièrement vide* sans lever d'erreur. (2) `web/src/lib/clubConfig.ts` est
+> retourne 503 si la relation de configuration est invisible. (2) `web/src/lib/clubConfig.ts` est
 > une **copie** de `src/lib/clubConfig.ts` — toute divergence est un bug silencieux (une clé lue
 > par la vitrine que le BO n'écrit pas, ou l'inverse).
 
@@ -342,9 +341,9 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 | `lib/configImage.ts` | Valeur d'image de config → URL affichable : URL publique complète (ce qu'écrit `SiteConfigPanel`) **ou** clé Storage nue (ce que tolère le contrat). Vide → `null`, et `null` masque le bloc |
 | `lib/tokens.ts` | `brand.color` → `--brand` / `--brand-dark` (luminosité × 0,84) / `--brand-soft` (10 % d'opacité). Fallback `#e51828`, seule couleur en dur tolérée. Le jeu de tokens de `src/lib/theme.ts` (BO + PWA) n'est **pas** réutilisé : la vitrine a le sien |
 | `lib/price.ts` | Montant du contrat (nombre) → texte français. Aucune période n'est ajoutée (« / an »…) : le contrat n'en porte pas |
-| `contexts/SiteContext.tsx` | Résolution du tenant par hostname (`<slug>.feelike.app`, sinon `VITE_DEV_CLUB_SLUG`), lecture de `clubs` puis `club_settings` — **deux round-trips, une seule fois**, aucune page ne requête —, `parseClubConfig()` appelé une fois, pose des tokens de marque et du `document.title`, écran bloquant si le club est introuvable ou suspendu. `useSite()` rend `{ club, config, clubName }` |
+| `contexts/SiteContext.tsx` | Snapshot SSR injecté, aucune requête navigateur. `useSite()` expose club, config, nom, origine et activation de l’optimiseur. |
 | `contexts/ContactDrawerContext.tsx` | État du drawer de contact, ouvert depuis le header, le menu mobile, le hero, les bannières CTA et le bouton flottant |
-| `components/layout/` | `Header` (sticky + menu mobile), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader`, `navItems.ts` |
+| `components/layout/` | `Header` (sticky + menu mobile), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader`, navigation publiée issue de `lib/site.ts` |
 | `components/home/` | `HeroSection`, `StatsSection`, `SchoolTeaserSection`, `InfraTeaserSection`, `PartnersSection`, `CtaSection` |
 | `components/club/` | `PresidentSection`, `ValuesSection`, `CoachSection`, `ProgramsSection`, `BoardSection` |
 | `components/infra/` | `CourtsSection`, `ClubhouseSection`, `LockerRoomsSection` |
@@ -355,6 +354,20 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 **Une section = un composant = un fichier** : PR10, PR11 et PR12 partent toutes les trois de
 `web/` et seront développées en parallèle.
 
+### Socle SEO / GEO de la vitrine
+
+- `web/src/server/tenant.ts` : résolution Host strictement filtrée et lecture jointe anon clubs/settings, sans cache ; statuts et origines canoniques.
+- `web/src/server/render.tsx` : SSR React, HTML et données échappés, 200/308/404/503, robots et sitemap, en-têtes de cache/indexation.
+- `web/src/server/runtime.ts` : variables build VITE et runtime Vercel ; `entry.ts` : adaptateur Node HTTP et template privé.
+- `web/src/lib/site.ts` : registre des routes, publication et préparation à l’indexation, projection publique, H1 ; `lib/seo.ts` : métadonnées automatiques et JSON-LD SportsClub/WebPage.
+- `web/src/components/ConfigImage.tsx` + `lib/configImage.ts` : images adaptatives Vercel limitées au Storage du club, repli vers original ; lazy et priorité hero chez les consommateurs.
+- `web/src/main.tsx` : `hydrateRoot`, snapshot initial partagé. Liens `reloadDocument`, nouvelle requête à chaque navigation.
+- `web/index.html` charge directement `src/index.css` dans le head pour éviter le flash HTML sans styles en dev ; les tokens SSR `html:root` priment sur les valeurs de repli, y compris après extraction CSS du build.
+- `web/server.mjs` : dev Vite middleware et serveur du build, `--port 0` pour port libre. `web/scripts/build.mjs` : client + bundle Node autonome + `.vercel/output`, aucun index public statique.
+- `web/tests/seo.test.mjs` : fixtures SSR, isolation concurrente, publication, actualisation, injection, métadonnées et images. `web/scripts/check-build.mjs` : bundle empaqueté. `web/scripts/check-http.mjs` : HTTP local et lecture de deux clubs dev sans écrire en DB.
+- Contrat `src/lib/clubConfig.ts` + copie web : champs additifs `published`, `seo_title`, `seo_description` dans les cinq groupes de pages, `settings.search_indexing`. `src/lib/clubConfigWrite.ts` et `SiteConfigPanel.tsx` : publication + surcharges SEO repliées ; aucune migration.
+- Déploiement : preset Other, Root `web/`, Node 22, Build Output API. Détails et garde-fous d’indexation : `docs/specs/WEB_SITE.md` §9–10. Audit et preuves : `docs/SEO_GEO_AUDIT_WEB.md`.
+
 ### Routes de la vitrine
 
 | Route | Contenu |
@@ -364,12 +377,12 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 | `/infrastructures` | Infrastructures — `infra.*` |
 | `/tarifs` | Tarifs — `pricing.*` |
 | `/contact` | Contact — `contact.*` + formulaire à champs fixes |
-| `*` | Rend l'accueil (une vitrine n'a pas de 404 utile ; la page « club inconnu » est PR13) |
+| `*` | HTTP 404 réel. Club inconnu/suspendu : 404 ; erreur temporaire ou config inaccessible : 503. |
 
 > **Règle de rendu non négociable** : `config = '{}'` est le cas **nominal** (club fraîchement
 > provisionné). Une valeur absente **masque son bloc** — jamais de titre suivi du néant, jamais
 > d'`<img>` sans `src`, jamais de placeholder ni de valeur d'exemple en repli. Une page dont
-> tout le contenu est vide rend le chrome et rien d'autre. Spec complète : `docs/specs/WEB_SITE.md`.
+> tout le contenu est vide retourne 404 (accueil : identité en H1, noindex). Spec complète : `docs/specs/WEB_SITE.md`.
 
 
 ## Correctifs audit — 05/09/2026
