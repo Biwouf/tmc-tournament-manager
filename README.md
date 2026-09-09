@@ -221,6 +221,9 @@ npm run dev -- --port 0
 
 Déploiement de la vitrine : preset Vercel **Other**, Root `web/`, Node 22,
 build `npm run build`, sortie Build Output API (retirer l’ancien override `dist`).
+Le domaine Vercel de production fourni par `VERCEL_PROJECT_PRODUCTION_URL` affiche
+le club défini par `VITE_DEV_CLUB_SLUG`, en `noindex`. Les domaines des clubs gardent
+leur résolution et leur référencement habituels.
 Procédure : [WEB_SITE.md](docs/specs/WEB_SITE.md#9-développement-tests-et-déploiement).
 
 Notes :

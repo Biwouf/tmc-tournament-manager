@@ -2,7 +2,7 @@ import { publicConfig, type Club, type Site } from '../lib/site';
 
 export type Runtime = {
   appEnv: string; deploymentEnv?: string; devSlug?: string; previewHosts: string[];
-  supabaseUrl: string; anonKey: string;
+  supabaseUrl: string; anonKey: string; productionHost?: string;
 };
 export class SiteError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -29,6 +29,13 @@ export function isProduction(runtime: Runtime): boolean {
   return runtime.appEnv === 'production' && runtime.deploymentEnv === 'production';
 }
 
+/** Alias technique propre au projet, jamais un repli générique sur vercel.app. */
+export function isProductionAlias(authority: string, runtime: Runtime): boolean {
+  const host = hostname(authority);
+  return runtime.deploymentEnv === 'production' &&
+    /^[a-z0-9-]+\.vercel\.app$/.test(host) && host === runtime.productionHost;
+}
+
 /** Une lecture jointe : identité, statut et configuration dans le même snapshot SQL. */
 export async function loadSite(authority: string, runtime: Runtime, fetcher: typeof fetch = fetch): Promise<Site> {
   const host = hostname(authority);
@@ -41,7 +48,7 @@ export async function loadSite(authority: string, runtime: Runtime, fetcher: typ
   if (match) {
     if (!slugPattern.test(match[1]) || reserved(match[1])) throw new SiteError(404, 'Site introuvable');
     field = 'slug'; value = match[1];
-  } else if (local || preview) {
+  } else if (local || preview || isProductionAlias(host, runtime)) {
     if (!runtime.devSlug || !slugPattern.test(runtime.devSlug) || reserved(runtime.devSlug)) {
       throw new SiteError(404, 'Site introuvable');
     }

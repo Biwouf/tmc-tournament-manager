@@ -356,7 +356,7 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 
 ### Socle SEO / GEO de la vitrine
 
-- `web/src/server/tenant.ts` : résolution Host strictement filtrée et lecture jointe anon clubs/settings, sans cache ; statuts et origines canoniques.
+- `web/src/server/tenant.ts` : résolution Host strictement filtrée (dont l’alias Vercel de production déclaré, en noindex) et lecture jointe anon clubs/settings, sans cache ; statuts et origines canoniques.
 - `web/src/server/render.tsx` : SSR React, HTML et données échappés, 200/308/404/503, robots et sitemap, en-têtes de cache/indexation.
 - `web/src/server/runtime.ts` : variables build VITE et runtime Vercel ; `entry.ts` : adaptateur Node HTTP et template privé.
 - `web/src/lib/site.ts` : registre des routes, publication et préparation à l’indexation, projection publique, H1 ; `lib/seo.ts` : métadonnées automatiques et JSON-LD SportsClub/WebPage.
