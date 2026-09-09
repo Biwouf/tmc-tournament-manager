@@ -26,7 +26,7 @@ export default function App() {
       <ContactDrawerProvider>
         <ScrollToTop />
         <Header />
-        <main className="min-h-[40vh]">
+        <main className="page-end min-h-[40vh]">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/club" element={<ClubPage />} />

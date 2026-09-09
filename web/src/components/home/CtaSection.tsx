@@ -9,7 +9,7 @@ export default function CtaSection() {
   if (!home.cta_title && !home.cta_text && !home.cta_button) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:84px]">
       <div className="relative overflow-hidden rounded-card bg-text px-8 py-14 text-center text-white sm:px-16">
         <div className="absolute -top-28 -right-20 h-72 w-72 rounded-full bg-brand opacity-15" />
         <div className="relative">

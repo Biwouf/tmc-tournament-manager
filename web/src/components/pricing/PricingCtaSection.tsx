@@ -9,7 +9,7 @@ export default function PricingCtaSection() {
   if (!pricing.cta_title && !pricing.cta_text && !pricing.cta_button) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:54px]">
       <div className="card flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center">
         <div>
           {pricing.cta_title && <h3 className="text-xl font-extrabold">{pricing.cta_title}</h3>}

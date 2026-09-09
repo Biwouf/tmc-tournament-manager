@@ -18,7 +18,7 @@ export default function SchoolTeaserSection() {
   if (!hasContent) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:84px]">
       <div className="grid overflow-hidden rounded-card border border-line shadow-soft md:grid-cols-2">
         <div className="bg-brand p-8 text-white sm:p-12">
           {home.school_teaser_eyebrow && (

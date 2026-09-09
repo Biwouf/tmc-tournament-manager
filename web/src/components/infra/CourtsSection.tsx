@@ -8,12 +8,12 @@ export default function CourtsSection() {
   if (courts.length === 0) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:48px]">
       <div className="grid gap-6 md:grid-cols-2">
         {courts.map((court, index) => {
           const image = configImageUrl(court.image);
           return (
-            <article key={index} className="card overflow-hidden">
+            <article key={index} className="card card-lift overflow-hidden">
               {image && <img src={image} alt="" className="aspect-[16/10] w-full object-cover" />}
               <div className="p-6">
                 {court.count && (

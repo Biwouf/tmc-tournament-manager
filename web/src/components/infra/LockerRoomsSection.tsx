@@ -9,7 +9,7 @@ export default function LockerRoomsSection() {
   if (!lockers.title && !lockers.text && !image) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:74px]">
       <div className="grid items-center gap-10 md:grid-cols-2">
         {image && (
           <img

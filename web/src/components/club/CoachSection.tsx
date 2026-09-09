@@ -13,7 +13,7 @@ export default function CoachSection() {
   const subtitle = [coach.role, ...coach.credentials].filter(Boolean).join(' · ');
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:84px]">
       <h2 className="title">L'encadrement</h2>
       <div className="mt-8 grid gap-10 md:grid-cols-[320px_1fr]">
         {photo && (

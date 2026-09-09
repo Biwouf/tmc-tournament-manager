@@ -51,6 +51,30 @@ plus proposées dans le BO. Sur une image, le bouton secondaire reprend le fond 
 translucide (14 %, 24 % au survol), la bordure blanche à 40 % et le flou de 6 px de la maquette.
 Sans image, il conserve un contour et un texte foncé lisibles sur le fond clair.
 
+### En-tête des pages intérieures
+
+Les quatre pages intérieures ouvrent sur **deux niveaux** (`components/layout/PageHeader.tsx`) :
+un **sur-titre EN DUR**, puis `*.page_title` en H1 sous lui.
+
+| Page | Sur-titre (en dur) | H1 |
+|---|---|---|
+| `/club` | `Le club` | `club.page_title` — `max-width:18ch` |
+| `/infrastructures` | `Les infrastructures` | `infra.page_title` |
+| `/tarifs` | `Tarifs`, suivi de ` · Saison {pricing.season}` **si** `season` est renseignée | `pricing.page_title`, puis `pricing.note` en mention sous le H1 |
+| `/contact` | `Contact` | `contact.page_title` |
+
+Le sur-titre **nomme la page** ; le H1 porte **l'accroche** que le club a écrite. C'est pour ça
+que le H1 est le seul des deux à venir de la config — et que `page_title` fait disparaître le H1
+sans faire disparaître l'en-tête (§3) : un bandeau réduit au nom de la page n'est pas un bloc
+creux, et le sur-titre étant en dur, il ne peut pas manquer. `PageHeader` ne rend jamais `null`.
+
+⚠️ **Dette** : le libellé du champ au BO (`/admin/site`) dit encore « Titre H1 de la page »
+alors que ce champ est devenu une accroche. Le corriger touche `src/` — c'est repris dans
+`PR9ter`. Les clubs déjà configurés y ont souvent saisi le nom de la page, qui fait alors
+doublon avec le sur-titre.
+
+L'accueil n'est pas concerné : son bandeau a sa propre structure.
+
 **Drapeaux `settings.*`** (défaut positif) : `show_stats` masque la bande chiffres clés,
 `show_partners` la bande partenaires. `show_news` / `show_events` sont lus par le contrat mais
 ne commandent rien tant que PR10 n'a pas branché les flux.
@@ -75,6 +99,12 @@ premier écran que voit un nouveau client, pas un cas limite.
   `SiteContext`.
 - Le formulaire de contact fait exception : ses champs sont **fixes** (non configurables), il
   est donc rendu même sur une config vide.
+- Le **sur-titre** des pages intérieures fait exception pour la même raison : il est en dur (§2).
+  `page_title` vide fait tomber le H1, pas l'en-tête.
+- **Seul placeholder toléré de la vitrine** : les **initiales** d'un membre du bureau sans photo
+  (`club.board[].photo` est optionnel au contrat). Il ne comble pas une entrée absente — il
+  complète une entrée **par ailleurs renseignée**, dont le nom et le rôle s'affichent, et évite
+  qu'une photo manquante casse la grille. Un membre sans nom **ni** photo n'affiche aucun carré.
 
 C'est le pendant, côté rendu, de la règle 2 de `clubConfig.ts` (« la lecture ne jette jamais ») :
 **le rendu n'affiche jamais de trou**.
@@ -143,12 +173,12 @@ Trois propriétés à connaître avant de toucher à cette migration :
 |---|---|
 | `main.tsx` | Montage + `BrowserRouter` |
 | `App.tsx` | Providers, chrome (header / footer / drawer), routes des 5 pages, remise à zéro du scroll |
-| `index.css` | Tokens « conviviale », mapping `@theme inline` vers Tailwind, classes `.shell` / `.section` / `.btn` / `.card` / `.field` |
+| `index.css` | Tokens « conviviale », mapping `@theme inline` vers Tailwind, classes `.shell` / `.section` (+ `--sec-top`) / `.page-end` / `.page-h1` / `.btn` / `.card` / `.card-lift` / `.field` |
 | `lib/supabase.ts` | Client `anon`, **`persistSession: false`** (site public, aucune auth) |
 | `lib/clubConfig.ts` | **Copie** de `src/lib/clubConfig.ts`, synchronisée manuellement. Ne rien y diverger. |
 | `lib/configImage.ts` | Valeur de config → URL affichable. Accepte une URL publique complète (ce qu'écrit le BO) **ou** une clé Storage nue (ce que tolère le contrat). Vide → `null`, et `null` masque le bloc. |
 | `lib/tokens.ts` | Dérive `--brand` / `--brand-dark` / `--brand-soft` de `brand.color`. Fallback `#e51828` (brief §4) — seule couleur en dur tolérée. |
-| `lib/price.ts` | Montant du contrat (nombre) → texte. Aucune période ajoutée : le contrat n'en porte pas. |
+| `lib/price.ts` | Montant du contrat (nombre) → texte. La **période** n'est pas de son ressort : « / an » est ajouté en dur par les composants de tarifs (§7). |
 | `contexts/SiteContext.tsx` | Résolution du tenant + config + application des tokens + `document.title`. `useSite()` rend `{ club, config, clubName }`. |
 | `contexts/ContactDrawerContext.tsx` | Ouverture/fermeture du drawer, appelée depuis le header, le menu mobile, le hero, les bannières CTA et le bouton flottant. |
 | `components/layout/` | `Header` (sticky + menu mobile), `Footer`, `ContactDrawer` (bouton flottant + panneau), `PageHeader`, `navItems.ts` |
@@ -183,6 +213,49 @@ Posés en custom properties sur `:root` (`index.css`), exposés à Tailwind via 
 - La vitrine n'utilise **que** `brand.color`. `color_secondary` / `color_accent` existent au
   contrat mais pilotent le thème du BO et de la PWA (`src/lib/theme.ts`) : aucun usage n'est
   inventé ici.
+
+### Rythme vertical
+
+Le gabarit de la maquette est `max-width:1200px; margin:0 auto; padding:<haut> 40px <bas>` :
+chaque section ne porte **que son écart au bloc du dessus**, jamais de padding bas. La classe
+`.section` applique donc `padding-top: var(--sec-top, 70px); padding-bottom: 0`, et chaque
+composant pose sa propre valeur (`[--sec-top:84px]`), relevée section par section dans la
+maquette — le rythme est délibérément différent d'une page à l'autre, il n'y a **pas** de valeur
+unique.
+
+| Contexte | Valeur |
+|---|---|
+| En-tête de page | `64px` (`.shell pt-16`) |
+| Accueil | `84px` partout |
+| `/club` | président `54` · valeurs `70` · encadrement `84` · programmes `48` · bureau `84` |
+| `/infrastructures` | courts `48` · club house `74` · vestiaires `74` |
+| `/tarifs` | cours `44` · adhésion + frais `64` · bannière `54` |
+| `/contact` | `40` |
+
+La respiration avant le footer (`90px` dans la maquette, portée par la dernière section) est
+posée **une seule fois sur `<main>`** (`.page-end`) : sur un club à config partielle, la
+dernière section rendue n'est pas toujours la même, et l'accrocher à un composant donné la
+ferait disparaître avec lui.
+
+### « / an » sur les prix
+
+`pricing.lessons[].price` et `pricing.membership[].price` s'affichent suivis de **« / an » en
+dur**. Le contrat ne porte **aucune** périodicité (c'est un simple nombre) : c'est une décision
+produit assumée, pas un oubli — ne pas la remplacer par une clé de config sans arbitrage.
+
+- **Jamais sur `pricing.other_fees[]`** : son `price` est du **texte** parce que l'unité y est
+  variable (« 15 € / h », « 8 € ») ; y coller « / an » produirait « 15 € / h / an ».
+- Une entrée **sans prix** (clé omise — absent ≠ zéro) ne rend **ni** le prix **ni** « / an ».
+
+### Élévation au survol
+
+Les **cartes** — un bloc `--card` + `--shadow` qui se lit comme un objet : tarifs, programmes,
+teasers d'infrastructures, courts, membres du bureau — montent de `4px` au survol (`.card-lift`,
+`transition: transform .2s`). Les **pastilles de valeurs** en sont exclues : ce sont des
+étiquettes. Les boutons montent de `2px` (`.btn-light`, `.btn-lift` du bouton flottant).
+
+L'animation d'**entrée** de la maquette (`cacFadeUp`) n'est pas reprise — survol seul. Tout est
+neutralisé sous `@media (prefers-reduced-motion: reduce)`.
 
 ---
 

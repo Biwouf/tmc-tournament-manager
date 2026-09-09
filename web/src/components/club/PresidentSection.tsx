@@ -9,7 +9,7 @@ export default function PresidentSection() {
   if (!president.name && !president.role && !president.quote && !photo) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:54px]">
       <div className="card grid gap-10 p-8 sm:p-12 md:grid-cols-[280px_1fr] md:items-center">
         {(photo || president.name || president.role) && (
           <div className="text-center">
