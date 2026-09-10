@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom';
 import App from '../App';
+import { loadHomeFeeds } from './feeds';
 import { isPublished, isReadyForIndexing, pageAt, PAGES } from '../lib/site';
 import { escapeHtml, headMarkup, jsonForHtml } from '../lib/seo';
 import { brandTokens } from '../lib/tokens';
@@ -59,6 +60,7 @@ export async function renderRequest(
       return { status: 200, headers: { ...headers, 'Content-Type': 'application/xml; charset=utf-8' },
         body: `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(p => `<url><loc>${escapeHtml(site.origin + p.path)}</loc></url>`).join('')}</urlset>` };
     }
+    if (path === '/') site.feeds = await loadHomeFeeds(site, runtime, fetcher);
     const markup = renderToString(<StaticRouter location={path}><App site={site} /></StaticRouter>);
     const css = Object.entries(brandTokens(site.config.brand.color)).map(([key, value]) => `${key}:${value}`).join(';');
     const body = template

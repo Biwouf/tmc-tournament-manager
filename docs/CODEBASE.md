@@ -373,7 +373,7 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 
 | Route | Contenu |
 |---|---|
-| `/` | Accueil — `home.*`, `partners`, `settings.*` (emplacements `// PR10` pour les flux actus/agenda) |
+| `/` | Accueil — `home.*`, `partners`, `settings.*` (flux SSR actus/agenda filtrés par club, pilotés par `settings.show_news` / `show_events`) |
 | `/club` | Le Club — `club.*` |
 | `/infrastructures` | Infrastructures — `infra.*` |
 | `/tarifs` | Tarifs — `pricing.*` |

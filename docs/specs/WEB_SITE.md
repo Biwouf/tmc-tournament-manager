@@ -82,8 +82,8 @@ libellé corrigé le leur signale, mais **aucune donnée n'est modifiée**.
 L'accueil n'est pas concerné : son bandeau a sa propre structure.
 
 **Drapeaux `settings.*`** (défaut positif) : `show_stats` masque la bande chiffres clés,
-`show_partners` la bande partenaires. `show_news` / `show_events` sont lus par le contrat mais
-ne commandent rien tant que PR10 n'a pas branché les flux.
+`show_partners` la bande partenaires. `show_news` / `show_events` pilotent les flux de
+l’accueil : désactiver un bloc supprime aussi sa requête serveur.
 
 ---
 
@@ -353,7 +353,7 @@ neutralisé sous `@media (prefers-reduced-motion: reduce)`.
 
 | Sujet | Livraison |
 |---|---|
-| Blocs « Dernières actualités » et « Prochains rendez-vous » de l'accueil | **PR10** — emplacements marqués `// PR10` dans `HomePage.tsx`, **rien n'est rendu** en attendant (pas de cadre vide, pas de « bientôt ») |
+| Blocs « Dernières actualités » et « Prochains rendez-vous » de l'accueil | **PR10** — flux SSR publics, voir § Flux de l’accueil |
 | Envoi du formulaire de contact | **PR11** — le markup est complet (c'est du design), la **soumission est désactivée** : un bouton inerte vaut mieux qu'un formulaire qui perd les messages d'un vrai visiteur |
 | Bannière d'installation PWA | **PR12** |
 | Wildcard DNS, page « club inconnu » soignée | **PR13** |
@@ -455,3 +455,30 @@ Choix techniques : [SSR Vite](https://vite.dev/guide/ssr.html),
 [Build Output API Vercel](https://vercel.com/docs/build-output-api/configuration),
 [fonctions Node](https://vercel.com/docs/build-output-api/primitives),
 [noindex Google](https://developers.google.com/search/docs/crawling-indexing/block-indexing).
+
+
+## Flux de l’accueil — PR10
+
+`NewsSection` et `EventsSection` reprennent les blocs de la maquette : deux actualités
+et trois rendez-vous, sans nouvelle route ni lien vers une page de détail inexistante.
+Les titres de section sont fixes ; le contenu vient exclusivement des tables métier.
+
+- Chargement dans `server/feeds.ts`, après résolution du club, uniquement pour une réponse
+  HTML de l’accueil (pas sur les pages intérieures, 404, redirections, robots ou sitemap).
+- Deux requêtes REST anon en parallèle, sans cache, chacune filtrée par `club_id` et limitée.
+  Actualités : `published = true`, tri `published_at DESC NULLS LAST`, puis `id`.
+  Événements : date de fin non passée, ou date de début non passée si aucune fin,
+  tri `date_debut ASC`, puis `id`. Les événements déjà commencés mais non terminés restent visibles.
+- Projection explicite des colonnes et validation avant sérialisation : ni captions BO,
+  ni corps Markdown complet dans le bootstrap. Les cartes affichent un extrait texte (180 caractères).
+  Les images absentes ne réservent aucun espace ; la couverture reprend son point d’intérêt.
+- Dates françaises dans le fuseau `Europe/Paris`, identiques au SSR et à l’hydratation.
+  Prix absent masqué, zéro affiché « Gratuit », autres prix en euros.
+- Une liste vide masque toute la section. Une panne ou un timeout (4 secondes) masque seulement
+  le flux concerné et produit un avertissement serveur sans donnée sensible. Le reste du site reste servi.
+- Les flux n’ouvrent pas à eux seuls l’indexation : les critères de configuration PR9 restent inchangés.
+- Aucune migration ni nouvelle permission : les lectures publiques existantes sont réutilisées.
+
+Validation locale PR10 : 38 tests SSR (dont 7 nouveaux tests de flux), build TypeScript/Vite
+et contrôle du bundle Vercel avec configuration factice. Vérification visuelle avec fixtures
+sur bureau et mobile ; aucune donnée écrite en base.

@@ -32,6 +32,7 @@ function fixture() {
   const calls = [];
   const fetcher = async (input, options) => {
     const url = new URL(input); calls.push({ url, options });
+    if (url.pathname !== '/rest/v1/clubs') return Response.json([]);
     assert.equal(url.origin, runtime.supabaseUrl);
     assert.equal(options.cache, 'no-store');
     assert.equal(url.searchParams.get('select'), 'id,slug,name,sport,status,custom_domain,club_settings(config)');
