@@ -21,6 +21,7 @@ const previous = { env: process.env.VERCEL_ENV, url: process.env.VERCEL_URL, pro
 process.env.VERCEL_ENV = 'preview'; process.env.VERCEL_URL = 'build-check.vercel.app';
 let queries = 0;
 globalThis.fetch = async url => {
+  if (new URL(url).pathname !== '/rest/v1/clubs') return Response.json([]);
   queries++;
   const slug = new URL(url).searchParams.get('slug').slice(3);
   return Response.json([{ id: 'build-club', slug, name: 'Club du build', status: 'active', sport: 'tennis', custom_domain: null,

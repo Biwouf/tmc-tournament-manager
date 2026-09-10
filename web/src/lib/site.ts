@@ -1,10 +1,11 @@
+import type { HomeFeeds } from './feeds';
 import { clubConfigSchema, type ClubConfig } from './clubConfig';
 
 export type Club = {
   id: string; slug: string; name: string; sport: string; status: string;
   custom_domain: string | null;
 };
-export type Site = { club: Club; config: ClubConfig; clubName: string; origin: string; optimizeImages?: boolean };
+export type Site = { club: Club; config: ClubConfig; clubName: string; origin: string; optimizeImages?: boolean; feeds?: HomeFeeds };
 export const PAGES = [
   { path: '/', key: 'home', label: 'Accueil' },
   { path: '/club', key: 'club', label: 'Le Club' },
