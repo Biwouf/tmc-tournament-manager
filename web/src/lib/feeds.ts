@@ -1,5 +1,6 @@
 export type NewsItem = {
   id: string; titre: string; excerpt: string; image: string | null;
+  content: string; images: string[];
   focal: { x: number; y: number } | null; published_at: string | null;
 };
 export type EventItem = {

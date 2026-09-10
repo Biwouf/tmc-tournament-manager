@@ -60,6 +60,7 @@ export async function loadHomeFeeds(
       if (!parsed.success || parsed.data.club_id !== site.club.id) return [];
       const n = parsed.data;
       return [{ id: n.id, titre: n.titre, excerpt: feedExcerpt(n.contenu),
+        content: n.contenu, images: n.image_urls.filter((url): url is string => url !== null),
         image: n.image_urls[0] || null, focal: n.image_focal_points[0] || null,
         published_at: n.published_at }];
     }).slice(0, 2),

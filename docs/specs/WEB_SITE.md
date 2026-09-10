@@ -460,7 +460,7 @@ Choix techniques : [SSR Vite](https://vite.dev/guide/ssr.html),
 ## Flux de l’accueil — PR10
 
 `NewsSection` et `EventsSection` reprennent les blocs de la maquette : deux actualités
-et trois rendez-vous, sans nouvelle route ni lien vers une page de détail inexistante.
+et trois rendez-vous, sans nouvelle route. Un clic sur une carte ouvre le détail dans un overlay modal.
 Les titres de section sont fixes ; le contenu vient exclusivement des tables métier.
 
 - Chargement dans `server/feeds.ts`, après résolution du club, uniquement pour une réponse
@@ -470,7 +470,8 @@ Les titres de section sont fixes ; le contenu vient exclusivement des tables mé
   Événements : date de fin non passée, ou date de début non passée si aucune fin,
   tri `date_debut ASC`, puis `id`. Les événements déjà commencés mais non terminés restent visibles.
 - Projection explicite des colonnes et validation avant sérialisation : ni captions BO,
-  ni corps Markdown complet dans le bootstrap. Les cartes affichent un extrait texte (180 caractères).
+  le corps Markdown et les images publiques des deux actualités sont transmis pour ouvrir le détail
+  immédiatement. Les cartes affichent un extrait texte (180 caractères).
   Les images absentes ne réservent aucun espace ; la couverture reprend son point d’intérêt.
 - Dates françaises dans le fuseau `Europe/Paris`, identiques au SSR et à l’hydratation.
   Prix absent masqué, zéro affiché « Gratuit », autres prix en euros.
@@ -482,3 +483,17 @@ Les titres de section sont fixes ; le contenu vient exclusivement des tables mé
 Validation locale PR10 : 38 tests SSR (dont 7 nouveaux tests de flux), build TypeScript/Vite
 et contrôle du bundle Vercel avec configuration factice. Vérification visuelle avec fixtures
 sur bureau et mobile ; aucune donnée écrite en base.
+
+
+### Consultation d’une actualité
+
+La carte et son libellé « Lire la suite » ouvrent un `<dialog>` natif avec titre, date,
+texte Markdown complet et toutes les images, affichées sans recadrage dans le détail.
+Le HTML éditorial est assaini avec le même contrat que le BO/PWA (soulignement conservé,
+scripts et contenus actifs retirés). Les captions réservées au BO restent exclues.
+La fermeture fonctionne par bouton, Échap ou clic sur le fond. Le focus reste dans le
+panneau, revient à la carte à la fermeture, et le défilement de l’accueil est bloqué
+pendant la consultation. Aucun appel supplémentaire ni nouvelle permission en base.
+
+Validation du détail : 39 tests passent, build et bundle Vercel validés ; ouverture,
+fermeture Échap/clic extérieur/bouton, retour du focus et rendu mobile contrôlés en navigateur.

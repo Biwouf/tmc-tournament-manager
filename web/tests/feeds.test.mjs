@@ -112,3 +112,25 @@ test('requêtes concurrentes et fraîcheur : aucun contenu partagé entre clubs'
   assert.match((await f.request()).body, /Actu alpha/);
   f.rows.actus = []; assert.doesNotMatch((await f.request()).body, /Actu alpha/);
 });
+
+test('détail : corps complet et images publiques, sans champs BO ni HTML exécutable', async () => {
+  const f = fixture();
+  const content = '## Un titre\n\n**Texte intégral** <u>souligné</u><script>alert(1)</script><iframe src="https://evil.example"></iframe>\n\n[lien](javascript:alert)';
+  f.rows.actus[0] = news('alpha', { contenu: content, image_urls: ['https://images.example/1.jpg', 'https://images.example/2.jpg'], image_captions: ['SECRET_BO'] });
+  const result = await loadHomeFeeds(f.site, runtime, f.fetcher, now);
+  assert.equal(result.news[0].content, content);
+  assert.equal(result.news[0].images.length, 2);
+  assert.doesNotMatch(JSON.stringify(result), /SECRET_BO/);
+  const { default: NewsDetail } = await vite.ssrLoadModule('/src/components/home/NewsDetail.tsx');
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const html = renderToStaticMarkup(createElement(NewsDetail, { item: result.news[0], onDismiss() {} }));
+  assert.match(html, /<strong>Texte intégral<\/strong>/);
+  assert.match(html, /<u>souligné<\/u>/);
+  assert.match(html, /photo 2/);
+  assert.doesNotMatch(html, /<script|<iframe|javascript:|SECRET_BO/);
+  const page = await f.request();
+  assert.equal(page.status, 200);
+  assert.doesNotMatch(page.body, /<script>alert/);
+  assert.match(page.body, /aria-haspopup="dialog"/);
+});
