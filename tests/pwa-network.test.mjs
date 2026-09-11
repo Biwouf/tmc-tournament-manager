@@ -129,24 +129,25 @@ async function cleanup(root) {
   session = null;
 }
 
-test('three config consumers: one authenticated request, none anon, stable on token refresh, isolated on logout', async () => {
+test('three config consumers: one public request per session, stable on token refresh, isolated on logout', async () => {
   const root = await mount(h(React.Fragment, null, h(Config), h(Config), h(Config)));
   try {
-    assert.equal(counters.club_settings ?? 0, 0);
+    assert.equal(counters.club_settings, 1);
     assert.equal(authListeners.size, 1, 'one shared auth subscription, including StrictMode');
     await emit('SIGNED_IN', 'user-a');
-    assert.equal(counters.club_settings, 1);
+    assert.equal(counters.club_settings, 2);
     assert.equal(document.querySelectorAll('span')[0].textContent, '#112233');
     const accountClient = activeClient;
     accountClient.setQueryData(['private'], 'account A');
     await emit('TOKEN_REFRESHED', 'user-a');
     await emit('SIGNED_IN', 'user-a');
-    assert.equal(counters.club_settings, 1);
+    assert.equal(counters.club_settings, 2);
     await emit('SIGNED_OUT', null);
-    assert.equal(document.querySelectorAll('span')[0].textContent, 'default');
+    assert.equal(document.querySelectorAll('span')[0].textContent, '#112233');
+    assert.equal(counters.club_settings, 3);
     assert.equal(activeClient.getQueryData(['private']), undefined);
     await emit('SIGNED_IN', 'user-b');
-    assert.equal(counters.club_settings, 2);
+    assert.equal(counters.club_settings, 4);
     assert.equal(activeClient.getQueryData(['private']), undefined);
   } finally { await cleanup(root); }
 });

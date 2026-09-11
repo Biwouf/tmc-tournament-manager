@@ -261,7 +261,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `contexts/AuthProvider.tsx` | Abonnement Auth unique, restauration par INITIAL_SESSION. |
 | `contexts/SessionQueryProvider.tsx` | Cache Query neuf lorsque l'identité change ; conserve le cache au renouvellement du JWT. |
 | `lib/queryClient.ts` | Factory du QueryClient PWA : fraîcheur par défaut 60 s, un retry. Live surcharge à 0 s. |
-| `hooks/useClubConfig.ts` | Lecture authentifiée mutualisée par club et compte, cache 5 min ; logo et couleurs conservés. |
+| `hooks/useClubConfig.ts` | Lecture publique mutualisée par club et session, cache 5 min ; logo et couleurs conservés avant connexion (migration 20260909). |
 | `lib/liveMatchesSubscription.ts` | Realtime de liste : INSERT/UPDATE par club, DELETE selon IDs en cache, regroupement 250 ms et revalidation après reconnexion. |
 | `pages/MatchesPage.tsx` | Liste Live : polling de secours 30 s, abonnement filtré, profils par ensemble d'IDs avec cache 5 min. |
 | `hooks/useInstallPrompt.ts` | Hook qui gère la bannière d'installation : capture `beforeinstallprompt` (Android), détecte iOS Safari, gère le dismiss 7 jours via `localStorage` (`cac:installPromptDismissedAt`). Retourne `{ variant, promptInstall, dismiss }`. |
@@ -415,3 +415,45 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 - `20260908_live_matches_public_read.sql` : lecture publique explicite des matchs des clubs actifs, aucune écriture anon ; régression couverte dans `tests/live-score-sql.test.mjs`.
 
 - `src/lib/liveMatchVisibility.ts` et `pwa/src/lib/liveMatchVisibility.ts` : filtre PostgREST commun (copies) excluant les matchs terminés depuis plus de 7 jours selon `finished_at`. Consommé par les listes Live BO/PWA ; aucune suppression.
+
+## Cours — lot back-office (septembre 2026)
+
+Spec : `docs/specs/COURSES.md`. Livraison et déploiement : `docs/COURSES_BO_DELIVERY.md`.
+
+| Fichier | Rôle |
+|---|---|
+| `src/pages/CoursesPage.tsx` | `/courses`, liste admin à venir/passés, compteurs par quota, annulation/suppression |
+| `src/pages/CourseFormPage.tsx` | `/courses/new`, `/courses/:id/edit`, date Europe/Paris avec gestion des heures ambiguës/inexistantes, durée et quotas |
+| `src/pages/CourseTypesPage.tsx` | `/courses/types`, types, images, archivage et suppression conditionnelle |
+| `src/pages/CourseRegistrationsPage.tsx` | `/courses/:id/registrations`, décisions, ajout admin, recherche membres, historique, correction du quota |
+| `src/components/courses/CourseUI.tsx` | Shell admin, erreur accessible et pagination commune |
+| `src/components/courses/MemberProfileEditor.tsx` | Édition admin du prénom/nom/sexe, intégrée à Membres et aux inscriptions |
+| `src/components/courses/RegistrationHistory.tsx` | Historique des inscriptions et événements du membre dans le club, paginé |
+| `src/hooks/useCourseAdmin.ts` | Commandes sans succès optimiste, verrou de double clic et clé de retry conservée après erreur |
+| `src/hooks/useCourseClock.ts` | Horloge d'affichage BO ; la base reste autoritaire pour les délais |
+| `src/lib/courses.ts` | Types, RPC, messages d'erreur, date Europe/Paris, upload/validation des images |
+
+`MembersPage` expose l'édition de profil. `AcceptInvitePage` ne fait plus d'upsert d'identité,
+uniquement le choix du mot de passe. La nouvelle migration révoque l'écriture directe du
+profil par son propriétaire ; admin/super-admin passe par RPC. `profile_details` porte le
+sexe sans modifier la lecture publique des noms utilisée par Live Score.
+
+`2026091001_courses.sql` : tables, RLS, GRANT, RPC BO et Storage. Transport BO regroupé en
+`course_admin_read`/`course_admin_command`. Chaque mutation verrouille le club puis le cours ;
+un trigger de retrait du club annule les inscriptions futures actives. Les futures écritures
+PWA doivent utiliser les mêmes verrous. Aucun endpoint public Cours dans ce premier lot.
+
+`tests/courses-sql.test.mjs` et `tests/courses-client.test.mjs` : `npm run test:courses`.
+
+`tests/courses-concurrency.test.mjs` : test opt-in sur PostgreSQL réel, deux connexions ;
+`tests/helpers/courses-fixture.mjs` : socle SQL de test partagé avec PGlite.
+
+### Cours PWA V2
+
+- Routes `/cours` et `/profil`, quatrième onglet ; catalogue, inscriptions personnelles,
+  responsable par cours et file de validation. `pwa/src/lib/courses.ts` centralise les RPC
+  et les états, `hooks/useCourses.ts` les commandes idempotentes et l'horloge serveur.
+- `pwa/src/components/courses/` : cartes, dialogue natif, parcours de demande et file.
+- Migration additive `2026091002_courses_pwa.sql` : propriété, lectures publiques/privées,
+  moteur de commande commun BO/PWA, propre profil, refus obligatoire et retraits de membres.
+- Tests, configuration dev, ordre des migrations et limites : `docs/COURSES_PWA_DELIVERY.md`.

@@ -1073,6 +1073,26 @@ Reste à préciser **au fil de l'implémentation** (détails, pas de blocage de 
 le `docs/specs/*` du module touché (GEN_PROG, ACTUS_FACEBOOK, PWA…), et `README.md` (côté
 utilisateur). Créer `docs/specs/WEB_SITE.md` à la Phase 4.
 
+### Module Cours — droits du lot BO
+
+Les routes `/courses/*`, les demandes des autres membres et l'édition prénom/nom/sexe sont
+réservées aux admins du club actif et aux super-admins. Les managers ne peuvent pas écrire
+ces données. La barrière serveur est `course_is_admin` + RPC privée ; ne pas réutiliser
+`can_manage_club_content` qui autorise aussi les managers. Le profil est global au compte,
+mais un admin ne peut éditer que les membres de son club. Le sexe est privé dans
+`profile_details`. Le membre ne modifie pas son profil en V1.
+
+Le retrait d'un membre annule atomiquement ses inscriptions futures actives dans ce club.
+Spec : `COURSES.md` ; déploiement : `../COURSES_BO_DELIVERY.md`.
+
+**Extension PWA V2** : le membre peut compléter son propre profil via une RPC dédiée.
+Le responsable désigné d'un cours peut consulter et traiter ses demandes dans la PWA,
+sans obtenir de rôle admin ; les autres cours lui restent accessibles comme membre.
+Les admins gardent la gestion de tous les cours du club actif. Le retrait d'un responsable
+supprime aussi son affectation. Ces règles remplacent les restrictions correspondantes
+ci-dessus pour la V2 ; le BO reste réservé aux admins.
+Spec : `COURSES_PWA_V2.md` ; livraison : `../COURSES_PWA_DELIVERY.md`.
+
 ## 14. Socle SEO / GEO vitrine — septembre 2026
 
 La dette SEO de PR9 est traitée dans le worktree dédié : **React/Vite conservés**, SSR Node

@@ -64,7 +64,11 @@ export default function AppHeader() {
   const clubName = club?.name ?? cfg.title;
 
   const handleBack = () => {
-    if (cfg.backTo) navigate(cfg.backTo);
+    const from = (location.state as { from?: string } | null)?.from;
+    const profileReturn = new URLSearchParams(location.search).get('returnTo');
+    if (location.pathname === '/login' && from?.startsWith('/cours')) navigate(from);
+    else if (location.pathname === '/profil' && profileReturn && /^\/cours(?:\?|$)/.test(profileReturn)) navigate(profileReturn);
+    else if (cfg.backTo) navigate(cfg.backTo);
     else navigate(-1);
   };
 
@@ -75,11 +79,11 @@ export default function AppHeader() {
     >
       {cfg.mode === 'root' ? (
         <>
-          <img
+          {location.pathname === '/cours' && !config.brand.logo ? <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold" aria-hidden="true">{clubName[0]}</span> : <img
             src={config.brand.logo || '/icons/icon-192.png'}
             alt={clubName}
             className="h-8 w-8 rounded-full object-contain shrink-0"
-          />
+          />}
           <h1
             className="flex-1 truncate text-foreground tracking-tight"
             style={{ fontSize: 17, fontWeight: 800 }}

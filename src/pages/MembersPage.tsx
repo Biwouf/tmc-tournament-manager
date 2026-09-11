@@ -1,3 +1,4 @@
+import MemberProfileEditor from '../components/courses/MemberProfileEditor';
 // Multi-tenant — PR5-bis : gestion des membres d'un club par un admin de ce club.
 // Spec : docs/specs/MULTI_TENANT.md §4.2.
 //
@@ -9,7 +10,7 @@
 // policy d'écriture. Le serveur est la barrière — les contrôles désactivés ci-dessous
 // ne sont que du confort.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { CourseShell } from '../components/courses/CourseUI';
 import {
   listClubMembers,
   removeClubMember,
@@ -24,7 +25,7 @@ import { supabase } from '../lib/supabase';
 
 // Les rôles métier sont appliqués côté base ; la présentation reflète ces droits.
 const ROLE_OPTIONS: { value: ClubRole; label: string }[] = [
-  { value: 'member', label: 'Membre — Live Score uniquement' },
+  { value: 'member', label: 'Membre — cours et Live Score' },
   { value: 'manager', label: 'Gestionnaire — contenus et outils du club' },
   { value: 'admin', label: 'Administrateur — tout, y compris les membres' },
 ];
@@ -44,6 +45,7 @@ export default function MembersPage() {
   const { clubId, club } = useClub();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  const [editingProfile, setEditingProfile] = useState<string | null>(null);
   const [members, setMembers] = useState<ClubMember[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyMember, setBusyMember] = useState<string | null>(null);
@@ -57,19 +59,25 @@ export default function MembersPage() {
 
   const load = useCallback(async () => {
     if (!clubId) return;
-    setLoadError(null);
     const result = await listClubMembers(clubId);
     if (!result.success) {
       setLoadError(result.error);
       setMembers([]);
       return;
     }
+    setLoadError(null);
     setMembers(result.members);
   }, [clubId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    if (clubId) listClubMembers(clubId).then(result => {
+      if (cancelled) return;
+      if (result.success) { setLoadError(null); setMembers(result.members); }
+      else { setLoadError(result.error); setMembers([]); }
+    });
+    return () => { cancelled = true; };
+  }, [clubId]);
 
   const adminCount = useMemo(
     () => (members ?? []).filter((m) => m.role === 'admin').length,
@@ -147,27 +155,8 @@ export default function MembersPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Membres</h1>
-            <p className="mt-2 text-muted-foreground">
-              Les comptes ayant accès au back-office de{' '}
-              <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>. Le
-              rôle définit les modules accessibles et les actions autorisées.
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            ← Accueil
-          </Link>
-        </div>
-      </header>
-
-      <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
+    <CourseShell title="Membres">
+      <div className="space-y-8">
         <InvitePanel clubName={club?.name ?? 'ce club'} clubId={clubId} onInvited={load} />
 
         <section>
@@ -191,6 +180,7 @@ export default function MembersPage() {
             </div>
           )}
 
+          {clubId && editingProfile && <MemberProfileEditor key={editingProfile} clubId={clubId} userId={editingProfile} onClose={() => setEditingProfile(null)} onSaved={load} />}
           {members === null ? (
             <p className="text-sm text-muted-foreground">Chargement…</p>
           ) : members.length === 0 ? (
@@ -223,6 +213,7 @@ export default function MembersPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
+                        <button type="button" className="course-button" onClick={() => setEditingProfile(m.user_id)}>Modifier le profil</button>
                         <select
                           value={m.role}
                           onChange={(e) => handleRoleChange(m, e.target.value as ClubRole)}
@@ -277,8 +268,8 @@ export default function MembersPage() {
             </div>
           )}
         </section>
-      </main>
-    </div>
+      </div>
+    </CourseShell>
   );
 }
 

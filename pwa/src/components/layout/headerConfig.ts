@@ -12,6 +12,8 @@ export type HeaderConfig = {
 };
 
 const ROUTES: Array<[string, HeaderConfig]> = [
+  ['/cours', { mode: 'root', title: 'Cours' }],
+  ['/profil', { mode: 'sub', title: 'Mon profil', backTo: '/cours', backLabel: 'Cours' }],
   ['/actu',               { mode: 'root', title: 'Actualités' }],
   ['/actus/:id',          { mode: 'sub',  title: 'Actualité',
                             backTo: '/actu?tab=actus',  backLabel: 'Actualités' }],
