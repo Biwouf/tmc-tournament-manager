@@ -1,5 +1,7 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Vestiaires — `infra.locker_rooms.*`. */
 export default function LockerRoomsSection() {
@@ -9,13 +11,14 @@ export default function LockerRoomsSection() {
   if (!lockers.title && !lockers.text && !image) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:74px]">
       <div className="grid items-center gap-10 md:grid-cols-2">
         {image && (
-          <img
+          <ConfigImage loading="lazy" decoding="async"
             src={image}
-            alt=""
+            alt={lockers.title || 'Vestiaires'}
             className="aspect-[16/10] w-full rounded-card object-cover shadow-soft"
+            style={focalPointStyle(lockers.image_focal)}
           />
         )}
         <div>

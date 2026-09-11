@@ -1,3 +1,5 @@
+import NewsSection from '../components/home/NewsSection';
+import EventsSection from '../components/home/EventsSection';
 import HeroSection from '../components/home/HeroSection';
 import StatsSection from '../components/home/StatsSection';
 import SchoolTeaserSection from '../components/home/SchoolTeaserSection';
@@ -10,8 +12,8 @@ export default function HomePage() {
     <>
       <HeroSection />
       <StatsSection />
-      {/* PR10 — bloc « Dernières actualités » (flux `actus`, drapeau `settings.show_news`). */}
-      {/* PR10 — bloc « Prochains rendez-vous » (flux `events`, drapeau `settings.show_events`). */}
+      <NewsSection />
+      <EventsSection />
       <SchoolTeaserSection />
       <InfraTeaserSection />
       <PartnersSection />

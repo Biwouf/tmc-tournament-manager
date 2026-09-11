@@ -1,9 +1,10 @@
+import ConfigImage from '../ConfigImage';
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
 import { useContactDrawer } from '../../contexts/ContactDrawerContext';
 import { configImageUrl } from '../../lib/configImage';
-import { NAV_ITEMS } from './navItems';
+import { isPublished, PAGES } from '../../lib/site';
 
 /** Header sticky : logo + nom + ville, navigation, CTA contact, et menu mobile plein écran. */
 export default function Header() {
@@ -15,8 +16,8 @@ export default function Header() {
 
   const identity = (
     <>
-      {/* Pas de logo saisi → pas d'`<img>` sans `src` : le nom seul tient la place. */}
-      {logo && <img src={logo} alt="" className="h-11 w-11 object-contain" />}
+      {/* Pas de logo saisi → pas d'`<ConfigImage>` sans `src` : le nom seul tient la place. */}
+      {logo && <ConfigImage width={44} height={44} sizes="44px" decoding="async" src={logo} alt="" className="h-11 w-11 object-contain" />}
       <span className="flex flex-col leading-tight">
         <span className="text-[16.5px] font-extrabold tracking-tight">{clubName}</span>
         {config.brand.city && (
@@ -27,45 +28,50 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
-      <div className="shell flex items-center gap-7 py-3">
-        <NavLink to="/" className="flex items-center gap-3">
-          {identity}
-        </NavLink>
+    <>
+      <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur-md">
+        <div className="shell flex items-center gap-7 py-3">
+          <NavLink reloadDocument to="/" className="flex items-center gap-3">
+            {identity}
+          </NavLink>
 
-        <nav className="ml-auto hidden items-center gap-1 lg:flex">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-[14.5px] font-semibold transition-colors hover:bg-brand-soft hover:text-brand ${
-                  isActive ? 'text-brand' : 'text-text'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-          <button type="button" onClick={openDrawer} className="btn btn-primary ml-3 px-5 py-2.5">
-            Nous contacter
+          <nav className="ml-auto hidden items-center gap-1 lg:flex">
+            {PAGES.filter(page => isPublished(config, page)).map((item) => (
+              <NavLink reloadDocument
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
+                className={({ isActive }) =>
+                  `rounded-full px-4 py-2 text-[14.5px] font-semibold transition-colors hover:bg-brand-soft hover:text-brand ${
+                    isActive ? 'text-brand' : 'text-text'
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+            <button type="button" onClick={openDrawer} className="btn btn-primary ml-3 px-5 py-2.5">
+              Nous contacter
+            </button>
+          </nav>
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Ouvrir le menu"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            className="ml-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-xl text-white lg:hidden"
+          >
+            ≡
           </button>
-        </nav>
+        </div>
+      </header>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Ouvrir le menu"
-          className="ml-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-xl text-white lg:hidden"
-        >
-          ≡
-        </button>
-      </div>
-
+      {/* Hors du header : backdrop-blur crée un bloc contenant pour les descendants fixed. */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-bg p-6 lg:hidden">
-          <div className="flex items-center justify-between">
+        <div id="mobile-menu" className="fixed inset-0 z-50 flex flex-col overflow-y-auto overscroll-contain bg-bg p-6 lg:hidden">
+          <div className="flex shrink-0 items-center justify-between">
             <div className="flex items-center gap-3">{identity}</div>
             <button
               type="button"
@@ -77,14 +83,14 @@ export default function Header() {
             </button>
           </div>
           <nav className="mt-8 flex flex-col gap-1">
-            {NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
+            {PAGES.filter(page => isPublished(config, page)).map((item) => (
+              <NavLink reloadDocument
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
                 onClick={() => setMenuOpen(false)}
                 className={`rounded-soft px-3 py-4 text-lg font-bold ${
-                  pathname === item.to ? 'text-brand' : 'text-text'
+                  pathname === item.path ? 'text-brand' : 'text-text'
                 }`}
               >
                 {item.label}
@@ -97,12 +103,12 @@ export default function Header() {
               setMenuOpen(false);
               openDrawer();
             }}
-            className="btn btn-primary mt-6 w-full"
+            className="btn btn-primary mt-6 w-full shrink-0"
           >
             Nous contacter
           </button>
         </div>
       )}
-    </header>
+    </>
   );
 }

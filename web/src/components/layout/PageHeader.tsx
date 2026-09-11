@@ -1,23 +1,33 @@
+import { useLocation } from 'react-router-dom';
+import { useSite } from '../../contexts/SiteContext';
+import { pageAt, pageHeading } from '../../lib/site';
+
 /**
- * En-tête des pages intérieures : sur-titre, H1, mention. Rien à afficher → rien n'est rendu :
- * un `page_title` non saisi ne doit pas laisser un bandeau vide (brief §10).
+ * En-tête des pages intérieures : H1 dérivé de la page et du club si non saisi.
  */
 export default function PageHeader({
-  eyebrow,
+  overline,
   title,
   note,
+  narrowTitle = false,
 }: {
-  eyebrow?: string;
+  /** En dur, jamais de la config — cf. le tableau du brief PR9-bis §1. */
+  overline: string;
   title?: string;
   note?: string;
+  /** `max-width:18ch` sur le H1 — seule la page club le porte (maquette 1736). */
+  narrowTitle?: boolean;
 }) {
-  if (!eyebrow && !title && !note) return null;
+  const site = useSite();
+  const { pathname } = useLocation();
+  const page = pageAt(pathname);
+  title = title?.trim() || (page ? pageHeading(site, page) : site.clubName);
 
   return (
-    <div className="shell pt-14 pb-4 sm:pt-20">
-      {eyebrow && <span className="eyebrow">{eyebrow}</span>}
-      {title && <h1 className="title mt-3 max-w-3xl">{title}</h1>}
-      {note && <p className="lede mt-4 max-w-2xl">{note}</p>}
+    <div className="shell pt-16">
+      <span className="eyebrow">{overline}</span>
+      {title && <h1 className={`page-h1 ${narrowTitle ? 'max-w-[18ch]' : ''}`}>{title}</h1>}
+      {note && <p className="mt-3.5 max-w-[54ch] text-[16px] text-muted">{note}</p>}
     </div>
   );
 }

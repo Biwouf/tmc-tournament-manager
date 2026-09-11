@@ -1,7 +1,8 @@
+import ConfigImage from '../ConfigImage';
 import { NavLink } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
-import { NAV_ITEMS } from './navItems';
+import { isPublished, PAGES } from '../../lib/site';
 
 /** Footer — `brand.*` + `contact.*` + `social.*` + `legal.*`. Chaque bloc disparaît s'il est vide. */
 export default function Footer() {
@@ -37,7 +38,7 @@ export default function Footer() {
         <div className="flex flex-col gap-12 md:flex-row md:justify-between">
           <div className="max-w-sm">
             <div className="flex items-center gap-3">
-              {logo && <img src={logo} alt="" className="h-11 w-11 object-contain" />}
+              {logo && <ConfigImage width={44} height={44} sizes="44px" loading="lazy" decoding="async" src={logo} alt="" className="h-11 w-11 object-contain" />}
               <span className="text-lg font-extrabold">{clubName}</span>
             </div>
             {identityLine && (
@@ -51,11 +52,11 @@ export default function Footer() {
                 Navigation
               </p>
               <div className="mt-4 flex flex-col gap-2">
-                {NAV_ITEMS.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/'}
+                {PAGES.filter(page => isPublished(config, page)).map((item) => (
+                  <NavLink reloadDocument
+                    key={item.path}
+                    to={item.path}
+                    end={item.path === '/'}
                     className="text-sm font-semibold text-white/80 hover:text-white"
                   >
                     {item.label}

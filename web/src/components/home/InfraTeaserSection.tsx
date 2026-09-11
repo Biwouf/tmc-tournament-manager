@@ -1,6 +1,9 @@
+import ConfigImage from '../ConfigImage';
+import { isPublished, PAGES } from '../../lib/site';
 import { Link } from 'react-router-dom';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Teaser infrastructures — `home.infra_teaser`. Trois cartes recommandées, la liste décide. */
 export default function InfraTeaserSection() {
@@ -9,12 +12,12 @@ export default function InfraTeaserSection() {
   if (items.length === 0) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:84px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h2 className="title">Les infrastructures</h2>
-        <Link to="/infrastructures" className="text-[15px] font-bold text-brand">
+        {isPublished(config, PAGES[2]) && <Link reloadDocument to="/infrastructures" className="text-[15px] font-bold text-brand">
           Tout voir →
-        </Link>
+        </Link>}
       </div>
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item, index) => {
@@ -22,11 +25,11 @@ export default function InfraTeaserSection() {
           return (
             <div
               key={index}
-              className="relative overflow-hidden rounded-card border border-line bg-card shadow-soft"
+              className="card-lift relative overflow-hidden rounded-card border border-line bg-card shadow-soft"
             >
               {image && (
                 <>
-                  <img src={image} alt="" className="aspect-[4/3] w-full object-cover" />
+                  <ConfigImage sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 33vw" loading="lazy" decoding="async" src={image} alt={item.label} className="aspect-[4/3] w-full object-cover" style={focalPointStyle(item.image_focal)} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 </>
               )}

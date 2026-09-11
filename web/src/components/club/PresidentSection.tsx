@@ -1,5 +1,7 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Mot du président·e — `club.president.*`. */
 export default function PresidentSection() {
@@ -9,15 +11,16 @@ export default function PresidentSection() {
   if (!president.name && !president.role && !president.quote && !photo) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:54px]">
       <div className="card grid gap-10 p-8 sm:p-12 md:grid-cols-[280px_1fr] md:items-center">
         {(photo || president.name || president.role) && (
           <div className="text-center">
             {photo && (
-              <img
+              <ConfigImage loading="lazy" decoding="async"
                 src={photo}
                 alt={president.name || ''}
                 className="mx-auto h-44 w-44 rounded-full border-4 border-brand-soft object-cover"
+                style={focalPointStyle(president.photo_focal)}
               />
             )}
             {president.name && <div className="mt-4 text-lg font-extrabold">{president.name}</div>}

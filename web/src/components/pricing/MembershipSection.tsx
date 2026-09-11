@@ -19,7 +19,15 @@ export default function MembershipSection() {
                 <h3 className="font-extrabold">{item.name}</h3>
                 {item.subtitle && <div className="text-sm text-muted">{item.subtitle}</div>}
               </div>
-              {price && <div className="text-xl font-extrabold text-brand">{price}</div>}
+              {/* « / an » en dur, même raison qu'en carte de cours (`LessonsSection`). La
+                  ligne garde en revanche SA typographie (maquette 1924) : le bloc 38px de la
+                  carte ne tiendrait pas dans une ligne. */}
+              {price && (
+                <div className="flex items-baseline gap-1 whitespace-nowrap">
+                  <span className="text-[30px] font-extrabold text-brand">{price}</span>
+                  <span className="text-[14px] font-semibold text-muted">/ an</span>
+                </div>
+              )}
             </div>
           );
         })}

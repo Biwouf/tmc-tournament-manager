@@ -8,7 +8,7 @@ export default function InfraPage() {
   const { config } = useSite();
   return (
     <>
-      <PageHeader title={config.infra.page_title} />
+      <PageHeader overline="Les infrastructures" title={config.infra.page_title} />
       <CourtsSection />
       <ClubhouseSection />
       <LockerRoomsSection />

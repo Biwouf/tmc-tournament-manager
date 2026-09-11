@@ -1,5 +1,7 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Programmes — `club.programs`. */
 export default function ProgramsSection() {
@@ -8,14 +10,14 @@ export default function ProgramsSection() {
   if (programs.length === 0) return null;
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:48px]">
       <h2 className="title">Les programmes</h2>
       <div className="mt-8 grid gap-6 sm:grid-cols-2">
         {programs.map((program, index) => {
           const image = configImageUrl(program.image);
           return (
-            <article key={index} className="card overflow-hidden">
-              {image && <img src={image} alt="" className="aspect-[16/9] w-full object-cover" />}
+            <article key={index} className="card card-lift overflow-hidden">
+              {image && <ConfigImage loading="lazy" decoding="async" src={image} alt={program.name} className="aspect-[16/9] w-full object-cover" style={focalPointStyle(program.image_focal)} />}
               <div className="p-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <h3 className="text-lg font-extrabold">{program.name}</h3>

@@ -1,3 +1,4 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 
@@ -13,14 +14,14 @@ export default function PartnersSection() {
 
   return (
     <section className="bg-bg2">
-      <div className="shell section">
+      <div className="shell section [--sec-top:84px] pb-[84px]">
         <p className="text-center text-[13px] font-bold tracking-[0.14em] text-muted uppercase">
           Ils soutiennent le club
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           {partners.map((partner, index) => {
             const logo = (
-              <img
+              <ConfigImage loading="lazy" decoding="async"
                 src={partner.logo!}
                 alt={partner.name || ''}
                 className="max-h-12 w-auto object-contain"

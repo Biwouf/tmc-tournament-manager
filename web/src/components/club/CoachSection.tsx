@@ -1,5 +1,7 @@
+import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
+import { focalPointStyle } from '../../lib/focalPoint';
 
 /** Encadrement — `club.coach.*` + `club.methods` + `club.levels`. */
 export default function CoachSection() {
@@ -13,14 +15,15 @@ export default function CoachSection() {
   const subtitle = [coach.role, ...coach.credentials].filter(Boolean).join(' · ');
 
   return (
-    <section className="shell section">
+    <section className="shell section [--sec-top:84px]">
       <h2 className="title">L'encadrement</h2>
       <div className="mt-8 grid gap-10 md:grid-cols-[320px_1fr]">
         {photo && (
-          <img
+          <ConfigImage loading="lazy" decoding="async"
             src={photo}
             alt={coach.name || ''}
             className="aspect-[4/5] w-full rounded-card object-cover shadow-soft"
+            style={focalPointStyle(coach.photo_focal)}
           />
         )}
         <div>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
+import { isPublished, pageAt, type Site } from './lib/site';
 import { SiteProvider } from './contexts/SiteContext';
 import { ContactDrawerProvider } from './contexts/ContactDrawerContext';
 import Header from './components/layout/Header';
@@ -20,23 +21,23 @@ function ScrollToTop() {
   return null;
 }
 
-export default function App() {
+export default function App({ site }: { site: Site }) {
+  const { pathname } = useLocation();
+  const page = pageAt(pathname);
+  const available = page && site.config[page.key].published && (page.key === 'home' || isPublished(site.config, page));
   return (
-    <SiteProvider>
+    <SiteProvider site={site}>
       <ContactDrawerProvider>
         <ScrollToTop />
         <Header />
-        <main className="min-h-[40vh]">
-          <Routes>
+        <main className="page-end min-h-[40vh]">
+          {available ? <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/club" element={<ClubPage />} />
             <Route path="/infrastructures" element={<InfraPage />} />
             <Route path="/tarifs" element={<PricingPage />} />
             <Route path="/contact" element={<ContactPage />} />
-            {/* Toute autre adresse rend l'accueil : une vitrine n'a pas de 404 utile, et la
-                page « club inconnu » est PR13. */}
-            <Route path="*" element={<HomePage />} />
-          </Routes>
+          </Routes> : <div className="shell section"><h1 className="title">Page introuvable</h1></div>}
         </main>
         <Footer />
         <ContactDrawer />

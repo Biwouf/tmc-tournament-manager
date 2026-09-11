@@ -13,9 +13,12 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { STORAGE_BUCKETS, clubPath, extractStoragePath, sanitizeFilename } from '../../lib/storage';
 import {
+  asFocal,
+  focalKey,
   itemsOf,
   saveClubConfigGroup,
   validateClubConfigGroup,
+  type FieldSpec,
   type GroupSpec,
   type GroupValue,
   type ListEntry,
@@ -217,10 +220,28 @@ export default function SiteConfigPanel({
     remapFiles(list.key, (i) => (i === index ? target : i === target ? index : i));
   };
 
-  const pickFile = (path: string, file: File) => {
+  /**
+   * PR9-ter — une NOUVELLE image repart du centre.
+   *
+   * Le point d'intérêt désigne un endroit de l'image PRÉCÉDENTE : le garder recadrerait la
+   * nouvelle sur un point qui n'y veut plus rien dire, en silence. Contrepartie assumée :
+   * choisir un fichier puis « Annuler » ne rend pas le point d'intérêt d'avant — le mémoriser
+   * pour ce seul cas coûterait un état de plus, pour un clic à refaire.
+   *
+   * Le chemin de la clé sœur se déduit du chemin de l'image, ici comme ailleurs :
+   * `hero_image` → `hero_image_focal`, `board.0.photo` → `board.0.photo_focal`. Le suffixe ne
+   * contient pas de point, `setAtPath` le découpe donc exactement comme l'original.
+   */
+  const resetFocal = (spec: FieldSpec, path: string) => {
+    if (!spec.focal) return;
+    setValue((prev) => setAtPath(prev, focalKey(path), ''));
+  };
+
+  const pickFile = (spec: FieldSpec, path: string, file: File) => {
     setErrors([]);
     setSaved(false);
     setFiles((prev) => ({ ...prev, [path]: file }));
+    resetFocal(spec, path);
   };
 
   /** Annule un fichier en attente, ou retire l'image enregistrée si aucun n'est en attente. */
@@ -354,8 +375,21 @@ export default function SiteConfigPanel({
           </div>
         )}
 
+        {itemsOf(group).some((item) => item.kind === 'field' && item.advanced) && (
+          <details className="mb-5 rounded-lg border border-input p-4">
+            <summary className="cursor-pointer text-sm font-medium">Référencement — surcharges facultatives</summary>
+            <p className="my-3 text-xs text-muted-foreground">Aucune saisie nécessaire : les titres et descriptions sont calculés depuis vos contenus.</p>
+            <div className="flex flex-col gap-4">
+              {itemsOf(group).map((item) => item.kind === 'field' && item.advanced ? (
+                <ScalarField key={item.key} spec={item} value={(value[item.key] as string) ?? ''}
+                  onChange={(text) => edit((prev) => ({ ...prev, [item.key]: text }))} />
+              ) : null)}
+            </div>
+          </details>
+        )}
+
         <div className="flex flex-col gap-5">
-          {withHeadings(itemsOf(group)).map(({ item, heading }) => (
+          {withHeadings(itemsOf(group).filter((item) => !(item.kind === 'field' && item.advanced))).map(({ item, heading }) => (
             <div key={item.key} className="flex flex-col gap-5">
               {heading && (
                 <h3 className="mt-1 text-sm font-semibold text-card-foreground">{heading}</h3>
@@ -392,8 +426,14 @@ export default function SiteConfigPanel({
                   spec={item}
                   value={(value[item.key] as string) ?? ''}
                   file={files[item.key] ?? null}
-                  onPick={(file) => pickFile(item.key, file)}
+                  // `asFocal` et non un cast : après un enregistrement, l'état porte la SORTIE
+                  // de la validation, où le point d'intérêt est un objet `{ x, y }`.
+                  focal={asFocal(value[focalKey(item.key)])}
+                  onPick={(file) => pickFile(item, item.key, file)}
                   onClear={() => clearImage(item.key)}
+                  onFocalChange={(focal) =>
+                    edit((prev) => ({ ...prev, [focalKey(item.key)]: focal }))
+                  }
                 />
               ) : (
                 <ScalarField
@@ -439,7 +479,7 @@ function RepeatableList({
   entries: ListEntry[];
   files: PendingFiles;
   onChangeEntry: (index: number, fieldKey: string, value: string) => void;
-  onPickFile: (path: string, file: File) => void;
+  onPickFile: (spec: FieldSpec, path: string, file: File) => void;
   onClearImage: (path: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
@@ -509,8 +549,12 @@ function RepeatableList({
                       spec={field}
                       value={entry[field.key] ?? ''}
                       file={files[path] ?? null}
-                      onPick={(file) => onPickFile(path, file)}
+                      focal={asFocal(entry[focalKey(field.key)])}
+                      onPick={(file) => onPickFile(field, path, file)}
                       onClear={() => onClearImage(path)}
+                      onFocalChange={(focal) =>
+                        onChangeEntry(index, focalKey(field.key), focal)
+                      }
                     />
                   ) : (
                     <ScalarField

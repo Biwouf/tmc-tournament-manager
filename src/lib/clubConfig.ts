@@ -21,6 +21,11 @@
 // part plutôt que glissé dans `brand` précisément pour que PR9 n'ait pas à ignorer deux clés
 // au milieu de l'identité du club. Chaque ajout de groupe est resté ADDITIF, donc sans
 // incrément de version.
+//
+// PR9-ter n'ajoute aucun groupe : elle pose une CLÉ SŒUR optionnelle à côté de chaque image
+// RECADRÉE par la vitrine — `hero_image_focal` à côté de `hero_image` (cf. `focal` plus bas).
+// Additif au même titre que les groupes ci-dessus : la clé image ne change pas de type, une clé
+// sœur absente vaut le centre, et `CLUB_CONFIG_VERSION` reste donc à 1.
 
 import { z } from 'zod';
 
@@ -38,6 +43,37 @@ const optionalText = z.string().optional().catch(undefined);
  * d'être coercé : la vitrine verrait sinon passer un type que le contrat ne décrit pas.
  */
 const amount = z.number().optional().catch(undefined);
+
+// ── Point d'intérêt d'une image — PR9-ter ────────────────────────────────────
+/**
+ * Le point d'intérêt d'une image RECADRÉE (`object-fit: cover`), en pourcentages. MÊME FORME
+ * qu'`ActuFocalPoint` (`src/types.ts:143`), pour que `focalPointStyle` se réutilise tel quel.
+ *
+ * Posé en CLÉ SŒUR de la clé image — `hero_image` → `hero_image_focal` — plutôt qu'en
+ * remplaçant `image: string` par un objet : l'ajout reste ADDITIF (pas de migration, pas
+ * d'incrément de `CLUB_CONFIG_VERSION`), les clés existantes ne bougent pas, et une clé sœur
+ * ABSENTE rend exactement le comportement d'avant — `50% 50%`, le centre.
+ *
+ * Seules les images RECADRÉES en portent une. Un logo est rendu en `contain` (il n'est jamais
+ * coupé) et les fonds d'affiche de `posters` ne sortent pas sur la vitrine : ni l'un ni l'autre
+ * n'a de clé sœur.
+ */
+export type ClubConfigFocalPoint = { x: number; y: number };
+
+const percent = z.number().min(0).max(100);
+const focalObject = z.object({ x: percent, y: percent });
+/** Règle 2 : un focal malformé, incomplet ou hors bornes retombe sur `undefined` — donc sur le
+ *  centre — et ne fait jamais échouer la lecture du groupe qui le porte. */
+const focal = focalObject.optional().catch(undefined);
+/**
+ * La variante des LISTES DE SCALAIRES — `infra.clubhouse.images` est un `list<image>`, ses
+ * entrées sont des chaînes et n'ont donc AUCUNE place pour une clé sœur. Le focal y vit dans un
+ * TABLEAU PARALLÈLE, `images_focal`, indexé comme `images` : c'est exactement le patron
+ * d'`actus.image_focal_points`. `null` tient la place d'une image sans point d'intérêt, pour
+ * que les deux tableaux restent alignés — et le `.catch(null)` est posé sur l'ÉLÉMENT, sans
+ * quoi une entrée malformée coûterait tout le tableau.
+ */
+const focalOrNull = focalObject.nullable().catch(null);
 
 // ── brand.* — identité & marque (web_site_brief §5.1) ────────────────────────
 const brandSchema = z.object({
@@ -65,16 +101,26 @@ const brandSchema = z.object({
   copyright: optionalText,
 });
 
+// SEO : publication automatique si du contenu existe ; deux surcharges facultatives.
+const pageSeoFields = {
+  published: z.boolean().catch(true).default(true),
+  seo_title: optionalText,
+  seo_description: optionalText,
+};
+
 // ── home.* — page d'accueil vitrine (web_site_brief §5.2) ────────────────────
 const statSchema = z.object({ value: text, label: text });
 const infraTeaserSchema = z.object({
   label: text,
   detail: optionalText,
   image: optionalText,
+  image_focal: focal,
 });
 
 const homeSchema = z.object({
+  ...pageSeoFields,
   hero_image: optionalText,
+  hero_image_focal: focal,
   hero_eyebrow: optionalText,
   hero_title: text,
   hero_subtitle: text,
@@ -84,6 +130,7 @@ const homeSchema = z.object({
   school_teaser_text: optionalText,
   school_teaser_cta: optionalText,
   school_teaser_image: optionalText,
+  school_teaser_image_focal: focal,
   infra_teaser: z.array(infraTeaserSchema).catch([]),
   cta_title: optionalText,
   cta_text: optionalText,
@@ -99,6 +146,7 @@ const presidentSchema = z.object({
   name: text,
   role: text,
   photo: optionalText,
+  photo_focal: focal,
   quote: text,
 });
 
@@ -108,6 +156,7 @@ const coachSchema = z.object({
   credentials: z.array(text).catch([]),
   bio: text,
   photo: optionalText,
+  photo_focal: focal,
 });
 
 const programSchema = z.object({
@@ -116,11 +165,18 @@ const programSchema = z.object({
   frequency: optionalText,
   description: optionalText,
   image: optionalText,
+  image_focal: focal,
 });
 
-const boardMemberSchema = z.object({ name: text, role: text, photo: optionalText });
+const boardMemberSchema = z.object({
+  name: text,
+  role: text,
+  photo: optionalText,
+  photo_focal: focal,
+});
 
 const clubSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   president: presidentSchema
     .catch(() => presidentSchema.parse({}))
@@ -139,6 +195,7 @@ const courtSchema = z.object({
   label: text,
   detail: optionalText,
   image: optionalText,
+  image_focal: focal,
 });
 
 const clubhouseSchema = z.object({
@@ -146,15 +203,20 @@ const clubhouseSchema = z.object({
   text: optionalText,
   /** Liste de scalaires, d'URL cette fois : `list<image>` et non `list<{ url }>`. */
   images: z.array(text).catch([]),
+  /** PR9-ter — le tableau PARALLÈLE des points d'intérêt, aligné sur `images` (cf. `focalOrNull`).
+   *  Plus court que `images` (ou absent) : les images sans focal sont simplement centrées. */
+  images_focal: z.array(focalOrNull).catch([]),
 });
 
 const lockerRoomsSchema = z.object({
   title: optionalText,
   text: optionalText,
   image: optionalText,
+  image_focal: focal,
 });
 
 const infraSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   courts: z.array(courtSchema).catch([]),
   clubhouse: clubhouseSchema
@@ -186,6 +248,7 @@ const membershipSchema = z.object({ name: text, subtitle: optionalText, price: a
 const otherFeeSchema = z.object({ label: text, price: text });
 
 const pricingSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   season: optionalText,
   note: optionalText,
@@ -201,6 +264,7 @@ const pricingSchema = z.object({
 const openingHourSchema = z.object({ day: text, time: text });
 
 const contactSchema = z.object({
+  ...pageSeoFields,
   page_title: optionalText,
   address_street: optionalText,
   address_postal_code: optionalText,
@@ -242,6 +306,7 @@ const legalSchema = z.object({
 const flag = z.boolean().catch(true).default(true);
 
 const settingsSchema = z.object({
+  search_indexing: flag,
   show_news: flag,
   show_events: flag,
   show_partners: flag,

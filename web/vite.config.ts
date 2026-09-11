@@ -4,5 +4,6 @@ import tailwindcss from '@tailwindcss/vite';
 
 // Pas de `vite-plugin-pwa` : la vitrine est un site public, l'app installable est `pwa/`.
 export default defineConfig({
+  build: { outDir: 'dist/client' },
   plugins: [react(), tailwindcss()],
 });
