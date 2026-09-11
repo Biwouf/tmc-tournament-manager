@@ -21,6 +21,7 @@ import ActuForm from './components/ActuForm';
 import MembersPage from './pages/MembersPage';
 import SiteConfigPage from './pages/SiteConfigPage';
 import SocialAccountsPage from './pages/SocialAccountsPage';
+import ContactMessagesPage from './pages/ContactMessagesPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import TeamMatchesPage from './pages/TeamMatchesPage';
@@ -170,6 +171,7 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <Route path="/admin/members" element={auth(adminOnly(<MembersPage />))} />
         <Route path="/admin/site" element={auth(adminOnly(<SiteConfigPage />))} />
         <Route path="/admin/social" element={auth(adminOnly(<SocialAccountsPage />))} />
+        <Route path="/admin/messages" element={auth(adminOnly(<ContactMessagesPage />))} />
         {/* PR5-bis — l'écran Membres absorbe l'ancienne page d'invitation ; l'URL est
             documentée dans le README et peut traîner dans un favori. */}
         <Route path="/admin/invite" element={<Navigate to="/admin/members" replace />} />
