@@ -1,5 +1,8 @@
 # Cours — livraison du back-office
 
+> État historique du lot V1. La livraison V2 (PWA, responsable, profil propre et refus
+> obligatoire) est décrite dans [COURSES_PWA_DELIVERY.md](COURSES_PWA_DELIVERY.md).
+
 Branche : `codex/spec-resa-section`. Ce lot implémente le BO sans dépendre des maquettes PWA.
 
 ## Livré

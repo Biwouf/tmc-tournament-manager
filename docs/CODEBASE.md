@@ -261,7 +261,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `contexts/AuthProvider.tsx` | Abonnement Auth unique, restauration par INITIAL_SESSION. |
 | `contexts/SessionQueryProvider.tsx` | Cache Query neuf lorsque l'identité change ; conserve le cache au renouvellement du JWT. |
 | `lib/queryClient.ts` | Factory du QueryClient PWA : fraîcheur par défaut 60 s, un retry. Live surcharge à 0 s. |
-| `hooks/useClubConfig.ts` | Lecture authentifiée mutualisée par club et compte, cache 5 min ; logo et couleurs conservés. |
+| `hooks/useClubConfig.ts` | Lecture publique mutualisée par club et session, cache 5 min ; logo et couleurs conservés avant connexion (migration 20260909). |
 | `lib/liveMatchesSubscription.ts` | Realtime de liste : INSERT/UPDATE par club, DELETE selon IDs en cache, regroupement 250 ms et revalidation après reconnexion. |
 | `pages/MatchesPage.tsx` | Liste Live : polling de secours 30 s, abonnement filtré, profils par ensemble d'IDs avec cache 5 min. |
 | `hooks/useInstallPrompt.ts` | Hook qui gère la bannière d'installation : capture `beforeinstallprompt` (Android), détecte iOS Safari, gère le dismiss 7 jours via `localStorage` (`cac:installPromptDismissedAt`). Retourne `{ variant, promptInstall, dismiss }`. |
@@ -433,3 +433,13 @@ PWA doivent utiliser les mêmes verrous. Aucun endpoint public Cours dans ce pre
 
 `tests/courses-concurrency.test.mjs` : test opt-in sur PostgreSQL réel, deux connexions ;
 `tests/helpers/courses-fixture.mjs` : socle SQL de test partagé avec PGlite.
+
+### Cours PWA V2
+
+- Routes `/cours` et `/profil`, quatrième onglet ; catalogue, inscriptions personnelles,
+  responsable par cours et file de validation. `pwa/src/lib/courses.ts` centralise les RPC
+  et les états, `hooks/useCourses.ts` les commandes idempotentes et l'horloge serveur.
+- `pwa/src/components/courses/` : cartes, dialogue natif, parcours de demande et file.
+- Migration additive `2026091002_courses_pwa.sql` : propriété, lectures publiques/privées,
+  moteur de commande commun BO/PWA, propre profil, refus obligatoire et retraits de membres.
+- Tests, configuration dev, ordre des migrations et limites : `docs/COURSES_PWA_DELIVERY.md`.

@@ -37,8 +37,8 @@ export function useClubConfig() {
   const { user, loading } = useAuth();
   const { data: config = DEFAULT_CONFIG } = useQuery({
     queryKey: ['club-config', clubId, user?.id],
-    // club_settings n'est pas public : inutile de lancer des requêtes anon vouées au refus.
-    enabled: !!clubId && !!user && !loading,
+    // Depuis 20260909, l’identité visuelle est publique pour les clubs actifs.
+    enabled: !!clubId && !loading,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase

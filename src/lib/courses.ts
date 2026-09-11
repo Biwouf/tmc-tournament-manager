@@ -14,7 +14,8 @@ export type Course = {
   type_id: string;
   type_name: string;
   name: string;
-  coach_name: string;
+  owner_first_name: string | null;
+  owner_id: string | null;
   starts_at: string;
   duration_minutes: number;
   capacity_female: number;
@@ -63,6 +64,8 @@ export const statusLabels: Record<RegistrationStatus, string> = {
   cancelled: "Annulée",
 };
 const errors: Record<string, string> = {
+  OWNER_REQUIRED: "Choisissez un responsable membre de ce club.",
+  REASON_REQUIRED: "Renseignez un motif de refus (1 à 1000 caractères).",
   FORBIDDEN: "Cette action est réservée aux administrateurs du club actif.",
   NOT_FOUND: "Élément introuvable dans ce club.",
   VERSION_CONFLICT: "Cet élément a changé. Actualisez avant de recommencer.",

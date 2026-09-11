@@ -1,5 +1,11 @@
 # Cours — réservation gratuite dans la PWA
 
+> **Évolution du périmètre le 10 septembre 2026 :** lire aussi
+> [COURSES_PWA_V2.md](COURSES_PWA_V2.md). Ce complément prend priorité pour le responsable
+> de cours et ses droits PWA, le profil éditable par le membre, le motif de refus obligatoire
+> et la navigation « Mes cours / Encadrement ». Le présent document décrit le socle V1 et
+> reste applicable aux règles non modifiées. Les nouveautés V2 ne sont pas encore implémentées.
+
 Statut : **contrat fonctionnel et technique V1 exploitable ; conservation à fixer avant
 mise en production, maquettes Claude Design attendues pour la finition visuelle**.
 Date : 2026-09-09. Base inspectée : `caabb4260b7c1254eb25da6fd33ef4deae1626e1`.

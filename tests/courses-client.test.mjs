@@ -6,16 +6,16 @@ import { createRequire } from "node:module";
 import vm from "node:vm";
 import ts from "typescript";
 import { JSDOM } from "jsdom";
-const req = createRequire(import.meta.url),
-  React = req("react");
-const { act, createElement: h } = React;
-const { createRoot } = req("react-dom/client");
-const { MemoryRouter, Routes, Route } = req("react-router-dom");
 const dom = new JSDOM('<div id="root"></div>', { url: "http://localhost/" });
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 window.confirm = () => true;
+const req = createRequire(import.meta.url),
+  React = req("react");
+const { act, createElement: h } = React;
+const { createRoot } = req("react-dom/client");
+const { MemoryRouter, Routes, Route } = req("react-router-dom");
 const src = resolve(new URL("../src", import.meta.url).pathname);
 function loader(supabase) {
   const cache = new Map();
@@ -53,7 +53,7 @@ function mockApi() {
     name: "Séance panier",
     type_id: "type-a",
     type_name: "Panier",
-    coach_name: "Alex",
+    owner_first_name: "Alex",
     starts_at: "2099-09-10T16:00:00Z",
     duration_minutes: 60,
     capacity_female: 1,
@@ -199,6 +199,11 @@ test("Cours client: approval failure is not optimistic, refusal and history work
   );
   try {
     assert.match(document.body.textContent, /Camille Martin/);
+    await click("Toutes");
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Chargement des inscriptions/,
+    );
     assert.ok(button("Ajouter").disabled, "incomplete profile cannot be added");
     api.fail("QUOTA_FULL");
     await click("Approuver");
@@ -207,9 +212,25 @@ test("Cours client: approval failure is not optimistic, refusal and history work
     assert.match(document.body.textContent, /En attente/);
     api.fail(null);
     await click("Refuser");
+    assert.ok(
+      button("Confirmer le refus").disabled,
+      "empty refusal must be blocked",
+    );
+    const textarea = document.querySelector("textarea");
+    assert.match(textarea.closest("article").textContent, /Camille Martin/);
+    await act(async () => {
+      const props =
+        textarea[
+          Object.keys(textarea).find((k) => k.startsWith("__reactProps"))
+        ];
+      props.onChange({ target: { value: "Cours inadapté au niveau" } });
+    });
     await click("Confirmer le refus");
     assert.equal(api.registration.status, "denied");
     assert.match(document.body.textContent, /Refusée/);
+    await act(async () =>
+      document.querySelector(".registration-secondary > summary").click(),
+    );
     await click("Historique");
     assert.match(
       document.querySelector("aside").textContent,
@@ -243,6 +264,15 @@ test("Cours client: existing registrations lock date and duration, but not quota
     assert.ok(!numbers[1].disabled);
     assert.ok(!numbers[2].disabled);
     assert.match(document.body.textContent, /Europe\/Paris/);
+    assert.doesNotMatch(document.body.textContent, /Entraîneur/);
+    assert.equal(
+      document
+        .querySelector(
+          'nav[aria-label="Administration du club"] [aria-current="page"]',
+        )
+        .getAttribute("href"),
+      "/courses",
+    );
   } finally {
     await act(async () => root.unmount());
   }
@@ -332,4 +362,107 @@ test("Cours client: activation no longer writes a member profile", () => {
   );
   assert.doesNotMatch(source, /\.upsert\(|\.from\('profiles'\)/);
   assert.match(source, /auth\.updateUser\(\{ password \}\)/);
+});
+
+test("Member autocomplete: keyboard selection, explicit identity, clear-on-edit and stale response rejection", async () => {
+  const requests = [];
+  let selected = null;
+  const load = loader({
+    rpc(name, args) {
+      return {
+        abortSignal() {
+          return new Promise((resolve) => requests.push({ args, resolve }));
+        },
+      };
+    },
+  });
+  const Component = load("components/courses/MemberAutocomplete.tsx").default;
+  function Screen() {
+    const [member, setMember] = React.useState(null);
+    selected = member;
+    return h(
+      "form",
+      null,
+      h(Component, {
+        clubId: "club-a",
+        value: member,
+        required: true,
+        onChange: setMember,
+      }),
+    );
+  }
+  const root = createRoot(document.getElementById("root"));
+  const settle = () =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    });
+  const enter = async (input, value) =>
+    act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      ).set.call(input, value);
+      input.dispatchEvent(new window.Event("input", { bubbles: true }));
+    });
+  const key = async (input, value) =>
+    act(async () =>
+      input.dispatchEvent(
+        new window.KeyboardEvent("keydown", { key: value, bubbles: true }),
+      ),
+    );
+  try {
+    await act(async () => root.render(h(Screen)));
+    const input = document.querySelector("[role=combobox]");
+    await act(async () => input.focus());
+    await enter(input, "Ca");
+    await settle();
+    assert.equal(requests.at(-1).args.p_search, "Ca");
+    const stale = requests.at(-1);
+    await enter(input, "Cam");
+    await settle();
+    const latest = requests.at(-1);
+    const member = {
+      user_id: "camille",
+      prenom: "Camille",
+      nom: "Martin",
+      sex: "female",
+      complete: true,
+      revision: 0,
+    };
+    await act(async () => latest.resolve({ data: [member], error: null }));
+    await act(async () =>
+      stale.resolve({
+        data: [{ ...member, user_id: "old", prenom: "Ancienne" }],
+        error: null,
+      }),
+    );
+    assert.match(
+      document.querySelector("[role=listbox]").textContent,
+      /Camille/,
+    );
+    assert.doesNotMatch(
+      document.querySelector("[role=listbox]").textContent,
+      /Ancienne/,
+    );
+    assert.equal(selected, null, "typing a name does not select an account");
+    assert.equal(input.validity.valid, false);
+    await key(input, "ArrowDown");
+    await key(input, "Enter");
+    assert.equal(selected.user_id, "camille");
+    assert.equal(input.value, "Camille Martin");
+    assert.equal(input.getAttribute("aria-expanded"), "false");
+    assert.equal(input.validity.valid, true);
+    assert.equal(document.querySelector("select"), null);
+    await enter(input, "Autre");
+    assert.equal(
+      selected,
+      null,
+      "editing invalidates the previous account selection",
+    );
+    assert.equal(input.validity.valid, false);
+    await key(input, "Escape");
+    assert.equal(input.getAttribute("aria-expanded"), "false");
+  } finally {
+    await act(async () => root.unmount());
+  }
 });

@@ -11,6 +11,7 @@ import {
 } from "../lib/courses";
 import { CourseError, CourseShell } from "../components/courses/CourseUI";
 import { useCourseAdmin } from "../hooks/useCourseAdmin";
+import CourseOwnerPicker from "../components/courses/CourseOwnerPicker";
 export default function CourseFormPage() {
   const { clubId } = useClub();
   const { id } = useParams();
@@ -21,7 +22,7 @@ export default function CourseFormPage() {
   const [fields, setFields] = useState({
     name: "",
     type_id: "",
-    coach_name: "",
+    owner_id: "",
     local: "",
     duration_minutes: "60",
     capacity_female: "4",
@@ -56,7 +57,7 @@ export default function CourseFormPage() {
         setFields({
           name: c.name,
           type_id: c.type_id,
-          coach_name: c.coach_name,
+          owner_id: c.owner_id ?? "",
           local: parisInput(c.starts_at),
           duration_minutes: String(c.duration_minutes),
           capacity_female: String(c.capacity_female),
@@ -94,7 +95,7 @@ export default function CourseFormPage() {
       ...(course ? { id: course.id, revision: course.revision } : {}),
       name: fields.name,
       type_id: fields.type_id,
-      coach_name: fields.coach_name,
+      owner_id: fields.owner_id || null,
       starts_at: date,
       duration_minutes: Number(fields.duration_minutes),
       capacity_female: Number(fields.capacity_female),
@@ -112,6 +113,7 @@ export default function CourseFormPage() {
           className="course-panel grid max-w-3xl gap-4 sm:grid-cols-2"
           onSubmit={submit}
         >
+          {clubId && <CourseOwnerPicker clubId={clubId} value={fields.owner_id} required={!course} onChange={(value) => update("owner_id", value)} />}
           <label>
             Nom du cours
             <input
@@ -146,16 +148,6 @@ export default function CourseFormPage() {
               Créer un type de cours
             </Link>
           )}
-          <label>
-            Entraîneur
-            <input
-              className="course-field"
-              required
-              maxLength={120}
-              value={fields.coach_name}
-              onChange={(e) => update("coach_name", e.target.value)}
-            />
-          </label>
           <label>
             Date et heure · Europe/Paris
             <input

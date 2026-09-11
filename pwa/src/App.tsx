@@ -10,6 +10,8 @@ import EventDetailPage from './pages/EventDetailPage';
 import MatchesEquipesPage from './pages/MatchesEquipesPage';
 import MatchesPage from './pages/MatchesPage';
 import LoginPage from './pages/LoginPage';
+import CoursesPage from './pages/CoursesPage';
+import ProfilePage from './pages/ProfilePage';
 import NewMatchPage from './pages/NewMatchPage';
 import LiveMatchPage from './pages/LiveMatchPage';
 import { useAuth } from './hooks/useAuth';
@@ -22,7 +24,7 @@ function RequireAuth({ children }: { children: ReactElement }) {
   const location = useLocation();
   if (loading) return null;
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
   return children;
 }
@@ -40,8 +42,7 @@ function AppShell() {
   const { config } = useClubConfig();
 
   // Effet à part de celui du manifeste : les couleurs ne dépendent pas de `club`, seulement
-  // de la config. Elles s'appliquent donc dès sa lecture — laquelle est authentifiée, comme le
-  // logo : avant connexion, la PWA garde les valeurs de `index.css`.
+  // de la config. Le logo et les couleurs publics s'appliquent aussi avant connexion.
   useEffect(() => {
     applyClubTheme(document.documentElement, {
       primary: config.brand.color,
@@ -102,6 +103,8 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<Navigate to="/actu" replace />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/cours" element={<CoursesPage />} />
+          <Route path="/profil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
           {/* Actu (fusionné) — sous-onglets gérés dans la page */}
           <Route path="/actu" element={<ActuPage />} />

@@ -1,4 +1,4 @@
-// Navigation fixe en bas — 3 onglets : Actu, Match équipes, Live
+// Navigation fixe en bas — 4 onglets : Actu, Match équipes, Live, Cours
 // Hauteur : 56px + safe-area-inset-bottom (iOS).
 // L'onglet actif est mis en évidence avec la couleur primaire.
 
@@ -6,11 +6,13 @@ import { NavLink } from 'react-router-dom';
 import ActusIcon from '../icons/ActusIcon';
 import TeamMatchesIcon from '../icons/TeamMatchesIcon';
 import MatchesIcon from '../icons/MatchesIcon';
+import CoursesIcon from '../icons/CoursesIcon';
 
 const tabs = [
   { to: '/actu', label: 'Actu', Icon: ActusIcon },                    // header restera "Actualités"
   { to: '/matches-equipes', label: 'Matchs équipes', Icon: TeamMatchesIcon },
   { to: '/matches', label: 'Live', Icon: MatchesIcon },               // renommé "Matches" → "Live"
+  { to: '/cours', label: 'Cours', Icon: CoursesIcon },
 ];
 
 export default function BottomNav() {

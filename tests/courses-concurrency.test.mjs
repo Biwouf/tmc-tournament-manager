@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import { id, coursesFixtureSQL } from "./helpers/courses-fixture.mjs";
 const url = process.env.COURSES_TEST_DATABASE_URL;
 test(
-  "PostgreSQL réel : deux approbations concurrentes pour la dernière place",
+  "PostgreSQL réel : BO et PWA : approbations concurrentes pour la dernière place",
   { skip: !url },
   async () => {
     const address = new URL(url);
@@ -37,7 +37,7 @@ test(
         0,
         "database must be empty",
       );
-      await setup.query(coursesFixtureSQL);
+      await setup.query(coursesFixtureSQL.replace('CREATE ROLE anon; CREATE ROLE authenticated;', () => `DO $$ BEGIN CREATE ROLE anon; EXCEPTION WHEN duplicate_object THEN NULL; END $$; DO $$ BEGIN CREATE ROLE authenticated; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`));
       await setup.query(
         await readFile(
           new URL(
@@ -47,15 +47,17 @@ test(
           "utf8",
         ),
       );
-      async function begin(client) {
+      await setup.query(await readFile(new URL('../supabase/migrations/2026091002_courses_pwa.sql',import.meta.url),'utf8'));
+      await setup.query(await readFile(new URL('../supabase/migrations/2026091101_course_owner_identity.sql',import.meta.url),'utf8'));
+      async function begin(client, user = 101) {
         await client.query(
-          `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${id(101)}',true)`,
+          `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${id(user)}',true)`,
         );
       }
-      async function command(client, operation, data) {
+      async function command(client, operation, data, rpc = 'course_admin_command') {
         return (
           await client.query(
-            "SELECT course_admin_command($1,$2,$3,$4) result",
+            `SELECT ${rpc}($1,$2,$3,$4) result`,
             [id(1), operation, JSON.stringify(data), randomUUID()],
           )
         ).rows[0].result;
@@ -65,7 +67,7 @@ test(
       const course = await command(first, "save_course", {
         type_id: type.id,
         name: "Test concurrence",
-        coach_name: "Test",
+        owner_id: id(102),
         starts_at: new Date(Date.now() + 86400000).toISOString(),
         duration_minutes: 60,
         capacity_female: 1,
@@ -91,7 +93,7 @@ test(
       });
       await first.query("COMMIT");
       await begin(first);
-      await begin(second);
+      await begin(second,102);
       await command(first, "set_status", {
         id: one.id,
         status: "approved",
@@ -101,7 +103,7 @@ test(
         id: two.id,
         status: "approved",
         revision: 0,
-      }).then(
+      }, "course_manage_command").then(
         (value) => ({ value }),
         (error) => ({ error }),
       );

@@ -9,7 +9,8 @@ interface LocationState {
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const fromPath = (location.state as LocationState | undefined)?.from ?? '/matches';
+  const requested = (location.state as LocationState | undefined)?.from;
+  const fromPath = requested?.startsWith('/') && !requested.startsWith('//') ? requested : '/matches';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +37,7 @@ export default function LoginPage() {
           Connexion
         </h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          Accédez à la gestion des lives.
+          {fromPath.startsWith('/cours') || fromPath.startsWith('/profil') ? 'Retrouvez les cours et vos inscriptions avec votre compte membre.' : 'Accédez à la gestion des lives.'}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

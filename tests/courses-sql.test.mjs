@@ -12,6 +12,8 @@ async function fixture() {
   const db = new PGlite();
   await db.exec(coursesFixtureSQL);
   await db.exec(migration);
+  await db.exec(await readFile(new URL("../supabase/migrations/2026091002_courses_pwa.sql", import.meta.url), "utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/2026091101_course_owner_identity.sql", import.meta.url), "utf8"));
   const as = async (user, sql, params = [], role = "authenticated") => {
     await db.exec(
       `BEGIN; SET LOCAL ROLE ${role}; SELECT set_config('request.jwt.claim.sub','${user ? id(user) : ""}',true);`,
@@ -51,7 +53,7 @@ async function fixture() {
   const courseData = {
     type_id: type.id,
     name: "Cours du club",
-    coach_name: "Alex",
+    owner_id: id(102),
     starts_at: new Date(Date.now() + 86400000).toISOString(),
     duration_minutes: 60,
     capacity_female: 1,

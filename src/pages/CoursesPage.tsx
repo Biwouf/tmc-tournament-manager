@@ -111,8 +111,9 @@ export default function CoursesPage() {
                 {c.name}
                 {c.cancelled_at ? " — Annulé" : ""}
               </h2>
+              {!c.owner_id && <p className="text-sm text-amber-700">Responsable à désigner</p>}
               <p>
-                {c.type_name} · {c.coach_name}
+                {c.type_name} · {c.owner_first_name || 'À désigner'}
               </p>
               <p>
                 Femmes : {c.approved_female}/{c.capacity_female} · Hommes :{" "}
