@@ -59,7 +59,9 @@
 }
 
 .pwa-content {
-  padding-top: 56px;  /* hauteur du AppHeader */
+  /* Le conteneur de scroll commence sous le header : les éléments sticky
+     utilisent top: 0 sans ajouter une seconde hauteur de header. */
+  margin-top: 56px;  /* hauteur du AppHeader */
   padding-bottom: calc(56px + env(safe-area-inset-bottom)); /* hauteur BottomNav + safe area iOS */
   flex: 1;
   min-height: 0;
