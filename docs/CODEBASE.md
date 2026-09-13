@@ -349,7 +349,7 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
 | `components/club/` | `PresidentSection`, `ValuesSection`, `CoachSection`, `ProgramsSection`, `BoardSection`. **PR9-ter** — `president.photo_focal`, `coach.photo_focal`, `programs[].image_focal`, `board[].photo_focal` |
 | `components/infra/` | `CourtsSection`, `ClubhouseSection`, `LockerRoomsSection`. **PR9-ter** — `courts[].image_focal`, `locker_rooms.image_focal`, et le **tableau parallèle** `clubhouse.images_focal`. ⚠️ `ClubhouseSection` **apparie image et focal AVANT de filtrer** les valeurs vides : filtrer d'abord décalerait tous les cadrages suivants d'un cran |
 | `components/pricing/` | `LessonsSection`, `MembershipSection`, `OtherFeesSection`, `PricingCtaSection`. **PR9-ter §6-bis.b** — le bandeau `pricing.cta_*` reprend les valeurs de la maquette (1944) : fond `--text`, `padding: clamp(32px, 4vw, 52px)`, `flex` `space-between` `gap:24px`, h3 `clamp(22px,3vw,30px)/800`, texte 16 px à 78 % de blanc, bouton `15px 30px` / 16 px / 700. Un `p-8` fixe le laissait écrasé |
-| `components/contact/` | `ContactForm` (champs fixes, **soumission désactivée jusqu'à PR11**), `ContactDetailsSection`, `OpeningHoursSection` |
+| `components/contact/` | `ContactForm` (champs fixes, envoi via `lib/contact.ts` et la fonction `contact-form`), `ContactDetailsSection`, `OpeningHoursSection` |
 | `pages/` | `HomePage`, `ClubPage`, `InfraPage`, `PricingPage`, `ContactPage` — assemblage seul |
 
 **Une section = un composant = un fichier** : PR10, PR11 et PR12 partent toutes les trois de
@@ -457,3 +457,9 @@ PWA doivent utiliser les mêmes verrous. Aucun endpoint public Cours dans ce pre
 - Migration additive `2026091002_courses_pwa.sql` : propriété, lectures publiques/privées,
   moteur de commande commun BO/PWA, propre profil, refus obligatoire et retraits de membres.
 - Tests, configuration dev, ordre des migrations et limites : `docs/COURSES_PWA_DELIVERY.md`.
+
+### Contact vitrine (PR11)
+
+- `supabase/functions/contact-form/index.ts` : validation publique, antispam, enregistrement puis notification Brevo au `contact.email` du club.
+- `src/pages/ContactMessagesPage.tsx` : réception `/admin/messages`, lecture réservée aux administrateurs par RLS.
+- Déploiement et configuration : `docs/CONTACT_DELIVERY.md`.

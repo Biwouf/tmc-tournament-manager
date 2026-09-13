@@ -1,0 +1,3 @@
+[functions.contact-form]
+# Formulaire public : les visiteurs n’ont pas de session utilisateur.
+verify_jwt = false

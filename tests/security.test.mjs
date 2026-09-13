@@ -219,3 +219,86 @@ test('PostgreSQL: role isolation, suspension, Storage and last-admin invariant',
     await assert.rejects(db.exec(`DELETE FROM club_members WHERE user_id='${id(102)}'`),/au moins un administrateur/);
   } finally { await db.close(); }
 });
+
+// PR11 — `contact_messages`. La propriété qui compte n'est pas « qui lit » (c'est le patron
+// tenant_isolation, déjà éprouvé) mais « PERSONNE n'écrit » : le formulaire est ouvert sur
+// internet, la clé anon est publique, et une policy INSERT ferait de cette table une boîte
+// à spam. Toutes les protections (honeypot, rate-limit, validation) vivent dans l'Edge
+// Function — les contourner ne doit pas être possible.
+test('PostgreSQL: contact messages are club-scoped and writable by nobody', async () => {
+  const db = new PGlite();
+  const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
+  try {
+    await db.exec(`
+      CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
+      CREATE SCHEMA auth;
+      CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$
+        SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      GRANT USAGE ON SCHEMA public, auth TO anon, authenticated;
+      CREATE TYPE club_role AS ENUM ('admin','manager','member');
+      CREATE TABLE clubs (id uuid PRIMARY KEY, slug text, status text);
+      CREATE TABLE profiles (id uuid PRIMARY KEY, is_super_admin boolean DEFAULT false);
+      CREATE TABLE club_members (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        club_id uuid REFERENCES clubs(id) ON DELETE CASCADE, user_id uuid,
+        role club_role, UNIQUE(club_id,user_id));
+      CREATE FUNCTION public.is_super_admin() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+        SELECT coalesce((SELECT is_super_admin FROM profiles WHERE id=auth.uid()), false) $$;
+      CREATE FUNCTION public.auth_club_ids() RETURNS SETOF uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+        SELECT club_id FROM club_members WHERE user_id=auth.uid() $$;
+      ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY clubs_select_anon ON clubs FOR SELECT TO anon USING (true);
+      CREATE POLICY clubs_select_authenticated ON clubs FOR SELECT TO authenticated USING (true);
+      GRANT SELECT ON clubs TO anon, authenticated; GRANT SELECT ON club_members TO authenticated;
+      INSERT INTO clubs VALUES ('${id(1)}','cac-tennis','active'),('${id(2)}','other','active'),('${id(3)}','suspended','suspended');
+      INSERT INTO profiles VALUES ('${id(999)}',true);
+      INSERT INTO club_members(club_id,user_id,role) VALUES
+        ('${id(1)}','${id(101)}','admin'), ('${id(1)}','${id(102)}','manager'), ('${id(1)}','${id(103)}','member'),
+        ('${id(2)}','${id(201)}','admin'), ('${id(3)}','${id(301)}','admin');
+    `);
+    const migration = await text('supabase/migrations/2026091102_contact_messages.sql');
+    await db.exec(migration);
+    await db.exec(migration); // Idempotency matters for manual SQL Editor deployments.
+    // Écrit hors RLS, comme le fait l'Edge Function en service role.
+    await db.exec(`
+      INSERT INTO contact_messages (club_id, first_name, last_name, email, message, ip_hash)
+      VALUES ('${id(1)}','Jean','Dupont','jean@example.invalid','Bonjour le club','hash-a'),
+             ('${id(2)}','Marie','Martin','marie@example.invalid','Autre club','hash-b'),
+             ('${id(3)}','Paul','Durand','paul@example.invalid','Club suspendu','hash-c');
+    `);
+    async function asUser(user, sql, role = 'authenticated') {
+      await db.exec(`BEGIN; SET LOCAL ROLE ${role}; SELECT set_config('request.jwt.claim.sub','${user ? id(user) : ''}',true);`);
+      try { return await db.query(sql); } finally { await db.exec('ROLLBACK'); }
+    }
+    // La RLS réserve la lecture aux admins du club, même via une requête API directe.
+    for (const [user, rows, label] of [
+      [101, 1, 'admin of the club'], [102, 0, 'manager'], [103, 0, 'member'],
+      [201, 0, 'admin of another club'], [301, 0, 'admin of a suspended club'],
+    ]) {
+      assert.equal((await asUser(user, `SELECT * FROM contact_messages WHERE club_id='${id(1)}'`)).rows.length, rows, label);
+    }
+    // Un club suspendu ne reçoit plus rien et ne relit plus rien : policy RESTRICTIVE.
+    assert.equal((await asUser(301, `SELECT * FROM contact_messages`)).rows.length, 0, 'suspended club');
+    // Le super-admin voit tout, club suspendu inclus : c'est l'accès support (PR5).
+    assert.equal((await asUser(999, `SELECT * FROM contact_messages`)).rows.length, 3, 'super-admin');
+
+    // `anon` n'a AUCUN grant : le visiteur de la vitrine ne lit pas les messages des autres
+    // visiteurs (des noms, des emails, des téléphones) et n'écrit pas non plus.
+    for (const sql of [
+      `SELECT * FROM contact_messages`,
+      `INSERT INTO contact_messages (club_id, first_name, last_name, email, message) VALUES ('${id(1)}','Bot','Spam','bot@example.invalid','spam spam spam')`,
+    ]) {
+      await assert.rejects(asUser(null, sql, 'anon'), /permission denied/, `anon ${sql.split(' ')[0]}`);
+    }
+    // LE point de la migration : même l'admin de son propre club n'écrit pas. Tout passe
+    // par l'Edge Function en service role, qui seule applique honeypot et rate-limit.
+    for (const sql of [
+      `INSERT INTO contact_messages (club_id, first_name, last_name, email, message) VALUES ('${id(1)}','Jean','Dupont','jean@example.invalid','injecté à la main')`,
+      `UPDATE contact_messages SET message='réécrit' WHERE club_id='${id(1)}'`,
+      `DELETE FROM contact_messages WHERE club_id='${id(1)}'`,
+    ]) {
+      for (const user of [101, 999]) {
+        await assert.rejects(asUser(user, sql), /permission denied/, `${user} ${sql.split(' ')[0]}`);
+      }
+    }
+  } finally { await db.close(); }
+});
