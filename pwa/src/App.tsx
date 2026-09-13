@@ -2,6 +2,7 @@ import { useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppHeader from './components/layout/AppHeader';
 import { HeaderActionProvider } from './components/layout/HeaderActionContext';
+import UpdateBanner from './components/layout/UpdateBanner';
 import BottomNav from './components/layout/BottomNav';
 import InstallBanner from './components/install/InstallBanner';
 import ActuPage from './pages/ActuPage';
@@ -100,6 +101,7 @@ function AppShell() {
     <HeaderActionProvider>
       <AppHeader />
       <main className="pwa-content">
+        <UpdateBanner />
         <Routes>
           <Route path="/" element={<Navigate to="/actu" replace />} />
           <Route path="/login" element={<LoginPage />} />

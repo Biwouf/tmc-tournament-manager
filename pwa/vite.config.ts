@@ -8,7 +8,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      // Registration and reload consent are managed by pwaUpdates.ts.
+      injectRegister: false,
       manifest: {
         name: 'CAC Tennis',
         short_name: 'CAC Tennis',
@@ -24,6 +26,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: false,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
