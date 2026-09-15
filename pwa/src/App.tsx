@@ -1,3 +1,4 @@
+import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
 import { useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppHeader from './components/layout/AppHeader';
@@ -103,6 +104,8 @@ function AppShell() {
       <main className="pwa-content">
         <UpdateBanner />
         <Routes>
+          <Route path="/forgot-password" element={<PasswordRecoveryPage key="forgot" />} />
+          <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
           <Route path="/" element={<Navigate to="/actu" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cours" element={<CoursesPage />} />

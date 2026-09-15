@@ -13,7 +13,8 @@
     "test:pwa-network": "node --test tests/pwa-network.test.mjs",
     "test:courses:concurrency": "node --test tests/courses-concurrency.test.mjs",
     "test:courses": "node --test tests/courses-sql.test.mjs tests/courses-client.test.mjs tests/courses-pwa-sql.test.mjs tests/courses-pwa-client.test.mjs",
-    "test:security": "node --test tests/security.test.mjs tests/edge-security.test.mjs"
+    "test:security": "node --test tests/security.test.mjs tests/edge-security.test.mjs",
+    "test:password-recovery": "node --test tests/password-recovery.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

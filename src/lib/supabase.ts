@@ -1,3 +1,4 @@
+import { trackPasswordRecovery } from './passwordRecovery';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -15,3 +16,5 @@ if (import.meta.env.DEV && appEnv === 'production') {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export const passwordRecovery = trackPasswordRecovery(supabase);
