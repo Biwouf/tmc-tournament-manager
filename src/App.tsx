@@ -1,3 +1,4 @@
+import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
 import CoursesPage from './pages/CoursesPage';
 import CourseFormPage from './pages/CourseFormPage';
 import CourseTypesPage from './pages/CourseTypesPage';
@@ -41,7 +42,7 @@ function RedirectTournament() {
 
 // PR4 — routes atteignables sans être membre du club courant : la session est
 // valide, c'est le club qui ne l'est pas (cf. NoClubAccess).
-const UNGUARDED_PATHS = ['/login', '/accept-invite'];
+const UNGUARDED_PATHS = ['/login', '/accept-invite', '/forgot-password', '/reset-password'];
 
 // PR4 — un compte authentifié mais non membre du club résolu par le hostname
 // n'obtient plus un BO monté aux listes vides (écritures rejetées par la RLS sans
@@ -142,6 +143,8 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <SupportBanner clubName={club.name} suspended={club.status !== 'active'} />
       )}
       <Routes>
+          <Route path="/forgot-password" element={<PasswordRecoveryPage key="forgot" />} />
+          <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/" element={auth(<AppHomePage />)} />
         <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />

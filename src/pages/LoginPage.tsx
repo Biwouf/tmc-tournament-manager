@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
@@ -65,6 +66,7 @@ export default function LoginPage() {
             {loading ? '...' : 'Se connecter'}
           </button>
         </form>
+        <Link to="/forgot-password" className="mt-4 block text-center text-sm text-primary underline">Mot de passe oublié ?</Link>
       </div>
     </div>
   );

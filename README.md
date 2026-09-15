@@ -405,3 +405,10 @@ Les listes Live du BO et de la PWA masquent les matchs terminés depuis plus de 
 
 Le formulaire de la vitrine envoie au destinataire configuré dans `/admin/site`.
 Installation Supabase et vérifications : [docs/CONTACT_DELIVERY.md](docs/CONTACT_DELIVERY.md).
+
+### Récupération de compte
+
+Le back-office et la PWA proposent « Mot de passe oublié ». Les liens sont gérés par
+Supabase Auth ; l’envoi via Brevo exige de configurer le SMTP personnalisé du projet
+(et sa limite d’emails), indépendamment de la clé API du formulaire de contact.
+Configuration et recette : [ACCOUNT_RECOVERY.md](docs/ACCOUNT_RECOVERY.md).
