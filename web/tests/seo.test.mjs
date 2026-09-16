@@ -47,7 +47,7 @@ function fixture() {
     const value = url.searchParams.get(key)?.slice(3);
     return Response.json(rows.filter(row => row[key] === value));
   };
-  const request = (url = '/', host = 'alpha.feelike.app', env = runtime, method = 'GET') =>
+  const request = (url = '/', host = 'alpha.feelike.pro', env = runtime, method = 'GET') =>
     renderRequest({ url, host, method }, template, env, fetcher);
   return { rows, calls, fetcher, request };
 }
@@ -62,12 +62,12 @@ for (const path of ['/', '/club', '/infrastructures', '/tarifs', '/contact']) {
     assert.match(result.body.split('</head>')[0], /<link rel="stylesheet" href="\/src\/index\.css"\s*\/>/);
     assert.match(result.body, /<h1[^>]*>[^<]+<\/h1>/);
     assert.match(result.body, /<meta name="description" content="[^"]+">/);
-    assert.match(result.body, new RegExp(`<link rel="canonical" href="https://alpha.feelike.app${path}">`));
+    assert.match(result.body, new RegExp(`<link rel="canonical" href="https://alpha.feelike.pro${path}">`));
     assert.match(result.body, /<meta name="robots" content="index, follow">/);
     assert.doesNotMatch(result.body, /<!--site-|BO_ONLY|UNKNOWN_ONLY|beta/);
     assert.equal(bootstrap(result.body).club.slug, 'alpha');
     assert.equal(jsonld(result.body)['@graph'][0].name, 'alpha');
-    assert.equal(jsonld(result.body)['@graph'][1].url, `https://alpha.feelike.app${path}`);
+    assert.equal(jsonld(result.body)['@graph'][1].url, `https://alpha.feelike.pro${path}`);
     assert.match(result.headers['Vercel-CDN-Cache-Control'], /no-store/);
   });
 }
@@ -91,7 +91,7 @@ test('JSON-LD limité aux faits visibles, horaires libres non interprétés', as
 test('404 réelles : routes inconnues, réservées, domaines arbitraires, clubs absents ou suspendus', async () => {
   const { request, rows } = fixture();
   for (const path of ['/inconnue', '/index.html', '/CLUB', '/site', '//evil.test/club']) assert.equal((await request(path)).status, 404);
-  for (const host of ['unknown.feelike.app', 'admin.feelike.app', 'app-alpha.feelike.app', 'arbitrary.example', 'prod.vercel.app', 'alpha.feelike.app@evil.example']) {
+  for (const host of ['unknown.feelike.pro', 'admin.feelike.pro', 'app-alpha.feelike.pro', 'arbitrary.example', 'prod.vercel.app', 'alpha.feelike.pro@evil.example']) {
     const result = await request('/', host); assert.equal(result.status, 404, host); assert.doesNotMatch(result.body, /Bienvenue/);
   }
   rows[0].status = 'suspended';
@@ -101,7 +101,7 @@ test('config manquante, RLS muette, échec DB et timeout donnent 503 sans conten
   const { request, rows } = fixture(); rows[0].club_settings = null;
   assert.equal((await request()).status, 503);
   for (const fetcher of [async () => new Response('', { status: 503 }), async () => { throw new Error('timeout'); }, async () => new Response('invalid json')]) {
-    const result = await renderRequest({ url: '/', host: 'alpha.feelike.app' }, template, runtime, fetcher);
+    const result = await renderRequest({ url: '/', host: 'alpha.feelike.pro' }, template, runtime, fetcher);
     assert.equal(result.status, 503); assert.equal(result.headers['Retry-After'], '60');
     assert.doesNotMatch(result.body, /alpha/);
   }
@@ -144,7 +144,7 @@ test('sitemap et robots : types corrects, URLs canoniques publiées seulement', 
   assert.equal((sitemap.body.match(/<loc>/g) || []).length, 5);
   assert.doesNotMatch(sitemap.body, /localhost|vercel.app/);
   const robots = await request('/robots.txt'); assert.match(robots.headers['Content-Type'], /text\/plain/);
-  assert.equal(robots.body, 'User-agent: *\nAllow: /\nSitemap: https://alpha.feelike.app/sitemap.xml\n');
+  assert.equal(robots.body, 'User-agent: *\nAllow: /\nSitemap: https://alpha.feelike.pro/sitemap.xml\n');
 });
 test('preview autorisée et dev : noindex sur tout, pas de sitemap indexable ni fallback arbitraire', async () => {
   const { request } = fixture();
@@ -158,7 +158,7 @@ test('preview autorisée et dev : noindex sur tout, pas de sitemap indexable ni 
   const local = { ...runtime, deploymentEnv: undefined, appEnv: 'development' };
   assert.equal((await request('/', 'localhost:5173', local)).status, 200);
   assert.equal((await request('/', 'localhost:5173', runtime)).status, 404);
-  assert.match((await request('/', 'alpha.feelike.app', { ...runtime, appEnv: 'development' })).headers['X-Robots-Tag'], /noindex/);
+  assert.match((await request('/', 'alpha.feelike.pro', { ...runtime, appEnv: 'development' })).headers['X-Robots-Tag'], /noindex/);
 });
 test('domaine personnalisé vérifié et redirection de son alias, sans Host injecté', async () => {
   const { request, rows } = fixture(); rows[0].custom_domain = 'club-alpha.example';
@@ -170,20 +170,20 @@ test('domaine personnalisé vérifié et redirection de son alias, sans Host inj
   rows[0].custom_domain = 'https://evil.test/path'; assert.equal((await request()).status, 503);
 });
 test('slash final, paramètres ignorés pour le tenant et canonical sans tracking', async () => {
-  const { request } = fixture(); assert.equal((await request('/club/')).headers.Location, 'https://alpha.feelike.app/club');
+  const { request } = fixture(); assert.equal((await request('/club/')).headers.Location, 'https://alpha.feelike.pro/club');
   const page = await request('/club?club=beta&utm_source=test');
-  assert.match(page.body, /href="https:\/\/alpha.feelike.app\/club"/); assert.doesNotMatch(page.body, /beta|utm_source/);
+  assert.match(page.body, /href="https:\/\/alpha.feelike.pro\/club"/); assert.doesNotMatch(page.body, /beta|utm_source/);
 });
 test('requêtes concurrentes : isolation des clubs, routes, canonical, JSON-LD et bootstrap', async () => {
   const { request, calls } = fixture();
   const results = await Promise.all(Array.from({ length: 20 }, (_, i) => {
     const slug = i % 2 ? 'beta' : 'alpha';
-    return request(i % 3 ? '/club' : '/contact', `${slug}.feelike.app`).then(result => ({ slug, result }));
+    return request(i % 3 ? '/club' : '/contact', `${slug}.feelike.pro`).then(result => ({ slug, result }));
   }));
   for (const { slug, result } of results) {
     assert.equal(result.status, 200); assert.doesNotMatch(result.body, new RegExp(slug === 'alpha' ? 'beta' : 'alpha'));
     assert.equal(bootstrap(result.body).club.id, `id-${slug}`);
-    assert.equal(jsonld(result.body)['@graph'][0]['@id'], `https://${slug}.feelike.app/#club`);
+    assert.equal(jsonld(result.body)['@graph'][0]['@id'], `https://${slug}.feelike.pro/#club`);
   }
   assert.equal(calls.length, 20);
 });
@@ -300,7 +300,7 @@ test('alias Vercel : statut et publication conservés, domaines canoniques incha
   const prod = { ...runtime, productionHost: host };
   rows[0].custom_domain = 'club-alpha.example';
   assert.equal((await request('/', host, prod)).status, 200);
-  assert.equal((await request('/', 'alpha.feelike.app', prod)).headers.Location, 'https://club-alpha.example/');
+  assert.equal((await request('/', 'alpha.feelike.pro', prod)).headers.Location, 'https://club-alpha.example/');
   const canonical = await request('/', 'club-alpha.example', prod);
   assert.equal(canonical.status, 200);
   assert.equal(canonical.headers['X-Robots-Tag'], undefined);
@@ -313,7 +313,7 @@ test('alias Vercel : statut et publication conservés, domaines canoniques incha
 test('favicon SSR : logo du bon club, URL Storage et absence de logo', async () => {
   const { request, rows } = fixture();
   for (const slug of ['alpha', 'beta']) {
-    const result = await request('/', `${slug}.feelike.app`);
+    const result = await request('/', `${slug}.feelike.pro`);
     const head = result.body.split('</head>')[0];
     assert.match(head, new RegExp(`<link rel="icon" href="https://images.example/${slug}.png">`));
     assert.equal((head.match(/rel="icon"/g) || []).length, 1);

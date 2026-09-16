@@ -15,7 +15,7 @@ const event = (club = 'alpha', extra = {}) => ({ id: `event-${club}`, club_id: c
 function fixture(settings = {}) {
   const calls = [];
   const config = publicConfig({ home: { hero_title: 'Bienvenue' }, settings });
-  const site = { club: { id: 'alpha', slug: 'alpha', name: 'Alpha', sport: 'tennis', status: 'active', custom_domain: null }, config, clubName: 'Alpha', origin: 'https://alpha.feelike.app' };
+  const site = { club: { id: 'alpha', slug: 'alpha', name: 'Alpha', sport: 'tennis', status: 'active', custom_domain: null }, config, clubName: 'Alpha', origin: 'https://alpha.feelike.pro' };
   const rows = { actus: [news()], events: [event()] };
   const fetcher = async (input, options) => {
     const url = new URL(input); calls.push({ url, options });
@@ -25,7 +25,7 @@ function fixture(settings = {}) {
     }
     return Response.json(rows[url.pathname.split('/').at(-1)]);
   };
-  const request = (path = '/', host = 'alpha.feelike.app', fetch = fetcher) => renderRequest({ url: path, host }, template, runtime, fetch);
+  const request = (path = '/', host = 'alpha.feelike.pro', fetch = fetcher) => renderRequest({ url: path, host }, template, runtime, fetch);
   return { site, calls, rows, fetcher, request };
 }
 test('requêtes anon bornées et filtrées : publication, club et événements en cours', async () => {
@@ -105,7 +105,7 @@ test('requêtes concurrentes et fraîcheur : aucun contenu partagé entre clubs'
     return Promise.resolve(Response.json(u.pathname.endsWith('/actus') ? [news(club)] : [event(club)]));
   };
   await Promise.all(['alpha', 'beta', 'alpha', 'beta'].map(async club => {
-    const result = await f.request('/', `${club}.feelike.app`, fetcher);
+    const result = await f.request('/', `${club}.feelike.pro`, fetcher);
     assert.equal(result.status, 200); assert.match(result.body, new RegExp(`Actu ${club}`));
     assert.doesNotMatch(result.body, new RegExp(`Actu ${club === 'alpha' ? 'beta' : 'alpha'}`));
   }));

@@ -1,4 +1,5 @@
 import { build, loadEnv } from 'vite';
+import { domainRoutes } from './domain-routes.mjs';
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 
 // Build Output API : seuls les assets sont statiques, jamais un index.html de secours.
@@ -27,6 +28,7 @@ await writeFile(new URL('config.json', output), JSON.stringify({ version: 3,
       port: storage.port, pathname: '^/storage/v1/object/public/content-images/.*$', search: '' }],
   },
   routes: [
+  ...domainRoutes(process.env.PWA_ORIGIN || loadEnv('production', process.cwd(), 'PWA_').PWA_ORIGIN),
   { src: '/assets/(.*)', headers: { 'Cache-Control': 'public, max-age=31536000, immutable' }, continue: true },
   { handle: 'filesystem' },
   { src: '/(.*)', dest: '/site' },
