@@ -5,6 +5,7 @@ import { SiteProvider } from './contexts/SiteContext';
 import { ContactDrawerProvider } from './contexts/ContactDrawerContext';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
+import PwaInstallBridge from './components/install/PwaInstallBridge';
 import ContactDrawer from './components/layout/ContactDrawer';
 import HomePage from './pages/HomePage';
 import ClubPage from './pages/ClubPage';
@@ -30,6 +31,7 @@ export default function App({ site }: { site: Site }) {
       <ContactDrawerProvider>
         <ScrollToTop />
         <Header />
+        {available && <PwaInstallBridge key={site.club.id} />}
         <main className="page-end min-h-[40vh]">
           {available ? <Routes>
             <Route path="/" element={<HomePage />} />

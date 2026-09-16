@@ -355,7 +355,7 @@ neutralisé sous `@media (prefers-reduced-motion: reduce)`.
 |---|---|
 | Blocs « Dernières actualités » et « Prochains rendez-vous » de l'accueil | **PR10** — flux SSR publics, voir § Flux de l’accueil |
 | Envoi du formulaire de contact | **PR11** — le markup est complet (c'est du design), la **soumission est désactivée** : un bouton inerte vaut mieux qu'un formulaire qui perd les messages d'un vrai visiteur |
-| Bannière d'installation PWA | **PR12** |
+| Bannière d'installation PWA | **PR12**, décrite ci-dessous |
 | Wildcard DNS, page « club inconnu » soignée | **PR13** |
 | SEO / GEO technique | Socle implémenté : voir §10 et `docs/SEO_GEO_AUDIT_WEB.md`. Validation du domaine public après déploiement à effectuer. |
 | Page `/mentions-legales` dédiée | hors périmètre — `legal.*` alimente le footer |
@@ -497,3 +497,32 @@ pendant la consultation. Aucun appel supplémentaire ni nouvelle permission en b
 
 Validation du détail : 39 tests passent, build et bundle Vercel validés ; ouverture,
 fermeture Échap/clic extérieur/bouton, retour du focus et rendu mobile contrôlés en navigateur.
+
+
+## Pont vers la PWA — PR12
+
+`components/install/PwaInstallBridge.tsx`, monté sous le header sur les pages disponibles,
+propose « Ouvrir l’application » sur les écrans de moins de 768 px. Le bloc reste dans le
+flux pour ne pas recouvrir le contenu ou le bouton flottant de contact. Il utilise le nom du
+club et les couleurs de la vitrine. Le lien ouvre dans le même onglet
+`https://app-<club.slug>.feelike.app/` (D9), même depuis un domaine personnalisé : le slug
+vient du snapshot serveur, jamais du hostname public ni d’un paramètre utilisateur.
+
+La vitrine n’enregistre aucun service worker et ne déclenche pas de prompt d’installation.
+Une fois sur l’origine PWA, le parcours existant prend le relais : prompt Android lorsqu’il
+est disponible, instructions Safari iOS. La présence d’une PWA déjà installée sur une autre
+origine n’est pas détectable par ce pont ; le libellé permet aussi de simplement l’ouvrir.
+La bannière est masquée en mode standalone et apparaît après hydratation uniquement.
+
+La croix masque le bloc pendant sept jours, avec une clé localStorage par identifiant de
+club (`feelike:<club_id>:pwaBridgeDismissedAt`). Si le stockage est bloqué, la fermeture
+fonctionne pour la page courante. Aucun changement SQL, de configuration club ou de PWA.
+Les previews et le développement utilisent aussi la destination canonique : ils ne doivent
+pas servir de test d’écriture en production. Le routage DNS/Vercel du sous-domaine PWA
+reste un prérequis de déploiement (PR13) ; cette PR ne crée pas ce domaine.
+
+Validation : `cd web && npm test && npm run build && npm run check:build`. Le test
+`pwa-bridge.test.mjs` couvre deux clubs, domaine personnalisé, hydratation, persistance et
+expiration de fermeture, stockage indisponible et mode standalone. Vérifier sur mobile le
+lien vers la PWA du club, puis l’installation réelle sur Android et iOS une fois le domaine
+PWA routé en HTTPS.
