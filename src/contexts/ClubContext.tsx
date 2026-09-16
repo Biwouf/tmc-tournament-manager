@@ -1,15 +1,10 @@
-// Multi-tenant — PR2 : résolution du club courant (tenant) à partir du hostname.
-//
-// Duplication assumée avec pwa/src/contexts/ClubContext.tsx (même patron que
-// liveScoreRules.ts) : garder les deux synchronisés si la logique change.
-// ⚠️ PR5 : l'override de support ci-dessous est **BO uniquement** — c'est la seule
-// divergence volontaire entre les deux copies.
-//
-// Un club introuvable ou suspendu reste indisponible : aucun repli vers un autre tenant.
+// Résolution BO : sélection centrale validée ou alias technique explicite.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { resolveClubSlug } from '../lib/clubHost';
+import ClubUnavailable from '../components/ClubUnavailable';
 
-type Club = { id: string; slug: string; name: string; sport: string; status: string };
+export type Club = { id: string; slug: string; name: string; sport: string; status: string };
 type ClubContextValue = {
   clubId: string | null;
   club: Club | null;
@@ -27,9 +22,8 @@ const ClubContext = createContext<ClubContextValue>({
 
 const CLUB_FIELDS = 'id, slug, name, sport, status';
 
-// PR5 §7 — accès support. Le BO résout son club par hostname et il n'y a pas encore de
-// wildcard `*.feelike.app` (PR13) : sans cet override, un club créé depuis la console
-// n'est joignable par personne, et PR5 n'est pas vérifiable.
+// Accès support : diagnostic explicite d’un club, y compris suspendu.
+// Sur admin.feelike.pro, AdminEntry vérifie le statut super-admin avant la résolution.
 //
 // Ce n'est pas une faille : un utilisateur lambda qui poserait la clé à la main tomberait
 // sur l'écran « Accès refusé » de PR4 (non-membre, non super-admin) et la RLS
@@ -49,21 +43,17 @@ export function exitSupportClub() {
   window.location.assign('/');
 }
 
-function resolveSlug(): string {
-  const host = window.location.hostname;
-  const match = host.match(/^([a-z0-9-]+)\.feelike\.app$/);
-  if (match) return match[1];
-  return (import.meta.env.VITE_DEV_CLUB_SLUG as string | undefined) ?? 'cac-tennis';
-}
-
-export function ClubProvider({ children }: { children: ReactNode }) {
+export function ClubProvider({ children, initialClub, support = false }: { children: ReactNode; initialClub?: Club; support?: boolean }) {
   const [club, setClub] = useState<Club | null>(null);
   const [isSupport, setIsSupport] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [temporary, setTemporary] = useState(false);
 
   useEffect(() => {
+    let active = true;
     // Ordre de résolution : override de support → hostname (ou slug de développement).
     const resolve = async () => {
+      if (initialClub) return { club: initialClub, isSupport: support };
       const override = localStorage.getItem(SUPPORT_CLUB_KEY);
       if (override) {
         // Volontairement SANS filtre `status = 'active'` : entrer dans un club suspendu
@@ -80,40 +70,32 @@ export function ClubProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(SUPPORT_CLUB_KEY);
       }
 
-      const slug = resolveSlug();
+      const slug = resolveClubSlug(window.location.hostname, 'bo', import.meta.env);
+      if (!slug) return { club: null, isSupport: false };
       const { data, error } = await supabase
         .from('clubs')
         .select(CLUB_FIELDS)
         .eq('slug', slug)
         .eq('status', 'active')
-        .single();
-      if (!error && data) return { club: data as Club, isSupport: false };
+        .maybeSingle();
+      if (error) throw error;
+      if (data) return { club: data as Club, isSupport: false };
 
       console.error(`[ClubContext] club "${slug}" indisponible`, error);
       return { club: null, isSupport: false };
     };
 
     resolve().then((resolved) => {
+      if (!active) return;
       setClub(resolved.club);
       setIsSupport(resolved.isSupport);
-      setLoading(false);
-    });
-  }, []);
+    }).catch(() => { if (active) setTemporary(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [initialClub, support]);
 
-  // PR3 — ne jamais monter l'app avec clubId null : sinon chaque insert écrirait
-  // club_id: null (rejeté par le NOT NULL / la RLS tenant_isolation) et chaque
-  // .eq('club_id', null) ne renverrait rien. La vraie page « club inconnu /
-  // suspendu » (design + slug dans l'URL) reste du ressort de PR13.
-  if (!loading && !club) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <div className="max-w-md rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Club introuvable ou indisponible. Vérifiez l'adresse utilisée pour accéder au
-          back-office, ou contactez l'administrateur de la plateforme.
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <p role="status" className="p-8 text-center">Chargement du club…</p>;
+  if (!club) return <ClubUnavailable temporary={temporary} />;
 
   return (
     <ClubContext.Provider value={{ clubId: club?.id ?? null, club, loading, isSupport }}>

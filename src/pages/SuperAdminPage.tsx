@@ -47,7 +47,7 @@ function validateSlug(slug: string): string | null {
     return 'Minuscules, chiffres et tirets uniquement, sans tiret au début ni à la fin.';
   }
   if (slug.startsWith('app-')) {
-    return 'Le préfixe « app- » est réservé à la PWA (app-<slug>.feelike.app).';
+    return 'Le préfixe « app- » est réservé à la PWA (app-<slug>.feelike.pro).';
   }
   if (RESERVED_SLUGS.includes(slug)) {
     return 'Ce slug est réservé par la plateforme.';
@@ -260,7 +260,7 @@ export default function SuperAdminPage() {
                 <p
                   className={`mt-1.5 text-xs ${slugError ? 'text-destructive' : 'text-muted-foreground'}`}
                 >
-                  {slugError ?? `${slug || 'mon-club'}.feelike.app`}
+                  {slugError ?? `${slug || 'mon-club'}.feelike.pro`}
                 </p>
               </div>
               <div>
@@ -327,7 +327,7 @@ export default function SuperAdminPage() {
                           )}
                         </div>
                         <p className="mt-1.5 text-sm text-muted-foreground">
-                          {c.slug}.feelike.app · {c.sport} · créé le {formatDate(c.created_at)} ·{' '}
+                          {c.slug}.feelike.pro · {c.sport} · créé le {formatDate(c.created_at)} ·{' '}
                           {stat.total} membre{stat.total > 1 ? 's' : ''}
                         </p>
                       </div>
@@ -407,7 +407,7 @@ function InviteAdminPanel({
     const result = await invokeInvite({
       email: target,
       // Avant le wildcard (PR13) tout vit sur une seule origine : correct en l'état,
-      // à revoir au passage à `*.feelike.app`.
+      // à revoir au passage à `*.feelike.pro`.
       redirectTo: `${window.location.origin}/accept-invite`,
       action,
       club_id: clubId,

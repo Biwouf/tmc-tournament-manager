@@ -1,3 +1,4 @@
+import AdminEntry from './components/AdminEntry';
 import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
 import CoursesPage from './pages/CoursesPage';
 import CourseFormPage from './pages/CourseFormPage';
@@ -219,10 +220,10 @@ function ClubIdentity() {
 
 function App() {
   return (
-    <ClubProvider>
+    <AdminEntry>{(club, support) => <ClubProvider key={club?.id} initialClub={club} support={support}>
       <ClubIdentity />
       <AppRoutes />
-    </ClubProvider>
+    </ClubProvider>}</AdminEntry>
   );
 }
 

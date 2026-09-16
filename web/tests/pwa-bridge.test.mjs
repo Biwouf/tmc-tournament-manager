@@ -17,8 +17,8 @@ const element = (slug = 'alpha') => React.createElement(SiteProvider, {
 const key = slug => `feelike:${slug}:pwaBridgeDismissedAt`;
 
 test('destination par club, sans reprise du domaine personnalisé ni URL arbitraire', () => {
-  assert.equal(pwaUrl('cac-tennis'), 'https://app-cac-tennis.feelike.app/');
-  assert.equal(pwaUrl('beta'), 'https://app-beta.feelike.app/');
+  assert.equal(pwaUrl('cac-tennis'), 'https://app-cac-tennis.feelike.pro/');
+  assert.equal(pwaUrl('beta'), 'https://app-beta.feelike.pro/');
   for (const slug of ['', 'https://evil.example', 'alpha.evil', '../beta', 'a'.repeat(33)]) assert.equal(pwaUrl(slug), null);
   assert.equal(renderToString(element()), '', 'HTML serveur et premier rendu client identiques');
 });
@@ -41,7 +41,7 @@ test('hydratation, fermeture persistante par club, expiration, stockage bloqué 
     container.innerHTML = renderToString(element());
     await act(async () => { root = hydrateRoot(container, element(), { onRecoverableError: error => errors.push(error) }); });
     assert.deepEqual(errors, []);
-    assert.equal(document.querySelector('a').href, 'https://app-alpha.feelike.app/');
+    assert.equal(document.querySelector('a').href, 'https://app-alpha.feelike.pro/');
     assert.match(document.querySelector('aside').textContent, /Club alpha/);
     await act(async () => document.querySelector('button').click());
     assert.equal(document.querySelector('aside'), null);
@@ -49,7 +49,7 @@ test('hydratation, fermeture persistante par club, expiration, stockage bloqué 
     await mount();
     assert.equal(document.querySelector('aside'), null, 'fermeture conservée après navigation');
     await mount('beta');
-    assert.equal(document.querySelector('a').href, 'https://app-beta.feelike.app/');
+    assert.equal(document.querySelector('a').href, 'https://app-beta.feelike.pro/');
     const link = document.querySelector('a');
     // JSDOM ne navigue pas : intercepter seulement l'action native, après React.
     let navigationAllowed = false;
