@@ -1,3 +1,4 @@
+import PasswordInput from '../components/PasswordInput';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -47,9 +48,9 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">Mot de passe</label>
-            <input
-              type="password"
+            <label htmlFor="login-password" className="mb-1.5 block text-sm font-medium text-foreground">Mot de passe</label>
+            <PasswordInput
+              id="login-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
