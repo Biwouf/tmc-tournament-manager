@@ -1,3 +1,4 @@
+import { TENNIS_RANKINGS } from '../../../shared/tennisRankings';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
@@ -17,6 +18,7 @@ function ProfileForm({
   const [prenom, setPrenom] = useState(profile?.prenom ?? '');
   const [nom, setNom] = useState(profile?.nom ?? '');
   const [sex, setSex] = useState<Sex | ''>(profile?.sex ?? '');
+  const [classement, setClassement] = useState(profile?.classement ?? '');
   const action = useCourseAction();
   const [revision, setRevision] = useState(profile?.revision ?? 0);
   return (
@@ -30,6 +32,7 @@ function ProfileForm({
             p_prenom: prenom.trim(),
             p_nom: nom.trim(),
             p_sex: sex,
+            p_classement: classement || null,
             p_revision: revision,
           })
         )
@@ -69,6 +72,7 @@ function ProfileForm({
           <option value="male">Homme</option>
         </select>
       </label>
+      <label>Classement (facultatif)<select value={classement} onChange={e => setClassement(e.target.value)}><option value="">Je ne sais pas / non classé·e</option>{TENNIS_RANKINGS.map(r => <option key={r}>{r}</option>)}</select></label>
       <p className="booking-note">
         Ces informations s’appliquent à tous vos clubs. Une modification du sexe
         ne change pas le quota de vos demandes existantes.
@@ -83,6 +87,7 @@ function ProfileForm({
               setPrenom(profile?.prenom ?? '');
               setNom(profile?.nom ?? '');
               setSex(profile?.sex ?? '');
+              setClassement(profile?.classement ?? '');
               setRevision(profile?.revision ?? 0);
             }}
           >

@@ -1,16 +1,5 @@
-// Tennis rankings from NC (lowest) to 4/6 (highest)
-export type TennisRanking =
-  | 'NC' | '40' | '30/5' | '30/4' | '30/3' | '30/2' | '30/1' | '30'
-  | '15/5' | '15/4' | '15/3' | '15/2' | '15/1' | '15'
-  | '5/6' | '4/6';
-
-export const TENNIS_RANKINGS: TennisRanking[] = [
-  'NC',
-  '40', '30/5', '30/4', '30/3', '30/2', '30/1', '30',
-  '15/5', '15/4', '15/3', '15/2', '15/1', '15',
-  '5/6', '4/6'
-];
-
+import type { TennisRanking } from '../shared/tennisRankings';
+export { TENNIS_RANKINGS, type TennisRanking } from '../shared/tennisRankings';
 export type Gender = 'homme' | 'femme';
 
 export interface DailyTimeSlot {

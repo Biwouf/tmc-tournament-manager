@@ -1,3 +1,6 @@
+import { useCourseContext } from './hooks/useCourses';
+import SignupPage from './pages/SignupPage';
+import SignupNotice from './components/SignupNotice';
 import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
 import { useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
@@ -24,10 +27,14 @@ import { applyClubTheme } from './lib/theme';
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const membership = useCourseContext();
   if (loading) return null;
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
+  if (membership.isPending) return <p className="p-6" role="status">Vérification de votre accès…</p>;
+  if (membership.isError) return <div className="p-6" role="alert">Vérification de l’accès impossible. <button className="min-h-11 text-primary underline" onClick={() => void membership.refetch()}>Réessayer</button></div>;
+  if (!membership.data?.is_member && !membership.data?.can_manage) return <Navigate to="/actu" replace />;
   return children;
 }
 
@@ -103,7 +110,10 @@ function AppShell() {
       <AppHeader />
       <main className="pwa-content">
         <UpdateBanner />
+        <SignupNotice />
         <Routes>
+          <Route path="/inscription" element={<SignupPage />} />
+          <Route path="/inscription/confirmee" element={<SignupPage confirmed />} />
           <Route path="/forgot-password" element={<PasswordRecoveryPage key="forgot" />} />
           <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
           <Route path="/" element={<Navigate to="/actu" replace />} />

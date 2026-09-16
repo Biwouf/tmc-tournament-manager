@@ -21,6 +21,8 @@ async function fixture() {
     INSERT INTO course_registrations(id,club_id,course_id,user_id,status,quota_sex) VALUES('${id(40)}','${id(1)}','${id(30)}','${id(105)}','denied','male');`);
   await db.exec(v2);
   await db.exec(await readFile(new URL("../supabase/migrations/2026091101_course_owner_identity.sql", import.meta.url), "utf8"));
+  await db.exec("ALTER TABLE auth.users ADD COLUMN email text, ADD COLUMN raw_user_meta_data jsonb DEFAULT '{}';");
+  await db.exec(await readFile(new URL('../supabase/migrations/2026091602_pwa_signup.sql', import.meta.url), 'utf8'));
   async function as(
     user,
     sql,
@@ -476,7 +478,7 @@ test('PWA SQL: global counters and bounded pagination over 20 courses / 50 reque
       .exec(`INSERT INTO courses(club_id,type_id,name,owner_id,starts_at,duration_minutes,capacity_female,capacity_male)
       SELECT '${id(1)}','${id(20)}','Cours '||n,'${id(102)}',now()+interval '1 day'+n*interval '1 minute',60,100,100 FROM generate_series(1,25)n;
       INSERT INTO course_registrations(club_id,course_id,user_id,status,quota_sex) SELECT club_id,id,'${id(103)}','pending','female' FROM courses WHERE owner_id='${id(102)}';
-      INSERT INTO auth.users SELECT ('00000000-0000-0000-0000-'||lpad(n::text,12,'0'))::uuid FROM generate_series(201,260)n;
+      INSERT INTO auth.users(id) SELECT ('00000000-0000-0000-0000-'||lpad(n::text,12,'0'))::uuid FROM generate_series(201,260)n;
       INSERT INTO course_registrations(club_id,course_id,user_id,status,quota_sex) SELECT '${id(1)}','${f.course.id}',id,'pending','male' FROM auth.users WHERE id>='${id(201)}';`);
     const mine = await f.page(103, 'mine');
     assert.equal(mine.items.length, 20);

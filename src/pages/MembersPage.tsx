@@ -1,3 +1,4 @@
+import SignupRequests from '../components/SignupRequests';
 import MemberProfileEditor from '../components/courses/MemberProfileEditor';
 // Multi-tenant — PR5-bis : gestion des membres d'un club par un admin de ce club.
 // Spec : docs/specs/MULTI_TENANT.md §4.2.
@@ -116,7 +117,7 @@ export default function MembersPage() {
     const question =
       member.user_id === currentUserId
         ? `Vous retirer vous-même de ${club?.name ?? 'ce club'} ? Vous perdrez l’accès au back-office de ce club.`
-        : `Retirer ${who} de ${club?.name ?? 'ce club'} ? Son accès au back-office est coupé immédiatement. Son compte n’est pas supprimé : une nouvelle invitation le rattachera.`;
+        : `Retirer ${who} de ${club?.name ?? 'ce club'} ? Son accès aux services membres (PWA et back-office) est coupé immédiatement. Son compte n’est pas supprimé : une nouvelle invitation le rattachera.`;
     if (!window.confirm(question)) return;
 
     setBusyMember(member.user_id);
@@ -157,6 +158,7 @@ export default function MembersPage() {
   return (
     <CourseShell title="Membres">
       <div className="space-y-8">
+        {clubId && <SignupRequests key={clubId} clubId={clubId} onChanged={load} />}
         <InvitePanel clubName={club?.name ?? 'ce club'} clubId={clubId} onInvited={load} />
 
         <section>

@@ -83,6 +83,7 @@ export default function LoginPage() {
           </button>
         </form>
         <Link to="/forgot-password" className="mt-4 block text-center text-sm text-primary underline">Mot de passe oublié ?</Link>
+        <Link to={`/inscription${/^\/cours(?:\?|$)/.test(fromPath) ? `?returnTo=${encodeURIComponent(fromPath)}` : ''}`} className="mt-4 block text-center text-sm text-primary underline">Pas encore de compte ? Créer un compte</Link>
       </div>
     </div>
   );

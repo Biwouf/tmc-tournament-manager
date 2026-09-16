@@ -1,3 +1,4 @@
+import { useCourseContext } from '../hooks/useCourses';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,6 +29,7 @@ export default function MatchesPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const membership = useCourseContext();
   const { clubId } = useClub();
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -138,7 +140,7 @@ export default function MatchesPage() {
         </section>
       )}
 
-      {user && (
+      {user && (membership.data?.is_member || membership.data?.can_manage) && (
         <button
           type="button"
           onClick={() => navigate('/matches/new')}

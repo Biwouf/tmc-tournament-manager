@@ -33,8 +33,10 @@ export type Profile = {
   nom: string | null;
   sex: Sex | null;
   revision: number;
+  classement: string | null;
 };
 export type CourseContext = {
+  signup_status?: 'pending' | 'approved' | 'denied' | 'revoked' | null;
   is_member: boolean;
   can_manage: boolean;
   profile: Profile | null;

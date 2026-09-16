@@ -1,3 +1,8 @@
 [functions.contact-form]
 # Formulaire public : les visiteurs n’ont pas de session utilisateur.
 verify_jwt = false
+
+[auth.email]
+# PWA : accès membre accordé par un admin, sans confirmation par email.
+# Reproduire ce réglage dans Authentication > Providers > Email du projet hébergé.
+enable_confirmations = false

@@ -405,7 +405,7 @@ test('PWA client: self profile sends no target or roles, keeps revision until ex
   );
   try {
     assert.equal(document.querySelectorAll('input').length, 2);
-    assert.equal(document.querySelectorAll('select').length, 1);
+    assert.equal(document.querySelectorAll('select').length, 2);
     api.context.profile = {
       ...api.context.profile,
       prenom: 'Admin',
@@ -438,6 +438,7 @@ test('PWA client: self profile sends no target or roles, keeps revision until ex
     assert.equal(writes[1].args.p_revision, 2);
     for (const c of writes)
       assert.deepEqual(Object.keys(c.args).sort(), [
+        'p_classement',
         'p_club',
         'p_nom',
         'p_prenom',
