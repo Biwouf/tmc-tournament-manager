@@ -1,3 +1,4 @@
+import PasswordInput from '../components/PasswordInput';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, passwordRecovery } from '../lib/supabase';
@@ -110,10 +111,10 @@ export default function PasswordRecoveryPage({ reset = false }: { reset?: boolea
             {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             {reset ? <>
               <div><label className="mb-1.5 block text-sm font-medium" htmlFor="recovery-password">Nouveau mot de passe</label>
-                <input id="recovery-password" className={inputClass} type="password" autoComplete="new-password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} />
+                <PasswordInput id="recovery-password" className={inputClass} autoComplete="new-password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} />
                 <p className="mt-1 text-sm text-muted-foreground">8 caractères minimum.</p></div>
               <div><label className="mb-1.5 block text-sm font-medium" htmlFor="recovery-confirm">Confirmer le mot de passe</label>
-                <input id="recovery-confirm" className={inputClass} type="password" autoComplete="new-password" minLength={8} required value={confirm} onChange={e => setConfirm(e.target.value)} /></div>
+                <PasswordInput id="recovery-confirm" className={inputClass} autoComplete="new-password" minLength={8} required value={confirm} onChange={e => setConfirm(e.target.value)} /></div>
             </> : <div><label className="mb-1.5 block text-sm font-medium" htmlFor="recovery-email">Email</label>
               <input id="recovery-email" className={inputClass} type="email" autoComplete="email" autoCapitalize="none" required value={email} onChange={e => setEmail(e.target.value)} /></div>}
             {loading && slow && <p role="status" className="text-sm text-muted-foreground">Le service met plus de temps que prévu à répondre. Votre demande est toujours en cours.</p>}
