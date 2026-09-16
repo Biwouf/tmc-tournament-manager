@@ -45,4 +45,4 @@ La nouvelle migration est `2026091102_contact_messages.sql`. `supabase/config.to
 - Test réel autorisé à `cactennis82@gmail.com` via la fonction de dev : HTTP 200, `success=true`, `email_sent=true`. Message « Message du site — Test Feelike Développement », marqueur `TEST FEELIKE DEV 2026-09-13T08:44:46.748Z`. Brevo confirme `delivered` le 13 septembre 2026 à 10:44:50 (Europe/Paris). Un seul message envoyé ; copie enregistrée en base par la fonction avant notification.
 - Aucun déploiement Vercel ni changement du projet Supabase de production dans cette livraison.
 
-Le passage général des URLs de la plateforme de `feelike.app` à `feelike.pro` reste distinct du formulaire : les règles de tenant et les URL canoniques existantes sont conservées dans cette branche. L’expéditeur Brevo est configurable et utilise le domaine acheté.
+Le passage général des URLs de la plateforme de `feelike.pro` à `feelike.pro` reste distinct du formulaire : les règles de tenant et les URL canoniques existantes sont conservées dans cette branche. L’expéditeur Brevo est configurable et utilise le domaine acheté.

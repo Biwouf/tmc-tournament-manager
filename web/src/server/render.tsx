@@ -16,7 +16,7 @@ export const unavailable = (status: number, title: string): HttpResult => ({
   status,
   headers: { ...noCache, 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, follow',
     ...(status === 503 ? { 'Retry-After': '60' } : {}) },
-  body: `<!doctype html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><meta name="robots" content="noindex, follow"></head><body><main><h1>${escapeHtml(title)}</h1><p>${status === 503 ? 'Veuillez réessayer dans quelques instants.' : 'Cette adresse ne correspond à aucune page disponible.'}</p></main></body></html>`,
+  body: `<!doctype html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><meta name="robots" content="noindex, follow"></head><body style="margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,sans-serif"><main style="box-sizing:border-box;max-width:32rem;margin:12vh auto;padding:2rem"><p style="font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:#64748b">Feelike</p><h1 style="font-size:1.75rem;line-height:1.2">${escapeHtml(title)}</h1><p>${status === 503 ? 'Veuillez réessayer dans quelques instants.' : 'Cette adresse ne correspond à aucune page disponible ou le club est actuellement indisponible. Vérifiez le lien reçu ou contactez votre club.'}</p><p style="margin-top:2rem"><a href="" style="color:inherit">Réessayer</a></p></main></body></html>`,
 });
 
 export async function renderRequest(

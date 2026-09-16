@@ -132,7 +132,7 @@ Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office 
 ### Site vitrine
 
 Sur mobile, le menu de navigation couvre entièrement la page et reste défilable sur les petits écrans.
-Site **public** du club, servi sur `<slug>.feelike.app` (application séparée, dossier `web/`).
+Site **public** du club, servi sur `<slug>.feelike.pro` (application séparée, dossier `web/`).
 
 - **Cinq pages** : Accueil, Le Club, Infrastructures, Tarifs, Contact — plus un panneau de contact accessible depuis n'importe quelle page.
 - **Tout le contenu vient de l'écran *Configuration du site*** : textes, images, tarifs, horaires, partenaires, mentions légales, et la **couleur** du club, qui colore boutons, badges et liens du site.
@@ -156,7 +156,7 @@ Site **public** du club, servi sur `<slug>.feelike.app` (application séparée, 
 ### Console plateforme (super-admin)
 Réservée au **super-admin** de la plateforme, sur `/super-admin` (carte *Plateforme › Console plateforme* du dashboard). Invisible et inaccessible pour un administrateur de club.
 
-- **Créer un club** : nom, slug et sport. Le slug est le sous-domaine du club (`<slug>.feelike.app`) : minuscules, chiffres et tirets, 2 à 32 caractères, ni préfixe `app-` (réservé à la PWA) ni slug réservé par la plateforme. Sa ligne de configuration est créée automatiquement.
+- **Créer un club** : nom, slug et sport. Le slug est le sous-domaine du club (`<slug>.feelike.pro`) : minuscules, chiffres et tirets, 2 à 32 caractères, ni préfixe `app-` (réservé à la PWA) ni slug réservé par la plateforme. Sa ligne de configuration est créée automatiquement.
 - **Lister** les clubs avec leur statut, leur date de création, leur nombre de membres et un marqueur **« aucun admin »** — l'état d'un club fraîchement créé, dont l'action suivante est l'invitation.
 - **Inviter le premier administrateur** d'un club, par email ou en générant un lien à copier.
 - **Suspendre / réactiver** un club. Un club suspendu n'est plus accessible à ses membres (back-office et PWA). Suspendre le club dans lequel on se trouve est refusé.
@@ -245,7 +245,7 @@ ailleurs).
 | Projet | Entrée |
 |---|---|
 | dev | `http://localhost:*/**` — glob de port : survit au décalage de Vite (5173 → 5174 → …) quand plusieurs serveurs de dev tournent |
-| prod | l'origine de déploiement, ex. `https://<projet>.vercel.app/**` (puis `https://*.feelike.app/**` au passage au wildcard) |
+| prod | l'origine de déploiement, ex. `https://<projet>.vercel.app/**` (puis `https://*.feelike.pro/**` au passage au wildcard) |
 
 ## Utilisation
 
@@ -412,3 +412,11 @@ Le back-office et la PWA proposent « Mot de passe oublié ». Les liens sont g�
 Supabase Auth ; l’envoi via Brevo exige de configurer le SMTP personnalisé du projet
 (et sa limite d’emails), indépendamment de la clé API du formulaire de contact.
 Configuration et recette : [ACCOUNT_RECOVERY.md](docs/ACCOUNT_RECOVERY.md).
+
+## Domaines de la plateforme (PR13)
+
+Domaine racine confirmé : **feelike.pro**, enregistré chez OVHcloud.
+Vitrine : `<club>.feelike.pro` ; PWA : `app-<club>.feelike.pro` ; BO central avec sélection
+du club après connexion : `admin.feelike.pro`.
+Le code ne met pas les DNS en service : suivre [la procédure OVH/Vercel](docs/DOMAINS_DELIVERY.md)
+avant de clôturer la PR13. Le domaine propre de CAC est prévu en PR14.

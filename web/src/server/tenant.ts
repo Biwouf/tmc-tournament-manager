@@ -20,10 +20,10 @@ export function canonicalOrigin(club: Club): string {
   // Le domaine personnalisé doit être provisionné et vérifié par la plateforme avant sa saisie.
   const domain = club.custom_domain?.toLowerCase().trim();
   if (domain && (!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(domain) ||
-      domain.endsWith('.vercel.app') || domain === 'feelike.app' || domain.endsWith('.feelike.app'))) {
+      domain.endsWith('.vercel.app') || domain === 'feelike.pro' || domain.endsWith('.feelike.pro'))) {
     throw new SiteError(503, 'Configuration du domaine indisponible');
   }
-  return `https://${domain || `${club.slug}.feelike.app`}`;
+  return `https://${domain || `${club.slug}.feelike.pro`}`;
 }
 export function isProduction(runtime: Runtime): boolean {
   return runtime.appEnv === 'production' && runtime.deploymentEnv === 'production';
@@ -42,7 +42,7 @@ export async function loadSite(authority: string, runtime: Runtime, fetcher: typ
   const local = !runtime.deploymentEnv && runtime.appEnv === 'development' &&
     ['localhost', '127.0.0.1', '[::1]'].includes(host);
   const preview = runtime.deploymentEnv === 'preview' && runtime.previewHosts.includes(host);
-  const match = /^([a-z0-9-]+)\.feelike\.app$/.exec(host);
+  const match = /^([a-z0-9-]+)\.feelike\.pro$/.exec(host);
   let field = 'custom_domain';
   let value = host;
   if (match) {
@@ -53,7 +53,7 @@ export async function loadSite(authority: string, runtime: Runtime, fetcher: typ
       throw new SiteError(404, 'Site introuvable');
     }
     field = 'slug'; value = runtime.devSlug;
-  } else if (host.endsWith('.vercel.app') || !host.includes('.') || host === 'feelike.app') {
+  } else if (host.endsWith('.vercel.app') || !host.includes('.') || host === 'feelike.pro') {
     throw new SiteError(404, 'Site introuvable');
   }
   if (!runtime.supabaseUrl || !runtime.anonKey) throw new SiteError(503, 'Site temporairement indisponible');

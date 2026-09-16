@@ -92,7 +92,7 @@ async function handler(name, options = {}) {
       if (url.startsWith('https://api.brevo.com')) {
         return config.brevoFails
           ? new Response('quota exceeded', { status: 402 })
-          : Response.json({ messageId: '<test@feelike.app>' });
+          : Response.json({ messageId: '<test@feelike.pro>' });
       }
       throw new Error(`Unexpected network request: ${url}`);
     },

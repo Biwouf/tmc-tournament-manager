@@ -15,7 +15,7 @@ On transforme l'app mono-club actuelle (CAC Tennis) en produit SaaS où l'on peu
 
 L'architecture retenue est **pooled multi-tenant** : une seule base Supabase, une seule
 instance de chaque app, isolation logique par `club_id` + RLS. Le club courant est résolu
-**au runtime** à partir du sous-domaine, sous le domaine racine **`feelike.app`**. On
+**au runtime** à partir du sous-domaine, sous le domaine racine **`feelike.pro`**. On
 provisionne les clubs depuis une **console super-admin**. On démarre progressivement :
 d'abord le **socle multi-tenant sur l'existant**, le site vitrine ensuite.
 
@@ -27,12 +27,12 @@ d'abord le **socle multi-tenant sur l'existant**, le site vitrine ensuite.
 |---|---|---|
 | D1 | **Isolation des données** | Base Supabase **partagée**, colonne `club_id` sur chaque table métier, isolation par **RLS**. Onboarding = créer une ligne `clubs`. |
 | D2 | **Déploiement des apps** | **Apps partagées uniques** (un seul BO, un seul PWA, un seul site vitrine). Le tenant est résolu au runtime, pas au build. |
-| D3 | **Domaines** | Domaine racine **`feelike.app`**. **Sous-domaine automatique** par club (ex. `cac-tennis.feelike.app`). **Custom domain** par club supporté par l'archi (colonne `clubs.custom_domain`), activé en phase ultérieure. |
+| D3 | **Domaines** | Domaine racine **`feelike.pro`**. **Sous-domaine automatique** par club (ex. `cac-tennis.feelike.pro`). **Custom domain** par club supporté par l'archi (colonne `clubs.custom_domain`), activé en phase ultérieure. |
 | D4 | **Provisioning** | **Super-admin** crée les clubs via une console dédiée. Pas de signup public ni de billing au V1. |
 | D5 | **Membership** | Table d'appartenance `club_members (user_id, club_id, role)`. Un compte peut appartenir à **plusieurs** clubs. |
 | D6 | **Premier jalon** | **Socle multi-tenant sur l'existant** (BO + PWA) avant le site vitrine. |
 | D7 | **Formulaire de contact vitrine** | **Email au club** via Edge Function + **Brevo** (provider FR/EU, argument RGPD) **+ copie en base** pour historique. |
-| D9 | **Schéma de sous-domaines** | Vitrine = `<slug>.feelike.app` · PWA = `app-<slug>.feelike.app` (URL ~invisible une fois installée sur l'écran d'accueil) · BO = `admin.feelike.app` (console globale + sélecteur de club). |
+| D9 | **Schéma de sous-domaines** | Vitrine = `<slug>.feelike.pro` · PWA = `app-<slug>.feelike.pro` (URL ~invisible une fois installée sur l'écran d'accueil) · BO = `admin.feelike.pro` (console globale + sélecteur de club). |
 | D10 | **Secrets sociaux par club** | Table dédiée `club_social_credentials`, **RLS admin-only** (jamais `anon`/`manager`/PWA/vitrine), lue par l'Edge Function via **service role**. |
 | D11 | **`club_id` sur tables filles** | **Colonne `club_id` dénormalisée partout** (y c. `team_match_lines`) → patron RLS uniforme et performant. |
 | D12 | **Stockage des images** | Buckets **par type de contenu** (peu nombreux), chemins **préfixés `club_id/`**, écritures scopées au club, lecture publique pour le contenu public. |
@@ -204,9 +204,9 @@ Principe commun aux 3 apps : **hostname → club_id**, posé en contexte React, 
 1. Au démarrage : lire window.location.hostname
 2. Résolution, dans l'ordre :
    a. custom_domain  → select … from clubs where custom_domain = :hostname and status='active'
-   b. sinon, extraire le slug du sous-domaine feelike.app :
-      - "cac-tennis"       depuis "cac-tennis.feelike.app"      (vitrine)
-      - "cac-tennis"        depuis "app-cac-tennis.feelike.app" (PWA, préfixe "app-")
+   b. sinon, extraire le slug du sous-domaine feelike.pro :
+      - "cac-tennis"       depuis "cac-tennis.feelike.pro"      (vitrine)
+      - "cac-tennis"        depuis "app-cac-tennis.feelike.pro" (PWA, préfixe "app-")
       → select … from clubs where slug = :slug and status='active'
    (en dev : fallback via VITE_DEV_CLUB_SLUG ou ?club=… )
 3. Si introuvable / suspended → page "club inconnu / indisponible"
@@ -216,7 +216,7 @@ Principe commun aux 3 apps : **hostname → club_id**, posé en contexte React, 
 
 > La résolution teste **`custom_domain` en premier** (dès le V1 côté logique, même si l'UI
 > d'attribution custom domain n'arrive qu'en phase ultérieure) puis retombe sur le slug
-> `*.feelike.app`. Le **BO** (`admin.feelike.app`) ne résout pas par sous-domaine : il
+> `*.feelike.pro`. Le **BO** (`admin.feelike.pro`) ne résout pas par sous-domaine : il
 > présente un **sélecteur de club** parmi ceux dont l'utilisateur est membre (ou tous, si
 > super-admin), et pose le `club_id` choisi dans le contexte.
 
@@ -377,7 +377,7 @@ le super-admin n'est pas un rôle de club). Carte « Console plateforme » sur l
 - **Accès support = override de club** (`localStorage.feelike_support_club`), résolu par
   `ClubContext` **avant** le hostname et **sans** le filtre `status = 'active'` — entrer dans un
   club suspendu pour le diagnostiquer est l'usage même du support. Bandeau permanent + Quitter.
-  Indispensable, pas un bonus : sans wildcard `*.feelike.app` (PR13), un club créé depuis la
+  Indispensable, pas un bonus : sans wildcard `*.feelike.pro` (PR13), un club créé depuis la
   console ne serait joignable **par personne**. Ce n'est pas une faille : poser la clé à la main
   ne donne aucun droit (écran « Accès refusé » de PR4, et `tenant_isolation` ne rend rien) —
   l'override change le club **affiché**, pas les droits. BO uniquement, PWA non touchée.
@@ -656,7 +656,7 @@ aux couleurs de CAC**. Inventaire du dur, par difficulté :
 > résolus au build, pas au runtime. Deux pistes : (a) manifest **généré au runtime** et
 > injecté via un `<link rel="manifest">` pointant sur une route/blob par tenant ; (b) un
 > déploiement PWA par club — ce qui **contredirait D2**. Comme D9 prévoit
-> `app-<slug>.feelike.app`, c'est un livrable visible par l'adhérent : à décider avant, pas
+> `app-<slug>.feelike.pro`, c'est un livrable visible par l'adhérent : à décider avant, pas
 > pendant. Le volet texte (`clubs.name`) est en revanche livrable indépendamment et à tout
 > moment.
 
@@ -773,7 +773,7 @@ identifiants doivent être **par club** — décision **D10** :
 > longue durée, l'écran le valide et affiche la page reconnue. Un « Se connecter avec
 > Facebook » exigerait une app Meta avec `pages_show_list` + `pages_manage_posts` en
 > **Advanced Access**, donc App Review et vérification business — et un redirect URI **exact**
-> par sous-domaine, or `*.feelike.app` n'existe pas avant **PR13**. C'était livrer à l'aveugle
+> par sous-domaine, or `*.feelike.pro` n'existe pas avant **PR13**. C'était livrer à l'aveugle
 > du code invérifiable. En pratique, c'est l'exploitant de la plateforme qui pose le token à
 > l'onboarding d'un club. À reprendre en PR dédiée quand l'app Meta sera validée **et** le
 > wildcard en place.
@@ -815,16 +815,16 @@ Spécificités multi-tenant à ajouter au brief existant :
 ### 8.1 Trois apps, un déploiement chacune (schéma D9)
 | App | Dossier | Audience | Domaine |
 |---|---|---|---|
-| Site vitrine | `web/` (nouveau) | public | **`<slug>.feelike.app`** (adresse « publique » du club) |
-| PWA | `pwa/` | adhérents | **`app-<slug>.feelike.app`** (URL ~invisible une fois installée) |
-| Back-office | `src/` (racine) | gestionnaires (admin/manager/member) + super-admin | **`admin.feelike.app`** (console globale, sélecteur de club) |
+| Site vitrine | `web/` (nouveau) | public | **`<slug>.feelike.pro`** (adresse « publique » du club) |
+| PWA | `pwa/` | adhérents | **`app-<slug>.feelike.pro`** (URL ~invisible une fois installée) |
+| Back-office | `src/` (racine) | gestionnaires (admin/manager/member) + super-admin | **`admin.feelike.pro`** (console globale, sélecteur de club) |
 
-> Le BO est une **console unique** `admin.feelike.app` (pas un sous-domaine par club) : on s'y
+> Le BO est une **console unique** `admin.feelike.pro` (pas un sous-domaine par club) : on s'y
 > connecte, on choisit son club (ou n'importe lequel si super-admin). Cohérent avec le modèle
 > super-admin et avec le membership multi-clubs (D5).
 
 ### 8.2 Wildcard domain
-- Configurer un **wildcard `*.feelike.app` sur Vercel**. La vitrine répond sur `<slug>`, la PWA
+- Configurer un **wildcard `*.feelike.pro` sur Vercel**. La vitrine répond sur `<slug>`, la PWA
   sur `app-<slug>` (l'app teste le préfixe `app-` pour se distinguer de la vitrine), le BO sur
   `admin`. Créer un club = créer une ligne `clubs` ; **aucune action Vercel manuelle** par club
   (c'est tout l'intérêt du wildcard + résolution runtime).
@@ -1021,20 +1021,20 @@ Ordre conçu pour ne **jamais casser CAC en prod** (expand → migrate → contr
 | PR10 | 4 | Flux actus & events branchés sur la vitrine (filtrés `club_id`) | non-bloquante |
 | PR11 🚧 | 4 | Formulaire vitrine et drawer branchés ; fonction `contact-form`, table `contact_messages`, réception BO `/admin/messages` réservée aux admins. Destinataire lu dans `club_settings.config.contact.email`, réponse au visiteur. | Migration `2026091102`, secrets Brevo et déploiement de la fonction ; voir `docs/CONTACT_DELIVERY.md`. |
 | PR12 | 4 | Pont d'installation PWA depuis la vitrine (mobile) | non-bloquante |
-| PR13 | 5 | Page « club inconnu/suspendu » + wildcard `*.feelike.app` sur Vercel | infra |
-| *(plus tard)* | — | Custom domain par club : API Vercel + UI + `clubs.custom_domain` (cas CAC ci-dessous) | post-V1 |
+| PR13 🚧 | 5 | Domaine confirmé `feelike.pro` ; écrans indisponibles, BO central avec sélection du club, routage wildcard vitrine → PWA. Code préparé ; DNS/TLS/Auth restent à activer. | **Opérations OVH/Vercel requises** : voir `docs/DOMAINS_DELIVERY.md` |
+| PR14 | 5 | Domaine personnalisé CAC `tennisclubcastelsarrasin.fr` : rattachement manuel, HTTPS, canonical/redirections et recette. API Vercel + UI généralisées ensuite. | Après PR13 |
 
 ### Stratégie de domaine CAC (dogfood)
 
 `cac-tennis.vercel.app` est un **projet de démo** (pas de vrais adhérents → aucune URL à
 préserver). Parcours retenu :
-1. **V1** : on développe et éprouve tout sur `*.feelike.app` ; CAC sert de club de test réel
-   sur `cac-tennis.feelike.app`.
+1. **V1** : on développe et éprouve tout sur `*.feelike.pro` ; CAC sert de club de test réel
+   sur `cac-tennis.feelike.pro`.
 2. **Quand c'est solide** : on bascule CAC sur son propre domaine
    **`tennisclubcastelsarrasin.fr`** via la feature custom domain (post-V1). CAC est ainsi le
    **premier cas de dogfood** du parcours custom domain.
 - Le custom domain concerne la **vitrine** (face publique). Le **BO reste sur
-  `admin.feelike.app`** (console plateforme). La PWA peut rester sur `*.feelike.app`.
+  `admin.feelike.pro`** (console plateforme). La PWA peut rester sur `*.feelike.pro`.
 - Note technique : domaine **apex** (`tennisclubcastelsarrasin.fr` sans `www`) → enregistrement
   A vers Vercel ou nameservers Vercel (un cran plus délicat qu'un sous-domaine en CNAME).
 
@@ -1052,9 +1052,9 @@ métier existants.
 
 Les 6 zones d'ombre du cadrage sont **résolues** :
 
-1. **Schéma de sous-domaines** → D9 : vitrine `<slug>.feelike.app`, PWA `app-<slug>.feelike.app`,
-   BO `admin.feelike.app` (console globale).
-2. **Domaine racine** → **`feelike.app`**.
+1. **Schéma de sous-domaines** → D9 : vitrine `<slug>.feelike.pro`, PWA `app-<slug>.feelike.pro`,
+   BO `admin.feelike.pro` (console globale).
+2. **Domaine racine** → **`feelike.pro`**.
 3. **Provider d'email** du formulaire de contact → **Brevo**.
 4. **Stockage des secrets sociaux** → D10 : table `club_social_credentials`, RLS admin-only.
 5. **`club_id` sur `team_match_lines`** → D11 : colonne dénormalisée (patron RLS uniforme).
@@ -1118,3 +1118,12 @@ en production. Aucun transfert dev → prod, aucune écriture DB et aucun déplo
 tâche. PR10 (flux), PR11 (envoi contact), PR12 (PWA) restent hors périmètre. PR13 garde le
 provisioning wildcard et le polish des erreurs ; le contrat HTTP 404 est déjà posé ici.
 Détails techniques, tests et procédure Vercel : `WEB_SITE.md` §4, §9, §10.
+
+## PR13 — domaine confirmé et mise en service
+
+Le domaine racine est **feelike.pro** (confirmation propriétaire du 16/09/2026), enregistré
+chez OVHcloud. Le détail livré et la procédure opérationnelle sont dans
+[DOMAINS_DELIVERY.md](../DOMAINS_DELIVERY.md). Le BO central résout le club depuis les
+appartenances après connexion ; le wildcard appartient à la vitrine, qui route les hôtes
+`app-<slug>` vers la PWA. Les anciens paragraphes PR2/PR5 décrivent les étapes historiques.
+La PR13 ne sera close qu’après la recette DNS/TLS/Auth et multi-clubs réelle.
