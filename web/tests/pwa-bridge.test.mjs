@@ -50,6 +50,19 @@ test('hydratation, fermeture persistante par club, expiration, stockage bloqué 
     assert.equal(document.querySelector('aside'), null, 'fermeture conservée après navigation');
     await mount('beta');
     assert.equal(document.querySelector('a').href, 'https://app-beta.feelike.app/');
+    const link = document.querySelector('a');
+    // JSDOM ne navigue pas : intercepter seulement l'action native, après React.
+    let navigationAllowed = false;
+    document.addEventListener('click', event => {
+      navigationAllowed = !event.defaultPrevented;
+      event.preventDefault();
+    }, { once: true });
+    await act(async () => link.click());
+    assert.equal(navigationAllowed, true, 'le pont ne bloque pas la navigation du lien');
+    assert.equal(document.querySelector('aside'), null);
+    assert.ok(dom.window.localStorage.getItem(key('beta')));
+    await mount('beta');
+    assert.equal(document.querySelector('aside'), null, 'clic sur Ouvrir mémorisé au retour');
     dom.window.localStorage.setItem(key('alpha'), String(Date.now() - 8 * 86400000));
     await mount();
     assert.ok(document.querySelector('aside'), 'réapparition après sept jours');

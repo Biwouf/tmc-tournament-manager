@@ -514,7 +514,8 @@ est disponible, instructions Safari iOS. La présence d’une PWA déjà install
 origine n’est pas détectable par ce pont ; le libellé permet aussi de simplement l’ouvrir.
 La bannière est masquée en mode standalone et apparaît après hydratation uniquement.
 
-La croix masque le bloc pendant sept jours, avec une clé localStorage par identifiant de
+La croix et le clic sur « Ouvrir l’application » masquent le bloc pendant sept jours,
+avec une clé localStorage par identifiant de
 club (`feelike:<club_id>:pwaBridgeDismissedAt`). Si le stockage est bloqué, la fermeture
 fonctionne pour la page courante. Aucun changement SQL, de configuration club ou de PWA.
 Les previews et le développement utilisent aussi la destination canonique : ils ne doivent

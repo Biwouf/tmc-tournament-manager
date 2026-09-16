@@ -40,7 +40,7 @@ export default function PwaInstallBridge() {
         <p className="mt-1 text-sm leading-relaxed">
           Retrouvez la vie du club dans l’application adhérents et ajoutez-la à votre écran d’accueil.
         </p>
-        <a href={href} className="btn btn-primary mt-3">Ouvrir l’application</a>
+        <a href={href} onClick={dismiss} className="btn btn-primary mt-3">Ouvrir l’application</a>
         <button type="button" onClick={dismiss} aria-label="Masquer la proposition d’installation pendant 7 jours"
           className="absolute top-2 right-2 flex h-11 w-11 items-center justify-center rounded-full text-xl hover:bg-brand/10">
           <span aria-hidden="true">×</span>
