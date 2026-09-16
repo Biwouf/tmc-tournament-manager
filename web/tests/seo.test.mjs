@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'vite';
 
-const vite = await createServer({ server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
+// Le test du contrat BO ne doit pas initialiser son client d'authentification navigateur.
+const boSupabasePath = new URL('../../src/lib/supabase.ts', import.meta.url).pathname;
+const vite = await createServer({ plugins: [{
+  name: 'isolate-bo-config-contract',
+  load(id) {
+    if (id === boSupabasePath) return 'export const supabase = { from() { throw new Error("Unexpected database access in config contract test"); } };';
+  },
+}], server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' });
 after(() => vite.close());
 const { renderRequest } = await vite.ssrLoadModule('/src/server/render.tsx');
 const { publicConfig, isReadyForIndexing } = await vite.ssrLoadModule('/src/lib/site.ts');
