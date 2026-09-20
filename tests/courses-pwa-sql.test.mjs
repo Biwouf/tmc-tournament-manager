@@ -23,6 +23,7 @@ async function fixture() {
   await db.exec(await readFile(new URL("../supabase/migrations/2026091101_course_owner_identity.sql", import.meta.url), "utf8"));
   await db.exec("ALTER TABLE auth.users ADD COLUMN email text, ADD COLUMN raw_user_meta_data jsonb DEFAULT '{}';");
   await db.exec(await readFile(new URL('../supabase/migrations/2026091602_pwa_signup.sql', import.meta.url), 'utf8'));
+  await db.exec(await readFile(new URL('../supabase/migrations/2026092001_signup_profile_fix.sql', import.meta.url), 'utf8'));
   async function as(
     user,
     sql,

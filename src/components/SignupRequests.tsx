@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-type Request = { user_id: string; email: string; prenom: string; nom: string; sex: string; classement: string | null; status: 'pending' | 'denied' | 'revoked'; created_at: string };
+type Request = { user_id: string; email: string; prenom: string; nom: string; sex: string | null; classement: string | null; status: 'pending' | 'denied' | 'revoked'; created_at: string };
 export default function SignupRequests({ clubId, onChanged }: { clubId: string; onChanged: () => void }) {
   const [rows, setRows] = useState<Request[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export default function SignupRequests({ clubId, onChanged }: { clubId: string; 
     {success && <p role="status" className="mb-3 text-foreground">{success}</p>}
     {loading ? <p role="status">Chargement des demandes…</p> : rows.length === 0 ? <p className="text-sm text-muted-foreground">Aucune demande d’inscription.</p> : <div className="space-y-3">{rows.map(r => <div key={r.user_id} className="rounded-2xl border bg-card p-6 shadow-sm">
       <h3 className="font-semibold">{r.prenom} {r.nom}</h3><p className="text-sm text-muted-foreground">{r.email}</p>
-      <p className="my-2 text-sm">{r.sex === 'female' ? 'Femme' : 'Homme'} · Classement : {r.classement ?? 'Non renseigné'} · {new Date(r.created_at).toLocaleDateString('fr-FR')}</p>
+      <p className="my-2 text-sm">{r.sex === 'female' ? 'Femme' : r.sex === 'male' ? 'Homme' : 'Sexe non renseigné'} · Classement : {r.classement ?? 'Non renseigné'} · {new Date(r.created_at).toLocaleDateString('fr-FR')}</p>
       {r.status === 'pending' ? <div className="flex flex-wrap gap-2"><button type="button" className="course-button primary" disabled={!!busy} onClick={() => void decide(r, 'approved')}>{busy === r.user_id ? 'Traitement…' : 'Accepter comme membre'}</button><button type="button" className="course-button" disabled={!!busy} onClick={() => void decide(r, 'denied')}>Refuser</button></div> : <p className="text-sm text-muted-foreground">{r.status === 'denied' ? 'Demande refusée' : 'Accès retiré'}. Pour rétablir l’accès, utilisez l’invitation existante.</p>}
     </div>)}</div>}
   </section>;

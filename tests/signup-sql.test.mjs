@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { id, coursesFixtureSQL } from './helpers/courses-fixture.mjs';
-async function fixture() {
+async function fixture(fixed = true) {
  const db = new PGlite();
  await db.exec(coursesFixtureSQL);
  await db.exec("ALTER TABLE auth.users ADD COLUMN email text, ADD COLUMN raw_user_meta_data jsonb DEFAULT '{}';");
  for (const file of ['2026091001_courses.sql','2026091002_courses_pwa.sql','2026091101_course_owner_identity.sql','2026091602_pwa_signup.sql']) await db.exec(await readFile(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'));
+ // Reproduire le trigger historique réel, absent de la première fixture.
+ const legacy = await readFile(new URL('../supabase/migrations/20260521_profiles.sql',import.meta.url),'utf8');
+ await db.exec(legacy.slice(legacy.indexOf('CREATE OR REPLACE FUNCTION handle_new_user()')));
+ if (fixed) await db.exec(await readFile(new URL('../supabase/migrations/2026092001_signup_profile_fix.sql',import.meta.url),'utf8'));
  let serial=9000;
  async function rpc(user,name,args) {
   await db.exec(`BEGIN; SET LOCAL ROLE ${user ? 'authenticated' : 'anon'}; SELECT set_config('request.jwt.claim.sub','${user ? id(user) : ''}',true);`);
@@ -80,5 +84,26 @@ test('signup: refusal, tenant isolation and ranking edit compatibility',async()=
   assert.equal((await f.context(103)).profile.revision,2);
   await f.rpc(103,'course_save_my_profile',[id(1),'Marie','Test','female',2,id(9903),null]);
   assert.equal((await f.context(103)).profile.classement,null);
+ }finally{await f.db.close();}
+});
+
+test('signup: repair existing blank profiles from metadata, preserve edits and rights, admin sees identity',async()=>{
+ const f=await fixture(false);try {
+  const data={club_signup:{club_id:id(1),prenom:' Alice ',nom:' Dupont ',sex:'female',classement:'30'}};
+  await f.db.query('INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES($1,$2,$3)',[id(201),'alice@example.test',data]);
+  assert.equal((await f.context(201)).profile.prenom,''); // reproduit le défaut historique
+  await f.decide(101,201);
+  await f.db.query("UPDATE profiles SET nom='Nom corrigé' WHERE id=$1",[id(201)]);
+  await f.db.query('UPDATE profile_details SET sex=NULL WHERE user_id=$1',[id(201)]);
+  await f.db.exec(await readFile(new URL('../supabase/migrations/2026092001_signup_profile_fix.sql',import.meta.url),'utf8'));
+  let ctx=await f.context(201);
+  assert.equal(ctx.profile.prenom,'Alice');assert.equal(ctx.profile.nom,'Nom corrigé');assert.equal(ctx.profile.sex,'female');assert.equal(ctx.is_member,true);
+  const member=(await f.rpc(101,'course_admin_read',[id(1),'members',id(201),'',0,'']))[0];
+  assert.equal(member.prenom,'Alice');assert.equal(member.nom,'Nom corrigé');assert.equal(member.sex,'female');
+  await f.db.query('INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES($1,$2,$3)',[id(202),'second@example.test',data]);
+  const request=(await f.rpc(101,'club_signup_admin_list',[id(1)])).find(r=>r.user_id===id(202));
+  assert.equal(request.prenom,'Alice');assert.equal(request.nom,'Dupont');assert.equal(request.sex,'female');
+  await f.signup(201,1,'3/6');ctx=await f.context(201);
+  assert.equal(ctx.profile.nom,'Nom corrigé');assert.equal(ctx.profile.classement,'30');
  }finally{await f.db.close();}
 });

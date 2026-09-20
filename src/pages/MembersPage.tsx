@@ -212,6 +212,7 @@ export default function MembersPage() {
                           )}
                         </div>
                         <p className="mt-1.5 text-sm text-muted-foreground">{m.email}</p>
+                        <p className="mt-1.5 text-sm text-muted-foreground">Sexe : {m.sex === 'female' ? 'Femme' : m.sex === 'male' ? 'Homme' : 'Non renseigné'} · Classement : {m.classement ?? 'Non renseigné'}</p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">

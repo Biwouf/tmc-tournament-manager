@@ -14,6 +14,8 @@ export type ClubMember = {
   email: string;
   prenom: string;
   nom: string;
+  sex: 'female' | 'male' | null;
+  classement: string | null;
   role: ClubRole;
   created_at: string;
   // pending = compte créé par l'invitation mais jamais activé (last_sign_in_at nul).

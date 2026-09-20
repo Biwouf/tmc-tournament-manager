@@ -27,3 +27,9 @@ La migration, la configuration hébergée et le déploiement ne sont pas appliqu
 `npm run test:signup`, tests cours PWA et sécurité, `npm --prefix pwa run build`, `npm run build`.
 
 Les tests SQL exécutent les migrations dans PGlite : création atomique, données invalides, club suspendu, absence d’élévation de privilèges, isolation des clubs, acceptation/refus/retrait, rejeu, modification du classement et compatibilité de l’ancien RPC profil. Les tests React simulent les réponses Auth et vérifient validation locale, double soumission, ordre des appels, reprise après erreur et états d’erreur/confirmation email.
+
+## Correction des profils vides (20 septembre)
+
+Appliquer aussi `2026092001_signup_profile_fix.sql` : le trigger historique Auth créait un profil vide avant celui d’inscription. La correction complète uniquement les champs absents et récupère les données des comptes déjà inscrits depuis `auth.users.raw_user_meta_data.club_signup`, lorsque ces données sont valides et rattachées à une demande existante. Les valeurs déjà renseignées et les droits restent conservés.
+
+Redéployer également l’Edge Function `club-members` et le back-office pour afficher le sexe et le classement dans la liste des membres acceptés. Les noms et le sexe restent visibles dans les demandes et dans « Modifier le profil ».
