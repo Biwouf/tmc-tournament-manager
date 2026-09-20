@@ -1,3 +1,6 @@
+import { useCourseContext } from './hooks/useCourses';
+import SignupPage from './pages/SignupPage';
+import SignupNotice from './components/SignupNotice';
 import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
 import { useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
@@ -24,10 +27,14 @@ import { applyClubTheme } from './lib/theme';
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const membership = useCourseContext();
   if (loading) return null;
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
+  if (membership.isPending) return <p className="p-6" role="status">Vérification de votre accès…</p>;
+  if (membership.isError) return <div className="p-6" role="alert">Vérification de l’accès impossible. <button className="min-h-11 text-primary underline" onClick={() => void membership.refetch()}>Réessayer</button></div>;
+  if (!membership.data?.is_member && !membership.data?.can_manage) return <Navigate to="/actu" replace />;
   return children;
 }
 
@@ -56,7 +63,7 @@ function AppShell() {
   useEffect(() => {
     if (!club) return;
     const name = club.name || 'Application du club';
-    const logo = config.brand.logo || '/icons/icon-192.png';
+    const logo = config.brand.logo || '/icons/club.svg';
     const absoluteLogo = new URL(logo, window.location.href).href;
     document.title = name;
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
@@ -88,8 +95,8 @@ function AppShell() {
       display: 'standalone',
       start_url: `${window.location.origin}/`,
       icons: [
-        { src: absoluteLogo, sizes: '192x192', type: 'image/png' },
-        { src: absoluteLogo, sizes: '512x512', type: 'image/png' },
+        { src: absoluteLogo, sizes: config.brand.logo ? '192x192' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
+        { src: absoluteLogo, sizes: config.brand.logo ? '512x512' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
       ],
     })], { type: 'application/manifest+json' });
     const url = URL.createObjectURL(blob);
@@ -103,7 +110,10 @@ function AppShell() {
       <AppHeader />
       <main className="pwa-content">
         <UpdateBanner />
+        <SignupNotice />
         <Routes>
+          <Route path="/inscription" element={<SignupPage />} />
+          <Route path="/inscription/confirmee" element={<SignupPage confirmed />} />
           <Route path="/forgot-password" element={<PasswordRecoveryPage key="forgot" />} />
           <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
           <Route path="/" element={<Navigate to="/actu" replace />} />

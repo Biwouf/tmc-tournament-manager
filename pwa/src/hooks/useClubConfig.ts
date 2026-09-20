@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { useAuth } from './useAuth';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 
@@ -34,20 +33,15 @@ function parseConfig(raw: unknown): ClubConfig {
 /** PR7-bis — lecture minimale de l'identité visuelle du club pour la PWA. */
 export function useClubConfig() {
   const { clubId } = useClub();
-  const { user, loading } = useAuth();
   const { data: config = DEFAULT_CONFIG } = useQuery({
-    queryKey: ['club-config', clubId, user?.id],
-    // Depuis 20260909, l’identité visuelle est publique pour les clubs actifs.
-    enabled: !!clubId && !loading,
+    queryKey: ['club-config', clubId],
+    // La marque est publique même pour un compte en attente/refusé.
+    enabled: !!clubId,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('club_settings')
-        .select('config')
-        .eq('club_id', clubId)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('club_public_brand', { p_club: clubId });
       if (error) throw error;
-      return parseConfig(data?.config);
+      return parseConfig(data);
     },
   });
   return { config };

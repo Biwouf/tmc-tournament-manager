@@ -12,6 +12,8 @@ export type HeaderConfig = {
 };
 
 const ROUTES: Array<[string, HeaderConfig]> = [
+  ['/inscription', { mode: 'sub', title: 'Créer un compte', backTo: '/login', backLabel: 'Connexion' }],
+  ['/inscription/confirmee', { mode: 'sub', title: 'Mon inscription', backTo: '/login', backLabel: 'Connexion' }],
   ['/cours', { mode: 'root', title: 'Cours' }],
   ['/profil', { mode: 'sub', title: 'Mon profil', backTo: '/cours', backLabel: 'Cours' }],
   ['/actu',               { mode: 'root', title: 'Actualités' }],

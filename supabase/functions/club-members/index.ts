@@ -179,6 +179,7 @@ Deno.serve(async (req: Request) => {
     // `profiles` n'a pas de FK depuis `club_members` (elle pointe `auth.users`) :
     // PostgREST ne sait pas embarquer les noms, on les lit en une requête à part.
     const names = new Map<string, { prenom: string; nom: string }>();
+    const details = new Map<string, { sex: string | null; classement: string | null }>();
     if (ids.length) {
       const { data: profileRows, error: profilesErr } = await supabaseAdmin
         .from('profiles')
@@ -194,6 +195,10 @@ Deno.serve(async (req: Request) => {
           error: 'Chargement des profils impossible.',
         });
       }
+      const { data: detailRows, error: detailsErr } = await supabaseAdmin
+        .from('profile_details').select('user_id, sex, classement').in('user_id', ids);
+      if (detailsErr) return jsonResponse(500, { success: false, error: 'Chargement des profils impossible.' });
+      for (const row of detailRows ?? []) details.set(row.user_id, { sex: row.sex, classement: row.classement });
       for (const row of (profileRows ?? []) as { id: string; prenom: string; nom: string }[]) {
         names.set(row.id, { prenom: row.prenom, nom: row.nom });
       }
@@ -225,6 +230,8 @@ Deno.serve(async (req: Request) => {
         email: account?.email ?? '',
         prenom: profileRow?.prenom ?? '',
         nom: profileRow?.nom ?? '',
+        sex: details.get(m.user_id)?.sex ?? null,
+        classement: details.get(m.user_id)?.classement ?? null,
         role: m.role,
         created_at: m.created_at,
         status: account?.last_sign_in_at ? 'active' : 'pending',
