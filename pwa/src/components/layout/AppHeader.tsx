@@ -79,8 +79,8 @@ export default function AppHeader() {
     >
       {cfg.mode === 'root' ? (
         <>
-          {location.pathname === '/cours' && !config.brand.logo ? <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold" aria-hidden="true">{clubName[0]}</span> : <img
-            src={config.brand.logo || '/icons/icon-192.png'}
+          {!config.brand.logo ? <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold" aria-hidden="true">{clubName[0]}</span> : <img
+            src={config.brand.logo}
             alt={clubName}
             className="h-8 w-8 rounded-full object-contain shrink-0"
           />}

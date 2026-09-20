@@ -63,7 +63,7 @@ function AppShell() {
   useEffect(() => {
     if (!club) return;
     const name = club.name || 'Application du club';
-    const logo = config.brand.logo || '/icons/icon-192.png';
+    const logo = config.brand.logo || '/icons/club.svg';
     const absoluteLogo = new URL(logo, window.location.href).href;
     document.title = name;
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
@@ -95,8 +95,8 @@ function AppShell() {
       display: 'standalone',
       start_url: `${window.location.origin}/`,
       icons: [
-        { src: absoluteLogo, sizes: '192x192', type: 'image/png' },
-        { src: absoluteLogo, sizes: '512x512', type: 'image/png' },
+        { src: absoluteLogo, sizes: config.brand.logo ? '192x192' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
+        { src: absoluteLogo, sizes: config.brand.logo ? '512x512' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
       ],
     })], { type: 'application/manifest+json' });
     const url = URL.createObjectURL(blob);

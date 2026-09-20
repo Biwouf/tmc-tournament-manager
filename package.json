@@ -15,7 +15,7 @@
     "test:courses": "node --test tests/courses-sql.test.mjs tests/courses-client.test.mjs tests/courses-pwa-sql.test.mjs tests/courses-pwa-client.test.mjs",
     "test:security": "node --test tests/security.test.mjs tests/edge-security.test.mjs",
     "test:password-recovery": "node --test tests/password-recovery.test.mjs",
-    "test:signup": "node --test tests/signup-sql.test.mjs tests/signup-client.test.mjs tests/signup-member-list.test.mjs"
+    "test:signup": "node --test tests/signup-sql.test.mjs tests/signup-client.test.mjs tests/signup-member-list.test.mjs tests/pwa-branding.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

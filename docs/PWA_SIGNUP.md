@@ -33,3 +33,7 @@ Les tests SQL exécutent les migrations dans PGlite : création atomique, donné
 Appliquer aussi `2026092001_signup_profile_fix.sql` : le trigger historique Auth créait un profil vide avant celui d’inscription. La correction complète uniquement les champs absents et récupère les données des comptes déjà inscrits depuis `auth.users.raw_user_meta_data.club_signup`, lorsque ces données sont valides et rattachées à une demande existante. Les valeurs déjà renseignées et les droits restent conservés.
 
 Redéployer également l’Edge Function `club-members` et le back-office pour afficher le sexe et le classement dans la liste des membres acceptés. Les noms et le sexe restent visibles dans les demandes et dans « Modifier le profil ».
+
+## Identité visuelle après inscription
+
+Appliquer `2026092002_public_club_brand.sql` avant de redéployer la PWA. Le RPC `club_public_brand` expose uniquement le logo et les trois couleurs d’un club actif, aux visiteurs comme aux comptes connectés, même sans adhésion validée. Les policies des paramètres complets restent inchangées. Le logo de secours CAC est remplacé par l’initiale du club dans l’en-tête et une icône neutre pour le manifeste dynamique. Le club courant reste celui du domaine ou de `VITE_DEV_CLUB_SLUG` en local ; l’approbation ne le change pas.
