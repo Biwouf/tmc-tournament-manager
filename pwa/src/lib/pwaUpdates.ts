@@ -8,6 +8,14 @@ export function startPwaUpdates(onAvailable: () => void) {
   let controller = sw.controller;
   let changed = false;
   let reloadRequested = false;
+  let reloading = false;
+  const reloadOnce = () => {
+    if (reloading || disposed) return;
+    reloading = true;
+    reloadRequested = false;
+    window.clearTimeout(activationTimer);
+    window.location.reload();
+  };
   let activationTimer: number | undefined;
   let rejectActivation: ((error: Error) => void) | undefined;
   const cleanups: Array<() => void> = [];
@@ -31,8 +39,7 @@ export function startPwaUpdates(onAvailable: () => void) {
     if (!previous || !controller || previous === controller) return;
     changed = true;
     if (reloadRequested) {
-      window.clearTimeout(activationTimer);
-      window.location.reload();
+      reloadOnce();
     } else onAvailable(); // Another tab activated it: preserve this tab's work.
   };
   sw.addEventListener('controllerchange', onControllerChange);
@@ -69,8 +76,9 @@ export function startPwaUpdates(onAvailable: () => void) {
 
   return {
     async applyUpdate(): Promise<void> {
+      if (reloading || disposed) return;
       if (changed) {
-        window.location.reload();
+        reloadOnce();
         return;
       }
       const waiting = registration?.waiting;

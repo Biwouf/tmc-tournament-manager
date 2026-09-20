@@ -1,3 +1,8 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "routes": [
+    { "src": "/(?:sw\\.js|index\\.html)", "headers": { "Cache-Control": "no-cache" }, "continue": true },
+    { "handle": "filesystem" },
+    { "src": "/(?:assets/.*|workbox-[^/]+\\.js|sw\\.js)", "status": 404 },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }

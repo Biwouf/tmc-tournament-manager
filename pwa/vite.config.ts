@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => {
         ],
       },
       workbox: {
+        // Keep installed workers independent of hashed files from older deployments.
+        inlineWorkboxRuntime: true,
         skipWaiting: false,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
