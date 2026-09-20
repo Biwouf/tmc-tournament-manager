@@ -15,10 +15,14 @@ Le classement utilise `shared/tennisRankings.ts`, de NC à -15. Les sélecteurs 
 
 ## Mise en service
 
-1. Appliquer `supabase/migrations/2026091602_pwa_signup.sql` après les migrations cours et identité du responsable. Déployer la migration avant les interfaces.
-2. Dans le projet Supabase hébergé, autoriser les nouvelles inscriptions email/mot de passe et désactiver « Confirm email » (Authentication → Providers → Email). Le réglage local figure dans `supabase/config.toml` ; ce fichier ne change pas la configuration du projet hébergé. Ce réglage Auth est commun à tous les clubs de ce projet.
-3. Ajouter aux Redirect URLs les origines PWA dev/prod avec `/inscription/confirmee**`, en limitant les origines aux domaines de confiance. Un état de secours est prévu si la confirmation email est restée activée : le profil et la demande existent déjà, le membre suit le lien puis attend la validation admin.
-4. Déployer PWA et back-office. Aucune nouvelle Edge Function et aucune clé service dans le navigateur.
+1. Appliquer les trois migrations de ce lot dans cet ordre, après les migrations cours et identité du responsable :
+   - `2026091602_pwa_signup.sql`
+   - `2026092001_signup_profile_fix.sql`
+   - `2026092002_public_club_brand.sql`
+2. Redéployer l’Edge Function existante `club-members`, qui retourne désormais le sexe et le classement des membres.
+3. Dans le projet Supabase hébergé, autoriser les nouvelles inscriptions email/mot de passe et désactiver « Confirm email » (Authentication → Providers → Email). Le réglage local figure dans `supabase/config.toml` ; ce fichier ne change pas la configuration du projet hébergé. Ce réglage Auth est commun à tous les clubs de ce projet.
+4. Dans Authentication → URL Configuration → Redirect URLs, l’URL `https://<domaine-pwa>/inscription/confirmee**` est facultative tant que la confirmation email est désactivée. L’ajouter pour chaque domaine PWA de confiance permet de conserver le parcours de secours si cette confirmation est réactivée. Conserver les URLs existantes des invitations et de récupération du mot de passe.
+5. Déployer PWA et back-office après les migrations et l’Edge Function.
 
 La migration, la configuration hébergée et le déploiement ne sont pas appliqués automatiquement par ce lot. Le parcours d’invitation existant reste disponible.
 
