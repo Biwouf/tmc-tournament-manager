@@ -9,7 +9,7 @@
 
 ## 1. Ce que c'est
 
-Un site vitrine **public**, servi sur `<slug>.feelike.app`, **entièrement** rendu côté serveur depuis
+Un site vitrine **public**, servi sur `<slug>.feelike.pro`, **entièrement** rendu côté serveur depuis
 `club_settings.config` du club résolu par sous-domaine. Aucun contenu n'est écrit en dur : deux
 clubs différents donnent deux sites différents avec le même bundle.
 
@@ -17,7 +17,7 @@ clubs différents donnent deux sites différents avec le même bundle.
 |---|---|
 | Dossier | `web/` (projet Vite autonome, Root Directory Vercel = `web/`) |
 | Audience | public — **aucune authentification**, rôle Supabase `anon` |
-| Domaine cible | `<slug>.feelike.app` (wildcard = PR13) |
+| Domaine cible | `<slug>.feelike.pro` (wildcard = PR13) |
 | Source du contenu | `clubs` (identité) + `club_settings.config` (tout le reste) |
 | Stack | React 19, TypeScript, Vite, Tailwind CSS v4 (`@tailwindcss/vite`), React Router v7, `@supabase/supabase-js`, `zod` |
 
@@ -125,7 +125,7 @@ sur chaque requête HTTP, puis `server/render.tsx` rend les composants dans un `
 Une lecture REST `clubs?select=…,club_settings(config)` filtre **le slug ou le domaine exact** :
 statut, identité et configuration proviennent du même snapshot SQL. Le rôle reste `anon`.
 
-- `<slug>.feelike.app` : résolution du slug, sans repli ; `admin`, `www`, `api`, `app` et
+- `<slug>.feelike.pro` : résolution du slug, sans repli ; `admin`, `www`, `api`, `app` et
   `app-*` sont réservés.
 - Domaine personnalisé : correspondance exacte avec `clubs.custom_domain`. Cette colonne
   n’est à remplir qu’après vérification et rattachement DNS/Vercel par la plateforme ; la PR
@@ -141,7 +141,7 @@ statut, identité et configuration proviennent du même snapshot SQL. Le rôle r
 - Club absent ou suspendu : 404 sans contenu du club. Erreur réseau, DB ou relation
   `club_settings` invisible : 503 + `Retry-After: 60`, jamais un faux site vide.
 
-L’origine canonique vient de la fiche du club : `https://<slug>.feelike.app`, ou son
+L’origine canonique vient de la fiche du club : `https://<slug>.feelike.pro`, ou son
 `custom_domain`. Elle n’est jamais construite aveuglément à partir du Host. En production,
 le sous-domaine est redirigé en 308 vers le domaine personnalisé, les slashs finaux sont
 normalisés. Les paramètres de suivi ne sont pas dans la canonical et ne changent pas le club.
@@ -505,7 +505,7 @@ fermeture Échap/clic extérieur/bouton, retour du focus et rendu mobile contrô
 propose « Ouvrir l’application » sur les écrans de moins de 768 px. Le bloc reste dans le
 flux pour ne pas recouvrir le contenu ou le bouton flottant de contact. Il utilise le nom du
 club et les couleurs de la vitrine. Le lien ouvre dans le même onglet
-`https://app-<club.slug>.feelike.app/` (D9), même depuis un domaine personnalisé : le slug
+`https://app-<club.slug>.feelike.pro/` (D9), même depuis un domaine personnalisé : le slug
 vient du snapshot serveur, jamais du hostname public ni d’un paramètre utilisateur.
 
 La vitrine n’enregistre aucun service worker et ne déclenche pas de prompt d’installation.

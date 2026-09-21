@@ -48,7 +48,7 @@ const response = await fetch(url, { headers: { apikey: env.VITE_SUPABASE_ANON_KE
 assert.equal(response.status, 200);
 const clubs = (await response.json()).filter(c => !c.slug.startsWith('app-') && !['admin', 'www', 'api', 'app'].includes(c.slug)).slice(0, 2);
 const results = await Promise.all(clubs.map(async club => {
-  const response = await withHost(`${club.slug}.feelike.app`);
+  const response = await withHost(`${club.slug}.feelike.pro`);
   const html = await response.text(); assert.equal(response.status, 200);
   const site = JSON.parse(html.match(/<script id="site-data" type="application\/json">(.*?)<\/script>/s)[1]);
   assert.equal(site.club.id, club.id); assert.equal(site.club.slug, club.slug);

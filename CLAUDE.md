@@ -7,14 +7,14 @@
 ### Contexte produit — SaaS multi-tenant « feelike »
 
 Ce projet évolue d'une app mono-club (CAC Tennis) vers un **produit SaaS multi-tenant**
-commercialisable, dont le nom / domaine racine est **`feelike.app`**. Autrement dit :
+commercialisable, dont le nom / domaine racine est **`feelike.pro`**. Autrement dit :
 **« feelike » = la plateforme SaaS, TMC Tournament Manager = le produit qu'on y rend
 multi-tenant, CAC Tennis = le premier club (tenant #1)**. Ces trois termes désignent le même
-projet — un « Feelike Migration Tracker » ou toute mention de `feelike.app` concerne bien
+projet — un « Feelike Migration Tracker » ou toute mention de `feelike.pro` concerne bien
 cette codebase.
 
 Architecture cible retenue : base Supabase partagée + `club_id` + RLS, apps uniques (BO / PWA /
-site vitrine) avec tenant résolu au runtime par sous-domaine `*.feelike.app`, provisioning par
+site vitrine) avec tenant résolu au runtime par sous-domaine `*.feelike.pro`, provisioning par
 un super-admin. Migration livrée en 16 PR réparties en 5 phases.
 
 - **Spec maître** (à lire en premier pour tout sujet multi-tenant) : `docs/specs/MULTI_TENANT.md`

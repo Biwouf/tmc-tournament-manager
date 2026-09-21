@@ -108,3 +108,14 @@ test('activation timeout reports failure and cancels automatic reload consent', 
   await e.manager.applyUpdate(); assert.equal(e.stats().reloads, 1);
   e.manager.dispose();
 });
+
+
+test('one accepted update reloads only once despite further controller changes or clicks', async () => {
+  const e = setup({ waiting: true }); await tick();
+  const pending = e.manager.applyUpdate().catch(() => {});
+  e.sw.controller = {}; e.sw.dispatchEvent(new Event('controllerchange'));
+  e.sw.controller = {}; e.sw.dispatchEvent(new Event('controllerchange'));
+  await e.manager.applyUpdate();
+  assert.equal(e.stats().reloads, 1);
+  e.manager.dispose(); await pending;
+});
