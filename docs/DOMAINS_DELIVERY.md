@@ -130,3 +130,20 @@ le seul code sans revenir sur les domaines ne suffit pas : l’ancien code atten
 - [Plusieurs projets et une origine](https://vercel.com/kb/guide/how-can-i-serve-multiple-projects-under-a-single-domain)
 - [Routes de la Build Output API](https://vercel.com/docs/build-output-api/configuration)
 - [Conserver les enregistrements DNS](https://vercel.com/docs/domains/working-with-domains/add-a-domain)
+
+
+## Retrait de l’ancienne adresse PWA
+
+Après migration de `web` vers `PWA_ORIGIN=https://pwa-cac-tennis.vercel.app`
+et redéploiement Production, `pwa/vercel.json` redirige uniquement l’hôte
+`tmc-tournament-manager-tau.vercel.app` vers `https://app-cac-tennis.feelike.pro`
+en 308. La règle précède les fichiers statiques et le fallback SPA ; chemins et
+paramètres de requête sont conservés par le routage Vercel.
+
+Ne pas rediriger `pwa-cac-tennis.vercel.app` : cette origine sert le proxy de tous
+les clubs. Les previews et les hôtes `app-<slug>.feelike.pro` ne sont pas concernés.
+Aucune migration d’installation n’est prévue : aucun parc installé n’a été signalé.
+
+Recette après déploiement : vérifier `/`, `/cours?source=legacy`,
+`/reset-password?code=test` et `/manifest.webmanifest` sur l’ancien domaine,
+puis `/cours`, `/sw.js` et le manifest sur la nouvelle origine et l’origine technique.

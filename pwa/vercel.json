@@ -1,5 +1,18 @@
 {
   "routes": [
+    {
+      "src": "^/(.*)$",
+      "has": [
+        {
+          "type": "host",
+          "value": "^tmc-tournament-manager-tau\\.vercel\\.app$"
+        }
+      ],
+      "status": 308,
+      "headers": {
+        "Location": "https://app-cac-tennis.feelike.pro/$1"
+      }
+    },
     { "src": "/(?:sw\\.js|index\\.html)", "headers": { "Cache-Control": "no-cache" }, "continue": true },
     { "handle": "filesystem" },
     { "src": "/(?:assets/.*|workbox-[^/]+\\.js|sw\\.js)", "status": 404 },
