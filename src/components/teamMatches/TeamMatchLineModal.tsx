@@ -151,8 +151,8 @@ export default function TeamMatchLineModal({
                   key={t}
                   type="button"
                   onClick={() => changeType(t)}
-                  disabled={full}
-                  title={full ? 'Toutes les places de ce type sont prises pour ce format' : undefined}
+                  disabled={full || (!!line && t !== line.match_type)}
+                  title={line && t !== line.match_type ? 'Le type est conservé avec les règles du match' : full ? 'Toutes les places de ce type sont prises pour ce format' : undefined}
                   className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition ${
                     matchType === t
                       ? 'bg-primary text-primary-foreground'

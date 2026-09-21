@@ -115,7 +115,8 @@ export interface TeamCompetition {
   id: string; saison_id: string;
   nom: TeamCompetitionNom; type: TeamType;
   genre: TeamGenre; categorie: TeamCategorie;
-  // format pas utilisé PWA mais conservé pour cohérence type
+  singles_set3_format: LiveSet3Format | null;
+  // Composition de la rencontre
   format: '2S1D' | '3S1D2' | '4S1D2' | '4S2D';
   created_at: string;
 }

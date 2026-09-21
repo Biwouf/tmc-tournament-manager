@@ -274,6 +274,7 @@ export interface TeamCompetition {
   genre: TeamGenre;
   categorie: TeamCategorie;
   format: TeamFormat;
+  singles_set3_format: LiveSet3Format | null; // null = règle à renseigner
   terminee: boolean;        // championnat clos — sort de la grille active
   created_at: string;
 }
@@ -309,6 +310,7 @@ export interface TeamMatchLine {
   rencontre_id: string;
   ordre: number;
   match_type: TeamMatchLineType;
+  set3_format: LiveSet3Format | null; // règle conservée à la création
   joueurs_club: TeamJoueur[];
   joueurs_adverse: TeamJoueur[];
   live_match_id: string | null;
