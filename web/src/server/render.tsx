@@ -36,7 +36,6 @@ export async function renderRequest(
     const rawPath = url.pathname;
     const path = rawPath === '/' ? '/' : rawPath.replace(/\/+$/, '');
     const page = pageAt(path);
-    if (!page && !['/robots.txt', '/sitemap.xml'].includes(path)) return unavailable(404, 'Page introuvable');
     const site = await loadSite(request.host, runtime, fetcher);
     // L’alias Vercel sert le site sans indexation ni redirection vers le futur domaine canonique.
     const production = isProduction(runtime) && !isProductionAlias(request.host, runtime);
@@ -45,10 +44,10 @@ export async function renderRequest(
     if (!production || !ready) headers['X-Robots-Tag'] = 'noindex, follow';
     // Toute URL de page retirée ou vide garde un vrai 404, y compris sur un alias.
     // L'accueil vide reste un écran d'identité utile, explicitement noindex.
-    if (page && (!site.config[page.key].published || (page.key !== 'home' && !isPublished(site.config, page)))) {
-      return unavailable(404, 'Page introuvable');
-    }
-    if ((production && hostname(request.host) !== new URL(site.origin).hostname) || rawPath !== path) {
+    const notFound = (!page && !['/robots.txt', '/sitemap.xml'].includes(path)) ||
+      Boolean(page && (!site.config[page.key].published || (page.key !== 'home' && !isPublished(site.config, page))));
+    if (notFound) headers['X-Robots-Tag'] = 'noindex, follow';
+    if (!notFound && ((production && hostname(request.host) !== new URL(site.origin).hostname) || rawPath !== path)) {
       return { status: 308, headers: { ...headers, Location: `${production ? site.origin : ''}${path}${url.search}` }, body: '' };
     }
     if (path === '/robots.txt') {
@@ -60,16 +59,18 @@ export async function renderRequest(
       return { status: 200, headers: { ...headers, 'Content-Type': 'application/xml; charset=utf-8' },
         body: `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(p => `<url><loc>${escapeHtml(site.origin + p.path)}</loc></url>`).join('')}</urlset>` };
     }
-    if (path === '/') site.feeds = await loadHomeFeeds(site, runtime, fetcher);
+    if (!notFound && path === '/') site.feeds = await loadHomeFeeds(site, runtime, fetcher);
     const markup = renderToString(<StaticRouter location={path}><App site={site} /></StaticRouter>);
     const css = Object.entries(brandTokens(site.config.brand.color)).map(([key, value]) => `${key}:${value}`).join(';');
     const body = template
-      .replace('<!--site-head-->', () => headMarkup(site, page!, production && ready && isPublished(site.config, page!)))
+      .replace('<!--site-head-->', () => notFound
+        ? `<title>Page introuvable — ${escapeHtml(site.clubName)}</title><meta name="robots" content="noindex, follow">`
+        : headMarkup(site, page!, production && ready && isPublished(site.config, page!)))
       // Plus spécifique que les valeurs :root de repli, quel que soit l’ordre des CSS du build.
       .replace('<!--site-style-->', () => `<style>html:root{${css}}</style>`)
       .replace('<!--site-app-->', () => markup)
       .replace('<!--site-data-->', () => `<script id="site-data" type="application/json">${jsonForHtml(site)}</script>`);
-    return { status: 200, headers, body };
+    return { status: notFound ? 404 : 200, headers, body };
   } catch (error) {
     return unavailable(error instanceof SiteError ? error.status : 503,
       error instanceof SiteError ? error.message : 'Site temporairement indisponible');

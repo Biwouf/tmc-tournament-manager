@@ -50,7 +50,7 @@ try {
       assert.match(head, /<style>html:root\{--brand:/, 'Les couleurs du club priment sur les valeurs CSS de repli');
     }
   }
-  assert.equal(queries, 6);
+  assert.equal(queries, 7); // La route inconnue charge aussi le club pour personnaliser sa 404.
   process.env.VERCEL_ENV = 'production';
   process.env.VERCEL_PROJECT_PRODUCTION_URL = 'web-eight-kappa-94.vercel.app';
   for (const [host, url, status] of [

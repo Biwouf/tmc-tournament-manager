@@ -7,6 +7,7 @@ import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import PwaInstallBridge from './components/install/PwaInstallBridge';
 import ContactDrawer from './components/layout/ContactDrawer';
+import NotFoundPage from './pages/NotFoundPage';
 import HomePage from './pages/HomePage';
 import ClubPage from './pages/ClubPage';
 import InfraPage from './pages/InfraPage';
@@ -39,7 +40,8 @@ export default function App({ site }: { site: Site }) {
             <Route path="/infrastructures" element={<InfraPage />} />
             <Route path="/tarifs" element={<PricingPage />} />
             <Route path="/contact" element={<ContactPage />} />
-          </Routes> : <div className="shell section"><h1 className="title">Page introuvable</h1></div>}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes> : <NotFoundPage />}
         </main>
         <Footer />
         <ContactDrawer />
