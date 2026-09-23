@@ -17,7 +17,7 @@ test('email recipients, idempotent commands, transaction rollback, permissions a
   await db.exec(coursesFixtureSQL + 'CREATE ROLE service_role; GRANT USAGE ON SCHEMA public TO service_role;');
   for (const name of ['2026091001_courses.sql','2026091002_courses_pwa.sql',
     '2026091101_course_owner_identity.sql','2026092301_course_email.sql',
-    '2026092302_course_email_requester.sql']) {
+    '2026092302_course_email_requester.sql','2026092303_course_email_denial_reason.sql']) {
     await db.exec(await readFile(new URL(`../supabase/migrations/${name}`, import.meta.url),'utf8'));
   }
   await db.exec(`INSERT INTO course_types(id,club_id,name) VALUES('${id(20)}','${id(1)}','Tennis');
@@ -52,7 +52,19 @@ test('email recipients, idempotent commands, transaction rollback, permissions a
   assert.equal((await jobs()).length,4);
   assert.equal((await jobs())[3].user_id,id(104));
   assert.match((await jobs())[3].title,/refusée/);
-  assert.doesNotMatch((await jobs())[3].body,/Complet/);
+  assert.match((await jobs())[3].body,/Motif du refus : Complet/);
+  assert.doesNotMatch((await jobs())[1].body,/Motif du refus/);
+  assert.ok((await jobs()).filter(j=>j.user_id===id(102)).every(j=>!j.body.includes('Motif du refus')));
+  // Optional reasons must not leave an empty label or a literal null in the email.
+  for (const reason of [null, '', '   ', '  Autre créneau conseillé  ']) {
+    await db.exec('BEGIN');
+    await db.query(`INSERT INTO course_registration_events(registration_id,club_id,from_status,to_status,source,quota_sex,denial_reason)
+      VALUES($1,$2,'pending','denied','test','male',$3)`,[second.id,id(1),reason]);
+    const email=(await db.query('SELECT body FROM course_email_deliveries ORDER BY created_at DESC LIMIT 1')).rows[0].body;
+    if(reason?.trim()) assert.match(email,/Motif du refus : Autre créneau conseillé\n/);
+    else assert.doesNotMatch(email,/Motif du refus|null/);
+    await db.exec('ROLLBACK');
+  }
   await assert.rejects(as(db,103,'SELECT * FROM course_email_deliveries'),/permission denied/);
   await assert.rejects(as(db,103,'SELECT * FROM course_email_claim()'),/permission denied/);
   await assert.rejects(as(db,106,'SELECT * FROM course_email_deliveries'),/permission denied/);
