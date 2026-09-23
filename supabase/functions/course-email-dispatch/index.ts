@@ -1,5 +1,6 @@
 // Scheduled server-side only. Events and recipients never come from the caller.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { renderEmail } from '../_shared/email-template.ts';
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -28,6 +29,20 @@ Deno.serve(async (req) => {
       if (!account.user?.email) {
         status = 'failed';
       } else {
+        // Le club vient du job réclamé côté serveur, jamais du destinataire ou du caller.
+        // Lecture séparée pour conserver le contrat SQL course_email_claim existant.
+        const { data: delivery, error: deliveryError } = await db.from('course_email_deliveries')
+          .select('club_id').eq('id', job.id).eq('claim_token', job.claim_token).single();
+        if (deliveryError || !delivery?.club_id) throw new Error('Delivery lookup failed');
+        const { data: settings, error: settingsError } = await db.from('club_settings')
+          .select('config').eq('club_id', delivery.club_id).maybeSingle();
+        if (settingsError) throw new Error('Brand lookup failed');
+        const brand = settings?.config?.brand;
+        const rendered = renderEmail({ name: job.club_name, color: brand?.color, logo: brand?.logo }, {
+          title: job.title,
+          paragraphs: [job.body],
+          footer: 'Cet email concerne une demande de place à un cours. Consultez l’application du club pour les détails.',
+        });
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: { 'api-key': apiKey, 'Content-Type': 'application/json', accept: 'application/json' },
@@ -37,6 +52,7 @@ Deno.serve(async (req) => {
             to: [{ email: account.user.email }],
             subject: job.title,
             textContent: job.body,
+            htmlContent: rendered.html,
           }),
         });
         if (!response.ok) {

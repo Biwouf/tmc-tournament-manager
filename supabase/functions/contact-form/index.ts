@@ -22,6 +22,7 @@
 // `/admin/messages` même si aucun email n'est jamais parti.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { renderEmail, type EmailBrand } from '../_shared/email-template.ts';
 
 // CORS ouvert, comme les trois autres functions : le site public appelle depuis
 // `<slug>.feelike.pro` et il n'existe pas encore de wildcard à autoriser nommément.
@@ -96,6 +97,7 @@ function clientIp(req: Request): string | null {
 async function notifyClub(params: {
   to: string;
   clubName: string;
+  brand: EmailBrand;
   firstName: string;
   lastName: string;
   email: string;
@@ -121,6 +123,12 @@ async function notifyClub(params: {
     params.message,
   ].filter((l) => l !== null);
 
+  const rendered = renderEmail(params.brand, {
+    title: 'Nouveau message depuis le site',
+    paragraphs: lines.filter((line): line is string => typeof line === 'string'),
+    footer: 'Répondez directement à cet email pour contacter l’expéditeur.',
+  });
+
   try {
     const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -138,7 +146,8 @@ async function notifyClub(params: {
         // nulle part — et le club croirait avoir répondu.
         replyTo: { email: params.email, name: fullName || params.email },
         subject: `Message du site — ${fullName || params.email}`,
-        textContent: lines.join('\n'),
+        textContent: rendered.text,
+        htmlContent: rendered.html,
       }),
     });
 
@@ -334,6 +343,7 @@ Deno.serve(async (req: Request) => {
     const notified = await notifyClub({
       to: recipient,
       clubName: club.name ?? 'Club',
+      brand: { name: club.name ?? 'Club', color: settings?.config?.brand?.color, logo: settings?.config?.brand?.logo },
       firstName,
       lastName,
       email,

@@ -6,3 +6,7 @@ verify_jwt = false
 # PWA : accès membre accordé par un admin, sans confirmation par email.
 # Reproduire ce réglage dans Authentication > Providers > Email du projet hébergé.
 enable_confirmations = false
+
+[functions.send-auth-email]
+# Signature Standard Webhooks vérifiée dans la fonction ; pas de JWT utilisateur.
+verify_jwt = false
