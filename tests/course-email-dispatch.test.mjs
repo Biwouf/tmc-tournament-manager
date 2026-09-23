@@ -8,13 +8,13 @@ const template = await readFile(new URL('../supabase/functions/_shared/email-tem
 vm.runInNewContext(ts.transpileModule(template, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports: shared, URL });
 const source = (await readFile(new URL('../supabase/functions/course-email-dispatch/index.ts',import.meta.url),'utf8'))
   .replace(/^import .*;$/gm,'');
-function harness({ code=201, attempts=1, missing=false, network=false, lookup=false, settingsError=false, deliveryError=false, brand={ color:'#123456', logo:'https://club.example/logo.png' }, cronSecret='dedicated-cron-secret-at-least-32-characters' }={}) {
+function harness({ code=201, attempts=1, missing=false, network=false, lookup=false, body='Votre place est confirmée.', settingsError=false, deliveryError=false, brand={ color:'#123456', logo:'https://club.example/logo.png' }, cronSecret='dedicated-cron-secret-at-least-32-characters' }={}) {
  let handler; let claims=0; const updates=[]; const sends=[]; const reads=[];
  const env={COURSE_EMAIL_CRON_SECRET:cronSecret,SUPABASE_SERVICE_ROLE_KEY:'server-secret',SUPABASE_URL:'https://example.test',
   BREVO_API_KEY:'brevo-secret',CONTACT_FROM_EMAIL:'sender@example.test'};
  if(missing) delete env.BREVO_API_KEY;
  const db={rpc:async()=>{claims++;return {data:[{id:'job',claim_token:'token',user_id:'member',
-  title:'Place accordée',body:'Votre place est confirmée.',club_name:'Club',attempts}]};},
+  title:'Place accordée',body,club_name:'Club',attempts}]};},
  auth:{admin:{getUserById:async()=>({data:{user:{email:'member@example.test'}},error:lookup?new Error():null})}},
  from:(table)=>({
   select:(columns)=>{
@@ -89,4 +89,13 @@ test('identity lookup failures retry without sending an unbranded email',async()
   const h=harness(options); await h.run();
   assert.equal(h.updates[0].status,'pending'); assert.equal(h.sends.length,0);
  }
+});
+
+test('refusal reason survives the branded HTML and plain text with safe line breaks',async()=>{
+ const body='Votre demande a été refusée.\n\nMotif du refus : Groupe complet & niveau <avancé>\nAutre créneau conseillé.\n\nConnectez-vous à l’application du club.';
+ const h=harness({body}); await h.run();
+ assert.equal(h.updates[0].status,'sent');
+ assert.equal(h.sends[0].body.textContent,body);
+ assert.match(h.sends[0].body.htmlContent,/Motif du refus : Groupe complet &amp; niveau &lt;avancé&gt;<br>Autre créneau conseillé/);
+ assert.doesNotMatch(h.sends[0].body.htmlContent,/<avancé>/);
 });
