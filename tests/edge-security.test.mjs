@@ -351,3 +351,16 @@ test('auth email propagates provider failure', async () => {
   const app = await handler('send-auth-email', { env: authEnv, brevoFails: true });
   assert.equal((await app.call(authPayload, { 'webhook-signature': 'valid-test-signature' })).status, 502);
 });
+
+test('auth email brands a configured local PWA and preserves its callback', async () => {
+  const app = await handler('send-auth-email', {
+    env: { ...authEnv, AUTH_EMAIL_HOST_CLUBS: JSON.stringify({ 'http://localhost:5173': 'cac-tennis' }) },
+    clubConfig: { brand: { color: '#e51828' } },
+  });
+  const payload = { ...authPayload, email_data: { ...authPayload.email_data, redirect_to: 'http://localhost:5173/reset-password' } };
+  assert.equal((await app.call(payload, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+  const body = app.effects.find(e => e.feed)?.feed;
+  assert.equal(body.sender.name, 'Club de test');
+  assert.match(body.htmlContent, /#e51828/);
+  assert.match(body.htmlContent, /redirect_to=http%3A%2F%2Flocalhost%3A5173%2Freset-password/);
+});

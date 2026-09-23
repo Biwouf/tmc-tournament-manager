@@ -45,3 +45,14 @@ test('réauthentification par code et refus des actions inconnues', () => {
   const p = payload('recovery'); delete p.email_data.token_hash;
   assert.throws(() => authEmails(p, 'https://project.supabase.co'));
 });
+
+test('localhost requires an explicit origin including the port', () => {
+  const aliases = { 'http://localhost:5173': 'cac-tennis', localhost: 'wrong-club' };
+  assert.equal(clubSlugForEmail('http://localhost:5173/reset-password', aliases), 'cac-tennis');
+  assert.equal(clubSlugForEmail('http://localhost:5174/reset-password', aliases), null);
+  assert.equal(clubSlugForEmail('http://localhost:5173/reset-password'), null);
+  assert.equal(clubSlugForEmail('https://localhost:5173/reset-password', aliases), null);
+  assert.equal(clubSlugForEmail('http://localhost.evil.test:5173/reset-password', aliases), null);
+  assert.equal(clubSlugForEmail('http://app-cac-tennis.feelike.pro/reset-password', { 'http://app-cac-tennis.feelike.pro': 'cac-tennis' }), null);
+  assert.equal(clubSlugForEmail('http://user@localhost:5173/reset-password', aliases), null);
+});

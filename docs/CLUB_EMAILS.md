@@ -17,7 +17,13 @@ un bleu-gris neutre est utilisé ; sans logo public HTTPS, le nom reste affiché
 - Alias techniques ou domaines personnalisés : mapping serveur explicite
   `AUTH_EMAIL_HOST_CLUBS`, objet JSON `{"preview.example.com":"slug-du-club"}`.
   Ne renseigner que des domaines contrôlés et autorisés dans Supabase Auth.
-- Back-office central `admin.feelike.pro`, localhost, club absent/suspendu ou
+- Développement local : ajouter uniquement sur DEV une origine exacte, port compris,
+  par exemple `{"http://localhost:5173":"cac-tennis"}` dans `AUTH_EMAIL_HOST_CLUBS`.
+  Le serveur ne reçoit pas `VITE_DEV_CLUB_SLUG` : cette correspondance est nécessaire
+  même si la PWA affiche déjà le bon club. Les autres ports restent indépendants.
+  HTTP n'est accepté que pour les adresses de boucle locale (`localhost`, `127.0.0.1`,
+  `[::1]`) explicitement déclarées. Aucun hostname local sans port ne sert de repli.
+- Back-office central `admin.feelike.pro`, localhost sans correspondance, club absent/suspendu ou
   domaine inconnu : identité neutre Feelike. Ne jamais deviner un club à partir
   de l'email du destinataire ou de ses métadonnées modifiables.
 
@@ -71,3 +77,12 @@ Aucun email réel n'est envoyé par ces tests.
 
 - [Supabase Send Email Hook](https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook)
 - [Brevo Send a transactional email](https://developers.brevo.com/reference/send-transac-email)
+
+## Recette locale CAC sur DEV
+
+La fonction `send-auth-email` a été redéployée sur DEV avec la correspondance
+`http://localhost:5173` → `cac-tennis` dans `AUTH_EMAIL_HOST_CLUBS`.
+La couleur du CAC était vide : son rouge applicatif historique `#e51828` a été
+renseigné explicitement dans `brand.color` sur DEV. Le logo existant est conservé.
+Les autres ports et la production ne sont pas modifiés. 66 tests locaux passent ;
+la réception réelle doit être vérifiée par une nouvelle demande depuis la PWA.
