@@ -36,7 +36,7 @@ test('Team commands: rules flow to Live, results, slots, WO, concurrency, member
    INSERT INTO team_rencontres(id,etape_id,club_adverse,date_heure,domicile) VALUES('${id(14)}','${id(13)}','Adversaires','2026-09-23 09:00+02',true);`);
   await db.exec(await migration('20260907_live_match_consistency'));
   await db.exec(await migration('2026092101_team_scoring_rules'));
-  await db.exec(await migration('2026092301_team_match_commands'));
+  await db.exec(await migration('2026092401_team_match_commands'));
   await db.exec(`UPDATE team_competitions SET singles_set3_format='super_tiebreak' WHERE id='${id(11)}'`);
   async function as(user,sql,args=[]) {
    await db.exec(`BEGIN; SET LOCAL ROLE ${user===null?'anon':'authenticated'}; SELECT set_config('request.jwt.claim.sub','${user===null?'':id(user)}',true);`);

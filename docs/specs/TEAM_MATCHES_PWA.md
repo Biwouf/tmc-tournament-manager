@@ -77,7 +77,7 @@ livrée. Une erreur réseau ne doit pas être présentée comme une sauvegarde r
 Appliquer sur la base de développement, dans cet ordre, avant de déployer les clients :
 
 1. `2026092101_team_scoring_rules.sql` (si pas déjà appliquée).
-2. `2026092301_team_match_commands.sql`.
+2. `2026092401_team_match_commands.sql`.
 
 La seconde migration ajoute des colonnes requises par les filtres Live du BO et de la
 PWA. Déployer le BO et la PWA ensemble après la migration. Aucun SQL distant n'a été
