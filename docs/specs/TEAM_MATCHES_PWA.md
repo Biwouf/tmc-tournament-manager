@@ -46,7 +46,7 @@ Cette règle doit être intégrée aux mutations de la PWA, pas uniquement au mo
 4. Infrastructure hors connexion partagée et intégration des mutations,
    résolution des conflits et validation des parcours sur mobile.
 
-## État de livraison — 23 septembre 2026
+## État de livraison — 24 septembre 2026
 
 Lots 1 à 3 implémentés dans `codex/pwa-equipes-live` :
 
@@ -61,6 +61,11 @@ Lots 1 à 3 implémentés dans `codex/pwa-equipes-live` :
   recherche de membres, grille de classement, résultats numériques et récapitulatif.
 - Live lié : règle fixée automatiquement, retour vers la rencontre, résultat terminé
   conservé dans la liste au-delà de sept jours tant qu'il n'est pas validé.
+- Liste : rencontres en live mises en avant dans « À venir / En cours », avec
+  rafraîchissement toutes les 15 secondes et score provisoire.
+- Détail : classements visibles pour chaque joueur, simples et doubles. Badge « Perf »
+  pour une victoire du club en simple contre un classement strictement supérieur,
+  hors WO. Animation unique discrète, désactivée si les animations sont réduites.
 - BO : création du live via la même commande atomique ; suppression de l'ancienne
   validation automatique du vainqueur au simple chargement de la fiche.
 
@@ -111,3 +116,43 @@ npm --prefix pwa run build
 Tests SQL sur PGlite isolé et tests de composants sur JSDOM. La recette mobile et la
 concurrence sur deux connexions PostgreSQL réelles restent à réaliser sur l'environnement
 de développement avant la mise en production.
+
+## Mise en production
+
+La base de production n'a pas été modifiée par ce chantier. Les migrations appliquées
+sur le projet de développement ne valent pas application en production.
+
+1. Depuis cette branche à jour (ou le commit fusionné), viser explicitement la
+   connexion PostgreSQL de production dans `TEAM_MATCHES_PROD_DB_URL`, sans changer
+   le projet lié par défaut à la CLI. Ne pas enregistrer cette URL dans le dépôt.
+2. Vérifier les migrations proposées :
+
+   ```sh
+   supabase db push --db-url "$TEAM_MATCHES_PROD_DB_URL" --include-all --dry-run
+   ```
+
+   Les seules migrations attendues pour cette PR sont, si elles ne sont pas déjà
+   appliquées : `2026092101_team_scoring_rules.sql`, puis
+   `2026092401_team_match_commands.sql`. `--include-all` permet d'appliquer celle du
+   21 septembre si la production possède déjà les migrations d'e-mails du 23.
+   Si d'autres migrations apparaissent, vérifier le décalage avant de continuer.
+   Ne pas exécuter `migration repair` pour masquer une différence d'historique.
+3. Après vérification du dry-run, appliquer :
+
+   ```sh
+   supabase db push --db-url "$TEAM_MATCHES_PROD_DB_URL" --include-all
+   ```
+
+4. Déployer le BO et la PWA ensemble immédiatement après les migrations. Si la
+   fusion dans `main` déclenche Vercel, appliquer le SQL juste avant cette fusion.
+   Les anciens clients BO doivent être actualisés : le lien au Live utilise
+   désormais la commande atomique. Aucun nouveau secret, cron ou déploiement
+   d'Edge Function n'est requis par cette PR.
+5. Dans le BO, renseigner le troisième set des simples des compétitions actives.
+   Les nouvelles règles ne réécrivent pas celles des matchs déjà créés. Les matchs
+   historiques sans règle demandent un choix explicite dans la PWA.
+6. Refaire un contrôle rapide : création simple/double, STB automatique, reprise
+   entre deux membres, validation puis correction, état « En cours », classements
+   et badge « Perf ». Actualiser la PWA installée pour charger la nouvelle version.
+
+La synchronisation hors connexion transversale reste hors de cette livraison.
