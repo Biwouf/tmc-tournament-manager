@@ -316,10 +316,11 @@ interface CompetitionDraft {
   genre: TeamGenre;
   categorie: TeamCategorie;
   format: TeamFormat;
+  singles_set3_format: 'normal' | 'super_tiebreak' | null;
 }
 
 function emptyDraft(): CompetitionDraft {
-  return { nom: 'Pyrénées Interclubs', type: 'adultes', genre: 'hommes', categorie: 'seniors', format: '3S1D2' };
+  return { nom: 'Pyrénées Interclubs', type: 'adultes', genre: 'hommes', categorie: 'seniors', format: '3S1D2', singles_set3_format: null };
 }
 
 function CompetitionsSection({
@@ -363,7 +364,7 @@ function CompetitionsSection({
 
   const openEdit = (c: TeamCompetition) => {
     setEditingId(c.id);
-    setDraft({ nom: c.nom, type: c.type, genre: c.genre, categorie: c.categorie, format: c.format });
+    setDraft({ nom: c.nom, type: c.type, genre: c.genre, categorie: c.categorie, format: c.format, singles_set3_format: c.singles_set3_format ?? null });
     setError(null);
     setShowForm(true);
   };
@@ -382,6 +383,10 @@ function CompetitionsSection({
     setError(null);
     if (!selectedSaisonId) {
       setError('Sélectionnez une saison.');
+      return;
+    }
+    if (!draft.singles_set3_format) {
+      setError('Précisez le troisième set des simples pour cette compétition.');
       return;
     }
     const payload = { saison_id: selectedSaisonId, ...draft };
@@ -480,6 +485,7 @@ function CompetitionsSection({
                 <th className="px-4 py-2.5">Genre</th>
                 <th className="px-4 py-2.5">Catégorie</th>
                 <th className="px-4 py-2.5">Format</th>
+                <th className="px-4 py-2.5">3e set des simples</th>
                 <th className="px-4 py-2.5">Terminé</th>
                 <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
@@ -492,6 +498,7 @@ function CompetitionsSection({
                   <td className="px-4 py-2.5">{GENRE_LABELS[c.genre]}</td>
                   <td className="px-4 py-2.5">{CATEGORIE_LABELS[c.categorie]}</td>
                   <td className="px-4 py-2.5">{FORMAT_LABELS[c.format]}</td>
+                  <td className="px-4 py-2.5">{c.singles_set3_format === 'normal' ? 'Set classique' : c.singles_set3_format === 'super_tiebreak' ? 'Super tie-break' : 'À renseigner'}</td>
                   <td className="px-4 py-2.5">
                     <input
                       type="checkbox"
@@ -616,6 +623,20 @@ function CompetitionsSection({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label htmlFor="singles-set3-format" className="block text-sm font-medium text-foreground">Troisième set des simples</label>
+                <select
+                  id="singles-set3-format"
+                  value={draft.singles_set3_format ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, singles_set3_format: (e.target.value || null) as CompetitionDraft['singles_set3_format'] }))}
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">À renseigner</option>
+                  <option value="normal">Set classique</option>
+                  <option value="super_tiebreak">Super tie-break (10 points)</option>
+                </select>
+                <p className="mt-2 text-xs text-muted-foreground">En double : super tie-break systématique. Les matchs déjà créés conservent leur règle.</p>
               </div>
             </div>
 

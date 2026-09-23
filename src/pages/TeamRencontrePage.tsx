@@ -1,14 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCompetition,
   TeamEquipe,
   TeamEtape,
-  TeamFormat,
   TeamJoueur,
-  TeamMatchGagnant,
   TeamMatchLine,
   TeamRencontre,
 } from '../types';
@@ -19,9 +17,7 @@ import TeamScoreSection from '../components/teamMatches/TeamScoreSection';
 import TeamPhotosSection from '../components/teamMatches/TeamPhotosSection';
 import {
   competitionLabel,
-  computeScore,
   etapeLabel,
-  etapeLabelCourt,
   expectedMatchCount,
   totalPointsFormat,
 } from '../components/teamMatches/teamMatchLabels';
@@ -50,6 +46,8 @@ interface Context {
 
 export default function TeamRencontrePage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const liveRequest = useRef({ id: '', key: '', busy: false });
   const { clubId } = useClub();
 
   const [rencontre, setRencontre] = useState<TeamRencontre | null>(null);
@@ -100,12 +98,7 @@ export default function TeamRencontrePage() {
       .eq('rencontre_id', rencRow.id)
       .eq('club_id', clubId)
       .order('ordre', { ascending: true });
-    let lineRows = (lineData ?? []) as TeamMatchLine[];
-
-    // Synchronisation depuis le Live Score (requête unique au chargement).
-    if (competition) {
-      lineRows = await syncFromLive(rencRow, lineRows, (competition as TeamCompetition).format, clubId);
-    }
+    const lineRows = (lineData ?? []) as TeamMatchLine[];
 
     setRencontre(rencRow);
     setContext(
@@ -142,62 +135,17 @@ export default function TeamRencontrePage() {
     if (!rencontre || !context || line.live_match_id) return;
     setActionError(null);
 
-    const d = new Date(rencontre.date_heure);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const matchDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const startTime = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-    const club = line.joueurs_club;
-    const adv = line.joueurs_adverse;
-    const isDouble = line.match_type === 'double';
-
-    // Mapping live_matches : équipe 1 = j1 (+ j3 en double) = notre club ;
-    // équipe 2 = j2 (+ j4 en double) = club adverse.
-    const payload = {
-      match_date: matchDate,
-      start_time: startTime,
-      match_type: line.match_type,
-      type_tournoi: `${context.competition.nom} — ${etapeLabelCourt(context.etape)}`,
-
-      j1_prenom: club[0].prenom,
-      j1_nom: club[0].nom ?? '',
-      j1_classement: club[0].classement,
-      j1_club: '',
-
-      j2_prenom: adv[0].prenom,
-      j2_nom: adv[0].nom ?? '',
-      j2_classement: adv[0].classement,
-      j2_club: rencontre.club_adverse,
-
-      j3_prenom: isDouble ? club[1].prenom : null,
-      j3_nom: isDouble ? club[1].nom ?? '' : null,
-      j3_classement: isDouble ? club[1].classement : null,
-      j3_club: isDouble ? '' : null,
-
-      j4_prenom: isDouble ? adv[1].prenom : null,
-      j4_nom: isDouble ? adv[1].nom ?? '' : null,
-      j4_classement: isDouble ? adv[1].classement : null,
-      j4_club: isDouble ? rencontre.club_adverse : null,
-
-      status: 'pending' as const,
-      club_id: clubId,
-    };
-
-    const { data, error } = await supabase.from('live_matches').insert(payload).select('id').single();
-    if (error || !data) {
-      setActionError(error?.message ?? 'Création du live impossible.');
-      return;
-    }
-    const { error: updErr } = await supabase
-      .from('team_match_lines')
-      .update({ live_match_id: data.id })
-      .eq('id', line.id)
-      .eq('club_id', clubId);
-    if (updErr) {
-      setActionError(updErr.message);
-      return;
-    }
-    load();
+    if (liveRequest.current.busy) return;
+    if (liveRequest.current.id !== line.id) liveRequest.current = { id: line.id, key: crypto.randomUUID(), busy: false };
+    liveRequest.current.busy = true;
+    try {
+      const { data, error } = await supabase.rpc('team_match_command', {
+        p_club: clubId, p_rencontre: rencontre.id, p_operation: 'start_live',
+        p_data: { id: line.id, revision: line.revision }, p_request_id: liveRequest.current.key,
+      });
+      if (error) { setActionError(error.message); return; }
+      if (data?.live_match_id) navigate(`/live-score/${data.live_match_id}`);
+    } finally { liveRequest.current.busy = false; }
   };
 
   const handleWo = async (gagnant: 'club' | 'adverse') => {
@@ -436,66 +384,6 @@ export default function TeamRencontrePage() {
       )}
     </div>
   );
-}
-
-// ============================================================
-// Synchronisation depuis le Live Score
-// ============================================================
-
-/**
- * Pour chaque match relié à un live terminé, met à jour `gagnant` puis
- * recalcule le score global. Renvoie les lignes à jour (sans re-fetch).
- */
-async function syncFromLive(
-  rencontre: TeamRencontre,
-  lines: TeamMatchLine[],
-  format: TeamFormat,
-  clubId: string | null
-): Promise<TeamMatchLine[]> {
-  if (rencontre.wo) return lines; // score géré manuellement par le WO
-  const liveIds = lines.map((l) => l.live_match_id).filter((x): x is string => x !== null);
-  if (liveIds.length === 0) return lines;
-
-  const { data: lives } = await supabase
-    .from('live_matches')
-    .select('id, status, winner')
-    .eq('club_id', clubId)
-    .in('id', liveIds);
-  if (!lives) return lines;
-
-  const liveById = Object.fromEntries(
-    (lives as { id: string; status: string; winner: 'j1' | 'j2' | null }[]).map((l) => [l.id, l])
-  );
-
-  let changed = false;
-  const updated = lines.map((line) => {
-    if (!line.live_match_id) return line;
-    const live = liveById[line.live_match_id];
-    if (!live || live.status !== 'finished' || !live.winner) return line;
-    const gagnant: TeamMatchGagnant = live.winner === 'j1' ? 'club' : 'adverse';
-    if (line.gagnant === gagnant) return line;
-    changed = true;
-    return { ...line, gagnant };
-  });
-
-  if (!changed) return lines;
-
-  // Persiste les gagnants modifiés.
-  await Promise.all(
-    updated
-      .filter((l, i) => l.gagnant !== lines[i].gagnant)
-      .map((l) => supabase.from('team_match_lines').update({ gagnant: l.gagnant }).eq('id', l.id).eq('club_id', clubId))
-  );
-
-  // Recalcule et persiste le score global.
-  const { club, adverse } = computeScore(updated, format);
-  await supabase
-    .from('team_rencontres')
-    .update({ score_club: club, score_adverse: adverse })
-    .eq('id', rencontre.id)
-    .eq('club_id', clubId);
-
-  return updated;
 }
 
 // ============================================================

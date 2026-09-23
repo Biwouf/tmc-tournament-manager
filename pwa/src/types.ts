@@ -28,6 +28,9 @@ export type LiveSet3Format = 'normal' | 'super_tiebreak';
 export type LiveMatchWinner = 'j1' | 'j2';
 
 export interface LiveMatch {
+  team_match_line_id?: string | null;
+  team_rencontre_id?: string | null;
+  team_result_confirmed?: boolean;
   revision: number; // Version serveur pour détecter les écritures concurrentes.
   id: string;
   match_date: string;
@@ -115,7 +118,8 @@ export interface TeamCompetition {
   id: string; saison_id: string;
   nom: TeamCompetitionNom; type: TeamType;
   genre: TeamGenre; categorie: TeamCategorie;
-  // format pas utilisé PWA mais conservé pour cohérence type
+  singles_set3_format: LiveSet3Format | null;
+  // Composition de la rencontre
   format: '2S1D' | '3S1D2' | '4S1D2' | '4S2D';
   created_at: string;
 }

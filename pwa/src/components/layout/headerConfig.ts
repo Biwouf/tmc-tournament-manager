@@ -21,6 +21,7 @@ const ROUTES: Array<[string, HeaderConfig]> = [
                             backTo: '/actu?tab=actus',  backLabel: 'Actualités' }],
   ['/evenements/:id',     { mode: 'sub',  title: 'Événement',
                             backTo: '/actu?tab=events', backLabel: 'Actualités' }],
+  ['/matches-equipes/:id', { mode: 'sub', title: 'Rencontre', backTo: '/matches-equipes', backLabel: 'Équipes' }],
   ['/matches-equipes',    { mode: 'root', title: 'Matchs équipes' }],
   ['/matches',            { mode: 'root', title: 'Live' }],
   ['/matches/new',        { mode: 'sub',  title: 'Nouveau match',

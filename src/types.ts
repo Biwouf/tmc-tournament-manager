@@ -159,6 +159,9 @@ export type LiveSet3Format = 'normal' | 'super_tiebreak';
 export type LiveMatchWinner = 'j1' | 'j2';
 
 export interface LiveMatch {
+  team_match_line_id?: string | null;
+  team_rencontre_id?: string | null;
+  team_result_confirmed?: boolean;
   revision: number; // Version serveur pour détecter les écritures concurrentes.
   id: string;
   match_date: string;
@@ -274,6 +277,7 @@ export interface TeamCompetition {
   genre: TeamGenre;
   categorie: TeamCategorie;
   format: TeamFormat;
+  singles_set3_format: LiveSet3Format | null; // null = règle à renseigner
   terminee: boolean;        // championnat clos — sort de la grille active
   created_at: string;
 }
@@ -305,10 +309,14 @@ export interface TeamJoueur {
 }
 
 export interface TeamMatchLine {
+  revision: number;
+  slot: number;
+  confirmed_at: string | null;
   id: string;
   rencontre_id: string;
   ordre: number;
   match_type: TeamMatchLineType;
+  set3_format: LiveSet3Format | null; // règle conservée à la création
   joueurs_club: TeamJoueur[];
   joueurs_adverse: TeamJoueur[];
   live_match_id: string | null;

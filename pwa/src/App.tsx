@@ -12,6 +12,7 @@ import InstallBanner from './components/install/InstallBanner';
 import ActuPage from './pages/ActuPage';
 import ActuDetailPage from './pages/ActuDetailPage';
 import EventDetailPage from './pages/EventDetailPage';
+import TeamRencontrePage from './pages/TeamRencontrePage';
 import MatchesEquipesPage from './pages/MatchesEquipesPage';
 import MatchesPage from './pages/MatchesPage';
 import LoginPage from './pages/LoginPage';
@@ -128,6 +129,7 @@ function AppShell() {
 
           {/* Match équipes (lecture) */}
           <Route path="/matches-equipes" element={<MatchesEquipesPage />} />
+          <Route path="/matches-equipes/:id" element={<TeamRencontrePage />} />
 
           {/* Live (inchangé) */}
           <Route path="/matches" element={<MatchesPage />} />

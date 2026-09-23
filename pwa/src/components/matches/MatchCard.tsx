@@ -274,7 +274,7 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
         <button
           type="button"
           onClick={handleDelete}
-          disabled={busy}
+          disabled={busy || !!match.team_match_line_id}
           className="min-h-11 ml-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
         >
           Supprimer
@@ -293,7 +293,7 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
           </span>
         )}
         {isFinished && (
-          <span className="text-xs text-muted-foreground font-medium">Terminé</span>
+          <span className="text-xs text-muted-foreground font-medium">{match.team_match_line_id && !match.team_result_confirmed ? 'LIVE · TERMINÉ · À valider' : 'Terminé'}</span>
         )}
         {isFinished && match.retired_player !== null && (
           <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-amber-100 text-amber-800">
@@ -334,6 +334,7 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
         />
       </div>
 
+      {match.team_rencontre_id && <button onClick={() => navigate(`/matches-equipes/${match.team_rencontre_id}`)} className="min-h-11 text-left text-sm font-semibold text-primary">{isFinished && !match.team_result_confirmed ? 'Valider le résultat dans la rencontre →' : 'Voir la rencontre →'}</button>}
       {actions && <div className="pt-1">{actions}</div>}
 
       {actionError && (

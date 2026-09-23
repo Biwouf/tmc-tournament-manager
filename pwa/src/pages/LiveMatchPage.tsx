@@ -1,3 +1,4 @@
+import { writeLiveMatch } from '../lib/liveMatchWrites';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
@@ -19,7 +20,7 @@ function formatDate(iso: string): string {
 function teamLabel(m: LiveMatch, team: 1 | 2): string {
   const parts: string[] = [];
   const main = (p: 'j1' | 'j2' | 'j3' | 'j4') => {
-    let label = `${m[`${p}_prenom`]} ${m[`${p}_nom`]}`;
+    let label = `${m[`${p}_prenom`] ?? ''} ${m[`${p}_nom`] ?? ''}`;
     const cls = m[`${p}_classement`];
     const club = m[`${p}_club`];
     if (cls) label += ` (${cls})`;
@@ -28,10 +29,10 @@ function teamLabel(m: LiveMatch, team: 1 | 2): string {
   };
   if (team === 1) {
     parts.push(main('j1'));
-    if (m.match_type === 'double' && m.j3_prenom && m.j3_nom) parts.push(main('j3'));
+    if (m.match_type === 'double' && (m.j3_prenom || m.j3_nom)) parts.push(main('j3'));
   } else {
     parts.push(main('j2'));
-    if (m.match_type === 'double' && m.j4_prenom && m.j4_nom) parts.push(main('j4'));
+    if (m.match_type === 'double' && (m.j4_prenom || m.j4_nom)) parts.push(main('j4'));
   }
   return parts.join(' / ');
 }
@@ -43,6 +44,15 @@ export default function LiveMatchPage() {
 
   const { match, loading, error, saving, savingError, save, reload } = useLiveMatch(id, clubId, user?.id ?? null);
   const [showRetireConfirm, setShowRetireConfirm] = useState(false);
+  const [takingOver, setTakingOver] = useState(false);
+  const [takeoverError, setTakeoverError] = useState('');
+  const takeControl = async () => {
+    if (!match || !user || takingOver || !window.confirm('Reprendre ce live ? Le marqueur actuel passera en lecture seule.')) return;
+    setTakingOver(true); setTakeoverError('');
+    try { await writeLiveMatch(match, clubId, { scored_by: user.id }); await reload(); }
+    catch (e) { setTakeoverError(e instanceof Error ? e.message : 'Reprise impossible.'); await reload(); }
+    finally { setTakingOver(false); }
+  };
 
   const applyPatch = async (patch: Partial<LiveMatch>) => {
     if (!match) return;
@@ -109,11 +119,15 @@ export default function LiveMatchPage() {
   const statusLabels: Record<LiveMatch['status'], string> = {
     pending: 'En attente',
     live: 'LIVE',
-    finished: 'Terminé',
+    finished: match.team_match_line_id && !match.team_result_confirmed ? 'LIVE · TERMINÉ · À valider' : 'Terminé',
   };
 
   return (
     <div className="p-4 flex flex-col gap-4">
+      {match.team_rencontre_id && <div className="rounded-xl border border-border bg-card p-3 text-sm">
+        <Link className="font-semibold text-primary underline" to={`/matches-equipes/${match.team_rencontre_id}`}>{match.status === 'finished' && !match.team_result_confirmed ? 'Valider le résultat dans la rencontre →' : 'Retour à la rencontre →'}</Link>
+        <p className="mt-2 text-muted-foreground">3e set fixé pour ce match : {match.set3_format === 'super_tiebreak' ? 'super tie-break' : match.set3_format === 'normal' ? 'set classique' : 'règle à préciser dans la rencontre'}.</p>
+      </div>}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-2 flex items-center gap-2">
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[match.status]}`}>
@@ -161,7 +175,9 @@ export default function LiveMatchPage() {
           <>
             {hasLostControl && (
               <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                Ce live a été repris par quelqu'un d'autre. Vous êtes en lecture seule.
+                Ce live est géré par un autre membre. Vous êtes en lecture seule.
+                <button disabled={takingOver} onClick={() => void takeControl()} className="mt-2 block min-h-11 rounded-lg border border-red-200 px-3 font-semibold">{takingOver ? 'Reprise…' : 'Reprendre le contrôle'}</button>
+                {takeoverError && <p role="alert">{takeoverError}</p>}
               </div>
             )}
             <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl || saving || !!savingError} />

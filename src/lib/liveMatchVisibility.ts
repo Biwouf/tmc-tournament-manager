@@ -2,5 +2,5 @@
 export function liveMatchVisibilityFilter(now = new Date()): string {
   const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   // Sans date de fin, conserver le match : sa date de match n'est pas une preuve de fin.
-  return `status.neq.finished,finished_at.is.null,finished_at.gte.${cutoff}`;
+  return `status.neq.finished,finished_at.is.null,finished_at.gte.${cutoff},and(team_match_line_id.not.is.null,team_result_confirmed.eq.false)`;
 }

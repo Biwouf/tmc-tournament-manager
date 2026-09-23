@@ -112,3 +112,14 @@ body.has-install-banner .pwa-content {
 .badge-live {
   animation: live-pulse 1.5s ease-in-out infinite;
 }
+
+/* A single, understated celebration; the badge stays still afterwards. */
+@keyframes performance-reveal {
+  0% { opacity: 0; transform: translateY(2px) scale(0.96); }
+  45% { opacity: 1; transform: translateY(0) scale(1.04); box-shadow: 0 0 0 3px rgb(251 191 36 / 12%); }
+  100% { opacity: 1; transform: translateY(0) scale(1); box-shadow: 0 0 0 0 rgb(251 191 36 / 0%); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .badge-performance { animation: performance-reveal 1.2s ease-out both; }
+}

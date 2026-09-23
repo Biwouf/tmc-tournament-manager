@@ -224,7 +224,9 @@ export default function LiveScoreEntry({ match, onPatch, forceDisabled = false }
         onChange={handleSetNormal(2)}
       />
 
-      {set3Needed && match.set3_format === null && !readonly && (
+      {set3Needed && !match.set3_format && match.team_match_line_id && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Précisez la règle de ce match historique dans sa rencontre, depuis la PWA.</p>}
+
+      {set3Needed && match.set3_format === null && !match.team_match_line_id && !readonly && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
           <p className="mb-3 text-sm font-medium text-amber-900">
             Set décisif nécessaire — choisir le format :

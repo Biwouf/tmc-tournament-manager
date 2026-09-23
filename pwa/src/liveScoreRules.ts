@@ -24,6 +24,11 @@ export function getNormalSetWinner(s: NormalSet): Player | null {
   // 7/5
   if (j1 === 7 && j2 === 5) return 'j1';
   if (j2 === 7 && j1 === 5) return 'j2';
+  // A direct result can omit tie-break points; do not invent them.
+  if (tb_j1 === null && tb_j2 === null) {
+    if (j1 === 7 && j2 === 6) return 'j1';
+    if (j2 === 7 && j1 === 6) return 'j2';
+  }
   // 7/6 via tiebreak (validate tb has a winner too)
   if (j1 === 7 && j2 === 6 && tb_j1 !== null && tb_j2 !== null) {
     if (tb_j1 >= 7 && tb_j1 - tb_j2 >= 2) return 'j1';
@@ -82,10 +87,10 @@ export function decrementNormal(s: NormalSet, p: Player): NormalSet {
   const winner = getNormalSetWinner(s);
   // Won via tiebreak (7/6) — undo the winning tb point, set returns to 6/6 tiebreak
   if (winner === p && s.j1 === 7 && s.j2 === 6) {
-    return { ...s, j1: 6, tb_j1: s.tb_j1! - 1 };
+    return { ...s, j1: 6, tb_j1: s.tb_j1 === null ? 0 : s.tb_j1 - 1, tb_j2: s.tb_j2 ?? 0 };
   }
   if (winner === p && s.j2 === 7 && s.j1 === 6) {
-    return { ...s, j2: 6, tb_j2: s.tb_j2! - 1 };
+    return { ...s, j2: 6, tb_j2: s.tb_j2 === null ? 0 : s.tb_j2 - 1, tb_j1: s.tb_j1 ?? 0 };
   }
   // Won via normal (7/5 or 6/x) — decrement games
   if (winner === 'j1') return { ...s, j1: s.j1 - 1 };
@@ -137,14 +142,14 @@ export function decrementSuperTb(s: SuperTbSet, p: Player): SuperTbSet {
 export function getTeamLabel(m: LiveMatch, team: 1 | 2): string {
   if (team === 1) {
     const main = `${m.j1_prenom} ${m.j1_nom}`;
-    if (m.match_type === 'double' && m.j3_prenom && m.j3_nom) {
-      return `${main} / ${m.j3_prenom} ${m.j3_nom}`;
+    if (m.match_type === 'double' && (m.j3_prenom || m.j3_nom)) {
+      return `${main} / ${m.j3_prenom ?? ''} ${m.j3_nom ?? ''}`;
     }
     return main;
   }
   const main = `${m.j2_prenom} ${m.j2_nom}`;
-  if (m.match_type === 'double' && m.j4_prenom && m.j4_nom) {
-    return `${main} / ${m.j4_prenom} ${m.j4_nom}`;
+  if (m.match_type === 'double' && (m.j4_prenom || m.j4_nom)) {
+    return `${main} / ${m.j4_prenom ?? ''} ${m.j4_nom ?? ''}`;
   }
   return main;
 }
