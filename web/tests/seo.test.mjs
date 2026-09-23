@@ -378,3 +378,40 @@ test('image Storage optimisée : priorité hero et point d’intérêt restent a
   assert.match(hero, /srcSet="[^\"]*480w[^\"]*1920w/);
   assert.match(hero, /src="\/_vercel\/image\?/);
 });
+
+test('404 brandée : identité, thème, hydratation et absence de chargement des actualités', async () => {
+  const { request, rows, calls } = fixture();
+  rows[0].club_settings.config.brand.color = '#12804a';
+  for (const path of ['/inconnue', '/index.html']) {
+    const result = await request(path);
+    assert.equal(result.status, 404);
+    assert.match(result.body, /<title>Page introuvable — alpha<\/title>/);
+    assert.match(result.body, /Faute !/);
+    assert.match(result.body, /class="not-found-name">alpha/);
+    assert.match(result.body, /class="not-found-city">alpha Ville/);
+    assert.match(result.body, /--brand:hsl\(150.5 75.3% 28.6%\)/);
+    assert.match(result.body, /Retour à l&#x27;accueil/);
+    assert.match(result.body, /<meta name="robots" content="noindex, follow">/);
+    assert.equal(result.headers['X-Robots-Tag'], 'noindex, follow');
+    assert.match(result.headers['Cache-Control'], /no-store/);
+    assert.equal(bootstrap(result.body).club.slug, 'alpha');
+    assert.doesNotMatch(result.body, /rel="canonical"|application\/ld\+json|<!--site-/);
+  }
+  assert.equal(calls.length, 2);
+  rows[0].club_settings.config.pricing.published = false;
+  rows[0].club_settings.config.brand.city = '';
+  const removed = await request('/tarifs');
+  assert.equal(removed.status, 404);
+  assert.match(removed.body, /Faute !/);
+  assert.doesNotMatch(removed.body, /class="not-found-city"|class="not-found-rule"/);
+  const other = await request('/inconnue', 'beta.feelike.pro');
+  assert.match(other.body, /class="not-found-name">beta/);
+  assert.doesNotMatch(other.body, /alpha/);
+  for (const host of ['unknown.feelike.pro', 'admin.feelike.pro']) {
+    const neutral = await request('/inconnue', host);
+    assert.equal(neutral.status, 404);
+    assert.doesNotMatch(neutral.body, /alpha|beta|not-found-banner|site-data/);
+  }
+  rows[0].status = 'suspended';
+  assert.doesNotMatch((await request('/inconnue')).body, /alpha|not-found-banner|site-data/);
+});
