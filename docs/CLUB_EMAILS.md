@@ -96,3 +96,41 @@ qui ne transmettent pas le slug produisent un mail neutre, jamais celui du préc
 La couleur CAC précédemment vide a été renseignée explicitement à `#e51828` sur
 DEV ; les autres clubs conservent leurs propres paramètres. Aucune modification
 production et aucun email réel ne sont effectués par les tests automatisés.
+
+## Validation et passage en production
+
+Recette DEV confirmée par l’utilisateur : récupération de mot de passe avec
+identité dynamique du club et emails de cours après redéploiement du dispatcher.
+Validation locale : 68 tests emails, 9 tests récupération, compilation PWA et
+lint ciblé réussis.
+
+Après merge et déploiement de la PWA, redéployer les trois fonctions sur le
+projet de production explicite :
+
+```sh
+supabase functions deploy send-auth-email --project-ref <REF_PROD>
+supabase functions deploy contact-form --project-ref <REF_PROD>
+supabase functions deploy course-email-dispatch --project-ref <REF_PROD>
+```
+
+Vérifier le hook Send Email déjà configuré sur production : activé, URL du projet
+PROD et secret correspondant à `SEND_EMAIL_HOOK_SECRET` de ce même projet.
+Vérifier `BREVO_API_KEY` et les expéditeurs validés (`AUTH_FROM_EMAIL` et
+`COURSE_FROM_EMAIL`, avec repli sur `CONTACT_FROM_EMAIL`). Ne pas recopier le
+secret du hook DEV ni la configuration localhost : `AUTH_EMAIL_DYNAMIC_ORIGINS`
+reste absent ou `[]` en production. Les domaines `app-<slug>.feelike.pro` résolvent
+le club automatiquement ; seuls des alias techniques nécessitent un mapping.
+Conserver les redirections Auth autorisées vers les domaines réellement utilisés.
+
+Vérifier le logo et `brand.color` de chaque club en production : la couleur CAC
+renseignée sur DEV n'est pas transférée par un déploiement. Une couleur vide
+produit volontairement un habillage neutre.
+
+Cette PR n'ajoute aucune migration. Si les alertes de cours ne sont pas encore
+installées en production, appliquer leurs trois migrations et configurer les
+secrets/cron comme indiqué dans [COURSE_EMAIL.md](COURSE_EMAIL.md). Si elles sont
+déjà actives, conserver leur planification et leurs secrets.
+
+Recette finale : récupération depuis la PWA de chaque club, invitation, message
+de contact, demande/acceptation/refus de cours (motif inclus). Vérifier les mails
+reçus, pas uniquement leur statut accepté par Brevo.
