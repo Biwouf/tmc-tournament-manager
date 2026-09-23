@@ -1,3 +1,5 @@
+import PerformanceBadge from '../components/teamMatches/PerformanceBadge';
+import { isClubPerformance } from '../lib/teamPerformance';
 import TeamPlayers from '../components/teamMatches/TeamPlayers';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -73,7 +75,7 @@ export default function TeamRencontrePage() {
         : live?.status === 'live' ? 'LIVE' : live?.status === 'finished' ? 'LIVE · TERMINÉ · À valider' : 'En attente de score';
       return <article key={line.id} className={`rounded-xl border bg-card p-4 ${live?.status === 'live' ? 'border-primary' : 'border-border'}`}>
         <div className="mb-3 flex flex-wrap justify-between gap-2"><h3 className="font-semibold">{lineLabel(line)}</h3><span className="text-xs font-semibold text-primary">{status}</span></div>
-        <p className="text-sm font-medium"><TeamPlayers players={line.joueurs_club} /></p><p className="mt-1 text-sm text-muted-foreground"><TeamPlayers players={line.joueurs_adverse} /></p>
+        <p className="flex flex-wrap items-center gap-2 text-sm font-medium"><TeamPlayers players={line.joueurs_club} />{isClubPerformance(line, live) && <PerformanceBadge />}</p><p className="mt-1 text-sm text-muted-foreground"><TeamPlayers players={line.joueurs_adverse} /></p>
         {score && <p className="mt-3 text-lg font-semibold tabular-nums">{score}</p>}
         {canEdit && !rencontre.wo && <button onClick={() => { action.clearError(); setSelection({ line, live, mode: 'actions' }); }} className="mt-3 min-h-11 w-full rounded-lg border border-border text-sm font-semibold">{line.confirmed_at ? 'Modifier le résultat' : 'Gérer le match'}</button>}
       </article>;

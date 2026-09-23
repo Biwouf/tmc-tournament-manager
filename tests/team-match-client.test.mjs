@@ -95,3 +95,29 @@ test('Creation wizard respects occupied slots, keeps NC and supports free names'
   assert.equal(commands[0].data.joueurs_club[0].prenom,'Camille Libre');assert.equal(closed,true);
  } finally {await act(async()=>root.unmount());}
 });
+
+
+test('Perf is only a club singles win against a strictly higher known ranking, never a WO', () => {
+ const {isClubPerformance}=load(resolve(src,'lib/teamPerformance.ts'));
+ const match=(clubRank,opponentRank,overrides={})=>({...line,gagnant:'club',result_kind:'normal',confirmed_at:'2026-09-24',
+  joueurs_club:[{...line.joueurs_club[0],classement:clubRank}],joueurs_adverse:[{...line.joueurs_adverse[0],classement:opponentRank}],...overrides});
+ assert.equal(isClubPerformance(match('30','15/5')),true);
+ assert.equal(isClubPerformance(match('15/4','15/2')),true);
+ assert.equal(isClubPerformance(match('15','5/6')),true);
+ assert.equal(isClubPerformance(match('0','-2/6')),true);
+ assert.equal(isClubPerformance(match('-15','-30')),true);
+ assert.equal(isClubPerformance(match('NC','40')),true);
+ assert.equal(isClubPerformance(match('30','30')),false);
+ assert.equal(isClubPerformance(match('15/2','15/4')),false);
+ assert.equal(isClubPerformance(match('30','15/5',{gagnant:'adverse'})),false);
+ assert.equal(isClubPerformance(match('30','15/5',{result_kind:'wo'})),false);
+ assert.equal(isClubPerformance(match('30','15/5',{match_type:'double'})),false);
+ assert.equal(isClubPerformance(match('','15/5')),false);
+ assert.equal(isClubPerformance(match('unknown','15/5')),false);
+ assert.equal(isClubPerformance(match('30','unknown')),false);
+ const pending=match('30','15/5',{gagnant:null,result_kind:null,confirmed_at:null});
+ assert.equal(isClubPerformance(pending,{...live,status:'live'}),false);
+ assert.equal(isClubPerformance(pending,live),true);
+ assert.equal(isClubPerformance(pending,{...live,winner:'j2'}),false);
+ assert.equal(isClubPerformance(match('30','15/5',{gagnant:'adverse'}),live),false,'corrected official result wins over old live');
+});
