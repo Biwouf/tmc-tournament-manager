@@ -1,6 +1,6 @@
 # Emails aux couleurs du club
 
-Les notifications du formulaire de contact et les emails Auth utilisent le même
+Les notifications du formulaire de contact, les alertes de cours et les emails Auth utilisent le même
 rendu (`supabase/functions/_shared/email-template.ts`) : logo public HTTPS, nom du
 club, liseré et bouton dans `brand.color`, texte du bouton contrasté, version texte
 et lien de secours. Les contenus dynamiques sont échappés. Sans couleur valide,
@@ -8,6 +8,9 @@ un bleu-gris neutre est utilisé ; sans logo public HTTPS, le nom reste affiché
 
 ## Identité du club
 
+- Cours : `club_id` lu dans le job réclamé de `course_email_deliveries`, puis
+  configuration du club. Le titre et le corps enregistrés restent inchangés,
+  y compris le nom du demandeur et tout détail ajouté par les migrations métier.
 - Contact : club validé par la fonction, configuration déjà lue côté serveur.
 - Auth : domaine `app-<slug>.feelike.pro` du `redirect_to` signé par Supabase,
   puis lecture du club actif et de ses paramètres en base.
@@ -29,7 +32,7 @@ Le code seul ne modifie pas les emails du projet hébergé. Le hook **remplace**
 l'envoi SMTP Auth : il utilise l'API Brevo existante, et non les templates du
 Dashboard. Le SMTP reste disponible pour revenir au fonctionnement précédent.
 
-1. Déployer `contact-form` et `send-auth-email` sur le projet DEV.
+1. Déployer `contact-form`, `course-email-dispatch` et `send-auth-email` sur le projet DEV.
 2. Configurer `BREVO_API_KEY`, `AUTH_FROM_EMAIL` (ou `CONTACT_FROM_EMAIL` en repli)
    avec un expéditeur Brevo validé. Garder ces secrets côté serveur uniquement.
 3. Dans Supabase Authentication → Hooks, préparer un **Send Email Hook** HTTP
@@ -43,6 +46,9 @@ Dashboard. Le SMTP reste disponible pour revenir au fonctionnement précédent.
    d'une récupération PWA, d'une récupération BO central, d'une invitation et
    des deux confirmations de changement d'adresse. Vérifier mobile et desktop
    dans les clients email utilisés. Contrôler aussi le formulaire de contact.
+   Vérifier aussi une demande de cours, une acceptation et un refus. Les alertes
+   de cours gardent leur cron, leur secret dédié et leur vérification JWT ; elles
+   ne passent pas par le hook Auth (voir [COURSE_EMAIL.md](COURSE_EMAIL.md)).
 7. Reproduire la configuration en production après validation DEV.
 
 Le webhook n'accepte que POST et vérifie la signature Standard Webhooks avant

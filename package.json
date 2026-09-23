@@ -16,7 +16,7 @@
     "test:security": "node --test tests/security.test.mjs tests/edge-security.test.mjs",
     "test:password-recovery": "node --test tests/password-recovery.test.mjs",
     "test:signup": "node --test tests/signup-sql.test.mjs tests/signup-client.test.mjs tests/signup-member-list.test.mjs tests/pwa-branding.test.mjs",
-    "test:emails": "node --experimental-strip-types --test tests/email-template.test.mjs tests/edge-security.test.mjs",
+    "test:emails": "node --experimental-strip-types --test tests/email-template.test.mjs tests/edge-security.test.mjs tests/course-email-dispatch.test.mjs tests/course-email-sql.test.mjs",
     "test:domains": "node --test tests/domains.test.mjs"
   },
   "dependencies": {

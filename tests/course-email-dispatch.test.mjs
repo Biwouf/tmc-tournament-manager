@@ -2,23 +2,37 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import ts from 'typescript';
+const shared = {};
+const template = await readFile(new URL('../supabase/functions/_shared/email-template.ts', import.meta.url), 'utf8');
+vm.runInNewContext(ts.transpileModule(template, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports: shared, URL });
 const source = (await readFile(new URL('../supabase/functions/course-email-dispatch/index.ts',import.meta.url),'utf8'))
-  .replace(/^import .*;$/m,'');
-function harness({ code=201, attempts=1, missing=false, network=false, lookup=false, cronSecret='dedicated-cron-secret-at-least-32-characters' }={}) {
- let handler; let claims=0; const updates=[]; const sends=[];
+  .replace(/^import .*;$/gm,'');
+function harness({ code=201, attempts=1, missing=false, network=false, lookup=false, settingsError=false, deliveryError=false, brand={ color:'#123456', logo:'https://club.example/logo.png' }, cronSecret='dedicated-cron-secret-at-least-32-characters' }={}) {
+ let handler; let claims=0; const updates=[]; const sends=[]; const reads=[];
  const env={COURSE_EMAIL_CRON_SECRET:cronSecret,SUPABASE_SERVICE_ROLE_KEY:'server-secret',SUPABASE_URL:'https://example.test',
   BREVO_API_KEY:'brevo-secret',CONTACT_FROM_EMAIL:'sender@example.test'};
  if(missing) delete env.BREVO_API_KEY;
  const db={rpc:async()=>{claims++;return {data:[{id:'job',claim_token:'token',user_id:'member',
   title:'Place accordée',body:'Votre place est confirmée.',club_name:'Club',attempts}]};},
  auth:{admin:{getUserById:async()=>({data:{user:{email:'member@example.test'}},error:lookup?new Error():null})}},
- from:()=>({update:(value)=>{updates.push(value);return {eq:()=>({eq:async()=>({error:null})})};}})};
+ from:(table)=>({
+  select:(columns)=>{
+   const filters={};
+   const result=()=>{reads.push({table,columns,filters});return table==='course_email_deliveries'
+    ? {data:{club_id:'club-from-job'},error:deliveryError?new Error():null}
+    : {data:brand===null?null:{config:{brand}},error:settingsError?new Error():null};};
+   const query={eq:(key,value)=>{filters[key]=value;return query;},single:async()=>result(),maybeSingle:async()=>result()};
+   return query;
+  },
+  update:(value)=>{updates.push(value);return {eq:()=>({eq:async()=>({error:null})})};}
+ })};
  vm.runInNewContext(source,{Deno:{env:{get:key=>env[key]},serve:fn=>{handler=fn;}},
-  createClient:()=>db,Response,AbortSignal,console:{error(){}},
+  renderEmail:shared.renderEmail, createClient:()=>db,Response,AbortSignal,console:{error(){}},
   fetch:async(url,options)=>{sends.push({url,body:JSON.parse(options.body)});
    if(network)throw new Error('timeout'); return new Response('',{status:code});}});
  return {run:(auth='dedicated-cron-secret-at-least-32-characters',method='POST')=>handler(new Request('https://example.test',{
-  method,headers:{authorization:'Bearer independently-validated-gateway-jwt','x-course-email-secret':auth}})),updates,sends,get claims(){return claims;}};
+  method,headers:{authorization:'Bearer independently-validated-gateway-jwt','x-course-email-secret':auth}})),updates,sends,reads,get claims(){return claims;}};
 }
 test('dispatcher rejects callers and missing configuration before claiming',async()=>{
  const h=harness(); assert.equal((await h.run('user-token')).status,401);
@@ -49,5 +63,30 @@ test('cron authentication is independent of the runtime service key and fails cl
   const missing=harness({cronSecret});
   assert.equal((await missing.run()).status,503);
   assert.equal(missing.claims,0);
+ }
+});
+
+test('course HTML uses the claimed club identity and preserves plain text',async()=>{
+ const h=harness(); await h.run();
+ const body=h.sends[0].body;
+ assert.equal(body.subject,'Place accordée');
+ assert.equal(body.textContent,'Votre place est confirmée.');
+ assert.match(body.htmlContent,/#123456/);
+ assert.match(body.htmlContent,/https:\/\/club.example\/logo.png/);
+ assert.match(body.htmlContent,/Votre place est confirmée/);
+ assert.equal(h.reads[0].filters.id,'job');
+ assert.equal(h.reads[0].filters.claim_token,'token');
+ assert.equal(h.reads[1].filters.club_id,'club-from-job');
+});
+test('missing club settings falls back to a neutral template',async()=>{
+ const h=harness({brand:null}); await h.run();
+ assert.equal(h.updates[0].status,'sent');
+ assert.match(h.sends[0].body.htmlContent,/#334155/);
+ assert.doesNotMatch(h.sends[0].body.htmlContent,/<img/);
+});
+test('identity lookup failures retry without sending an unbranded email',async()=>{
+ for(const options of [{settingsError:true},{deliveryError:true}]){
+  const h=harness(options); await h.run();
+  assert.equal(h.updates[0].status,'pending'); assert.equal(h.sends.length,0);
  }
 });
