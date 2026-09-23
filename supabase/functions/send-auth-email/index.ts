@@ -19,7 +19,8 @@ Deno.serve(async (req: Request) => {
   } catch { return failure(401, 'Invalid webhook signature'); }
   try {
     const aliases = JSON.parse(Deno.env.get('AUTH_EMAIL_HOST_CLUBS') || '{}');
-    const slug = clubSlugForEmail(payload.email_data.redirect_to || '', aliases);
+    const dynamicOrigins = JSON.parse(Deno.env.get('AUTH_EMAIL_DYNAMIC_ORIGINS') || '[]');
+    const slug = clubSlugForEmail(payload.email_data.redirect_to || '', aliases, dynamicOrigins);
     let brand: EmailBrand = platformBrand;
     if (slug) {
       const admin = createClient(supabaseUrl, key);

@@ -36,7 +36,7 @@ ${action ? `<table role="presentation" cellspacing="0" cellpadding="0" style="ma
 }
 
 /** Les métadonnées utilisateur ne sont jamais utilisées pour choisir une identité. */
-export function clubSlugForEmail(redirect: string, aliases: Record<string, string> = {}): string | null {
+export function clubSlugForEmail(redirect: string, aliases: Record<string, string> = {}, dynamicOrigins: string[] = []): string | null {
   try {
     const url = new URL(redirect);
     if (url.username || url.password) return null;
@@ -48,8 +48,15 @@ export function clubSlugForEmail(redirect: string, aliases: Record<string, strin
     // Le BO central est multi-club : ne pas choisir arbitrairement un de ses clubs.
     if (host === 'admin.feelike.pro') return null;
     const alias = (key: string) => Object.prototype.hasOwnProperty.call(aliases, key) ? aliases[key] : undefined;
-    const slug = local ? alias(url.origin) :
-      /^app-([a-z0-9-]+)\.feelike\.pro$/.exec(host)?.[1] ?? alias(url.origin) ?? alias(host);
-    return typeof slug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) ? slug : null;
+    const domainSlug = /^app-([a-z0-9-]+)\.feelike\.pro$/.exec(host)?.[1];
+    // Le domaine club prime toujours sur un paramètre de requête. Une origine
+    // locale autorisée transmet seulement une identité visuelle, jamais des droits.
+    const hints = url.searchParams.getAll('club_slug');
+    const dynamicSlug = hints.length === 1 ? hints[0] : null;
+    const slug = domainSlug ?? (local && dynamicOrigins.includes(url.origin)
+      ? dynamicSlug
+      : local ? alias(url.origin) : alias(url.origin) ?? alias(host));
+    return typeof slug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) &&
+      !['admin', 'www', 'api', 'app'].includes(slug) && !slug.startsWith('app-') ? slug : null;
   } catch { return null; }
 }

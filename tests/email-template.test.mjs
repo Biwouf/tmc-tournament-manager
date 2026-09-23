@@ -56,3 +56,18 @@ test('localhost requires an explicit origin including the port', () => {
   assert.equal(clubSlugForEmail('http://app-cac-tennis.feelike.pro/reset-password', { 'http://app-cac-tennis.feelike.pro': 'cac-tennis' }), null);
   assert.equal(clubSlugForEmail('http://user@localhost:5173/reset-password', aliases), null);
 });
+
+test('dynamic local branding follows the request and never the previous fixed club', () => {
+  const origins = ['http://localhost:5173'];
+  const legacy = { 'http://localhost:5173': 'cac-tennis' };
+  for (const slug of ['cac-tennis', 'tc-moissac']) {
+    assert.equal(clubSlugForEmail(`http://localhost:5173/reset-password?club_slug=${slug}`, legacy, origins), slug);
+  }
+  for (const query of ['', '?club_slug=', '?club_slug=../cac-tennis', '?club_slug=admin', '?club_slug=cac-tennis&club_slug=tc-moissac']) {
+    assert.equal(clubSlugForEmail(`http://localhost:5173/reset-password${query}`, legacy, origins), null);
+  }
+  assert.equal(clubSlugForEmail('http://localhost:5174/reset-password?club_slug=tc-moissac', {}, origins), null);
+  assert.equal(clubSlugForEmail('https://unknown.example/reset-password?club_slug=tc-moissac', {}, origins), null);
+  assert.equal(clubSlugForEmail('https://app-cac-tennis.feelike.pro/reset-password?club_slug=tc-moissac', {}, origins), 'cac-tennis');
+  assert.equal(clubSlugForEmail('https://admin.feelike.pro/reset-password?club_slug=tc-moissac', {}, origins), null);
+});

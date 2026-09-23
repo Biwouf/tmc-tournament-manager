@@ -50,9 +50,17 @@ async function handler(name, options = {}) {
           if (table === 'profiles') data = { is_super_admin: config.superAdmin };
           // `status: null` = club introuvable (PR11 : le `club_id` vient d'un visiteur).
           if (table === 'clubs') data = config.status === null ? null : { status: config.status, name: 'Club de test' };
+          if (table === 'clubs' && config.emailClubs) {
+            const club = config.emailClubs[filters.slug];
+            data = club?.status === filters.status ? club : null;
+          }
           if (table === 'club_members') data = filters.club_id === config.actuClub && config.role ? { role: config.role } : null;
           if (table === 'club_social_credentials') data = config.credentials[filters.club_id] ?? null;
           if (table === 'club_settings') data = { config: config.clubConfig };
+          if (table === 'club_settings' && config.emailClubs) {
+            const club = Object.values(config.emailClubs).find(c => c.id === filters.club_id);
+            data = club ? { config: { brand: club.brand } } : null;
+          }
           // PR11 : la seule requête `contact_messages` qu'on attend ici est le COMPTAGE du
           // rate-limit — l'insert a sa propre branche et ne passe pas par `then`.
           if (table === 'contact_messages') {
@@ -363,4 +371,22 @@ test('auth email brands a configured local PWA and preserves its callback', asyn
   assert.equal(body.sender.name, 'Club de test');
   assert.match(body.htmlContent, /#e51828/);
   assert.match(body.htmlContent, /redirect_to=http%3A%2F%2Flocalhost%3A5173%2Freset-password/);
+});
+
+test('one local origin sends consecutive requests with each active club brand', async () => {
+  const app = await handler('send-auth-email', {
+    env: { ...authEnv, AUTH_EMAIL_DYNAMIC_ORIGINS: '["http://localhost:5173"]', AUTH_EMAIL_HOST_CLUBS: '{"http://localhost:5173":"cac-tennis"}' },
+    emailClubs: {
+      'cac-tennis': { id: 'cac', name: 'CAC Tennis', status: 'active', brand: { color: '#e51828' } },
+      'tc-moissac': { id: 'moissac', name: 'TC Moissac', status: 'active', brand: { color: '#123456' } },
+      'suspended': { id: 'off', name: 'Inactive', status: 'suspended', brand: { color: '#abcdef' } },
+    },
+  });
+  for (const [slug, name, color] of [['cac-tennis', 'CAC Tennis', '#e51828'], ['tc-moissac', 'TC Moissac', '#123456'], ['unknown', 'Feelike', '#334155'], ['suspended', 'Feelike', '#334155']]) {
+    const payload = { ...authPayload, email_data: { ...authPayload.email_data, redirect_to: `http://localhost:5173/reset-password?club_slug=${slug}` } };
+    assert.equal((await app.call(payload, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+    const mail = app.effects.filter(e => e.feed).at(-1).feed;
+    assert.equal(mail.sender.name, name);
+    assert.ok(mail.htmlContent.includes(color));
+  }
 });

@@ -17,15 +17,19 @@ un bleu-gris neutre est utilisé ; sans logo public HTTPS, le nom reste affiché
 - Alias techniques ou domaines personnalisés : mapping serveur explicite
   `AUTH_EMAIL_HOST_CLUBS`, objet JSON `{"preview.example.com":"slug-du-club"}`.
   Ne renseigner que des domaines contrôlés et autorisés dans Supabase Auth.
-- Développement local : ajouter uniquement sur DEV une origine exacte, port compris,
-  par exemple `{"http://localhost:5173":"cac-tennis"}` dans `AUTH_EMAIL_HOST_CLUBS`.
-  Le serveur ne reçoit pas `VITE_DEV_CLUB_SLUG` : cette correspondance est nécessaire
-  même si la PWA affiche déjà le bon club. Les autres ports restent indépendants.
-  HTTP n'est accepté que pour les adresses de boucle locale (`localhost`, `127.0.0.1`,
-  `[::1]`) explicitement déclarées. Aucun hostname local sans port ne sert de repli.
-- Back-office central `admin.feelike.pro`, localhost sans correspondance, club absent/suspendu ou
-  domaine inconnu : identité neutre Feelike. Ne jamais deviner un club à partir
-  de l'email du destinataire ou de ses métadonnées modifiables.
+- Développement local : la PWA transmet le slug de son `ClubContext` dans
+  `redirect_to`, par exemple `/reset-password?club_slug=tc-moissac`. Le hook ne
+  le prend en compte que pour une origine locale déclarée explicitement dans
+  `AUTH_EMAIL_DYNAMIC_ORIGINS` (tableau JSON, exemple `["http://localhost:5173"]`).
+  Changer `VITE_DEV_CLUB_SLUG` change donc le club du prochain mail sans modifier
+  les secrets Supabase. Le hook vérifie que ce club existe et est actif, puis lit
+  son nom, son logo et sa couleur en base. Ce paramètre ne confère aucun droit.
+  Une origine dynamique ignore les anciens alias fixes, même en l'absence de slug.
+  Le port est significatif ; HTTP reste limité aux adresses de boucle locale.
+- Back-office central `admin.feelike.pro`, origine locale non configurée, slug
+  absent/invalide, club absent/suspendu ou domaine inconnu : identité neutre Feelike.
+  Le domaine `app-<slug>.feelike.pro` prime sur tout paramètre `club_slug`.
+  Ne jamais deviner un club à partir de l'email ou des métadonnées du destinataire.
 
 L'inscription reste sans confirmation email comme actuellement. Le modèle de
 confirmation est prêt si cette option est activée ultérieurement. Récupération,
@@ -45,7 +49,8 @@ Dashboard. Le SMTP reste disponible pour revenir au fonctionnement précédent.
    vers `https://<project-ref>.supabase.co/functions/v1/send-auth-email`.
    Récupérer son secret et le définir comme `SEND_EMAIL_HOOK_SECRET` dans les
    secrets Edge Functions avant d'activer le hook.
-4. Ajouter les alias nécessaires à `AUTH_EMAIL_HOST_CLUBS`. Conserver la liste
+4. Ajouter les alias nécessaires à `AUTH_EMAIL_HOST_CLUBS` et, sur DEV uniquement,
+   les origines locales à `AUTH_EMAIL_DYNAMIC_ORIGINS`. Conserver la liste
    précise des redirections autorisées et les protections Auth existantes.
 5. Désactiver le suivi/réécriture des liens Auth chez Brevo.
 6. Avec des comptes de recette autorisés, contrôler la réception et l'ouverture
@@ -78,11 +83,16 @@ Aucun email réel n'est envoyé par ces tests.
 - [Supabase Send Email Hook](https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook)
 - [Brevo Send a transactional email](https://developers.brevo.com/reference/send-transac-email)
 
-## Recette locale CAC sur DEV
+## Recette locale multi-club sur DEV
 
-La fonction `send-auth-email` a été redéployée sur DEV avec la correspondance
-`http://localhost:5173` → `cac-tennis` dans `AUTH_EMAIL_HOST_CLUBS`.
-La couleur du CAC était vide : son rouge applicatif historique `#e51828` a été
-renseigné explicitement dans `brand.color` sur DEV. Le logo existant est conservé.
-Les autres ports et la production ne sont pas modifiés. 66 tests locaux passent ;
-la réception réelle doit être vérifiée par une nouvelle demande depuis la PWA.
+Configurer `AUTH_EMAIL_DYNAMIC_ORIGINS=["http://localhost:5173"]`, déployer
+`send-auth-email` et lancer la PWA mise à jour depuis cette branche. L'ancien
+mapping fixe de localhost vers CAC dans `AUTH_EMAIL_HOST_CLUBS` n'est plus nécessaire.
+Passer `VITE_DEV_CLUB_SLUG` de `cac-tennis` à `tc-moissac`, redémarrer Vite après la
+modification de son environnement et demander un nouveau mail. Le nom, le logo
+et la couleur doivent suivre le club de la PWA. Les anciennes versions de la PWA
+qui ne transmettent pas le slug produisent un mail neutre, jamais celui du précédent club.
+
+La couleur CAC précédemment vide a été renseignée explicitement à `#e51828` sur
+DEV ; les autres clubs conservent leurs propres paramètres. Aucune modification
+production et aucun email réel ne sont effectués par les tests automatisés.
