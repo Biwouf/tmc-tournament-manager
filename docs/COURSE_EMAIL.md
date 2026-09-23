@@ -6,7 +6,7 @@ Les nouveaux événements d’inscription déclenchent les mails suivants, sans 
 - Passage de `pending` à `approved` : membre demandeur, place confirmée.
 - Passage de `pending` à `denied` : membre demandeur, refus.
 
-Les autres transitions restent silencieuses. Le motif du refus reste dans l’application.
+Les autres transitions restent silencieuses. Le motif du refus est inclus dans le mail au demandeur lorsqu’il est renseigné, et reste consultable dans l’application.
 Les événements antérieurs à la migration ne sont pas repris. Les mails comportent le nom du cours et invitent à consulter l’application du club.
 
 La file transactionnelle `course_email_deliveries` est privée (RLS et droits SQL). Seul le service serveur peut prendre un lot ou enregistrer son résultat. Les destinataires sont déterminés en base, et leur email courant est lu dans Supabase Auth côté serveur. Les clubs suspendus et les membres retirés sont exclus lors de la prise du lot.
@@ -28,7 +28,7 @@ Le Send Email Hook de Supabase ne concerne que les emails Auth.
 
 ## Mise en service par environnement Supabase
 
-1. Appliquer `supabase/migrations/2026092301_course_email.sql` après les migrations des cours et de leur propriétaire, puis `2026092302_course_email_requester.sql` pour le nom du demandeur.
+1. Appliquer `supabase/migrations/2026092301_course_email.sql` après les migrations des cours et de leur propriétaire, puis `2026092302_course_email_requester.sql` pour le nom du demandeur et `2026092303_course_email_denial_reason.sql` pour le motif du refus.
 2. Configurer les secrets Edge `BREVO_API_KEY` et `COURSE_FROM_EMAIL` (expéditeur validé chez Brevo). Si `COURSE_FROM_EMAIL` est absent, `CONTACT_FROM_EMAIL` est utilisé.
 3. Déployer `supabase functions deploy course-email-dispatch`, en conservant la vérification JWT.
 4. Créer les secrets Vault `course_email_project_url` et `course_email_service_role_key` (JWT historique `service_role`, jamais une variable `VITE_`).
