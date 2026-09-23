@@ -23,8 +23,8 @@ function teamLabel(m: LiveMatch, team: 1 | 2): string {
     if (m.j1_classement) label += ` (${m.j1_classement})`;
     if (m.j1_club) label += ` · ${m.j1_club}`;
     parts.push(label);
-    if (m.match_type === 'double' && m.j3_prenom && m.j3_nom) {
-      let p = `${m.j3_prenom} ${m.j3_nom}`;
+    if (m.match_type === 'double' && (m.j3_prenom || m.j3_nom)) {
+      let p = `${m.j3_prenom ?? ''} ${m.j3_nom ?? ''}`;
       if (m.j3_classement) p += ` (${m.j3_classement})`;
       if (m.j3_club) p += ` · ${m.j3_club}`;
       parts.push(p);
@@ -34,8 +34,8 @@ function teamLabel(m: LiveMatch, team: 1 | 2): string {
     if (m.j2_classement) label += ` (${m.j2_classement})`;
     if (m.j2_club) label += ` · ${m.j2_club}`;
     parts.push(label);
-    if (m.match_type === 'double' && m.j4_prenom && m.j4_nom) {
-      let p = `${m.j4_prenom} ${m.j4_nom}`;
+    if (m.match_type === 'double' && (m.j4_prenom || m.j4_nom)) {
+      let p = `${m.j4_prenom ?? ''} ${m.j4_nom ?? ''}`;
       if (m.j4_classement) p += ` (${m.j4_classement})`;
       if (m.j4_club) p += ` · ${m.j4_club}`;
       parts.push(p);

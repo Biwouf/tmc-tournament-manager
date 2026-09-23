@@ -28,6 +28,9 @@ export type LiveSet3Format = 'normal' | 'super_tiebreak';
 export type LiveMatchWinner = 'j1' | 'j2';
 
 export interface LiveMatch {
+  team_match_line_id?: string | null;
+  team_rencontre_id?: string | null;
+  team_result_confirmed?: boolean;
   revision: number; // Version serveur pour détecter les écritures concurrentes.
   id: string;
   match_date: string;

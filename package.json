@@ -16,7 +16,8 @@
     "test:security": "node --test tests/security.test.mjs tests/edge-security.test.mjs",
     "test:password-recovery": "node --test tests/password-recovery.test.mjs",
     "test:signup": "node --test tests/signup-sql.test.mjs tests/signup-client.test.mjs tests/signup-member-list.test.mjs tests/pwa-branding.test.mjs",
-    "test:domains": "node --test tests/domains.test.mjs"
+    "test:domains": "node --test tests/domains.test.mjs",
+    "test:team-matches": "node --test tests/team-scoring-rules.test.mjs tests/team-match-commands.test.mjs tests/team-match-client.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

@@ -46,9 +46,68 @@ Cette règle doit être intégrée aux mutations de la PWA, pas uniquement au mo
 4. Infrastructure hors connexion partagée et intégration des mutations,
    résolution des conflits et validation des parcours sur mobile.
 
-## État de livraison
+## État de livraison — 23 septembre 2026
 
-Lot 1 implémenté. Migration à appliquer avant le déploiement du back-office.
-Les anciens matchs sans règle connue restent NULL ; leur reprise dans le nouveau
-parcours devra demander une règle explicite, sans réinterpréter leur score.
-Les lots 2 à 4 ne sont pas encore implémentés.
+Lots 1 à 3 implémentés dans `codex/pwa-equipes-live` :
+
+- Compétition : règle des simples, conservée par match ; doubles en super tie-break.
+- Commandes serveur réservées aux membres du club actif : création, liaison au live,
+  résolution explicite des anciennes règles inconnues, résultat et confirmation.
+- Places uniques et bornées au format. Résultats structurés, vainqueur calculé,
+  WO et abandon, pondération des doubles. Historique des changements conservé côté serveur.
+- Révision du match et du live vérifiée à la saisie, révision de la rencontre au
+  récapitulatif. Identifiant de commande stable lors d'une nouvelle tentative réseau.
+- PWA : fiche accessible depuis une rencontre, assistant de création en trois étapes,
+  recherche de membres, grille de classement, résultats numériques et récapitulatif.
+- Live lié : règle fixée automatiquement, retour vers la rencontre, résultat terminé
+  conservé dans la liste au-delà de sept jours tant qu'il n'est pas validé.
+- BO : création du live via la même commande atomique ; suppression de l'ancienne
+  validation automatique du vainqueur au simple chargement de la fiche.
+
+La consultation des scores est publique pour les clubs actifs. Les écritures directes
+sur les autres données de compétition restent réservées aux responsables ; les membres
+utilisent les commandes dédiées sans obtenir de droits d'administration supplémentaires.
+
+Le lot 4 (hors connexion transversal) reste à développer. Les nouvelles commandes sont
+rejouables, mais aucune file locale durable ni synchronisation automatique n'est encore
+livrée. Une erreur réseau ne doit pas être présentée comme une sauvegarde réussie.
+
+## Déploiement et recette
+
+Appliquer sur la base de développement, dans cet ordre, avant de déployer les clients :
+
+1. `2026092101_team_scoring_rules.sql` (si pas déjà appliquée).
+2. `2026092301_team_match_commands.sql`.
+
+La seconde migration ajoute des colonnes requises par les filtres Live du BO et de la
+PWA. Déployer le BO et la PWA ensemble après la migration. Aucun SQL distant n'a été
+appliqué automatiquement pendant le développement.
+
+Recette avec deux membres du même club :
+
+1. Configurer les simples en STB dans une compétition puis ouvrir une rencontre PWA.
+2. Ajouter un simple ; le lancer en live. Après deux sets partagés, vérifier que le
+   super tie-break s'affiche directement, sans sélecteur. Refaire avec un set classique.
+3. Ajouter un double : deux joueurs de chaque côté et super tie-break automatique.
+4. Depuis le second compte, reprendre explicitement le live ; le premier marqueur
+   passe en lecture seule. Ouvrir un formulaire avant une modification de score :
+   sa validation doit signaler le conflit, pas écraser le nouvel état.
+5. Terminer un live puis confirmer son résultat prérempli depuis la rencontre.
+6. Compléter les autres places en saisie directe, WO et abandon ; vérifier le poids
+   du double et que toutes les places attendues sont nécessaires pour confirmer.
+7. Confirmer la rencontre ; corriger un résultat avec l'autre membre. La rencontre
+   revient à confirmer. Reprendre un live terminé doit aussi invalider son résultat.
+8. Tester un ancien match sans règle : choix explicite demandé. Un ancien score libre
+   doit être vérifié dans la saisie structurée avant de le transférer au live.
+
+Tests automatisés :
+
+```sh
+node --test tests/team-scoring-rules.test.mjs tests/team-match-commands.test.mjs tests/team-match-client.test.mjs tests/live-score-sql.test.mjs tests/live-score-client.test.mjs
+npm run build
+npm --prefix pwa run build
+```
+
+Tests SQL sur PGlite isolé et tests de composants sur JSDOM. La recette mobile et la
+concurrence sur deux connexions PostgreSQL réelles restent à réaliser sur l'environnement
+de développement avant la mise en production.

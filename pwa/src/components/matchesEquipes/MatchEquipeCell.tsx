@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import { competitionShortLabel } from './labels';
 
@@ -44,7 +45,7 @@ export default function MatchEquipeCell({ rencontre, equipe, competition, etape,
   const isUpcoming = state === 'upcoming';
 
   return (
-    <div
+    <Link to={`/matches-equipes/${rencontre.id}`} aria-label={`Ouvrir la rencontre contre ${rencontre.club_adverse}`}
       className="grid rounded-xl border border-border bg-card overflow-hidden"
       style={{
         gridTemplateColumns: isUpcoming ? '72px 1fr 58px' : '72px 1fr 78px',
@@ -122,7 +123,7 @@ export default function MatchEquipeCell({ rencontre, equipe, competition, etape,
       ) : (
         <ResultColumn rencontre={rencontre} />
       )}
-    </div>
+    </Link>
   );
 }
 

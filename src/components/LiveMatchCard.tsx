@@ -80,10 +80,10 @@ function teamMembers(match: LiveMatch, side: LiveMatchWinner): TeamMember[] {
     const members: TeamMember[] = [
       { prenom: match.j1_prenom, nom: match.j1_nom, classement: match.j1_classement, club: match.j1_club },
     ];
-    if (match.match_type === 'double' && match.j3_prenom && match.j3_nom) {
+    if (match.match_type === 'double' && (match.j3_prenom || match.j3_nom)) {
       members.push({
-        prenom: match.j3_prenom,
-        nom: match.j3_nom,
+        prenom: match.j3_prenom ?? '',
+        nom: match.j3_nom ?? '',
         classement: match.j3_classement,
         club: match.j3_club,
       });
@@ -93,10 +93,10 @@ function teamMembers(match: LiveMatch, side: LiveMatchWinner): TeamMember[] {
   const members: TeamMember[] = [
     { prenom: match.j2_prenom, nom: match.j2_nom, classement: match.j2_classement, club: match.j2_club },
   ];
-  if (match.match_type === 'double' && match.j4_prenom && match.j4_nom) {
+  if (match.match_type === 'double' && (match.j4_prenom || match.j4_nom)) {
     members.push({
-      prenom: match.j4_prenom,
-      nom: match.j4_nom,
+      prenom: match.j4_prenom ?? '',
+      nom: match.j4_nom ?? '',
       classement: match.j4_classement,
       club: match.j4_club,
     });
@@ -105,6 +105,7 @@ function teamMembers(match: LiveMatch, side: LiveMatchWinner): TeamMember[] {
 }
 
 function needsDeletionBadge(m: LiveMatch): boolean {
+  if (m.team_match_line_id && !m.team_result_confirmed) return false;
   if (m.status !== 'finished' || !m.finished_at) return false;
   const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
   return Date.now() - new Date(m.finished_at).getTime() > twoDaysMs;
