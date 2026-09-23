@@ -108,3 +108,9 @@ les tests automatisés. L’utilisateur a confirmé le fonctionnement de l’env
   déclarer les URLs HTTPS exactes des applications de production et conserver
   les URLs d’invitation. Déployer les écrans avant la recette réelle.
 - Aucune migration SQL ni Edge Function supplémentaire n’est nécessaire.
+
+## Habillage des emails par club
+
+Voir [Emails aux couleurs du club](CLUB_EMAILS.md) pour le modèle partagé et son
+activation. Une fois le Send Email Hook activé, les étapes SMTP/templates ci-dessus
+servent au retour arrière ; les emails Auth passent par le hook et l'API Brevo.

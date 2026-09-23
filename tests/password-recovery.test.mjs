@@ -19,7 +19,7 @@ for (const app of ['', 'pwa']) {
   const { act, createElement: h } = req('react');
   const { createRoot } = req('react-dom/client');
   const { MemoryRouter } = req('react-router-dom');
-  function fixture() {
+  function fixture(clubSlug = 'cac-tennis') {
     sessionStorage.clear();
     window.history.replaceState(null, '', '/reset-password');
     let session = null;
@@ -36,6 +36,7 @@ for (const app of ['', 'pwa']) {
     const cache = new Map();
     let recovery;
     function load(file) {
+      if (file.endsWith('/contexts/ClubContext.tsx')) return { useClub: () => ({ club: { slug: clubSlug } }) };
       if (file.endsWith('/lib/supabase.ts')) return { supabase: api, passwordRecovery: recovery };
       if (cache.has(file)) return cache.get(file).exports;
       const module = { exports: {} }; cache.set(file, module);
@@ -72,6 +73,18 @@ for (const app of ['', 'pwa']) {
       assert.match(document.body.textContent, /Si un compte correspond/);
       assert.equal(document.querySelector('form'), null);
     } finally { await f.close(); }
+  });
+  if (app === 'pwa') test('PWA locale : le club courant accompagne chaque demande, sans fixer CAC', async () => {
+    dom.reconfigure({ url: 'http://localhost:5173/forgot-password' });
+    try {
+      for (const slug of ['cac-tennis', 'tc-moissac']) {
+        const f = fixture(slug); await f.mount(false);
+        try {
+          await f.change('recovery-email', 'membre@example.com'); await f.submit();
+          assert.equal(f.calls[0][2].redirectTo, `http://localhost:5173/reset-password?club_slug=${slug}`);
+        } finally { await f.close(); }
+      }
+    } finally { dom.reconfigure({ url: 'https://club.example/reset-password' }); }
   });
   test(`${label}: erreurs quota/réseau, reprise et double soumission`, async () => {
     const f = fixture(); await f.mount(false);

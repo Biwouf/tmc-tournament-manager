@@ -13,6 +13,19 @@ La file transactionnelle `course_email_deliveries` est privée (RLS et droits SQ
 
 Une commande rejouée ne crée pas de nouveau mail. Les lots sont verrouillés avec `SKIP LOCKED` et un bail de cinq minutes. Les pannes temporaires sont réessayées avec délai croissant, cinq tentatives au maximum et une durée de vie de 24 heures. Les échecs définitifs restent visibles en base. Une interruption après acceptation par Brevo mais avant enregistrement peut produire un doublon : la livraison n’est pas garantie « exactement une fois ». `sent` signifie accepté par Brevo, pas réception garantie en boîte mail.
 
+## Habillage du club
+
+Le dispatcher reprend le modèle HTML commun aux autres emails : nom, logo public
+HTTPS et couleur principale de `club_settings.config.brand`. Le club est celui du
+job réclamé dans la file, identifié par son id et son jeton de prise en charge.
+Le sujet et la version texte restent ceux enregistrés dans la file. Sans réglages
+visuels, le mail affiche le nom du club avec un habillage neutre.
+
+Pour une installation où les alertes sont déjà actives, il suffit de redéployer
+`course-email-dispatch` depuis cette branche pour bénéficier du modèle. Aucune
+migration SQL ni modification du cron supplémentaire n'est requise pour l'habillage.
+Le Send Email Hook de Supabase ne concerne que les emails Auth.
+
 ## Mise en service par environnement Supabase
 
 1. Appliquer `supabase/migrations/2026092301_course_email.sql` après les migrations des cours et de leur propriétaire, puis `2026092302_course_email_requester.sql` pour le nom du demandeur et `2026092303_course_email_denial_reason.sql` pour le motif du refus.
@@ -27,7 +40,7 @@ Une configuration mail absente provoque une réponse 503 sans consommer la file.
 
 ## Vérification locale
 
-`node --test tests/course-email-sql.test.mjs`
+`npm run test:emails`
 
 Le test exécute les migrations et les commandes dans PGlite : destinataires, acceptation/refus, répétition de commande, rollback, accès privés, reprise après crash, limite de tentatives et exclusion des membres retirés/clubs suspendus.
 

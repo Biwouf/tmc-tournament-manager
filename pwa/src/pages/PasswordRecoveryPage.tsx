@@ -1,3 +1,5 @@
+import { useClub } from '../contexts/ClubContext';
+import { passwordRecoveryRedirect } from '../lib/passwordRecoveryRedirect';
 import PasswordInput from '../components/PasswordInput';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,6 +9,7 @@ const inputClass = 'w-full rounded-lg border border-border bg-background px-3 py
 const buttonClass = 'w-full rounded-lg bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60';
 
 export default function PasswordRecoveryPage({ reset = false }: { reset?: boolean }) {
+  const { club } = useClub();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -49,7 +52,7 @@ export default function PasswordRecoveryPage({ reset = false }: { reset?: boolea
     try {
       if (!reset) {
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: passwordRecoveryRedirect(window.location.origin, club?.slug),
         });
         if (error) {
           // Log identifiers only: never the email, tokens or raw provider response.
