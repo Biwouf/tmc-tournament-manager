@@ -59,7 +59,7 @@ export default function MatchEquipeFilterBar({
       <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-card p-1">
         {(
           [
-            ['upcoming', 'À venir', upcomingCount],
+            ['upcoming', 'À venir / En cours', upcomingCount],
             ['past', 'Passés', pastCount],
           ] as const
         ).map(([key, label, count]) => {

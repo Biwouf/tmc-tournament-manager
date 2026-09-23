@@ -73,9 +73,12 @@ export default function MatchesEquipesPage() {
   const {
     data: rencontres,
     isFetching,
+    dataUpdatedAt,
     refetch,
   } = useQuery({
     queryKey: ['team-rencontres', currentSaisonId, equipeId, clubId],
+    staleTime: 0,
+    refetchInterval: 15_000,
     enabled: !!currentSaisonId && !!equipesCtx,
     queryFn: async (): Promise<EnrichedRencontre[]> => {
       const equipeIds = equipeId ? [equipeId] : equipesCtx!.equipes.map((e) => e.id);
@@ -94,28 +97,40 @@ export default function MatchesEquipesPage() {
         .in('etape_id', (etapes as TeamEtape[]).map((et) => et.id))
         .order('date_heure', { ascending: true });
       if (e2) throw e2;
+      if (!rencs?.length) return [];
+      const { data: activeLives, error: liveError } = await supabase
+        .from('live_matches')
+        .select('team_rencontre_id')
+        .eq('club_id', clubId)
+        .eq('status', 'live')
+        .in('team_rencontre_id', (rencs as TeamRencontre[]).map(r => r.id));
+      if (liveError) throw liveError;
+      const liveEncounterIds = new Set((activeLives ?? []).map(m => m.team_rencontre_id));
       return (rencs as TeamRencontre[]).map((r) => {
         const etape = (etapes as TeamEtape[]).find((et) => et.id === r.etape_id)!;
         const equipe = equipesCtx!.equipes.find((eq) => eq.id === etape.equipe_id)!;
         const comp = equipesCtx!.competitions.find((c) => c.id === equipe.competition_id)!;
-        return { rencontre: r, etape, equipe, comp };
+        return { rencontre: r, etape, equipe, comp, isLive: !r.wo && liveEncounterIds.has(r.id) };
       });
     },
   });
 
   // Filtrage à venir / passés (côté client)
   const { upcoming, past } = useMemo(() => {
-    const now = new Date();
+    // Re-evaluate dates on every refresh, even when the server rows are unchanged.
+    const now = new Date(dataUpdatedAt);
     const all = rencontres ?? [];
-    const upcoming = all.filter((x) => new Date(x.rencontre.date_heure) >= now);
+    const upcoming = all
+      .filter((x) => x.isLive || new Date(x.rencontre.date_heure) >= now)
+      .sort((a, b) => Number(b.isLive) - Number(a.isLive) || +new Date(a.rencontre.date_heure) - +new Date(b.rencontre.date_heure));
     const past = all
-      .filter((x) => new Date(x.rencontre.date_heure) < now)
+      .filter((x) => !x.isLive && new Date(x.rencontre.date_heure) < now)
       .sort(
         (a, b) =>
           +new Date(b.rencontre.date_heure) - +new Date(a.rencontre.date_heure),
       );
     return { upcoming, past };
-  }, [rencontres]);
+  }, [rencontres, dataUpdatedAt]);
 
   // Libellés chips
   const currentSaison = saisons?.find((s) => s.id === currentSaisonId);
