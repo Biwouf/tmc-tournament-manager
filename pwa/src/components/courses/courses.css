@@ -462,6 +462,9 @@
   min-height: 90px;
   resize: vertical;
 }
+.booking-request textarea:focus-visible {
+  outline-offset: -3px;
+}
 .booking-decision {
   margin-top: 10px;
   font-size: 12px;
