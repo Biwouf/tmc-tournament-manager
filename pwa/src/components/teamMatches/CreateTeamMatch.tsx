@@ -17,12 +17,17 @@ function PlayerFields({ value, onChange, clubId, index }: {
 }) {
   const name = `${value.prenom}${value.nom ? ` ${value.nom}` : ''}`;
   const [suggestions, setSuggestions] = useState<{ id: string; prenom: string; nom: string }[]>([]);
+  const [searchError, setSearchError] = useState(false);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(async () => {
+      setSearchError(false);
       if (!clubId || name.trim().length < 2 || value.member_id) { setSuggestions([]); return; }
       const { data, error } = await supabase.rpc('team_member_search', { p_club: clubId, p_search: name });
-      if (active) setSuggestions(error ? [] : data ?? []);
+      if (active) {
+        setSuggestions(error ? [] : data ?? []);
+        setSearchError(!!error);
+      }
     }, 250);
     return () => { active = false; clearTimeout(timer); };
   }, [clubId, name, value.member_id]);
@@ -32,6 +37,7 @@ function PlayerFields({ value, onChange, clubId, index }: {
       <input autoComplete="off" maxLength={120} value={name} onChange={e => onChange({ prenom: e.target.value, nom: '', classement: value.classement })}
         className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3" placeholder={clubId ? 'Nom libre ou recherche membre' : 'Prénom et nom'} />
     </label>
+    {searchError && <p role="alert" className="text-sm text-red-700">Recherche des membres indisponible. Réessayez en modifiant le nom, ou saisissez-le librement.</p>}
     {suggestions.length > 0 && <ul className="rounded-lg border border-border">{suggestions.map(p => <li key={p.id}>
       <button type="button" className="min-h-11 w-full px-3 text-left hover:bg-muted" onClick={() => { onChange({ ...value, prenom: p.prenom, nom: p.nom, member_id: p.id }); setSuggestions([]); }}>{p.prenom} {p.nom}</button>
     </li>)}</ul>}
