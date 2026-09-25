@@ -507,7 +507,7 @@
   line-height: 1.5;
 }
 body.has-install-banner .booking-toast {
-  bottom: calc(190px + env(safe-area-inset-bottom));
+  bottom: calc(56px + var(--install-banner-height, 190px) + 20px + env(safe-area-inset-bottom));
 }
 @keyframes booking-rise {
   from {

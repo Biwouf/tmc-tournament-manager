@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
 import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
@@ -8,12 +8,32 @@ export default function InstallBanner() {
   const { club } = useClub();
   const { config } = useClubConfig();
   const clubName = club?.name ?? 'votre club';
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (variant === null) return;
+    const banner = bannerRef.current;
+
+    const updateReservedSpace = () => {
+      const height = banner?.getBoundingClientRect().height ?? 0;
+      document.body.style.setProperty('--install-banner-height', `${Math.ceil(height)}px`);
+    };
+
     document.body.classList.add('has-install-banner');
+    updateReservedSpace();
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && banner) {
+      observer = new ResizeObserver(updateReservedSpace);
+      observer.observe(banner);
+    }
+    window.addEventListener('resize', updateReservedSpace);
+
     return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateReservedSpace);
       document.body.classList.remove('has-install-banner');
+      document.body.style.removeProperty('--install-banner-height');
     };
   }, [variant]);
 
@@ -21,127 +41,88 @@ export default function InstallBanner() {
 
   return (
     <div
-      className="fixed left-0 right-0 z-40 bg-primary border-t border-primary"
-      style={{
-        bottom: 'calc(56px + env(safe-area-inset-bottom))',
-        padding: '14px',
-      }}
-      role="dialog"
-      aria-label="Installer l'application"
+      ref={bannerRef}
+      className="install-banner"
+      role="region"
+      aria-labelledby="install-banner-title"
     >
-      <button
-        type="button"
-        onClick={dismiss}
-        aria-label="Fermer"
-        className="absolute top-0 right-0 flex items-center justify-center text-primary-foreground/70"
-        style={{ width: 28, height: 28, padding: 8 }}
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-          <path d="M2 2 L12 12 M12 2 L2 12" />
-        </svg>
-      </button>
+      <div className="install-banner__card">
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Fermer la proposition d’installation"
+          className="install-banner__close"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M3 3 L15 15 M15 3 L3 15" />
+          </svg>
+        </button>
 
-      <div className="flex gap-3" style={{ paddingRight: 18 }}>
-        <img
-          src={config.brand.logo || '/logo.png'}
-          alt={clubName}
-          className="shrink-0"
-          style={{
-            width: 44,
-            height: 44,
-            objectFit: 'contain',
-            filter: 'drop-shadow(0 4px 12px rgba(229,24,40,0.3))',
-          }}
-        />
-        <div className="flex-1 min-w-0">
-          <div
-            className="text-primary-foreground"
-            style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 14, lineHeight: 1.25 }}
-          >
-            {clubName}, toujours sur toi
+        <div className="install-banner__intro">
+          <div className="install-banner__logo-wrap">
+            <img
+              src={config.brand.logo || '/logo.png'}
+              alt=""
+              className="install-banner__logo"
+            />
           </div>
-          <div
-            className="text-primary-foreground/80"
-            style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 400, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}
-          >
-            {variant === 'android'
-              ? "Installe l'application du club en cliquant sur le bouton ci-dessous"
-              : "Installe l'application du club en suivant les instructions ci-dessous"}
+          <div className="min-w-0 flex-1">
+            <div className="install-banner__eyebrow">APPLICATION DU CLUB</div>
+            <h2 id="install-banner-title" className="install-banner__title">
+              Installe {clubName}
+            </h2>
+            <p className="install-banner__description">
+              Accède plus vite aux actualités, matchs et services du club.
+            </p>
           </div>
         </div>
-      </div>
 
-      {variant === 'ios' ? <IosInstructions /> : <AndroidActions onInstall={promptInstall} onLater={dismiss} />}
+        {variant === 'ios' ? <IosInstructions /> : <AndroidActions onInstall={promptInstall} />}
+      </div>
     </div>
   );
 }
 
 function IosInstructions() {
   return (
-    <div
-      className="bg-white/15 flex items-center justify-center text-primary-foreground"
-      style={{
-        marginTop: 10,
-        borderRadius: 9,
-        padding: '8px 10px',
-        fontFamily: 'Manrope, sans-serif',
-        fontSize: 11,
-        gap: 6,
-        flexWrap: 'wrap',
-      }}
-    >
-      <span>Touche</span>
+    <div className="install-banner__ios-instructions">
+      <span>1. Touche</span>
       <ShareIcon />
-      <span>· puis</span>
+      <span className="install-banner__separator">puis</span>
+      <span>2. Choisis</span>
       <PlusBoxIcon />
-      <span>Sur l'écran d'accueil</span>
+      <span>Sur l’écran d’accueil</span>
     </div>
   );
 }
 
 function AndroidActions({
   onInstall,
-  onLater,
 }: {
   onInstall: () => Promise<'accepted' | 'dismissed' | 'unavailable'>;
-  onLater: () => void;
 }) {
+  const [isPrompting, setIsPrompting] = useState(false);
+
+  const install = async () => {
+    if (isPrompting) return;
+    setIsPrompting(true);
+    try {
+      await onInstall();
+    } finally {
+      setIsPrompting(false);
+    }
+  };
+
   return (
-    <div className="flex" style={{ marginTop: 10, gap: 8 }}>
+    <div className="install-banner__actions">
       <button
         type="button"
-        onClick={() => {
-          void onInstall();
-        }}
-        className="bg-white text-primary flex items-center justify-center"
-        style={{
-          flex: 1,
-          padding: '9px 0',
-          borderRadius: 9,
-          fontFamily: 'Manrope, sans-serif',
-          fontWeight: 700,
-          fontSize: 12.5,
-          gap: 6,
-        }}
+        onClick={() => void install()}
+        disabled={isPrompting}
+        className="install-banner__install-button"
       >
         <DownloadIcon />
-        <span>Installer</span>
-      </button>
-      <button
-        type="button"
-        onClick={onLater}
-        className="text-primary-foreground"
-        style={{
-          padding: '9px 14px',
-          borderRadius: 9,
-          border: '1px solid rgba(255,255,255,0.35)',
-          background: 'transparent',
-          fontFamily: 'Manrope, sans-serif',
-          fontWeight: 600,
-          fontSize: 12.5,
-        }}
-      >
-        Plus tard
+        <span>{isPrompting ? 'Ouverture…' : 'Installer l’application'}</span>
       </button>
     </div>
   );
