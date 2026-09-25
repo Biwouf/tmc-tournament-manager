@@ -301,3 +301,41 @@ body.has-install-banner .pwa-content {
 @media (prefers-reduced-motion: no-preference) {
   .badge-performance { animation: performance-reveal 1.2s ease-out both; }
 }
+
+/* Native modal keeps keyboard focus inside the Samsung installation help. */
+.install-help {
+  width: min( calc(100% - 24px), 30rem);
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 24px;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 18px;
+  color: #1f2937;
+  background: white;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 25%);
+  pointer-events: auto;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.install-help::backdrop { background: rgb(0 0 0 / 55%); }
+.install-help h2 { font-size: 20px; font-weight: 800; }
+.install-help p { margin-top: 12px; }
+.install-help button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.install-help button:focus-visible,
+.install-help summary:focus-visible,
+.install-help input:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.install-help__chrome { margin-top: 16px; padding: 12px; border-radius: 12px; background: #f3f4f6; }
+.install-help__chrome summary { cursor: pointer; min-height: 44px; padding-block: 11px; font-weight: 700; }
+.install-help__chrome label { display: block; margin-top: 12px; font-weight: 600; }
+.install-help__chrome input { width: 100%; min-height: 44px; margin-bottom: 8px; padding: 8px; background: white; border: 1px solid #d1d5db; border-radius: 6px; }
+.install-help__chrome [role="status"]:empty { display: none; }
+.install-help__actions { display: grid; gap: 8px; margin-top: 20px; }
+.install-help .install-help__continue { color: hsl(var(--primary-foreground)); background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
