@@ -43,6 +43,16 @@ test('Team commands: rules flow to Live, results, slots, WO, concurrency, member
    try { const r=await db.query(sql,args);await db.exec('COMMIT');return r.rows; }
    catch(e){await db.exec('ROLLBACK');throw e;}
   }
+  await db.exec(await migration('202609250001_team_member_search_fix'));
+  await db.exec(`UPDATE profiles SET prenom='David',nom='Paoletti' WHERE id='${id(103)}'`);
+  const search=async (query,user=103,club=id(1))=>(await as(user,'SELECT team_member_search($1,$2) AS results',[club,query]))[0].results;
+  assert.deepEqual(await search('dav'),[{id:id(103),prenom:'David',nom:'Paoletti'}]);
+  assert.deepEqual(await search('Paoletti'),await search('DAVID'));
+  assert.deepEqual(await search('d'),[]);
+  assert.deepEqual(await search('Absent'),[]);
+  await assert.rejects(search('David',106),/Accès membre/);
+  await assert.rejects(search('David',null),/permission denied/);
+  assert.deepEqual(await search('David',106,id(2)),[],'no results from another club');
   const command=(op,data,user=103,key=randomUUID(),club=id(1))=>as(user,'SELECT team_match_command($1,$2,$3,$4,$5) AS result',[club,id(14),op,data,key]).then(rows=>rows[0].result);
   const line=async lid=>(await db.query('SELECT * FROM team_match_lines WHERE id=$1',[lid])).rows[0];
   const live=async mid=>(await db.query('SELECT * FROM live_matches WHERE id=$1',[mid])).rows[0];

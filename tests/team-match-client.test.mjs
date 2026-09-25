@@ -121,3 +121,29 @@ test('Perf is only a club singles win against a strictly higher known ranking, n
  assert.equal(isClubPerformance(pending,{...live,winner:'j2'}),false);
  assert.equal(isClubPerformance(match('30','15/5',{gagnant:'adverse'}),live),false,'corrected official result wins over old live');
 });
+
+test('Member autocomplete displays search errors and allows selecting a returned member',async()=>{
+ const api=mocks['/lib/supabase.ts'].supabase;
+ const original=api.rpc;
+ const Component=load(resolve(src,'components/teamMatches/CreateTeamMatch.tsx')).default;
+ const root=createRoot(document.getElementById('root'));
+ try {
+  api.rpc=async()=>({data:null,error:{message:'SQL error'}});
+  const detail={rencontre:{id:'r'},competition:{format:'2S1D',singles_set3_format:'normal'},lines:[]};
+  await act(async()=>root.render(h(Component,{detail,clubId:'club',onClose:()=>{}})));
+  await click(button('Simple 1'));await click(button('Continuer'));
+  await input(document.querySelector('input'),'Dav');
+  await act(async()=>new Promise(resolve=>setTimeout(resolve,300)));
+  assert.match(document.querySelector('[role=alert]').textContent,/Recherche des membres indisponible/);
+  api.rpc=async(name,args)=>{
+   assert.equal(name,'team_member_search');assert.equal(args.p_club,'club');assert.equal(args.p_search,'David');
+   return {data:[{id:'member-david',prenom:'David',nom:'Paoletti'}],error:null};
+  };
+  await input(document.querySelector('input'),'David');
+  await act(async()=>new Promise(resolve=>setTimeout(resolve,300)));
+  assert.equal(document.querySelector('[role=alert]'),null);
+  await click(button('David Paoletti'));
+  assert.equal(document.querySelector('input').value,'David Paoletti');
+  assert.match(document.body.textContent,/Membre du club associé/);
+ } finally {await act(async()=>root.unmount());api.rpc=original;}
+});
