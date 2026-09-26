@@ -28,7 +28,8 @@ function load(file){
  vm.runInThisContext(`(function(require,module,exports){${code}\n})`,{filename:file})(require,module,module.exports);
  return module.exports;
 }
-const {resultWinner}=load(resolve(src,'lib/teamMatches.ts'));
+const {resultWinner,TEAM_FORMATS}=load(resolve(src,'lib/teamMatches.ts'));
+const {computeScore}=load(resolve(new URL('../src/components/teamMatches/teamMatchLabels.ts',import.meta.url).pathname));
 const rules=load(resolve(src,'liveScoreRules.ts'));
 const line={id:'a',rencontre_id:'r',match_type:'simple',slot:1,revision:2,set3_format:'super_tiebreak',sets:[],score:null,gagnant:null,result_kind:null,confirmed_at:null,
  joueurs_club:[{prenom:'Camille',nom:'Club',classement:'30'}],joueurs_adverse:[{prenom:'Alex',nom:'Adverse',classement:'NC'}]};
@@ -39,6 +40,13 @@ const click=async target=>act(async()=>target.dispatchEvent(new window.MouseEven
 const input=async(el,value)=>act(async()=>{Object.getOwnPropertyDescriptor(el instanceof window.HTMLSelectElement?window.HTMLSelectElement.prototype:window.HTMLInputElement.prototype,'value').set.call(el,value);el.dispatchEvent(new window.Event(el instanceof window.HTMLSelectElement?'change':'input',{bubbles:true}));});
 
 test('Score rules accept direct 7-6 without invented tie-break points and reject incomplete/extra sets',()=>{
+ assert.deepEqual(TEAM_FORMATS['3S1D'],{simples:3,doubles:1,doublePoints:1});
+ assert.deepEqual(computeScore([
+  {match_type:'simple',gagnant:'club'},
+  {match_type:'simple',gagnant:'club'},
+  {match_type:'simple',gagnant:'club'},
+  {match_type:'double',gagnant:'club'},
+ ],'3S1D'),{club:4,adverse:0});
  assert.equal(resultWinner([{club:7,adverse:6},{club:6,adverse:4}],'super_tiebreak'),'club');
  assert.equal(resultWinner([{club:6,adverse:4},{club:3,adverse:6},{club:12,adverse:10}],'super_tiebreak'),'club');
  assert.equal(resultWinner([{club:6,adverse:4},{club:3,adverse:6},{club:10,adverse:9}],'super_tiebreak'),null);

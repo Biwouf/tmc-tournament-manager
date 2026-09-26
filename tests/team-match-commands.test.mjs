@@ -37,6 +37,10 @@ test('Team commands: rules flow to Live, results, slots, WO, concurrency, member
   await db.exec(await migration('20260907_live_match_consistency'));
   await db.exec(await migration('2026092101_team_scoring_rules'));
   await db.exec(await migration('2026092401_team_match_commands'));
+  await db.exec(await migration('2026092601_team_format_3s1d'));
+  assert.deepEqual((await db.query("SELECT team_format_spec('3S1D') AS spec")).rows[0].spec,[3,1,1]);
+  await db.exec(`UPDATE team_competitions SET format='3S1D' WHERE id='${id(11)}';
+    UPDATE team_competitions SET format='3S1D2' WHERE id='${id(11)}';`);
   await db.exec(`UPDATE team_competitions SET singles_set3_format='super_tiebreak' WHERE id='${id(11)}'`);
   async function as(user,sql,args=[]) {
    await db.exec(`BEGIN; SET LOCAL ROLE ${user===null?'anon':'authenticated'}; SELECT set_config('request.jwt.claim.sub','${user===null?'':id(user)}',true);`);
