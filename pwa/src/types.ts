@@ -120,7 +120,7 @@ export interface TeamCompetition {
   genre: TeamGenre; categorie: TeamCategorie;
   singles_set3_format: LiveSet3Format | null;
   // Composition de la rencontre
-  format: '2S1D' | '3S1D2' | '4S1D2' | '4S2D';
+  format: '2S1D' | '3S1D' | '3S1D2' | '4S1D2' | '4S2D';
   created_at: string;
 }
 export interface TeamEquipe {
