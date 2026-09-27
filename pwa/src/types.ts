@@ -145,5 +145,6 @@ export interface TeamRencontre {
   score_club: number | null; score_adverse: number | null;
   wo: boolean;
   photo_urls: string[];
+  confirmed_at: string | null;
   created_at: string; updated_at: string;
 }

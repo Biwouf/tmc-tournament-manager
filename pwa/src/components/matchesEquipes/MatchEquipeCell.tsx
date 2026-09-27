@@ -9,6 +9,7 @@ interface Props {
   etape: TeamEtape;
   state: 'upcoming' | 'past';
   isLive: boolean;
+  isPending?: boolean;
 }
 
 const JOURS = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
@@ -36,7 +37,7 @@ const RESULT_STYLES: Record<'win' | 'lose' | 'draw', { bg: string; label: string
   draw: { bg: 'bg-amber-700', label: 'NUL' },
 };
 
-export default function MatchEquipeCell({ rencontre, equipe, competition, etape, state, isLive }: Props) {
+export default function MatchEquipeCell({ rencontre, equipe, competition, etape, state, isLive, isPending }: Props) {
   const date = new Date(rencontre.date_heure);
   const jour = JOURS[date.getDay()];
   const num = date.getDate();
@@ -49,7 +50,7 @@ export default function MatchEquipeCell({ rencontre, equipe, competition, etape,
     <Link to={`/matches-equipes/${rencontre.id}`} aria-label={`Ouvrir la rencontre contre ${rencontre.club_adverse}${isLive ? ' · En cours' : ''}`}
       className={`grid rounded-xl border bg-card overflow-hidden ${isLive ? 'border-primary ring-1 ring-primary/20' : 'border-border'}`}
       style={{
-        gridTemplateColumns: isLive ? '72px 1fr 86px' : isUpcoming ? '72px 1fr 58px' : '72px 1fr 78px',
+        gridTemplateColumns: isLive ? '72px 1fr 86px' : isUpcoming && !isPending ? '72px 1fr 58px' : '72px 1fr 78px',
         minHeight: 116,
       }}
     >
@@ -109,7 +110,7 @@ export default function MatchEquipeCell({ rencontre, equipe, competition, etape,
         </span>
       </div>
 
-      {/* Col 3 — lieu (upcoming) ou résultat (past) */}
+      {/* Col 3 — lieu (upcoming), en attente (commencée) ou résultat (past) */}
       {isLive ? (
         <div className="flex flex-col items-center justify-center gap-1 bg-primary px-1 text-primary-foreground">
           <span className="flex items-center gap-1 text-[10px] font-bold tracking-wide">
@@ -119,6 +120,11 @@ export default function MatchEquipeCell({ rencontre, equipe, competition, etape,
           <span className="text-[26px] font-black tabular-nums leading-none">{rencontre.score_club ?? 0}<span className="opacity-55">–</span>{rencontre.score_adverse ?? 0}</span>
           <span className="text-[9px] font-medium">Provisoire</span>
           <span className="mt-1 text-[9px]">{rencontre.domicile ? 'Au club' : 'Extérieur'}</span>
+        </div>
+      ) : isPending ? (
+        <div className="flex flex-col items-center justify-center gap-1 bg-muted px-1 text-center text-muted-foreground">
+          <span className="text-[10px] font-semibold">En attente</span>
+          <span className="text-[9px]">{rencontre.domicile ? 'Au club' : 'Extérieur'}</span>
         </div>
       ) : isUpcoming ? (
         <div
