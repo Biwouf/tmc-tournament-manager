@@ -228,10 +228,10 @@ Compat : les anciennes URLs `/actus` et `/evenements` redirigent vers `/actu?tab
 **Page (`MatchesEquipesPage.tsx`)** : rencontres à venir / passées des équipes du club, filtrables par saison et par équipe.
 - État local (pas de routing) : `saisonId` (défaut = saison active), `equipeId` (défaut = toutes), `upcomingTab` (`upcoming` / `past`).
 - Trois queries React Query indépendantes : saisons (cache long), compétitions + équipes de la saison, rencontres (2 round-trips : `team_etapes` puis `team_rencontres`, jointure côté client via `etape_id → equipe_id → competition_id`).
-- Filtrage à venir / passés côté client (`date_heure >= now` ; passés triés DESC).
+- Filtrage à venir / passés côté client : une rencontre reste « à venir » tant qu'elle n'est pas terminée — passée seulement si WO, résultat confirmé (`confirmed_at`) ou minuit du jour de la rencontre dépassé ; une rencontre en live reste toujours à venir. Passés triés DESC.
 - `MatchEquipeFilterBar` : chips Saison + Équipe (le chip Équipe passe en accent si filtré) + segmented À venir / Passés avec compteurs.
 - `MatchEquipeFilterSheet` : bottom sheet ouvert au clic sur un chip (liste d'options + check sur l'option active).
-- `MatchEquipeCell` : cellule rencontre en deux états — `upcoming` (date + contexte + lieu 🏠/✈️) et `past` (date atone + contexte + colonne résultat vert/rouge/jaune + score). Phase finale → badge `1/4`, `1/2`, `Finale` au lieu de `JOURNÉE n`.
+- `MatchEquipeCell` : cellule rencontre en deux états — `upcoming` (date + contexte + lieu 🏠/✈️, ou colonne « En attente » une fois l'heure de début passée) et `past` (date atone + contexte + colonne résultat vert/rouge/jaune + score). Phase finale → badge `1/4`, `1/2`, `Finale` au lieu de `JOURNÉE n`.
 - `labels.ts` : helpers `formatGenre`, `formatCategorie`, `competitionShortLabel`.
 - États vides : "Aucune saison disponible.", "Aucune rencontre à venir." / "Aucune rencontre passée.".
 

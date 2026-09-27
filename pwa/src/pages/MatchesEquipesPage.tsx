@@ -115,16 +115,23 @@ export default function MatchesEquipesPage() {
     },
   });
 
-  // Filtrage à venir / passés (côté client)
+  // Filtrage à venir / passés (côté client) : une rencontre commencée reste « à venir »
+  // (en attente) jusqu'à confirmation du résultat ou WO, au plus tard jusqu'à minuit.
   const { upcoming, past } = useMemo(() => {
     // Re-evaluate dates on every refresh, even when the server rows are unchanged.
     const now = new Date(dataUpdatedAt);
-    const all = rencontres ?? [];
+    const all = (rencontres ?? []).map((x) => {
+      const start = new Date(x.rencontre.date_heure);
+      const endOfDay = new Date(start);
+      endOfDay.setHours(24, 0, 0, 0);
+      const done = x.rencontre.wo || !!x.rencontre.confirmed_at || now >= endOfDay;
+      return { ...x, isPast: !x.isLive && done, isPending: !x.isLive && !done && start < now };
+    });
     const upcoming = all
-      .filter((x) => x.isLive || new Date(x.rencontre.date_heure) >= now)
+      .filter((x) => !x.isPast)
       .sort((a, b) => Number(b.isLive) - Number(a.isLive) || +new Date(a.rencontre.date_heure) - +new Date(b.rencontre.date_heure));
     const past = all
-      .filter((x) => !x.isLive && new Date(x.rencontre.date_heure) < now)
+      .filter((x) => x.isPast)
       .sort(
         (a, b) =>
           +new Date(b.rencontre.date_heure) - +new Date(a.rencontre.date_heure),
