@@ -37,15 +37,21 @@ export async function renderRequest(
     const path = rawPath === '/' ? '/' : rawPath.replace(/\/+$/, '');
     // L'ancien site WordPress utilisait aussi l'alias www de Castelsarrasin.
     const castelsarrasinDomain = 'tennisclubcastelsarrasin.fr';
-    const siteHost = isProduction(runtime) && hostname(request.host) === `www.${castelsarrasinDomain}`
-      ? castelsarrasinDomain : request.host;
-    const site = await loadSite(siteHost, runtime, fetcher);
+    const host = hostname(request.host);
+    const castelsarrasinHosts = [castelsarrasinDomain, `www.${castelsarrasinDomain}`];
+    // Respecter d'abord le domaine enregistré, qui peut inclure www.
+    const site = await loadSite(request.host, runtime, fetcher).catch(error => {
+      if (!isProduction(runtime) || !castelsarrasinHosts.includes(host)
+          || !(error instanceof SiteError) || error.status !== 404) throw error;
+      const alternateHost = host === castelsarrasinDomain ? `www.${castelsarrasinDomain}` : castelsarrasinDomain;
+      return loadSite(alternateHost, runtime, fetcher);
+    });
     const legacyPaths: Record<string, string> = {
       '/club-tennis-castelsarrasin': '/club',
       '/tarifs-club-license': '/tarifs',
       '/actualites': '/',
     };
-    const legacyTarget = new URL(site.origin).hostname === castelsarrasinDomain
+    const legacyTarget = castelsarrasinHosts.includes(new URL(site.origin).hostname)
       && Object.prototype.hasOwnProperty.call(legacyPaths, path) ? legacyPaths[path] : undefined;
     const page = pageAt(legacyTarget ?? path);
     // L’alias Vercel sert le site sans indexation ni redirection vers le futur domaine canonique.
