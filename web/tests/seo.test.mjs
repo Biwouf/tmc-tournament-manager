@@ -417,11 +417,12 @@ test('404 brandée : identité, thème, hydratation et absence de chargement des
 });
 
 
-test('anciennes URL Castelsarrasin : redirections permanentes directes, alias www et paramètres', async () => {
+for (const domain of ['tennisclubcastelsarrasin.fr', 'www.tennisclubcastelsarrasin.fr']) {
+test(`anciennes URL Castelsarrasin : domaine canonique ${domain}`, async () => {
   const { request, rows } = fixture();
-  const domain = 'tennisclubcastelsarrasin.fr';
   rows[0].custom_domain = domain;
-  for (const host of [domain, `www.${domain}`]) {
+  const alias = domain.startsWith('www.') ? domain.slice(4) : `www.${domain}`;
+  for (const host of [domain, alias]) {
     for (const [oldPath, target] of [['/club-tennis-castelsarrasin', '/club'], ['/tarifs-club-license', '/tarifs'], ['/actualites', '/']]) {
       for (const suffix of ['', '/']) {
         for (const method of ['GET', 'HEAD']) {
@@ -435,7 +436,7 @@ test('anciennes URL Castelsarrasin : redirections permanentes directes, alias ww
       }
     }
   }
-  assert.equal((await request('/club', `www.${domain}`)).headers.Location, `https://${domain}/club`);
+  assert.equal((await request('/club', alias)).headers.Location, `https://${domain}/club`);
   assert.equal((await request('/missing', domain)).status, 404);
   assert.equal((await request('/actualites/', 'beta.feelike.pro')).status, 404);
   assert.equal((await request('/actualites/', `www.${domain}.evil.test`)).status, 404);
@@ -444,3 +445,5 @@ test('anciennes URL Castelsarrasin : redirections permanentes directes, alias ww
   rows[0].status = 'suspended';
   assert.equal((await request('/actualites/', domain)).status, 404);
 });
+
+}
