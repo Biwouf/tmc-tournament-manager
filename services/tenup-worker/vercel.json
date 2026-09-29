@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "mkdir -p public",
+  "buildCommand": "",
   "outputDirectory": "public",
   "functions": {
     "api/extract.mjs": {

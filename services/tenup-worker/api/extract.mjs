@@ -10,7 +10,7 @@ export default async function vercelExtract(req, res) {
   }
   handler ??= createHandler({ token, extract: async url => extract(url, {
     executablePath: await chromium.executablePath(),
-    args: chromium.args,
+    args: chromium.args.filter(arg => arg !== '--disable-web-security'),
     // Serverless Chromium relies on the hosting platform's isolation.
     // The standalone Docker entry point keeps Chromium's own sandbox enabled.
     chromiumSandbox: false,

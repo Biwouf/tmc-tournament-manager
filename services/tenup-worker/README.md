@@ -73,7 +73,7 @@ dans PGlite, tests du composant partagé et de la fonction Edge, rendu mobile 39
 builds BO/PWA et build PWA isolé de la racine vérifiés. L’environnement d’hébergement
 du worker devra également être validé lors de sa mise en service.
 
-## Option Vercel (à valider par un déploiement de test)
+## Option Vercel (test de lecture validé)
 
 Le même dossier contient une fonction Node dans `api/extract.mjs` et une réécriture
 `/extract`, compatible avec l’URL attendue par Supabase. Chromium 153 est embarqué
@@ -104,3 +104,24 @@ locaux à chaque instance Vercel, pas globaux ; le quota utilisateur reste dans 
 La préparation locale ne constitue pas une validation depuis Vercel. Le navigateur
 Linux serverless ne peut pas être exécuté directement sur macOS ; le test distant
 reste nécessaire, notamment pour Queue-it et le temps de démarrage à froid.
+
+### Test distant du 29 septembre 2026
+
+Projet isolé `biwoufs-projects/tmc-tenup-worker-check`, Node 22, région `iad1`.
+Déploiement de test :
+https://vercel.com/biwoufs-projects/tmc-tenup-worker-check/FrNDBkjBzXmm6phUFkcJzo2vGeHf
+
+- Premier appel authentifié après déploiement : HTTP 200, 7,95 s, date 2026-09-27,
+  quatre matchs et score `[3,1]` pour la rencontre 9832770.
+- Appel suivant : HTTP 200, 0,62 s (cache).
+- URL hors Ten’Up : HTTP 400. Sans secret : HTTP 401 (vérifié sur le déploiement
+  précédent du même adaptateur).
+- Build Vercel réussi avec Chromium embarqué ; aucune donnée FFT d’authentification.
+- Projet déconnecté de Git pour éviter les déploiements automatiques des applications.
+- Protection Vercel maintenue : les essais utilisent `vercel curl` avec la session
+  autorisée. Cette URL de preview n’est pas encore directement appelable par Supabase.
+
+Le test valide la lecture depuis Vercel, pas l’import de bout en bout en production.
+Aucune migration ou fonction Supabase distante ni application BO/PWA n’a été déployée.
+Pour la mise en service, configurer un point d’entrée accessible à Supabase, conserver
+le secret obligatoire, puis tester le parcours complet avec aperçu et confirmation.
