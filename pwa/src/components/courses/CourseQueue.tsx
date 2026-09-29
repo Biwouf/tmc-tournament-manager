@@ -14,10 +14,12 @@ export default function CourseQueue({
   clubId,
   course,
   onCancelled,
+  onRestored,
 }: {
   clubId: string;
   course: Course;
   onCancelled: () => void;
+  onRestored: () => void;
 }) {
   const [filter, setFilter] = useState<'pending' | 'treated'>('pending');
   const [offset, setOffset] = useState(0);
@@ -228,6 +230,24 @@ export default function CourseQueue({
             </div>
           )}
         </>
+      )}
+      {query.isSuccess && course.can_manage && course.cancelled_at && now < Date.parse(course.starts_at) && (
+        <div className="booking-info">
+          <p>Le rétablissement remettra les inscriptions annulées avec le cours dans leur statut précédent, pour les membres encore présents dans le club.</p>
+          <button
+            className="booking-button primary booking-wide"
+            disabled={action.busy}
+            onClick={async () => {
+              if (await action.run('course_manage_command', {
+                p_club: clubId,
+                p_operation: 'restore_course',
+                p_data: { id: course.id, revision: course.revision },
+              })) onRestored();
+            }}
+          >
+            Rétablir le cours
+          </button>
+        </div>
       )}
       {canAct &&
         (confirmCancel ? (
