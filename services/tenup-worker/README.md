@@ -72,3 +72,35 @@ Validation de développement : extraction réelle réussie le 29/09/2026 sur la 
 dans PGlite, tests du composant partagé et de la fonction Edge, rendu mobile 390 px,
 builds BO/PWA et build PWA isolé de la racine vérifiés. L’environnement d’hébergement
 du worker devra également être validé lors de sa mise en service.
+
+## Option Vercel (à valider par un déploiement de test)
+
+Le même dossier contient une fonction Node dans `api/extract.mjs` et une réécriture
+`/extract`, compatible avec l’URL attendue par Supabase. Chromium 153 est embarqué
+avec `@sparticuz/chromium`, correspondant à la version majeure de Playwright 1.63.
+Aucun téléchargement de navigateur depuis une URL fournie par l’utilisateur.
+
+1. Créer un projet Vercel séparé pointant vers ce dépôt et la branche de travail.
+   Root Directory : `services/tenup-worker`. Framework Preset : Other. Node.js : 22.x.
+   Conserver les réglages de build du `vercel.json` de ce dossier.
+2. Dans Settings → Environment Variables, ajouter `TENUP_WORKER_TOKEN`, un secret
+   aléatoire d’au moins 32 caractères. Ne pas ajouter les secrets Supabase ou FFT.
+3. Déployer le projet de test, puis appeler `POST https://ADRESSE-VERCEL/extract`
+   avec le Bearer token et le corps JSON `{ "url": "URL_COMPLETE_RENCONTRE" }`.
+   Si la protection Vercel du déploiement bloque cet appel, configurer son accès
+   serveur-à-serveur avant de relier Supabase. Le token du worker reste obligatoire.
+4. Vérifier la réponse réelle : rencontre 9832770, date 2026-09-27, quatre matchs,
+   score `[3,1]`. Vérifier aussi un démarrage à froid, la durée totale (<50 secondes,
+   délai actuel de Supabase), le refus sans jeton et le refus d’une autre URL.
+5. Une fois ce test réussi, utiliser cette origine HTTPS comme `TENUP_WORKER_URL`.
+   OVH n’intervient pas : l’adresse technique Vercel suffit.
+
+Cette option utilise l’isolation des fonctions Vercel : le Chromium serverless
+fonctionne sans son sandbox propre. L’entrée Docker conserve son sandbox activé.
+La liste des destinations réseau autorisées et le jeton sont communs aux deux modes.
+Ne pas héberger d’autres secrets dans ce projet dédié. Le verrou et le cache sont
+locaux à chaque instance Vercel, pas globaux ; le quota utilisateur reste dans Supabase.
+
+La préparation locale ne constitue pas une validation depuis Vercel. Le navigateur
+Linux serverless ne peut pas être exécuté directement sur macOS ; le test distant
+reste nécessaire, notamment pour Queue-it et le temps de démarrage à froid.

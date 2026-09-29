@@ -16,10 +16,14 @@ export function createHandler({ token, extract }) {
     if (req.method !== 'POST' || req.url !== '/extract') return reply(404, { error: 'Route inconnue.' });
     try {
       let body = '';
-      for await (const chunk of req) { body += chunk; if (body.length > 2048) return reply(413, { error: 'Requête trop volumineuse.' }); }
+      if (req.body === undefined) {
+        for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > 2048) return reply(413, { error: 'Requête trop volumineuse.' }); }
+      } else if (Buffer.byteLength(typeof req.body === 'string' ? req.body : JSON.stringify(req.body)) > 2048) {
+        return reply(413, { error: 'Requête trop volumineuse.' });
+      }
       let input;
-      try { input = JSON.parse(body); } catch { return reply(400, { error: 'Requête invalide.' }); }
-      if (!validUrl(input.url)) return reply(400, { error: 'Lien de rencontre Ten’Up invalide.' });
+      try { input = req.body === undefined ? JSON.parse(body) : (typeof req.body === 'string' ? JSON.parse(req.body) : req.body); } catch { return reply(400, { error: 'Requête invalide.' }); }
+      if (!input || !validUrl(input.url)) return reply(400, { error: 'Lien de rencontre Ten’Up invalide.' });
       const cached = cache.get(input.url);
       if (cached && cached.expires > Date.now()) return reply(200, cached.data);
       if (busy) return reply(429, { error: 'Synchronisation en cours. Réessayez dans une minute.' });
@@ -37,8 +41,9 @@ export function createHandler({ token, extract }) {
   };
 }
 
-export async function extract(url) {
-  const browser = await chromium.launch({ headless: true, chromiumSandbox: true, timeout: 5_000 });
+export async function extract(url, launchOptions = {}) {
+  if (!validUrl(url)) throw new Error('Invalid Tenup URL');
+  const browser = await chromium.launch({ headless: true, chromiumSandbox: true, timeout: 5_000, ...launchOptions });
   const timeout = setTimeout(() => void browser.close(), 40_000);
   try {
     const context = await browser.newContext({ locale: 'fr-FR', serviceWorkers: 'block', acceptDownloads: false });

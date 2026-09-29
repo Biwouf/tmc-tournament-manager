@@ -50,3 +50,42 @@ test('worker authenticates, restricts URLs, caches and bounds concurrency', asyn
   assert.equal((await req({url})).status,200);assert.equal(calls,1);
  } finally { await new Promise(r=>server.close(r)); }
 });
+
+// Vercel may consume the request stream and provide an already parsed body.
+test('worker accepts Vercel parsed bodies with the same authentication and size limits', async () => {
+ const token='v'.repeat(32);
+ const url='https://tenup.fft.fr/championnat/1/division/2/phase/3/poule/4/rencontre/5';
+ let calls=0;
+ const handler=createHandler({token,extract:async()=>{calls++;return {lines:[]};}});
+ const request=async(body,auth=token)=>{
+  let status;let result;
+  await handler({method:'POST',url:'/extract',headers:{authorization:`Bearer ${auth}`},body},
+   {writeHead:code=>{status=code;},end:body=>{result=JSON.parse(body);}});
+  return {status,result};
+ };
+ assert.equal((await request({url},'wrong')).status,401);
+ assert.equal((await request(null)).status,400);
+ assert.equal((await request({url,extra:'é'.repeat(2048)})).status,413);
+ assert.equal((await request({url})).status,200);
+ assert.equal((await request(JSON.stringify({url}))).status,200);
+ assert.equal(calls,1);
+});
+
+test('Vercel entry fails closed before launching Chromium when unconfigured or unauthenticated', async () => {
+ const {default:handler}=await import('../services/tenup-worker/api/extract.mjs');
+ const previous=process.env.TENUP_WORKER_TOKEN;
+ const request=async()=>{
+  let status;
+  await handler({method:'POST',headers:{},body:{}},{writeHead:code=>{status=code;},end:()=>{}});
+  return status;
+ };
+ try {
+  delete process.env.TENUP_WORKER_TOKEN;
+  assert.equal(await request(),503);
+  process.env.TENUP_WORKER_TOKEN='t'.repeat(32);
+  assert.equal(await request(),401);
+ } finally {
+  if(previous===undefined) delete process.env.TENUP_WORKER_TOKEN;
+  else process.env.TENUP_WORKER_TOKEN=previous;
+ }
+});

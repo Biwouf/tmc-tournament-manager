@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "mkdir -p public",
+  "outputDirectory": "public",
+  "functions": {
+    "api/extract.mjs": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/extract",
+      "destination": "/api/extract"
+    }
+  ]
+}
