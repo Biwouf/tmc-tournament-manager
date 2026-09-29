@@ -139,6 +139,9 @@ export interface TeamEtape {
   created_at: string;
 }
 export interface TeamRencontre {
+  tenup_url?: string | null;
+  tenup_side?: number | null;
+  tenup_synced_at?: string | null;
   id: string; etape_id: string;
   club_adverse: string; date_heure: string;
   domicile: boolean;

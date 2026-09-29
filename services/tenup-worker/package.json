@@ -1,0 +1,8 @@
+{
+  "name": "tmc-tenup-worker",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node server.mjs", "test": "node --test ../../tests/tenup-worker.test.mjs" },
+  "dependencies": { "playwright": "1.63.0" }
+}

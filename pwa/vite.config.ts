@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
     env.VERCEL_PROJECT_PRODUCTION_URL].filter(Boolean).join(',');
   return {
   define: { 'import.meta.env.VITE_ALLOWED_HOSTS': JSON.stringify(allowedHosts) },
+  resolve: { dedupe: ['react', 'react-dom'] },
   plugins: [
     react(),
     tailwindcss(),
