@@ -68,6 +68,8 @@ async function fixture() {
       sex: "female",
       revision: 0,
     });
+  await db.exec("ALTER TABLE profile_details ADD COLUMN classement text");
+  await db.exec(await readFile(new URL("../supabase/migrations/2026092902_course_restore.sql", import.meta.url), "utf8"));
   return { db, as, command, read, type, course, courseData };
 }
 
@@ -471,4 +473,48 @@ test("Cours: deleting a club cascades safely; quota correction preserves a refus
   } finally {
     await f.db.close();
   }
+});
+
+
+test("Cours: undo cancellation restores prior statuses atomically and is idempotent", async () => {
+  const f = await fixture();
+  try {
+    const approved = await f.command("add_registration", { course_id: f.course.id, user_id: id(103), status: "approved" });
+    const pending = await f.command("add_registration", { course_id: f.course.id, user_id: id(104), status: "pending" });
+    await f.command("cancel_course", { id: f.course.id, revision: 0 });
+    await assert.rejects(f.command("restore_course", { id: f.course.id, revision: 0 }), /VERSION_CONFLICT/);
+    await assert.rejects(f.command("restore_course", { id: f.course.id, revision: 1 }, { user: 103 }), /FORBIDDEN/);
+    await assert.rejects(f.command("restore_course", { id: f.course.id, revision: 1 }, { club: 2, user: 106 }), /NOT_FOUND/);
+    const key = id(commandId++);
+    const restored = await f.command("restore_course", { id: f.course.id, revision: 1 }, { key });
+    assert.equal(restored.revision, 2);
+    assert.deepEqual(await f.command("restore_course", { id: f.course.id, revision: 1 }, { key }), restored);
+    const rows = (await f.db.query("SELECT id,status,cancellation_source,revision FROM course_registrations ORDER BY status")).rows;
+    assert.deepEqual(rows, [
+      { id: approved.id, status: "approved", cancellation_source: null, revision: 2 },
+      { id: pending.id, status: "pending", cancellation_source: null, revision: 2 },
+    ]);
+    assert.equal((await f.db.query("SELECT cancelled_at FROM courses WHERE id=$1", [f.course.id])).rows[0].cancelled_at, null);
+    assert.equal((await f.db.query("SELECT count(*)::int n FROM course_registration_events WHERE source='course_restored'")).rows[0].n, 2);
+    await assert.rejects(f.command("restore_course", { id: f.course.id, revision: 2 }), /INVALID_TRANSITION/);
+    await f.command("cancel_course", { id: f.course.id, revision: 2 });
+    await f.as(102, "SELECT course_manage_command($1,'restore_course',$2,$3)", [id(1), JSON.stringify({ id: f.course.id, revision: 3 }), id(commandId++)]);
+    assert.equal((await f.db.query("SELECT status FROM course_registrations WHERE id=$1", [approved.id])).rows[0].status, "approved");
+  } finally { await f.db.close(); }
+});
+
+test("Cours: restoration excludes prior withdrawals and former members, rejects started courses", async () => {
+  const f = await fixture();
+  try {
+    const withdrawn = await f.command("add_registration", { course_id: f.course.id, user_id: id(103), status: "pending" });
+    await f.command("set_status", { id: withdrawn.id, revision: 0, status: "cancelled" });
+    await f.command("add_registration", { course_id: f.course.id, user_id: id(104), status: "approved" });
+    await f.command("cancel_course", { id: f.course.id, revision: 0 });
+    await f.db.query("DELETE FROM club_members WHERE user_id=$1", [id(104)]);
+    await f.command("restore_course", { id: f.course.id, revision: 1 });
+    assert.ok((await f.db.query("SELECT status FROM course_registrations")).rows.every(r => r.status === "cancelled"));
+    await f.command("cancel_course", { id: f.course.id, revision: 2 });
+    await f.db.query("UPDATE courses SET starts_at=now()-interval '1 hour' WHERE id=$1", [f.course.id]);
+    await assert.rejects(f.command("restore_course", { id: f.course.id, revision: 3 }), /COURSE_STARTED/);
+  } finally { await f.db.close(); }
 });

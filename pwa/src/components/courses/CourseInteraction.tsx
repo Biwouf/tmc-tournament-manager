@@ -75,6 +75,7 @@ export default function CourseInteraction({
             clubId={clubId}
             course={c}
             onCancelled={() => onSuccess('Le cours a été annulé.')}
+            onRestored={() => onSuccess('Le cours a été rétabli.')}
           />
         ) : (
           <p className="booking-error">Vous ne gérez plus ce cours.</p>

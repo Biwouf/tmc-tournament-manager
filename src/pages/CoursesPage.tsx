@@ -71,6 +71,11 @@ export default function CoursesPage() {
     if (await run(operation, { id: course.id, revision: course.revision }))
       await load();
   }
+  async function restore(course: Course) {
+    if (!window.confirm(`Rétablir « ${course.name} » ? Les inscriptions annulées avec le cours retrouveront leur statut précédent pour les membres encore présents dans le club.`)) return;
+    if (await run("restore_course", { id: course.id, revision: course.revision }))
+      await load();
+  }
   return (
     <CourseShell title="Cours">
       <div className="flex flex-wrap gap-3">
@@ -133,6 +138,11 @@ export default function CoursesPage() {
                 >
                   Inscriptions
                 </Link>
+                {c.cancelled_at && new Date(c.starts_at).getTime() > now && (
+                  <button className="course-button" disabled={busy} onClick={() => restore(c)}>
+                    Rétablir le cours
+                  </button>
+                )}
                 {!c.cancelled_at && new Date(c.starts_at).getTime() > now && (
                   <>
                     <Link

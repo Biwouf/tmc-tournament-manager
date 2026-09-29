@@ -466,3 +466,20 @@ test("Member autocomplete: keyboard selection, explicit identity, clear-on-edit 
     await act(async () => root.unmount());
   }
 });
+
+test("Cours client: cancelled future courses can be restored with their revision", async () => {
+  const api = mockApi();
+  api.course.cancelled_at = "2026-09-29T10:00:00Z";
+  api.course.revision = 3;
+  const root = await mount(loader(api.supabase), "pages/CoursesPage.tsx");
+  try {
+    assert.ok(button("Rétablir le cours"));
+    assert.equal(button("Annuler le cours"), undefined);
+    await click("Rétablir le cours");
+    assert.equal(api.commands[0].p_operation, "restore_course");
+    assert.deepEqual(api.commands[0].p_data, { id: "course-a", revision: 3 });
+    api.course.starts_at = "2020-01-01T12:00:00Z";
+    await click("Actualiser");
+    assert.equal(button("Rétablir le cours"), undefined);
+  } finally { await act(async () => root.unmount()); }
+});

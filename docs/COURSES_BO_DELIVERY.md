@@ -94,3 +94,15 @@ accessible sur localhost. Installer `pg` séparément si absent, puis fournir
 `COURSES_TEST_DATABASE_URL` et éventuellement `COURSES_PG_CLIENT` (chemin du module `pg`).
 Lancer `npm run test:courses:concurrency`. Sans URL, le test est explicitement ignoré ;
 un résultat ignoré ne prouve pas la concurrence. Ne jamais pointer vers une base de club.
+
+## Rétablir un cours annulé
+
+La migration `2026092902_course_restore.sql` ajoute `restore_course` aux commandes
+administrateur et responsable. Le bouton « Rétablir le cours » est disponible dans
+le back-office et la gestion PWA pour un cours annulé qui n’a pas commencé.
+L’opération exige la révision courante et restaure atomiquement les inscriptions
+annulées par le cours dans leur statut précédent (`pending` ou `approved`). Les
+refus, désistements antérieurs et inscriptions des anciens membres restent inchangés.
+Les dates de demande et de décision sont conservées ; chaque restauration est
+tracée dans l’historique avec la source `course_restored`.
+Appliquer la migration avant de déployer les interfaces.
