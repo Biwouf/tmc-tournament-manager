@@ -415,3 +415,35 @@ test('404 brandée : identité, thème, hydratation et absence de chargement des
   rows[0].status = 'suspended';
   assert.doesNotMatch((await request('/inconnue')).body, /alpha|not-found-banner|site-data/);
 });
+
+
+for (const domain of ['tennisclubcastelsarrasin.fr', 'www.tennisclubcastelsarrasin.fr']) {
+test(`anciennes URL Castelsarrasin : domaine canonique ${domain}`, async () => {
+  const { request, rows } = fixture();
+  rows[0].custom_domain = domain;
+  const alias = domain.startsWith('www.') ? domain.slice(4) : `www.${domain}`;
+  for (const host of [domain, alias]) {
+    for (const [oldPath, target] of [['/club-tennis-castelsarrasin', '/club'], ['/tarifs-club-license', '/tarifs'], ['/actualites', '/']]) {
+      for (const suffix of ['', '/']) {
+        for (const method of ['GET', 'HEAD']) {
+          const result = await request(`${oldPath}${suffix}?utm_source=google`, host, runtime, method);
+          assert.equal(result.status, 308);
+          assert.equal(result.headers.Location, `https://${domain}${target}?utm_source=google`);
+          assert.equal(result.body, '');
+          assert.equal(result.headers['X-Robots-Tag'], undefined);
+          assert.equal((await request(target, domain)).status, 200);
+        }
+      }
+    }
+  }
+  assert.equal((await request('/club', alias)).headers.Location, `https://${domain}/club`);
+  assert.equal((await request('/missing', domain)).status, 404);
+  assert.equal((await request('/actualites/', 'beta.feelike.pro')).status, 404);
+  assert.equal((await request('/actualites/', `www.${domain}.evil.test`)).status, 404);
+  rows[0].club_settings.config.pricing.published = false;
+  assert.equal((await request('/tarifs-club-license/', domain)).status, 404);
+  rows[0].status = 'suspended';
+  assert.equal((await request('/actualites/', domain)).status, 404);
+});
+
+}

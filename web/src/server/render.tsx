@@ -35,8 +35,25 @@ export async function renderRequest(
     const url = new URL(request.url, 'https://request.invalid');
     const rawPath = url.pathname;
     const path = rawPath === '/' ? '/' : rawPath.replace(/\/+$/, '');
-    const page = pageAt(path);
-    const site = await loadSite(request.host, runtime, fetcher);
+    // L'ancien site WordPress utilisait aussi l'alias www de Castelsarrasin.
+    const castelsarrasinDomain = 'tennisclubcastelsarrasin.fr';
+    const host = hostname(request.host);
+    const castelsarrasinHosts = [castelsarrasinDomain, `www.${castelsarrasinDomain}`];
+    // Respecter d'abord le domaine enregistré, qui peut inclure www.
+    const site = await loadSite(request.host, runtime, fetcher).catch(error => {
+      if (!isProduction(runtime) || !castelsarrasinHosts.includes(host)
+          || !(error instanceof SiteError) || error.status !== 404) throw error;
+      const alternateHost = host === castelsarrasinDomain ? `www.${castelsarrasinDomain}` : castelsarrasinDomain;
+      return loadSite(alternateHost, runtime, fetcher);
+    });
+    const legacyPaths: Record<string, string> = {
+      '/club-tennis-castelsarrasin': '/club',
+      '/tarifs-club-license': '/tarifs',
+      '/actualites': '/',
+    };
+    const legacyTarget = castelsarrasinHosts.includes(new URL(site.origin).hostname)
+      && Object.prototype.hasOwnProperty.call(legacyPaths, path) ? legacyPaths[path] : undefined;
+    const page = pageAt(legacyTarget ?? path);
     // L’alias Vercel sert le site sans indexation ni redirection vers le futur domaine canonique.
     const production = isProduction(runtime) && !isProductionAlias(request.host, runtime);
     const ready = isReadyForIndexing(site.config);
@@ -46,6 +63,9 @@ export async function renderRequest(
     // L'accueil vide reste un écran d'identité utile, explicitement noindex.
     const notFound = (!page && !['/robots.txt', '/sitemap.xml'].includes(path)) ||
       Boolean(page && (!site.config[page.key].published || (page.key !== 'home' && !isPublished(site.config, page))));
+    if (legacyTarget !== undefined && page && isPublished(site.config, page)) {
+      return { status: 308, headers: { ...headers, Location: `${production ? site.origin : ''}${legacyTarget}${url.search}` }, body: '' };
+    }
     if (notFound) headers['X-Robots-Tag'] = 'noindex, follow';
     if (!notFound && ((production && hostname(request.host) !== new URL(site.origin).hostname) || rawPath !== path)) {
       return { status: 308, headers: { ...headers, Location: `${production ? site.origin : ''}${path}${url.search}` }, body: '' };
