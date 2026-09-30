@@ -23,31 +23,38 @@ un super-admin. Migration livrée en 16 PR réparties en 5 phases.
 
 ### Règle absolue — pas de développement via Cowork
 
-**Aucune modification de code via Cowork**, sauf si l'utilisateur le demande explicitement dans le message. Tout le développement se fait via Claude Code : l'utilisateur y crée la branche appropriée et choisit le modèle adapté.
+**Aucune modification de code via Cowork**, sauf si l'utilisateur le demande explicitement dans le message. Tout le développement se fait via Claude Code (ou Codex), dans un worktree dédié (cf. ci-dessous) ; l'utilisateur choisit le modèle adapté.
 
 ### Workflow Git — worktrees
 
-Le projet utilise les **Git worktrees** : chaque feature est développée dans un dossier dédié, isolé du dossier principal.
+Mêmes règles que `AGENTS.md` (Codex) — garder les deux fichiers synchronisés.
 
 **Règles :**
-- Ne jamais créer de branche ou de worktree de ta propre initiative.
-- C'est l'utilisateur qui crée le worktree (`git worktree add`) et qui ouvre la session Claude Code dedans.
-- Travailler uniquement dans le dossier worktree de la session en cours — ne jamais toucher au dossier principal ni aux autres worktrees.
-- Ne pas créer de branches `claude/xxx` ou toute autre branche automatique.
+- Toujours travailler dans un worktree dédié à la tâche, sur une branche dédiée, **avant toute modification de fichiers** (code ou doc). Réutiliser un worktree existant uniquement s'il est déjà dédié à cette même tâche.
+- Ne jamais développer directement sur `main` ni dans le checkout principal `tmc-tournament-manager`. Une exception ponctuelle explicitement autorisée par l'utilisateur ne vaut que pour la tâche concernée et ne doit pas être reproduite.
+- Créer tout nouveau worktree comme **dossier frère** de `tmc-tournament-manager`, directement sous `/Users/m.tresalmauroz/Desktop/perso`, avec un nom explicite préfixé par `tmc-` (modèle : `/Users/m.tresalmauroz/Desktop/perso/tmc-pr9-vitrine`).
+- Ne pas créer de worktree dans `/private/tmp`, dans `.claude/worktrees/` ni à l'intérieur du dépôt, sauf demande explicite de l'utilisateur. Ne pas utiliser `EnterWorktree` (il crée ses worktrees dans `.claude/worktrees/`) : passer par `git worktree add`.
+- Avant toute création, vérifier avec `git worktree list` que le chemin cible et la branche ne sont pas déjà utilisés.
+- Ne jamais toucher aux autres worktrees.
 
-**Rappel pédagogique — comment l'utilisateur crée un worktree :**
+**Configuration locale après création :**
+- Copier depuis le checkout principal les fichiers `.env.local`, `pwa/.env.local` et `web/.env.local` existants vers les mêmes chemins relatifs du nouveau worktree.
+- Avant chaque copie, vérifier que la destination est ignorée par Git (`git check-ignore -q -- <chemin>`) et non suivie (`git ls-files -- <chemin>` ne retourne rien). Sinon, ne pas copier et signaler le problème.
+- Ne jamais écraser une destination existante, y compris un lien symbolique. Une source absente est simplement ignorée.
+- Ne jamais afficher le contenu de ces fichiers, le consigner dans les logs ou le versionner, même avec `git add -f`. Ne copier aucun autre fichier de secrets.
+- Ces valeurs donnent accès aux mêmes services que le checkout principal ; la copie n'autorise pas à modifier ou déployer les services distants.
+- `docs/briefs/` est gitignoré : copier aussi le brief de la tâche depuis le checkout principal s'il est nécessaire.
+
+**Commandes utiles :**
 ```bash
 # Créer un worktree sur une nouvelle branche
-git worktree add ../tmc-<nom-feature> feature/<nom-feature>
-
-# Ouvrir ensuite Claude Code dans ce dossier
-cd ../tmc-<nom-feature> && claude
+git worktree add ../tmc-<nom-tache> -b <branche> main
 
 # Lister les worktrees actifs
 git worktree list
 
 # Supprimer un worktree après merge de la PR
-git worktree remove ../tmc-<nom-feature>
+git worktree remove ../tmc-<nom-tache>
 ```
 
 ### Première action obligatoire

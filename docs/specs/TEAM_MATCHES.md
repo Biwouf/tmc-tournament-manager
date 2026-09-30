@@ -79,6 +79,7 @@ export type TeamCategorie =
 
 export type TeamFormat =
   | '2S1D'    // 2 simples et 1 double
+  | '3S1D'    // 3 simples et 1 double
   | '3S1D2'   // 3 simples et 1 double (double = 2 pts)
   | '4S1D2'   // 4 simples et 1 double (double = 2 pts)
   | '4S2D';   // 4 simples et 2 doubles
@@ -183,6 +184,7 @@ export interface TeamRencontre {
 | `13_14` | 13/14 ans |
 | `11_12` | 11/12 ans |
 | `2S1D` | 2 simples et 1 double |
+| `3S1D` | 3 simples et 1 double |
 | `3S1D2` | 3 simples et 1 double (double = 2 pts) |
 | `4S1D2` | 4 simples et 1 double (double = 2 pts) |
 | `4S2D` | 4 simples et 2 doubles |
@@ -240,7 +242,7 @@ CREATE TABLE IF NOT EXISTS team_competitions (
   categorie  TEXT        NOT NULL CHECK (categorie IN (
                            'seniors', '35_ans', '60_ans', '17_18', '15_16', '13_14', '11_12'
                          )),
-  format     TEXT        NOT NULL CHECK (format IN ('2S1D', '3S1D2', '4S1D2', '4S2D')),
+  format     TEXT        NOT NULL CHECK (format IN ('2S1D', '3S1D', '3S1D2', '4S1D2', '4S2D')),
   terminee   BOOLEAN     NOT NULL DEFAULT false,  -- 20260820 : championnat clos
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
@@ -523,7 +525,8 @@ Une rencontre sans score n'est jamais vide : `–` = « rien à saisir », `· �
 manquant ». `na` et `none` sont **visuellement distincts sans survol** : `na` = « cette équipe
 n'a pas cette journée » (mort), `none` = « l'étape existe, la rencontre reste à programmer ».
 
-Le **match nul existe** : les formats `4S1D2` et `4S2D` totalisent 6 points (3–3 possible), et
+Le **match nul existe** : les formats `3S1D` (4 points), `4S1D2` et `4S2D` (6 points)
+permettent un score à égalité, et
 `TeamScoreSection` expose deux inputs libres quel que soit le format. Le bilan d'équipe compte
 les nuls séparément (`R3 · 2V · 1N · 0D`) ; le segment `N` n'apparaît que si le compte est > 0.
 

@@ -7,6 +7,7 @@ export interface EnrichedRencontre {
   equipe: TeamEquipe;
   comp: TeamCompetition;
   isLive: boolean;
+  isPending?: boolean;
 }
 
 interface Props {
@@ -25,7 +26,7 @@ export default function MatchEquipeList({ items, state }: Props) {
 
   return (
     <div className="flex flex-col gap-3 px-4 pb-4">
-      {items.map(({ rencontre, etape, equipe, comp, isLive }) => (
+      {items.map(({ rencontre, etape, equipe, comp, isLive, isPending }) => (
         <MatchEquipeCell
           key={rencontre.id}
           rencontre={rencontre}
@@ -34,6 +35,7 @@ export default function MatchEquipeList({ items, state }: Props) {
           etape={etape}
           state={state}
           isLive={isLive}
+          isPending={isPending}
         />
       ))}
     </div>

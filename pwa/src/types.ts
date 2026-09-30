@@ -120,7 +120,7 @@ export interface TeamCompetition {
   genre: TeamGenre; categorie: TeamCategorie;
   singles_set3_format: LiveSet3Format | null;
   // Composition de la rencontre
-  format: '2S1D' | '3S1D2' | '4S1D2' | '4S2D';
+  format: '2S1D' | '3S1D' | '3S1D2' | '4S1D2' | '4S2D';
   created_at: string;
 }
 export interface TeamEquipe {
@@ -139,11 +139,15 @@ export interface TeamEtape {
   created_at: string;
 }
 export interface TeamRencontre {
+  tenup_url?: string | null;
+  tenup_side?: number | null;
+  tenup_synced_at?: string | null;
   id: string; etape_id: string;
   club_adverse: string; date_heure: string;
   domicile: boolean;
   score_club: number | null; score_adverse: number | null;
   wo: boolean;
   photo_urls: string[];
+  confirmed_at: string | null;
   created_at: string; updated_at: string;
 }

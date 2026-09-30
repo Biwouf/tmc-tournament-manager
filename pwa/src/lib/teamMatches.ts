@@ -17,6 +17,7 @@ export interface TeamDetail {
 }
 export const TEAM_FORMATS = {
   '2S1D': { simples: 2, doubles: 1, doublePoints: 1 },
+  '3S1D': { simples: 3, doubles: 1, doublePoints: 1 },
   '3S1D2': { simples: 3, doubles: 1, doublePoints: 2 },
   '4S1D2': { simples: 4, doubles: 1, doublePoints: 2 },
   '4S2D': { simples: 4, doubles: 2, doublePoints: 1 },

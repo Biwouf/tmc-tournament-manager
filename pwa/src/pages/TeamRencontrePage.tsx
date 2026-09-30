@@ -1,3 +1,6 @@
+import TenupSync from '../../../shared/TenupSync';
+import { tenupClient } from '../../../shared/tenupClient';
+import { supabase } from '../lib/supabase';
 import PerformanceBadge from '../components/teamMatches/PerformanceBadge';
 import { isClubPerformance } from '../lib/teamPerformance';
 import TeamPlayers from '../components/teamMatches/TeamPlayers';
@@ -63,6 +66,9 @@ export default function TeamRencontrePage() {
       <p className="mt-3 text-xs text-muted-foreground">{spec.simples} simples · {spec.doubles} double{spec.doubles > 1 ? 's' : ''}{spec.doublePoints > 1 ? ' · double à 2 points' : ''}</p>
       <p className="mt-1 text-xs text-muted-foreground">3e set des simples : {competition.singles_set3_format === 'super_tiebreak' ? 'super tie-break' : competition.singles_set3_format === 'normal' ? 'set classique' : 'à configurer'} · doubles : super tie-break</p>
     </section>
+    {canEdit && !rencontre.wo && clubId && <TenupSync key={rencontre.id} sourceUrl={rencontre.tenup_url} sourceSide={rencontre.tenup_side} syncedAt={rencontre.tenup_synced_at}
+      clubName={club?.name ?? 'Notre club'} opponent={rencontre.club_adverse} date={rencontre.date_heure} lines={lines}
+      {...tenupClient(supabase, clubId, rencontre.id)} onSynced={() => void query.refetch()} />}
     {query.isError && <p role="alert" className="text-sm text-amber-800">Actualisation impossible. Les données affichées peuvent avoir changé. <button onClick={() => void query.refetch()} className="underline">Réessayer</button></p>}
     {!user && <Link to="/login" state={{ from: `/matches-equipes/${id}` }} className="block rounded-xl border border-border p-3 text-center text-primary">Se connecter pour gérer les matchs</Link>}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}

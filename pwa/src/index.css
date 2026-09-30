@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../../shared";
 
 /* ─── Tokens — identiques au BO ─────────────────────────────────────────── */
 :root {
@@ -68,9 +69,187 @@
   overflow-y: auto;
 }
 
-/* Espace supplémentaire quand la bannière "Installer la PWA" est visible (~120px). */
+/* L'espace suit la hauteur réelle de l'invite, qui varie selon la largeur et la plateforme. */
 body.has-install-banner .pwa-content {
-  padding-bottom: calc(56px + 120px + env(safe-area-inset-bottom));
+  padding-bottom: calc(56px + var(--install-banner-height, 190px) + 20px + env(safe-area-inset-bottom));
+}
+
+/* ─── Invite d'installation ─────────────────────────────────────────────── */
+.install-banner {
+  position: fixed;
+  z-index: 60;
+  right: 0;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  left: 0;
+  padding: 10px 10px 12px;
+  pointer-events: none;
+}
+
+.install-banner__card {
+  position: relative;
+  width: min(100%, 32rem);
+  margin-inline: auto;
+  padding: 16px;
+  overflow: hidden;
+  color: hsl(var(--primary-foreground));
+  background:
+    radial-gradient(circle at 0 0, rgb(255 255 255 / 20%), transparent 42%),
+    hsl(var(--primary));
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgb(0 0 0 / 32%), 0 2px 8px rgb(0 0 0 / 20%);
+  pointer-events: auto;
+}
+
+.install-banner__close {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--primary-foreground));
+  background: rgb(0 0 0 / 14%);
+  border-radius: 999px;
+  touch-action: manipulation;
+}
+
+.install-banner__intro {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-right: 38px;
+}
+
+.install-banner__logo-wrap {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 5px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+}
+
+.install-banner__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.install-banner__eyebrow {
+  margin-bottom: 2px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  line-height: 1.2;
+  opacity: .8;
+}
+
+.install-banner__title {
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.install-banner__description {
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: .88;
+}
+
+.install-banner__actions {
+  margin-top: 14px;
+}
+
+.install-banner__install-button {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 16px;
+  color: hsl(var(--primary));
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 20%);
+  font-size: 14px;
+  font-weight: 800;
+  touch-action: manipulation;
+}
+
+.install-banner__install-button:disabled {
+  opacity: .72;
+}
+
+.install-banner__ios-instructions {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  background: rgb(0 0 0 / 14%);
+  border: 1px solid rgb(255 255 255 / 32%);
+  border-radius: 12px;
+}
+
+.install-banner__separator {
+  opacity: .72;
+}
+
+@media (max-width: 359px) {
+  .install-banner {
+    padding-inline: 6px;
+  }
+
+  .install-banner__card {
+    padding: 13px;
+  }
+
+  .install-banner__logo-wrap {
+    width: 48px;
+    height: 48px;
+  }
+
+  .install-banner__description {
+    font-size: 11px;
+  }
+
+  .install-banner__ios-instructions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (hover: hover) {
+  .install-banner__close:hover {
+    background: rgb(0 0 0 / 22%);
+  }
+
+  .install-banner__install-button:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.install-banner button:focus-visible {
+  outline: 3px solid white;
+  outline-offset: 2px;
 }
 
 /* ─── Rendu Markdown (ActuDetailPage, EventDetailPage) ─────────────────── */
@@ -123,3 +302,41 @@ body.has-install-banner .pwa-content {
 @media (prefers-reduced-motion: no-preference) {
   .badge-performance { animation: performance-reveal 1.2s ease-out both; }
 }
+
+/* Native modal keeps keyboard focus inside the Samsung installation help. */
+.install-help {
+  width: min( calc(100% - 24px), 30rem);
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 24px;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 18px;
+  color: #1f2937;
+  background: white;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 25%);
+  pointer-events: auto;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.install-help::backdrop { background: rgb(0 0 0 / 55%); }
+.install-help h2 { font-size: 20px; font-weight: 800; }
+.install-help p { margin-top: 12px; }
+.install-help button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-weight: 700;
+}
+.install-help button:focus-visible,
+.install-help summary:focus-visible,
+.install-help input:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.install-help__chrome { margin-top: 16px; padding: 12px; border-radius: 12px; background: #f3f4f6; }
+.install-help__chrome summary { cursor: pointer; min-height: 44px; padding-block: 11px; font-weight: 700; }
+.install-help__chrome label { display: block; margin-top: 12px; font-weight: 600; }
+.install-help__chrome input { width: 100%; min-height: 44px; margin-bottom: 8px; padding: 8px; background: white; border: 1px solid #d1d5db; border-radius: 6px; }
+.install-help__chrome [role="status"]:empty { display: none; }
+.install-help__actions { display: grid; gap: 8px; margin-top: 20px; }
+.install-help .install-help__continue { color: hsl(var(--primary-foreground)); background: hsl(var(--primary)); border-color: hsl(var(--primary)); }

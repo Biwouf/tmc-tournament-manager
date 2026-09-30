@@ -250,6 +250,7 @@ export type TeamCategorie =
 
 export type TeamFormat =
   | '2S1D'    // 2 simples et 1 double
+  | '3S1D'    // 3 simples et 1 double
   | '3S1D2'   // 3 simples et 1 double (double = 2 pts)
   | '4S1D2'   // 4 simples et 1 double (double = 2 pts)
   | '4S2D';   // 4 simples et 2 doubles
@@ -326,6 +327,9 @@ export interface TeamMatchLine {
 }
 
 export interface TeamRencontre {
+  tenup_url?: string | null;
+  tenup_side?: number | null;
+  tenup_synced_at?: string | null;
   id: string;
   etape_id: string;
   club_adverse: string;

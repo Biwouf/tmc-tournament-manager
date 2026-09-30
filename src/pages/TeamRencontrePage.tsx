@@ -1,3 +1,5 @@
+import TenupSync from '../../shared/TenupSync';
+import { tenupClient } from '../../shared/tenupClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -48,7 +50,7 @@ export default function TeamRencontrePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const liveRequest = useRef({ id: '', key: '', busy: false });
-  const { clubId } = useClub();
+  const { clubId, club } = useClub();
 
   const [rencontre, setRencontre] = useState<TeamRencontre | null>(null);
   const [context, setContext] = useState<Context | null>(null);
@@ -62,9 +64,9 @@ export default function TeamRencontrePage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [declaringWo, setDeclaringWo] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (background = false) => {
     if (!id) return;
-    setLoading(true);
+    if (!background) setLoading(true);
 
     const { data: renc } = await supabase.from('team_rencontres').select('*').eq('id', id).eq('club_id', clubId).single();
     if (!renc) {
@@ -222,6 +224,9 @@ export default function TeamRencontrePage() {
       />
 
       <main className="container mx-auto max-w-3xl px-4 py-8 space-y-8">
+        {!rencontre.wo && clubId && <TenupSync key={rencontre.id} sourceUrl={rencontre.tenup_url} sourceSide={rencontre.tenup_side} syncedAt={rencontre.tenup_synced_at}
+          clubName={club?.name ?? 'Notre club'} opponent={rencontre.club_adverse} date={rencontre.date_heure} lines={lines}
+          {...tenupClient(supabase, clubId, rencontre.id)} onSynced={() => void load(true)} />}
         {/* Contexte */}
         {context && (
           <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">

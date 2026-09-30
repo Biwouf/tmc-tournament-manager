@@ -104,6 +104,8 @@ export default function RegistrationHistory({
                 ? " · Correction du quota"
                 : e.source === "membership_removed"
                   ? " · Retrait du club"
+                  : e.source === "course_restored"
+                    ? " · Cours rétabli"
                   : e.source === "course_cancelled"
                     ? " · Cours annulé"
                     : ""}

@@ -37,12 +37,26 @@ test('Team commands: rules flow to Live, results, slots, WO, concurrency, member
   await db.exec(await migration('20260907_live_match_consistency'));
   await db.exec(await migration('2026092101_team_scoring_rules'));
   await db.exec(await migration('2026092401_team_match_commands'));
+  await db.exec(await migration('2026092601_team_format_3s1d'));
+  assert.deepEqual((await db.query("SELECT team_format_spec('3S1D') AS spec")).rows[0].spec,[3,1,1]);
+  await db.exec(`UPDATE team_competitions SET format='3S1D' WHERE id='${id(11)}';
+    UPDATE team_competitions SET format='3S1D2' WHERE id='${id(11)}';`);
   await db.exec(`UPDATE team_competitions SET singles_set3_format='super_tiebreak' WHERE id='${id(11)}'`);
   async function as(user,sql,args=[]) {
    await db.exec(`BEGIN; SET LOCAL ROLE ${user===null?'anon':'authenticated'}; SELECT set_config('request.jwt.claim.sub','${user===null?'':id(user)}',true);`);
    try { const r=await db.query(sql,args);await db.exec('COMMIT');return r.rows; }
    catch(e){await db.exec('ROLLBACK');throw e;}
   }
+  await db.exec(await migration('202609250001_team_member_search_fix'));
+  await db.exec(`UPDATE profiles SET prenom='David',nom='Paoletti' WHERE id='${id(103)}'`);
+  const search=async (query,user=103,club=id(1))=>(await as(user,'SELECT team_member_search($1,$2) AS results',[club,query]))[0].results;
+  assert.deepEqual(await search('dav'),[{id:id(103),prenom:'David',nom:'Paoletti'}]);
+  assert.deepEqual(await search('Paoletti'),await search('DAVID'));
+  assert.deepEqual(await search('d'),[]);
+  assert.deepEqual(await search('Absent'),[]);
+  await assert.rejects(search('David',106),/Accès membre/);
+  await assert.rejects(search('David',null),/permission denied/);
+  assert.deepEqual(await search('David',106,id(2)),[],'no results from another club');
   const command=(op,data,user=103,key=randomUUID(),club=id(1))=>as(user,'SELECT team_match_command($1,$2,$3,$4,$5) AS result',[club,id(14),op,data,key]).then(rows=>rows[0].result);
   const line=async lid=>(await db.query('SELECT * FROM team_match_lines WHERE id=$1',[lid])).rows[0];
   const live=async mid=>(await db.query('SELECT * FROM live_matches WHERE id=$1',[mid])).rows[0];

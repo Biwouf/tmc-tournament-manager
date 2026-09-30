@@ -116,8 +116,9 @@ const POSTER_STYLES = `
 .tmc-poster .va-loc.home { background: #c8102e; }
 .tmc-poster .va-loc.away { background: #1a1416; }
 .tmc-poster .va-loc .icon  { font-size: 90px; line-height: 1; }
-.tmc-poster .va-loc .label { font-size: 34px; font-weight: 800;
-                 text-transform: uppercase; letter-spacing: 3px; line-height: 1; }
+/* Keep the longest label (DÉPLACEMENT) inside each fixed-width location column. */
+.tmc-poster .va-loc .label { font-size: 26px; font-weight: 800;
+                 text-transform: uppercase; letter-spacing: 1px; line-height: 1; white-space: nowrap; }
 
 /* Mode hero */
 .tmc-poster .va-cell.hero {
@@ -144,7 +145,7 @@ const POSTER_STYLES = `
 
 .tmc-poster .va-cell.hero .va-loc        { padding: 28px 18px; gap: 20px; }
 .tmc-poster .va-cell.hero .va-loc .icon  { font-size: 130px; }
-.tmc-poster .va-cell.hero .va-loc .label { font-size: 48px; letter-spacing: 4px; }
+.tmc-poster .va-cell.hero .va-loc .label { font-size: 30px; letter-spacing: 1px; }
 
 /* Mode compact */
 .tmc-poster .va-cell.compact { grid-template-columns: 200px 1fr 240px; }
@@ -164,7 +165,7 @@ const POSTER_STYLES = `
 
 .tmc-poster .va-cell.compact .va-loc       { gap: 8px; }
 .tmc-poster .va-cell.compact .va-loc .icon  { font-size: 56px; }
-.tmc-poster .va-cell.compact .va-loc .label { font-size: 22px; letter-spacing: 2px; }
+.tmc-poster .va-cell.compact .va-loc .label { font-size: 22px; letter-spacing: 1px; }
 
 /* Placeholder */
 .tmc-poster .va-empty {
