@@ -35,7 +35,7 @@ Publication par raccourci, modification du vote sans incrémenter le total,
 création d’un second sondage sans clôturer le premier, invitation visiteur à se connecter,
 réaction connectée, match terminé et fil vide.
 
-## Après validation visuelle
+## Plan initial après validation visuelle (implémenté)
 
 Le détail actuel `/matches/:id/score` est réservé aux membres et sert à la saisie.
 Créer une page publique distincte de suivi et relier les cartes de match à cette page.
@@ -88,3 +88,7 @@ Une seule vue Membre remplace les vues Owner et Membre. Tous les membres ont acc
 Validation : TypeScript et compilation. Le contrôle visuel de cette passe est à reprendre : l’outil navigateur n’a pas pu démarrer. Le clavier logiciel et le confort en extérieur restent à tester sur un vrai téléphone.
 
 Scénario de validation téléphone : ajouter deux jeux, annuler le dernier, publier un message long, créer puis répondre à un sondage, lire l’historique, envoyer quatre réactions identiques, attendre la fermeture de la palette. Vérifier que le clavier ne masque ni l’envoi ni le champ, et que le score reste lisible.
+
+## Implémentation réelle
+
+La PWA utilise désormais les données et commandes décrites dans [pwa-live-activity.md](pwa-live-activity.md). Ce document de prototype conserve les décisions et limites de la maquette. Les droits partagés, la persistance, les votes et les réactions sans cooldown sont implémentés ; les photos restent différées.

@@ -41,6 +41,11 @@ const supabase = {
       return { data: { subscription: { unsubscribe: () => authListeners.delete(callback) } } };
     },
   },
+  rpc(name) {
+    assert.equal(name, 'club_public_brand');
+    counters.club_public_brand = (counters.club_public_brand ?? 0) + 1;
+    return Promise.resolve({ data: structuredClone(records.club_settings.config), error: null });
+  },
   from(table) {
     const builder = {
       select() { return this; }, or() { return this; }, eq() { return this; }, gte() { return this; },
@@ -132,22 +137,22 @@ async function cleanup(root) {
 test('three config consumers: one public request per session, stable on token refresh, isolated on logout', async () => {
   const root = await mount(h(React.Fragment, null, h(Config), h(Config), h(Config)));
   try {
-    assert.equal(counters.club_settings, 1);
+    assert.equal(counters.club_public_brand, 1);
     assert.equal(authListeners.size, 1, 'one shared auth subscription, including StrictMode');
     await emit('SIGNED_IN', 'user-a');
-    assert.equal(counters.club_settings, 2);
+    assert.equal(counters.club_public_brand, 2);
     assert.equal(document.querySelectorAll('span')[0].textContent, '#112233');
     const accountClient = activeClient;
     accountClient.setQueryData(['private'], 'account A');
     await emit('TOKEN_REFRESHED', 'user-a');
     await emit('SIGNED_IN', 'user-a');
-    assert.equal(counters.club_settings, 2);
+    assert.equal(counters.club_public_brand, 2);
     await emit('SIGNED_OUT', null);
     assert.equal(document.querySelectorAll('span')[0].textContent, '#112233');
-    assert.equal(counters.club_settings, 3);
+    assert.equal(counters.club_public_brand, 3);
     assert.equal(activeClient.getQueryData(['private']), undefined);
     await emit('SIGNED_IN', 'user-b');
-    assert.equal(counters.club_settings, 4);
+    assert.equal(counters.club_public_brand, 4);
     assert.equal(activeClient.getQueryData(['private']), undefined);
   } finally { await cleanup(root); }
 });
@@ -175,12 +180,11 @@ test('feed navigation reuses fresh data; manual refresh, stale data and a differ
   } finally { await cleanup(root); }
 });
 
-test('Live: a score burst causes one list request and no repeated profile request; new scorer fetches profiles', async () => {
+test('Live: a score burst causes one list request; shared members need no scorer profile fetch', async () => {
   const root = await mount(h(MatchesPage));
   try {
-    for (let i = 0; i < 10 && !counters.profiles; i++) await settle();
     assert.equal(counters.live_matches, 1);
-    assert.equal(counters.profiles, 1, JSON.stringify(activeClient.getQueryCache().getAll().map(q => ({key:q.queryKey,state:q.state})), null, 2));
+    assert.equal(counters.profiles ?? 0, 0, 'no profile request for the member rights model');
     const channel = channels.findLast(c => !c.removed);
     const update = channel.handlers.find(h => h.filter.event === 'UPDATE');
     assert.equal(update.filter.filter, 'club_id=eq.club-a');
@@ -192,11 +196,11 @@ test('Live: a score burst causes one list request and no repeated profile reques
     });
     await settle();
     assert.equal(counters.live_matches, 2);
-    assert.equal(counters.profiles, 1);
+    assert.equal(counters.profiles ?? 0, 0);
     records.live_matches[0].scored_by = 'scorer-b';
     await act(async () => { update.callback({}); await wait(300); });
     await settle();
-    assert.equal(counters.profiles, 2);
+    assert.equal(counters.profiles ?? 0, 0);
   } finally { records.live_matches[0].scored_by = 'scorer-a'; await cleanup(root); }
 });
 
