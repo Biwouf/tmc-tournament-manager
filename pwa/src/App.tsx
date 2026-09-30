@@ -50,6 +50,8 @@ export default function App() {
 function AppShell() {
   const { club, loading: clubLoading } = useClub();
   const { config } = useClubConfig();
+  const location = useLocation();
+  const immersive = /^\/matches\/(?!new(?:\/|$))[^/]+(?:\/score)?\/?$/.test(location.pathname);
 
   // Effet à part de celui du manifeste : les couleurs ne dépendent pas de `club`, seulement
   // de la config. Le logo et les couleurs publics s'appliquent aussi avant connexion.
@@ -108,10 +110,10 @@ function AppShell() {
 
   return (
     <HeaderActionProvider>
-      <AppHeader />
-      <main className="pwa-content">
-        <UpdateBanner />
-        <SignupNotice />
+      {!immersive && <AppHeader />}
+      <main className={`pwa-content${immersive ? ' live-immersive' : ''}`}>
+        {!immersive && <UpdateBanner />}
+        {!immersive && <SignupNotice />}
         <Routes>
           <Route path="/inscription" element={<SignupPage />} />
           <Route path="/inscription/confirmee" element={<SignupPage confirmed />} />
@@ -131,18 +133,19 @@ function AppShell() {
           <Route path="/matches-equipes" element={<MatchesEquipesPage />} />
           <Route path="/matches-equipes/:id" element={<TeamRencontrePage />} />
 
-          {/* Live (inchangé) */}
+          {/* Live public : les commandes sont protégées côté serveur. */}
           <Route path="/matches" element={<MatchesPage />} />
           <Route path="/matches/new" element={<RequireAuth><NewMatchPage /></RequireAuth>} />
-          <Route path="/matches/:id/score" element={<RequireAuth><LiveMatchPage /></RequireAuth>} />
+          <Route path="/matches/:id" element={<LiveMatchPage />} />
+          <Route path="/matches/:id/score" element={<LiveMatchPage />} />
 
           {/* Compat : anciennes URLs → redirection */}
           <Route path="/actus" element={<Navigate to="/actu?tab=actus" replace />} />
           <Route path="/evenements" element={<Navigate to="/actu?tab=events" replace />} />
         </Routes>
       </main>
-      <InstallBanner />
-      <BottomNav />
+      {!immersive && <InstallBanner />}
+      {!immersive && <BottomNav />}
     </HeaderActionProvider>
   );
 }

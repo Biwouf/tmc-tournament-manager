@@ -5,15 +5,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { writeLiveMatch, deleteLiveMatch } from '../../lib/liveMatchWrites';
+import { deleteLiveMatch } from '../../lib/liveMatchWrites';
 import { useClub } from '../../contexts/ClubContext';
-import type { LiveMatch, LiveMatchWinner, Profile } from '../../types';
+import type { LiveMatch, LiveMatchWinner } from '../../types';
 import LiveBadge from './LiveBadge';
 
 interface Props {
   match: LiveMatch;
   userId: string | null;
-  profilesMap: Record<string, Profile>;
+  canManage: boolean;
 }
 
 interface SetState {
@@ -30,7 +30,11 @@ interface SetCell {
   emphasized: boolean;
 }
 
-function computeSetWinner(j1: number, j2: number, isSuperTb: boolean): LiveMatchWinner | null {
+function computeSetWinner(
+  j1: number,
+  j2: number,
+  isSuperTb: boolean,
+): LiveMatchWinner | null {
   const max = Math.max(j1, j2);
   const min = Math.min(j1, j2);
   const diff = max - min;
@@ -44,9 +48,27 @@ function computeSetWinner(j1: number, j2: number, isSuperTb: boolean): LiveMatch
 function buildSets(match: LiveMatch): SetState[] {
   const isSuper3 = match.set3_format === 'super_tiebreak';
   const raw = [
-    { j1: match.set1_j1, j2: match.set1_j2, tbJ1: match.set1_tb_j1, tbJ2: match.set1_tb_j2, isSuper: false },
-    { j1: match.set2_j1, j2: match.set2_j2, tbJ1: match.set2_tb_j1, tbJ2: match.set2_tb_j2, isSuper: false },
-    { j1: match.set3_j1, j2: match.set3_j2, tbJ1: match.set3_tb_j1, tbJ2: match.set3_tb_j2, isSuper: isSuper3 },
+    {
+      j1: match.set1_j1,
+      j2: match.set1_j2,
+      tbJ1: match.set1_tb_j1,
+      tbJ2: match.set1_tb_j2,
+      isSuper: false,
+    },
+    {
+      j1: match.set2_j1,
+      j2: match.set2_j2,
+      tbJ1: match.set2_tb_j1,
+      tbJ2: match.set2_tb_j2,
+      isSuper: false,
+    },
+    {
+      j1: match.set3_j1,
+      j2: match.set3_j2,
+      tbJ1: match.set3_tb_j1,
+      tbJ2: match.set3_tb_j2,
+      isSuper: isSuper3,
+    },
   ];
   return raw
     .filter((s) => s.j1 !== null && s.j2 !== null)
@@ -81,11 +103,15 @@ function ScoreCell({ value, tb, emphasized }: SetCell) {
   return (
     <span
       className={`inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-md text-sm font-bold tabular-nums ${
-        emphasized ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground'
+        emphasized
+          ? 'bg-foreground text-background'
+          : 'bg-muted text-muted-foreground'
       }`}
     >
       {value}
-      {tb !== null && <sup className="ml-0.5 text-[9px] font-semibold opacity-80">{tb}</sup>}
+      {tb !== null && (
+        <sup className="ml-0.5 text-[9px] font-semibold opacity-80">{tb}</sup>
+      )}
     </span>
   );
 }
@@ -104,11 +130,15 @@ function PlayerRow({
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-baseline gap-1.5 min-w-0">
-        <span className={`text-sm text-foreground truncate ${isWinner ? 'font-bold' : 'font-medium'}`}>
+        <span
+          className={`text-sm text-foreground truncate ${isWinner ? 'font-bold' : 'font-medium'}`}
+        >
           {name}
         </span>
         {classement && (
-          <span className="text-xs text-muted-foreground whitespace-nowrap">({classement})</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            ({classement})
+          </span>
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -120,14 +150,12 @@ function PlayerRow({
   );
 }
 
-export default function MatchCard({ match, userId, profilesMap }: Props) {
+export default function MatchCard({ match, userId, canManage }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { clubId } = useClub();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [showTakeoverModal, setShowTakeoverModal] = useState(false);
-  const [courtInput, setCourtInput] = useState<string | null>(null);
 
   const isLive = match.status === 'live';
   const isPending = match.status === 'pending';
@@ -135,77 +163,17 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
   const sets = buildSets(match);
   const showClassement = match.match_type === 'simple';
 
-  const isAuth = !!userId;
-  const isOwner = isAuth && match.scored_by === userId;
-
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['matches'] });
-
-  const handleStart = async (court: string | null) => {
-    if (!userId) return;
-    setBusy(true);
-    setActionError(null);
-    const { error } = await writeLiveMatch(match, clubId, {
-      status: 'live', scored_by: userId, court, started_at: new Date().toISOString(),
-    }).then(() => ({ error: null }), (error: Error) => ({ error }));
-    if (error) {
-      setActionError(error.message);
-      void refresh();
-      setBusy(false);
-      return;
-    }
-    setCourtInput(null);
-    refresh();
-    navigate(`/matches/${match.id}/score`);
-  };
-
-  const handleResume = () => {
-    navigate(`/matches/${match.id}/score`);
-  };
-
-  const handleRelease = async () => {
-    if (!confirm('Libérer ce live ? Le match repassera en attente et pourra être repris par un autre utilisateur.')) {
-      return;
-    }
-    setBusy(true);
-    setActionError(null);
-    const { error } = await writeLiveMatch(match, clubId, { status: 'pending', scored_by: null })
-      .then(() => ({ error: null }), (error: Error) => ({ error }));
-    if (error) {
-      setActionError(error.message);
-      void refresh();
-      setBusy(false);
-      return;
-    }
-    setBusy(false);
-    refresh();
-  };
-
-  const handleView = () => {
-    navigate(`/matches/${match.id}/score`);
-  };
-
-  const handleTakeover = async () => {
-    if (!userId) return;
-    setBusy(true);
-    setActionError(null);
-    const { error } = await writeLiveMatch(match, clubId, { scored_by: userId })
-      .then(() => ({ error: null }), (error: Error) => ({ error }));
-    if (error) {
-      setActionError(error.message);
-      void refresh();
-      setBusy(false);
-      return;
-    }
-    setShowTakeoverModal(false);
-    refresh();
-    navigate(`/matches/${match.id}/score`);
-  };
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: ['matches'] });
 
   const handleDelete = async () => {
     if (!confirm('Supprimer ce match ? Cette action est irréversible.')) return;
     setBusy(true);
     setActionError(null);
-    const { error } = await deleteLiveMatch(match, clubId).then(() => ({ error: null }), (error: Error) => ({ error }));
+    const { error } = await deleteLiveMatch(match, clubId).then(
+      () => ({ error: null }),
+      (error: Error) => ({ error }),
+    );
     if (error) {
       setActionError(error.message);
       void refresh();
@@ -216,75 +184,40 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
     refresh();
   };
 
-  let actions: React.ReactNode = null;
-  if (isPending && isAuth) {
-    actions = (
+  const actions = (
+    <div className="flex items-center gap-2 flex-wrap">
       <button
         type="button"
-        onClick={() => setCourtInput('')}
-        disabled={busy}
-        className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+        onClick={() => navigate(`/matches/${match.id}`)}
+        className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
       >
-        Démarrer le live
+        {canManage && userId
+          ? isPending
+            ? 'Préparer le live'
+            : isLive
+              ? 'Animer le live'
+              : 'Voir le match'
+          : isLive
+            ? 'Suivre le live'
+            : 'Voir le match'}
       </button>
-    );
-  } else if (isLive && isOwner) {
-    actions = (
-      <div className="flex items-center gap-2 flex-wrap">
+      {isFinished && canManage && (
         <button
           type="button"
-          onClick={handleResume}
-          disabled={busy}
-          className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-        >
-          Reprendre le live
-        </button>
-        <button
-          type="button"
-          onClick={handleRelease}
-          disabled={busy}
-          className="min-h-11 ml-auto rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
-        >
-          Libérer
-        </button>
-      </div>
-    );
-  } else if (isLive && isAuth && !isOwner) {
-    actions = (
-      <button
-        type="button"
-        onClick={() => setShowTakeoverModal(true)}
-        disabled={busy}
-        className="min-h-11 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
-      >
-        Prendre le contrôle
-      </button>
-    );
-  } else if (isFinished && isAuth) {
-    actions = (
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={handleView}
-          disabled={busy}
-          className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
-        >
-          Voir
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
+          onClick={() => void handleDelete()}
           disabled={busy || !!match.team_match_line_id}
-          className="min-h-11 ml-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+          className="min-h-11 ml-auto rounded-lg border border-red-200 px-4 text-sm text-red-700"
         >
           Supprimer
         </button>
-      </div>
-    );
-  }
+      )}
+    </div>
+  );
 
   return (
-    <div className={`bg-card rounded-xl p-4 shadow-sm border flex flex-col gap-3 ${isLive ? 'border-primary' : 'border-border'}`}>
+    <div
+      className={`bg-card rounded-xl p-4 shadow-sm border flex flex-col gap-3 ${isLive ? 'border-primary' : 'border-border'}`}
+    >
       <div className="flex items-center justify-between gap-2">
         {isLive && <LiveBadge />}
         {isPending && match.start_time && (
@@ -293,7 +226,11 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
           </span>
         )}
         {isFinished && (
-          <span className="text-xs text-muted-foreground font-medium">{match.team_match_line_id && !match.team_result_confirmed ? 'LIVE · TERMINÉ · À valider' : 'Terminé'}</span>
+          <span className="text-xs text-muted-foreground font-medium">
+            {match.team_match_line_id && !match.team_result_confirmed
+              ? 'LIVE · TERMINÉ · À valider'
+              : 'Terminé'}
+          </span>
         )}
         {isFinished && match.retired_player !== null && (
           <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase bg-amber-100 text-amber-800">
@@ -306,7 +243,9 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
           </span>
         )}
         {match.type_tournoi && (
-          <span className={`text-xs text-muted-foreground truncate max-w-[40%] ${match.court ? '' : 'ml-auto'}`}>
+          <span
+            className={`text-xs text-muted-foreground truncate max-w-[40%] ${match.court ? '' : 'ml-auto'}`}
+          >
             {match.type_tournoi}
           </span>
         )}
@@ -334,94 +273,21 @@ export default function MatchCard({ match, userId, profilesMap }: Props) {
         />
       </div>
 
-      {match.team_rencontre_id && <button onClick={() => navigate(`/matches-equipes/${match.team_rencontre_id}`)} className="min-h-11 text-left text-sm font-semibold text-primary">{isFinished && !match.team_result_confirmed ? 'Valider le résultat dans la rencontre →' : 'Voir la rencontre →'}</button>}
+      {match.team_rencontre_id && (
+        <button
+          onClick={() =>
+            navigate(`/matches-equipes/${match.team_rencontre_id}`)
+          }
+          className="min-h-11 text-left text-sm font-semibold text-primary"
+        >
+          {isFinished && !match.team_result_confirmed
+            ? 'Valider le résultat dans la rencontre →'
+            : 'Voir la rencontre →'}
+        </button>
+      )}
       {actions && <div className="pt-1">{actions}</div>}
 
-      {actionError && (
-        <p className="text-xs text-red-600">{actionError}</p>
-      )}
-
-      {courtInput !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleStart(courtInput.trim() || null);
-            }}
-            className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl flex flex-col gap-4"
-          >
-            <div className="flex flex-col gap-1">
-              <h2 className="text-base font-semibold text-foreground">Quel court ?</h2>
-              <p className="text-sm text-muted-foreground">
-                Laissez vide si le court n'est pas encore défini.
-              </p>
-            </div>
-            <input
-              type="text"
-              autoFocus
-              value={courtInput}
-              onChange={(e) => setCourtInput(e.target.value)}
-              placeholder="ex: Court 1, Court central"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-            />
-            <div className="flex flex-col gap-2">
-              <button
-                type="submit"
-                disabled={busy}
-                className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-              >
-                Démarrer
-              </button>
-              <button
-                type="button"
-                onClick={() => setCourtInput(null)}
-                disabled={busy}
-                className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
-              >
-                Annuler
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {showTakeoverModal && (() => {
-        const profile = match.scored_by ? profilesMap[match.scored_by] : null;
-        const managerName =
-          profile && (profile.prenom || profile.nom)
-            ? `${profile.prenom} ${profile.nom}`.trim()
-            : 'un autre utilisateur';
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl flex flex-col gap-4">
-              <h2 className="text-base font-semibold text-foreground">Prendre le contrôle ?</h2>
-              <p className="text-sm text-muted-foreground">
-                Ce live est actuellement géré par{' '}
-                <span className="font-medium text-foreground">{managerName}</span>.
-                Si vous prenez le contrôle, cette personne passera en lecture seule.
-              </p>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={handleTakeover}
-                  disabled={busy}
-                  className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-                >
-                  Prendre le contrôle
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowTakeoverModal(false)}
-                  disabled={busy}
-                  className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
-                >
-                  Annuler
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {actionError && <p className="text-xs text-red-600">{actionError}</p>}
     </div>
   );
 }
