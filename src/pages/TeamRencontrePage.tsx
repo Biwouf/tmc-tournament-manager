@@ -63,6 +63,52 @@ export default function TeamRencontrePage() {
   const [scoringLine, setScoringLine] = useState<TeamMatchLine | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
   const [declaringWo, setDeclaringWo] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [dateHeure, setDateHeure] = useState('');
+  const [domicile, setDomicile] = useState(true);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  const startEditingDetails = () => {
+    if (!rencontre) return;
+    const date = new Date(rencontre.date_heure);
+    const pad = (value: number) => String(value).padStart(2, '0');
+    setDateHeure(`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`);
+    setDomicile(rencontre.domicile);
+    setDetailsError(null);
+    setEditingDetails(true);
+  };
+
+  const saveDetails = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!rencontre || savingDetails) return;
+    setDetailsError(null);
+    const date = new Date(dateHeure);
+    if (!dateHeure || Number.isNaN(date.getTime())) {
+      setDetailsError('La date et l’heure sont obligatoires.');
+      return;
+    }
+    setSavingDetails(true);
+    try {
+      const { data, error } = await supabase
+        .from('team_rencontres')
+        .update({ date_heure: date.toISOString(), domicile })
+        .eq('id', rencontre.id)
+        .eq('club_id', clubId)
+        .select('*')
+        .single();
+      if (error || !data) {
+        setDetailsError(error?.message ?? 'Enregistrement impossible.');
+        return;
+      }
+      setRencontre(data as TeamRencontre);
+      setEditingDetails(false);
+    } catch {
+      setDetailsError('Enregistrement impossible. Veuillez réessayer.');
+    } finally {
+      setSavingDetails(false);
+    }
+  };
 
   const load = useCallback(async (background = false) => {
     if (!id) return;
@@ -227,18 +273,59 @@ export default function TeamRencontrePage() {
         {!rencontre.wo && clubId && <TenupSync key={rencontre.id} sourceUrl={rencontre.tenup_url} sourceSide={rencontre.tenup_side} syncedAt={rencontre.tenup_synced_at}
           clubName={club?.name ?? 'Notre club'} opponent={rencontre.club_adverse} date={rencontre.date_heure} lines={lines}
           {...tenupClient(supabase, clubId, rencontre.id)} onSynced={() => void load(true)} />}
-        {/* Contexte */}
-        {context && (
-          <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-            <p className="font-medium">{competitionLabel(context.competition)}</p>
-            <p className="text-sm text-muted-foreground">
-              Équipe {context.equipe.numero} · {etapeLabel(context.etape)}
-            </p>
-            <p className="mt-2 text-sm">
-              {formatDateLong(rencontre.date_heure)} · {rencontre.domicile ? 'Au club' : 'Déplacement'}
-            </p>
-          </div>
-        )}
+        {/* Informations de la rencontre */}
+        <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+          {context && (
+            <>
+              <p className="font-medium">{competitionLabel(context.competition)}</p>
+              <p className="text-sm text-muted-foreground">
+                Équipe {context.equipe.numero} · {etapeLabel(context.etape)}
+              </p>
+            </>
+          )}
+          {editingDetails ? (
+            <form onSubmit={saveDetails} className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="rencontre-date" className="block text-sm font-medium">Date et heure</label>
+                <input id="rencontre-date" type="datetime-local" required value={dateHeure}
+                  onChange={(event) => setDateHeure(event.target.value)} disabled={savingDetails}
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              </div>
+              <fieldset disabled={savingDetails}>
+                <legend className="text-sm font-medium">Lieu de la rencontre</legend>
+                <div className="mt-2 flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="radio" name="rencontre-lieu" checked={domicile} onChange={() => setDomicile(true)} />
+                    À domicile (on reçoit)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="radio" name="rencontre-lieu" checked={!domicile} onChange={() => setDomicile(false)} />
+                    À l’extérieur
+                  </label>
+                </div>
+              </fieldset>
+              {detailsError && <p role="alert" className="text-sm text-red-600">{detailsError}</p>}
+              <div className="flex flex-wrap justify-end gap-3">
+                <button type="button" disabled={savingDetails} onClick={() => setEditingDetails(false)}
+                  className="rounded-lg border border-border px-4 py-2 text-sm disabled:opacity-50">Annuler</button>
+                <button type="submit" disabled={savingDetails}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+                  {savingDetails ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm">
+                {formatDateLong(rencontre.date_heure)} · {rencontre.domicile ? 'À domicile (on reçoit)' : 'À l’extérieur'}
+              </p>
+              <button type="button" onClick={startEditingDetails}
+                className="rounded-lg border border-border px-3 py-2 text-sm font-medium transition hover:bg-muted">
+                Modifier la date / le lieu
+              </button>
+            </div>
+          )}
+        </section>
 
         {actionError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
