@@ -2,6 +2,7 @@ import { useCourseContext } from '../hooks/useCourses';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchLiveEncounterScores } from '../lib/liveEncounterScores';
 import { liveMatchVisibilityFilter } from '../lib/liveMatchVisibility';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
@@ -39,6 +40,29 @@ export default function MatchesPage() {
     staleTime: 0, // Le Live se recharge immédiatement au retour sur cet écran.
     refetchInterval: 30_000,
   });
+
+  const encounterIds = [...new Set(
+    (matches ?? []).flatMap(m => m.team_rencontre_id ? [m.team_rencontre_id] : []),
+  )].sort();
+  const encounters = useQuery({
+    queryKey: ['live-encounter-scores', clubId, encounterIds],
+    enabled: !!clubId && encounterIds.length > 0,
+    queryFn: () => fetchLiveEncounterScores(clubId!, encounterIds),
+    staleTime: 0,
+    refetchInterval: 15_000,
+  });
+  const encounterScores = new Map(encounters.data?.map(row => [row.id, row]));
+  const card = (m: LiveMatch) => (
+    <MatchCard
+      key={m.id}
+      match={m}
+      userId={user?.id ?? null}
+      canManage={!!(membership.data?.is_member || membership.data?.can_manage)}
+      encounter={m.team_rencontre_id ? encounterScores.get(m.team_rencontre_id) : undefined}
+      encounterLoading={encounters.isPending}
+      encounterError={encounters.isError}
+    />
+  );
 
   useEffect(() => {
     if (!clubId) return;
@@ -107,21 +131,21 @@ export default function MatchesPage() {
       {liveMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-primary uppercase tracking-wide">En cours</h2>
-          {liveMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} canManage={!!(membership.data?.is_member || membership.data?.can_manage)} />)}
+          {liveMatches.map(card)}
         </section>
       )}
 
       {pendingMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">À venir</h2>
-          {pendingMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} canManage={!!(membership.data?.is_member || membership.data?.can_manage)} />)}
+          {pendingMatches.map(card)}
         </section>
       )}
 
       {finishedMatches.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Terminés</h2>
-          {finishedMatches.map((m) => <MatchCard key={m.id} match={m} userId={user?.id ?? null} canManage={!!(membership.data?.is_member || membership.data?.can_manage)} />)}
+          {finishedMatches.map(card)}
         </section>
       )}
 

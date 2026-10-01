@@ -550,3 +550,118 @@ test('Double: decisive super tie-break, automatic finish and undo of the winning
     await screen.dispose();
   }
 });
+
+test('Live cards: native full-card link and independent encounter footer, without nested links', async () => {
+  const load = loader({
+    '/contexts/ClubContext.tsx': { useClub: () => ({ clubId: 'club-a' }) },
+    '/lib/liveMatchWrites.ts': {
+      deleteLiveMatch: async () => {
+        throw new Error('Test suppression');
+      },
+    },
+  });
+  const Card = load(resolve(src, 'components/matches/MatchCard.tsx')).default;
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const root = createRoot(document.getElementById('root'));
+  let path = '';
+  function Location() {
+    path = useLocation().pathname;
+    return null;
+  }
+  const match = {
+    id: 'linked-live',
+    status: 'live',
+    match_type: 'simple',
+    j1_prenom: 'Alex',
+    j1_nom: 'A',
+    j2_prenom: 'Sam',
+    j2_nom: 'B',
+    set1_j1: 3,
+    set1_j2: 2,
+    set1_tb_j1: null,
+    set1_tb_j2: null,
+    set2_j1: null,
+    set2_j2: null,
+    set3_j1: null,
+    set3_j2: null,
+    team_rencontre_id: 'encounter-a',
+  };
+  const encounter = {
+    id: 'encounter-a',
+    club_adverse: 'Tennis voisin',
+    wo: false,
+    confirmed: false,
+    score_club: 2,
+    score_adverse: 1,
+  };
+  const mount = async (props) => {
+    await act(async () =>
+      root.render(
+        h(
+          QueryClientProvider,
+          { client },
+          h(
+            MemoryRouter,
+            { initialEntries: ['/matches'] },
+            h(
+              React.Fragment,
+              null,
+              h(Location),
+              h(Card, { match, userId: null, canManage: false, ...props }),
+            ),
+          ),
+        ),
+      ),
+    );
+  };
+  try {
+    await mount({ encounter });
+    const links = [...document.querySelectorAll('a')];
+    assert.equal(links.length, 2);
+    assert.equal(links[0].getAttribute('href'), '/matches/linked-live');
+    assert.ok(
+      links[0].classList.contains('inset-0'),
+      'primary link stretches across the cell',
+    );
+    assert.equal(links[1].getAttribute('href'), '/matches-equipes/encounter-a');
+    assert.equal(document.querySelector('a a, a button'), null);
+    assert.match(links[1].textContent, /Provisoire · 2 – 1/);
+    await act(async () => links[1].click());
+    assert.equal(path, '/matches-equipes/encounter-a');
+    await act(async () => links[0].click());
+    assert.equal(path, '/matches/linked-live');
+    await mount({
+      match: { ...match, status: 'finished' },
+      userId: 'member',
+      canManage: true,
+      encounter,
+    });
+    await act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Supprimer')
+        .click(),
+    );
+    assert.equal(
+      path,
+      '/matches/linked-live',
+      'delete does not trigger the card link',
+    );
+    assert.match(document.body.textContent, /Test suppression/);
+    await mount({ encounter, encounterError: true });
+    assert.match(document.body.textContent, /Score à actualiser/);
+    assert.doesNotMatch(document.body.textContent, /2 – 1/);
+    await mount({ encounter: { ...encounter, wo: true } });
+    assert.match(document.body.textContent, /WO/);
+    await mount({ match: { ...match, team_rencontre_id: null } });
+    assert.equal(
+      document.querySelectorAll('a').length,
+      1,
+      'no footer for an independent match',
+    );
+  } finally {
+    await act(async () => root.unmount());
+    client.clear();
+  }
+});

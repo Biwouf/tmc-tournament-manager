@@ -350,11 +350,12 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
     await db.exec(await migration('2026092601_team_format_3s1d'));
     await db.exec(await migration('2026093001_live_activity'));
     await db.exec(await migration('2026093002_team_live_shared_scoring'));
+    await db.exec(await migration('2026100101_live_encounter_scores'));
     await db.exec("UPDATE team_competitions SET singles_set3_format='normal'");
 
     async function as(user, sql, args = []) {
       await db.exec(
-        `BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${id(user)}',true);`,
+        `BEGIN; SET LOCAL ROLE ${user === null ? 'anon' : 'authenticated'}; SELECT set_config('request.jwt.claim.sub','${user === null ? '' : id(user)}',true);`,
       );
       try {
         const r = await db.query(sql, args);
@@ -378,6 +379,29 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
         .rows[0];
     const live = async (mid) =>
       (await db.query('SELECT * FROM live_matches WHERE id=$1', [mid])).rows[0];
+    const scores = (user = null, club = id(1), ids = [id(14)]) =>
+      as(user, 'SELECT live_encounter_scores($1,$2) AS result', [
+        club,
+        ids,
+      ]).then((rows) => rows[0].result);
+    assert.equal(
+      (await scores())[0].score_club,
+      null,
+      'no invented score when no match/result exists',
+    );
+    assert.deepEqual(
+      await scores(null, id(2)),
+      [],
+      'club scope is enforced for public summaries',
+    );
+    await assert.rejects(
+      scores(
+        null,
+        id(1),
+        Array.from({ length: 101 }, () => id(14)),
+      ),
+      /Trop de rencontres/,
+    );
     const created = await command('create', {
       match_type: 'simple',
       slot: 1,
@@ -386,6 +410,11 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
       ],
       joueurs_adverse: [{ prenom: 'Sam', nom: 'B', classement: 'NC' }],
     });
+    assert.deepEqual(
+      (await scores(106)).map((r) => [r.score_club, r.score_adverse]),
+      [[0, 0]],
+      'connected spectators can read public scores',
+    );
     const started = await command('start_live', {
       id: created.id,
       revision: 0,
@@ -410,6 +439,24 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
       as(104, 'DELETE FROM live_matches WHERE id=$1', [m.id]),
       /lié à une rencontre/,
     );
+    await as(
+      104,
+      "UPDATE live_matches SET status='finished',winner='j1',set1_j1=6,set1_j2=3,set2_j1=6,set2_j2=4 WHERE id=$1 AND revision=$2",
+      [m.id, m.revision],
+    );
+    m = await live(m.id);
+    assert.deepEqual(
+      (await scores())[0],
+      {
+        id: id(14),
+        club_adverse: 'Adversaires',
+        wo: false,
+        confirmed: false,
+        score_club: 1,
+        score_adverse: 0,
+      },
+      'a finished live counts before its result is confirmed',
+    );
     await command(
       'result',
       {
@@ -427,6 +474,49 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
     m = await live(m.id);
     assert.equal(m.team_result_confirmed, true);
     assert.ok((await line(created.id)).confirmed_at);
+    assert.equal(
+      (await scores())[0].score_club,
+      1,
+      'a validated live is counted once',
+    );
+    const players = [
+      { prenom: 'Jo', nom: 'A', classement: 'NC' },
+      { prenom: 'Camille', nom: 'B', classement: 'NC' },
+    ];
+    const double = await command('create', {
+      match_type: 'double',
+      slot: 1,
+      joueurs_club: players,
+      joueurs_adverse: players,
+    });
+    await command('result', {
+      id: double.id,
+      revision: 0,
+      kind: 'wo',
+      winner: 'adverse',
+      sets: [],
+    });
+    assert.equal(
+      (await scores())[0].score_adverse,
+      2,
+      'double at two points uses the competition format',
+    );
+    await db.exec(
+      `UPDATE team_competitions SET format='3S1D' WHERE id='${id(11)}'`,
+    );
+    assert.equal(
+      (await scores())[0].score_adverse,
+      1,
+      'single-point doubles use the same format rule',
+    );
+    await db.exec(`UPDATE clubs SET status='suspended' WHERE id='${id(1)}'`);
+    assert.deepEqual(
+      await scores(103),
+      [],
+      'suspended clubs expose no summary',
+    );
+    await db.exec(`UPDATE clubs SET status='active' WHERE id='${id(1)}'`);
+
     await as(
       103,
       "UPDATE live_matches SET status='live',winner=NULL,finished_at=NULL,set2_j1=5 WHERE id=$1 AND revision=$2",

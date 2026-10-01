@@ -30,7 +30,7 @@ let refreshFeed;
 const records = {
   club_settings: { config: { brand: { color: '#112233' } } },
   actus: [],
-  live_matches: [{ id: 'match-a', scored_by: 'scorer-a', status: 'live', match_date: '2099-01-01' }],
+  live_matches: [{ id: 'match-a', scored_by: 'scorer-a', status: 'live', match_date: '2099-01-01', created_at: '2099-01-01T00:00:00Z' }],
   profiles: [{ id: 'scorer-a', prenom: 'Test', nom: 'Score' }],
 };
 const supabase = {
@@ -41,7 +41,13 @@ const supabase = {
       return { data: { subscription: { unsubscribe: () => authListeners.delete(callback) } } };
     },
   },
-  rpc(name) {
+  rpc(name, params) {
+    if (name === 'live_encounter_scores') {
+      counters.live_encounter_scores = (counters.live_encounter_scores ?? 0) + 1;
+      assert.equal(params.p_club, clubId);
+      assert.deepEqual(params.p_ids, ['encounter-a']);
+      return { abortSignal: () => Promise.resolve({ data: [{ id: 'encounter-a', club_adverse: 'Voisins', score_club: 2, score_adverse: 1, confirmed: false, wo: false }], error: null }) };
+    }
     assert.equal(name, 'club_public_brand');
     counters.club_public_brand = (counters.club_public_brand ?? 0) + 1;
     return Promise.resolve({ data: structuredClone(records.club_settings.config), error: null });
@@ -230,4 +236,30 @@ test('Live: deletes, reconnect and cleanup invalidate only the current club', as
     assert.equal(client.getQueryState(['matches', 'club-a']).isInvalidated, false);
     assert.equal(channel.removed, true);
   } finally { stop(); client.clear(); }
+});
+
+
+test('Live encounter scores: several cards share one batch, and a score burst refreshes it once', async () => {
+  const previous = records.live_matches;
+  records.live_matches = [
+    { ...previous[0], team_rencontre_id: 'encounter-a' },
+    { ...previous[0], id: 'match-b', team_rencontre_id: 'encounter-a' },
+  ];
+  const root = await mount(h(MatchesPage));
+  try {
+    await settle();
+    assert.equal(counters.live_encounter_scores, 1, 'one summary request for multiple cards of the same encounter');
+    const channel = channels.findLast(c => !c.removed);
+    const update = channel.handlers.find(h => h.filter.event === 'UPDATE');
+    await act(async () => {
+      for (let i = 0; i < 10; i++) update.callback({});
+      await wait(300);
+    });
+    await settle();
+    assert.equal(counters.live_encounter_scores, 2, 'one revalidation per burst');
+    assert.equal(counters.live_matches, 2);
+  } finally {
+    records.live_matches = previous;
+    await cleanup(root);
+  }
 });

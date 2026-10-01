@@ -1,9 +1,10 @@
 // Carte d'un match — gère les 3 statuts : pending, live, finished.
 // Score affiché à droite de chaque joueur sous forme de tuiles, comme un scoreboard ATP.
-// Boutons d'action conditionnels selon l'état d'authentification et l'ownership du live.
+// La carte et le bandeau de rencontre ont chacun un lien natif indépendant.
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import type { LiveEncounterScore } from '../../lib/liveEncounterScores';
 import { useQueryClient } from '@tanstack/react-query';
 import { deleteLiveMatch } from '../../lib/liveMatchWrites';
 import { useClub } from '../../contexts/ClubContext';
@@ -14,6 +15,9 @@ interface Props {
   match: LiveMatch;
   userId: string | null;
   canManage: boolean;
+  encounter?: LiveEncounterScore;
+  encounterLoading?: boolean;
+  encounterError?: boolean;
 }
 
 interface SetState {
@@ -150,8 +154,14 @@ function PlayerRow({
   );
 }
 
-export default function MatchCard({ match, userId, canManage }: Props) {
-  const navigate = useNavigate();
+export default function MatchCard({
+  match,
+  userId,
+  canManage,
+  encounter,
+  encounterLoading,
+  encounterError,
+}: Props) {
   const queryClient = useQueryClient();
   const { clubId } = useClub();
   const [busy, setBusy] = useState(false);
@@ -167,7 +177,8 @@ export default function MatchCard({ match, userId, canManage }: Props) {
     queryClient.invalidateQueries({ queryKey: ['matches'] });
 
   const handleDelete = async () => {
-    if (!confirm('Supprimer ce match ? Cette action est irréversible.')) return;
+    if (!window.confirm('Supprimer ce match ? Cette action est irréversible.'))
+      return;
     setBusy(true);
     setActionError(null);
     const { error } = await deleteLiveMatch(match, clubId).then(
@@ -184,40 +195,37 @@ export default function MatchCard({ match, userId, canManage }: Props) {
     refresh();
   };
 
-  const actions = (
-    <div className="flex items-center gap-2 flex-wrap">
-      <button
-        type="button"
-        onClick={() => navigate(`/matches/${match.id}`)}
-        className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-      >
-        {canManage && userId
-          ? isPending
-            ? 'Préparer le live'
-            : isLive
-              ? 'Animer le live'
-              : 'Voir le match'
-          : isLive
-            ? 'Suivre le live'
-            : 'Voir le match'}
-      </button>
-      {isFinished && canManage && (
-        <button
-          type="button"
-          onClick={() => void handleDelete()}
-          disabled={busy || !!match.team_match_line_id}
-          className="min-h-11 ml-auto rounded-lg border border-red-200 px-4 text-sm text-red-700"
-        >
-          Supprimer
-        </button>
-      )}
-    </div>
-  );
+  const actionLabel =
+    canManage && userId
+      ? isPending
+        ? 'Préparer le live'
+        : isLive
+          ? 'Animer le live'
+          : 'Voir le match'
+      : isLive
+        ? 'Suivre le live'
+        : 'Voir le match';
+  const score = encounterError
+    ? 'Score à actualiser'
+    : encounter
+      ? encounter.wo
+        ? 'WO'
+        : `${encounter.confirmed ? 'Validé' : 'Provisoire'} · ${encounter.score_club ?? '–'} – ${encounter.score_adverse ?? '–'}`
+      : encounterLoading
+        ? 'Chargement du score…'
+        : 'Score indisponible';
 
   return (
-    <div
-      className={`bg-card rounded-xl p-4 shadow-sm border flex flex-col gap-3 ${isLive ? 'border-primary' : 'border-border'}`}
+    <article
+      className={`relative bg-card rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border flex flex-col gap-3 ${isLive ? 'border-primary' : 'border-border'}`}
     >
+      <Link
+        to={`/matches/${match.id}`}
+        aria-label={`${actionLabel} : ${playerLabel(match, 'j1')} contre ${playerLabel(match, 'j2')}`}
+        className="absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <span className="sr-only">{actionLabel}</span>
+      </Link>
       <div className="flex items-center justify-between gap-2">
         {isLive && <LiveBadge />}
         {isPending && match.start_time && (
@@ -273,21 +281,46 @@ export default function MatchCard({ match, userId, canManage }: Props) {
         />
       </div>
 
-      {match.team_rencontre_id && (
-        <button
-          onClick={() =>
-            navigate(`/matches-equipes/${match.team_rencontre_id}`)
-          }
-          className="min-h-11 text-left text-sm font-semibold text-primary"
-        >
-          {isFinished && !match.team_result_confirmed
-            ? 'Valider le résultat dans la rencontre →'
-            : 'Voir la rencontre →'}
-        </button>
+      <div className="flex items-center justify-between gap-2">
+        <span aria-hidden="true" className="text-xs font-semibold text-primary">
+          {actionLabel} →
+        </span>
+        {isFinished && canManage && (
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            disabled={busy || !!match.team_match_line_id}
+            className="relative z-10 min-h-11 rounded-lg border border-red-200 px-4 text-sm text-red-700"
+          >
+            Supprimer
+          </button>
+        )}
+      </div>
+      {actionError && (
+        <p role="alert" className="relative z-10 text-xs text-red-600">
+          {actionError}
+        </p>
       )}
-      {actions && <div className="pt-1">{actions}</div>}
-
-      {actionError && <p className="text-xs text-red-600">{actionError}</p>}
-    </div>
+      {match.team_rencontre_id && (
+        <Link
+          to={`/matches-equipes/${match.team_rencontre_id}`}
+          className="relative z-10 -mx-4 -mb-4 mt-1 flex min-h-14 items-center justify-between gap-3 rounded-b-xl border-t border-border bg-muted/30 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-primary">
+              Voir la rencontre →
+            </span>
+            {encounter && (
+              <span className="block truncate text-xs text-muted-foreground">
+                Contre {encounter.club_adverse}
+              </span>
+            )}
+          </span>
+          <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
+            {score}
+          </span>
+        </Link>
+      )}
+    </article>
   );
 }

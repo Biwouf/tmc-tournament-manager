@@ -8,6 +8,12 @@ un jeu, ou un point pendant les tie-breaks. Les corrections, l’abandon et la
 réouverture utilisent l’éditeur existant. Annulation des 20 dernières saisies
 locales confirmées tant qu’aucun autre membre n’a modifié le score.
 
+Dans la liste, toute la carte ouvre le live. Un bandeau distinct en bas ouvre
+la rencontre d’équipes liée et affiche son score provisoire ou validé. Les matchs
+terminés comptent avant leur confirmation, sans doublon après validation ;
+les doubles respectent leur pondération. Sans résultat connu, aucun score n’est
+inventé. Une erreur de lecture est signalée plutôt que de présenter un score périmé.
+
 Tous les membres du club et le super administrateur peuvent animer : score,
 texte, sondage, clôture et suppression des publications. `scored_by` attribue
 la dernière saisie et ne confère aucune exclusivité. Ce changement vaut aussi
@@ -51,13 +57,17 @@ La préférence système de mouvement réduit masque les animations.
 - Les suppressions logiques peuvent ne pas déclencher d’événement chez un lecteur
   lorsque la RLS rend la nouvelle ligne invisible ; le rafraîchissement du fil les
   retire au plus tard au prochain intervalle de 15 secondes en premier plan.
+- `live_encounter_scores` : résumés publics limités au club actif, aux rencontres
+  demandées et à 100 identifiants par appel. Lecture groupée pour toutes les cartes,
+  rafraîchie sur les changements du score live et toutes les 15 secondes en secours.
 - Les résultats d’équipe restent soumis à leurs révisions, règles de format,
   confirmations et invalidation lors d’une correction. Les liens sont conservés.
 
 ## Ordre de livraison
 
-Appliquer d’abord les migrations `2026093001_live_activity.sql` et
-`2026093002_team_live_shared_scoring.sql`, puis livrer la PWA. La première ajoute
+Appliquer les migrations dans cet ordre : `2026093001_live_activity.sql`,
+`2026093002_team_live_shared_scoring.sql`, `2026100101_live_encounter_scores.sql`,
+puis livrer la PWA. La première ajoute
 les tables à `supabase_realtime` si cette publication existe. Vérifier que le
 service Realtime est activé dans l’environnement cible.
 
@@ -72,9 +82,10 @@ BO n’est pas refondue ici, et la base autorise désormais les membres du club.
   exécutées dans PostgreSQL local (PGlite). Accès public et entre clubs, membres,
   sondages simultanés, vote unique/modifiable et privé, idempotence, pagination,
   réactions indépendantes par compte, combos, score rapide, annulations et conflits,
-  ainsi que l’intégration des lives d’équipes.
+  ainsi que l’intégration des lives d’équipes, les liens indépendants des cartes
+  et les scores provisoires pondérés accessibles aux spectateurs.
 - Régressions : `test:live-score`, `test:team-matches`, `test:pwa-network`,
-  `test:pwa-updates`, `test:security` (84 tests au total).
+  `test:pwa-updates`, `test:security` (86 tests au total).
 - Compilation PWA et contrôle du service worker ; lint ciblé des nouveaux composants,
   hooks et règles de score. Avertissement de taille du bundle déjà présent.
 
