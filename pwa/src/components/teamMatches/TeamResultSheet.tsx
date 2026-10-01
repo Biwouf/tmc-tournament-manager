@@ -5,8 +5,8 @@ import { useTeamAction } from '../../hooks/useTeamAction';
 import TeamSheet from './TeamSheet';
 
 type Kind = 'normal' | 'wo' | 'retired';
-export default function TeamResultSheet({ line, live, clubId, userId, onClose }: {
-  line: TeamLine; live?: LiveMatch; clubId: string; userId: string; onClose: () => void;
+export default function TeamResultSheet({ line, live, clubId, onClose }: {
+  line: TeamLine; live?: LiveMatch; clubId: string; onClose: () => void;
 }) {
   // Keep the opened revision until submission. Background polling must not silently
   // turn a stale form into a write against a newer score.
@@ -18,7 +18,6 @@ export default function TeamResultSheet({ line, live, clubId, userId, onClose }:
     tb_club: initialSets[i]?.tb_club, tb_adverse: initialSets[i]?.tb_adverse,
   })));
   const [specialWinner, setSpecialWinner] = useState<'club' | 'adverse' | ''>(base.line.gagnant ?? (base.live?.winner === 'j1' ? 'club' : base.live?.winner === 'j2' ? 'adverse' : ''));
-  const [takeover, setTakeover] = useState(false);
   const action = useTeamAction(clubId, line.rencontre_id);
   const parsed = values.map(v => ({ ...v, club: v.club === '' ? NaN : Number(v.club), adverse: v.adverse === '' ? NaN : Number(v.adverse) }));
   const split = !!setWinner(parsed[0]) && !!setWinner(parsed[1]) && setWinner(parsed[0]) !== setWinner(parsed[1]);
@@ -27,14 +26,13 @@ export default function TeamResultSheet({ line, live, clubId, userId, onClose }:
   const used = kind === 'wo' ? [] : parsed.slice(0, kind === 'retired' ? lastStarted + 1 : count);
   const validNumbers = used.every(s => [s.club, s.adverse].every(n => Number.isInteger(n) && n >= 0 && n <= 32767));
   const winner = kind === 'normal' ? resultWinner(used, base.line.set3_format) : specialWinner;
-  const mustTakeover = base.live?.status === 'live' && base.live.scored_by !== userId;
-  const canSubmit = !!winner && validNumbers && (!mustTakeover || takeover);
+  const canSubmit = !!winner && validNumbers;
   const update = (i: number, side: 'club' | 'adverse', value: string) => setValues(old => old.map((v, n) => n === i ? { ...v, [side]: value, tb_club: undefined, tb_adverse: undefined } : v));
   const submit = async () => {
     if (!canSubmit) return;
     const sets: TeamSet[] = used.map(s => ({ club: s.club, adverse: s.adverse, tb_club: s.tb_club ?? null, tb_adverse: s.tb_adverse ?? null }));
     if (await action.run('result', { id: base.line.id, revision: base.line.revision, live_revision: base.live?.revision,
-      kind, sets, winner, takeover })) onClose();
+      kind, sets, winner })) onClose();
   };
   return <TeamSheet title={`Résultat · ${lineLabel(line)}`} onClose={onClose} busy={action.busy}>
     <p className="mb-4 text-sm text-muted-foreground">{base.live ? 'Score du live prérempli. Vérifiez-le avant de confirmer.' : 'Saisissez le score final du point de vue du club.'}</p>
@@ -61,7 +59,6 @@ export default function TeamResultSheet({ line, live, clubId, userId, onClose }:
       </label>)}
     </fieldset>}
     {winner && <p className="my-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">Vainqueur : {winner === 'club' ? playerLabel(line.joueurs_club) : playerLabel(line.joueurs_adverse)}</p>}
-    {mustTakeover && <label className="my-3 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><input className="mt-1" type="checkbox" checked={takeover} onChange={e => setTakeover(e.target.checked)} />Je reprends ce live et le termine avec ce résultat. L’autre marqueur passera en lecture seule.</label>}
     {action.error && <p role="alert" className="my-3 text-sm text-red-700">{action.error} En cas de changement, fermez puis rouvrez la saisie pour vérifier le dernier score.</p>}
     <button disabled={action.busy || !canSubmit} onClick={() => void submit()} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground disabled:opacity-40">{action.busy ? 'Enregistrement…' : 'Confirmer le résultat'}</button>
   </TeamSheet>;

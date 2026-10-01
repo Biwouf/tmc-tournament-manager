@@ -11,7 +11,10 @@ export function subscribeToMatchList(supabase: SupabaseClient, client: QueryClie
     if (timer !== undefined) return;
     timer = setTimeout(() => {
       timer = undefined;
-      void client.invalidateQueries({ queryKey, exact: true });
+      void Promise.all([
+        client.invalidateQueries({ queryKey, exact: true }),
+        client.invalidateQueries({ queryKey: ['live-encounter-scores', clubId] }),
+      ]);
     }, 250);
   };
   const filter = { schema: 'public', table: 'live_matches', filter: `club_id=eq.${clubId}` };

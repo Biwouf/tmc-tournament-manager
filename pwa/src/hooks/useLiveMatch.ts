@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase';
 import { writeLiveMatch, readLiveMatch, hasLiveMatchRevision } from '../lib/liveMatchWrites';
 import type { LiveMatch } from '../types';
 
-/** Copie BO/PWA : une sauvegarde en vol, autorité serveur et événements versionnés. */
-export function useLiveMatch(id: string | undefined, clubId: string | null, userId: string | null) {
+/** Lecture publique ; une sauvegarde en vol, autorité serveur et événements versionnés. */
+export function useLiveMatch(id: string | undefined, clubId: string | null, userId: string | null, canEdit?: boolean) {
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
   }, []);
 
   const reload = useCallback(async () => {
-    if (!id || !clubId || !userId) return;
+    if (!id || !clubId) return;
     const version = generation.current;
     const read = ++reads.current;
     try {
@@ -36,7 +36,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     } catch (e) {
       if (generation.current === version && reads.current === read) setError(e instanceof Error ? e.message : 'Connexion impossible.');
     } finally { if (generation.current === version && reads.current === read) setLoading(false); }
-  }, [id, clubId, userId, receive]);
+  }, [id, clubId, receive]);
 
   useEffect(() => {
     const lifetime = ++generation.current;
@@ -47,7 +47,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     setSaving(false);
     setSavingError(null);
     setError(null);
-    if (!id || !clubId || !userId) return;
+    if (!id || !clubId) return;
     let active = true;
     const channel = supabase.channel(`score_${id}_${userId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${id}` }, payload => {
@@ -74,7 +74,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
 
   const save = useCallback(async (patch: Partial<LiveMatch>) => {
     const base = current.current;
-    if (!base || !userId || busy.current || base.scored_by !== userId) return;
+    if (!base || !userId || busy.current || !(canEdit ?? base.scored_by === userId)) return;
     if (base.revision !== match?.revision) {
       setSavingError('Le score vient de changer. Vérifiez-le avant de continuer.');
       return;
@@ -85,7 +85,9 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     const version = generation.current;
     try {
       const row = await writeLiveMatch(base, clubId, patch);
-      if (version === generation.current) receive(row);
+      if (version !== generation.current) return;
+      receive(row);
+      return row;
     } catch (e) {
       if (version === generation.current) {
         await reload();
@@ -94,6 +96,6 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     } finally {
       if (version === generation.current) { busy.current = false; setSaving(false); }
     }
-  }, [clubId, userId, receive, reload, match]);
+  }, [clubId, userId, receive, reload, match, canEdit]);
   return { match, loading, error, saving, savingError, save, reload };
 }

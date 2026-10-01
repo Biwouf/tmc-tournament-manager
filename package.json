@@ -21,6 +21,7 @@
     "test:result-poster": "node --experimental-strip-types --test tests/result-poster.test.mjs tests/result-poster-client.test.mjs",
     "test:team-matches": "node --test tests/team-scoring-rules.test.mjs tests/team-match-commands.test.mjs tests/team-match-client.test.mjs",
     "test:tenup": "node --test tests/tenup-worker.test.mjs tests/tenup-sql.test.mjs tests/tenup-client.test.mjs tests/tenup-edge.test.mjs",
+    "test:live-activity": "node --test tests/live-activity-sql.test.mjs tests/live-activity-client.test.mjs",
     "test:team-calendar": "node --test tests/tenup-pool-loading.test.mjs tests/tenup-pool-worker.test.mjs tests/tenup-pool-sql.test.mjs tests/tenup-pool-edge.test.mjs tests/tenup-pool-client.test.mjs",
     "test:competitions": "node --test tests/competition-admin-sql.test.mjs tests/competition-tenup-worker.test.mjs tests/competition-tenup-edge.test.mjs tests/competition-admin-client.test.mjs"
   },

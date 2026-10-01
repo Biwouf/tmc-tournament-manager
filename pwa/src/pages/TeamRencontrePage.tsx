@@ -105,7 +105,7 @@ export default function TeamRencontrePage() {
       </div>}
       {action.error && <p role="alert" className="mt-3 text-sm text-red-700">{action.error}</p>}
     </TeamSheet>}
-    {selection?.mode === 'result' && clubId && user && <TeamResultSheet line={selection.line} live={selection.live} clubId={clubId} userId={user.id} onClose={close} />}
+    {selection?.mode === 'result' && clubId && user && <TeamResultSheet line={selection.line} live={selection.live} clubId={clubId} onClose={close} />}
     {recap && <TeamSheet title="Confirmer la rencontre" onClose={close} busy={action.busy}>
       <div className="space-y-3">{recap.lines.map(line => <div key={line.id} className="flex justify-between gap-3 border-b border-border pb-2 text-sm"><span>{lineLabel(line)} · {line.gagnant === 'club' ? 'Gagné' : 'Perdu'}</span><strong>{line.score}</strong></div>)}</div>
       <p className="my-4 text-sm">Les résultats de tous les matchs ont été vérifiés.</p>
