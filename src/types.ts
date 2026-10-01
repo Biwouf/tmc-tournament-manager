@@ -223,12 +223,7 @@ export interface LiveMatch {
 // Module Matches par équipe
 // ============================================================
 
-export type TeamCompetitionNom =
-  | 'Pyrénées Interclubs'
-  | 'CODEP'
-  | 'GAN 35'
-  | 'Thénégal'
-  | 'Interclubs';
+export type TeamCompetitionNom = string;
 
 export type TeamType = 'adultes' | 'jeunes';
 
@@ -273,6 +268,7 @@ export interface TeamSaison {
 export interface TeamCompetition {
   id: string;
   saison_id: string;
+  tenup_url?: string | null;
   nom: TeamCompetitionNom;
   type: TeamType;
   genre: TeamGenre;

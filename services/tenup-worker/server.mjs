@@ -2,6 +2,8 @@ import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { chromium } from 'playwright';
 import { extractTenupPage } from './parse-page.mjs';
+import { extractTenupCompetition } from './parse-competition.mjs';
+export const validCompetitionUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/[0-9]+$/.test(value);
 
 export const validUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/\d+\/division\/\d+\/phase\/\d+\/poule\/\d+\/rencontre\/\d+$/.test(value);
 export function createHandler({ token, extract }) {
@@ -23,26 +25,29 @@ export function createHandler({ token, extract }) {
       }
       let input;
       try { input = req.body === undefined ? JSON.parse(body) : (typeof req.body === 'string' ? JSON.parse(req.body) : req.body); } catch { return reply(400, { error: 'Requête invalide.' }); }
-      if (!input || !validUrl(input.url)) return reply(400, { error: 'Lien de rencontre Ten’Up invalide.' });
+      const kind = input?.kind ?? 'rencontre';
+      if (!input || !['rencontre', 'competition'].includes(kind) || !(kind === 'competition' ? validCompetitionUrl(input.url) : validUrl(input.url))) return reply(400, { error: 'Lien Ten’Up invalide.' });
       const cached = cache.get(input.url);
       if (cached && cached.expires > Date.now()) return reply(200, cached.data);
       if (busy) return reply(429, { error: 'Synchronisation en cours. Réessayez dans une minute.' });
       busy = true;
       try {
-        const data = await extract(input.url);
+        const data = await extract(input.url, kind);
         for (const [key, value] of cache) if (value.expires <= Date.now()) cache.delete(key);
         if (cache.size >= 100) cache.delete(cache.keys().next().value);
         cache.set(input.url, { data, expires: Date.now() + 60_000 });
         reply(200, data);
       } catch {
-        reply(502, { error: 'Ten’Up ne fournit pas de feuille complète lisible pour le moment. Réessayez plus tard ou saisissez les résultats manuellement.' });
+        reply(502, { error: kind === 'competition'
+          ? 'La fiche du championnat Ten’Up est indisponible. Réessayez plus tard ou saisissez la compétition manuellement.'
+          : 'Ten’Up ne fournit pas de feuille complète lisible pour le moment. Réessayez plus tard ou saisissez les résultats manuellement.' });
       } finally { busy = false; }
     } catch { if (!res.headersSent) reply(400, { error: 'Requête interrompue.' }); }
   };
 }
 
-export async function extract(url, launchOptions = {}) {
-  if (!validUrl(url)) throw new Error('Invalid Tenup URL');
+export async function extract(url, launchOptions = {}, kind = 'rencontre') {
+  if (!['competition', 'rencontre'].includes(kind) || !(kind === 'competition' ? validCompetitionUrl(url) : validUrl(url))) throw new Error('Invalid Tenup URL');
   const browser = await chromium.launch({ headless: true, chromiumSandbox: true, timeout: 5_000, ...launchOptions });
   const timeout = setTimeout(() => void browser.close(), 40_000);
   try {
@@ -56,9 +61,11 @@ export async function extract(url, launchOptions = {}) {
     });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.getByText(/^Simple 1$/, { exact: true }).waitFor({ timeout: 12_000 });
+    if (kind === 'competition') await page.locator('main p').filter({ hasText: /^Nombre de points pour un double\s*:/ }).waitFor({ timeout: 12_000 });
+    else await page.getByText(/^Simple 1$/, { exact: true }).waitFor({ timeout: 12_000 });
     if (page.url() !== url) throw new Error('Unexpected destination');
-    return await page.evaluate(`(${extractTenupPage.toString()})(document)`);
+    const parser = kind === 'competition' ? extractTenupCompetition : extractTenupPage;
+    return await page.evaluate(`(${parser.toString()})(document)`);
   } finally { clearTimeout(timeout); await browser.close(); }
 }
 

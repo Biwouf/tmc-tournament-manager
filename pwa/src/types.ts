@@ -102,8 +102,7 @@ export interface Actu {
 // Copié depuis le BO (src/types.ts, section Module Matches par équipe).
 // À maintenir en sync si les types BO évoluent.
 
-export type TeamCompetitionNom =
-  | 'Pyrénées Interclubs' | 'CODEP' | 'GAN 35' | 'Thénégal' | 'Interclubs';
+export type TeamCompetitionNom = string;
 export type TeamType = 'adultes' | 'jeunes';
 export type TeamGenre = 'hommes' | 'femmes' | 'mixte' | 'garcons' | 'filles';
 export type TeamCategorie =
@@ -116,6 +115,7 @@ export interface TeamSaison {
 }
 export interface TeamCompetition {
   id: string; saison_id: string;
+  tenup_url?: string | null;
   nom: TeamCompetitionNom; type: TeamType;
   genre: TeamGenre; categorie: TeamCategorie;
   singles_set3_format: LiveSet3Format | null;

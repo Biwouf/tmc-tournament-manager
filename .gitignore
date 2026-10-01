@@ -48,3 +48,5 @@ public/Feuille de pointage.pdf
 
 # Sortie Vercel et état CLI local
 .vercel/
+.vercel
+.env*

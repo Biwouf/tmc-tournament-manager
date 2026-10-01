@@ -52,12 +52,7 @@ Hors scope : exposition PWA, notifications, statistiques de saison.
 ```ts
 // --- Référentiel ---
 
-export type TeamCompetitionNom =
-  | 'Pyrénées Interclubs'
-  | 'CODEP'
-  | 'GAN 35'
-  | 'Thénégal'
-  | 'Interclubs';
+export type TeamCompetitionNom = string; // Nom libre administrable (1 à 160 caractères).
 
 export type TeamType = 'adultes' | 'jeunes';
 
@@ -104,6 +99,7 @@ export interface TeamSaison {
 export interface TeamCompetition {
   id: string;
   saison_id: string;
+  tenup_url?: string | null; // Lien facultatif du championnat utilisé pour le préremplissage.
   nom: TeamCompetitionNom;
   type: TeamType;
   genre: TeamGenre;
@@ -408,11 +404,23 @@ Actions : Créer, Modifier, Supprimer (si aucune équipe liée).
 | Champ | Composant | Notes |
 |---|---|---|
 | Saison | `<select>` | Pré-remplie avec la saison active |
-| Nom | `<select>` | Liste des 5 noms du `TeamCompetitionNom` |
+| Nom | `<input>` | Nom libre obligatoire, 1 à 160 caractères |
+| Lien Ten’Up | `<input type="url">` + bouton | Facultatif ; préremplit le nom et les règles publiques du championnat |
 | Type | Segmented `Adultes / Jeunes` | Conditionne genre et catégorie |
 | Genre | `<select>` | Options filtrées selon le type |
 | Catégorie | `<select>` | Options filtrées selon le type |
-| Format | `<select>` | 4 options avec libellé complet |
+| Format | `<select>` | 5 options avec libellé complet |
+| Troisième set des simples | `<select>` | Set classique ou super tie-break, choix obligatoire |
+
+Le préremplissage Ten’Up ne crée aucune donnée : l’administrateur complète le genre et
+la catégorie, vérifie les règles puis valide la création. Le nom et les règles sont
+lus sur `/championnat/{id}`, indépendamment des filtres `division`, `phase`, `poule`
+présents dans le lien fourni. Ces filtres sont conservés dans le lien enregistré.
+Les formats non reconnus restent à renseigner. La saisie manuelle reste disponible.
+Un championnat Ten’Up ne peut être associé qu’une fois par club et par saison.
+
+Mise en service : migration `2026100101_admin_competitions.sql`, puis redéploiement
+du worker, de la fonction `tenup-sync` et du back-office. Les noms existants sont conservés.
 
 ### Gestion des équipes
 

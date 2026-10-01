@@ -5,7 +5,6 @@ import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCategorie,
   TeamCompetition,
-  TeamCompetitionNom,
   TeamDivision,
   TeamEquipe,
   TeamFormat,
@@ -17,7 +16,6 @@ import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
 import {
   CATEGORIE_LABELS,
   CATEGORIES_BY_TYPE,
-  COMPETITION_NOMS,
   DIVISIONS,
   FORMAT_LABELS,
   GENRE_LABELS,
@@ -25,6 +23,9 @@ import {
   TYPE_LABELS,
   competitionLabel,
 } from '../components/teamMatches/teamMatchLabels';
+
+import { previewTenupCompetition } from '../../shared/tenupCompetitionClient';
+import { normalizeTenupCompetitionUrl } from '../../shared/tenupCompetitionUrl.mjs';
 
 const FORMATS: TeamFormat[] = ['2S1D', '3S1D', '3S1D2', '4S1D2', '4S2D'];
 
@@ -311,16 +312,17 @@ function SaisonsSection({
 // ============================================================
 
 interface CompetitionDraft {
-  nom: TeamCompetitionNom;
+  nom: string;
+  tenup_url: string;
   type: TeamType;
-  genre: TeamGenre;
-  categorie: TeamCategorie;
-  format: TeamFormat;
+  genre: TeamGenre | '';
+  categorie: TeamCategorie | '';
+  format: TeamFormat | '';
   singles_set3_format: 'normal' | 'super_tiebreak' | null;
 }
 
 function emptyDraft(): CompetitionDraft {
-  return { nom: 'Pyrénées Interclubs', type: 'adultes', genre: 'hommes', categorie: 'seniors', format: '3S1D2', singles_set3_format: null };
+  return { nom: '', tenup_url: '', type: 'adultes', genre: 'hommes', categorie: 'seniors', format: '3S1D2', singles_set3_format: null };
 }
 
 function CompetitionsSection({
@@ -346,9 +348,16 @@ function CompetitionsSection({
   const [draft, setDraft] = useState<CompetitionDraft>(emptyDraft());
   const [error, setError] = useState<string | null>(null);
 
+  const [saving, setSaving] = useState(false);
+  const [prefilling, setPrefilling] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [prefilled, setPrefilled] = useState(false);
+
   const openCreate = () => {
     setEditingId(null);
     setDraft(emptyDraft());
+    setWarnings([]);
+    setPrefilled(false);
     setError(null);
     setShowForm(true);
   };
@@ -364,7 +373,9 @@ function CompetitionsSection({
 
   const openEdit = (c: TeamCompetition) => {
     setEditingId(c.id);
-    setDraft({ nom: c.nom, type: c.type, genre: c.genre, categorie: c.categorie, format: c.format, singles_set3_format: c.singles_set3_format ?? null });
+    setWarnings([]);
+    setPrefilled(false);
+    setDraft({ nom: c.nom, tenup_url: c.tenup_url ?? '', type: c.type, genre: c.genre, categorie: c.categorie, format: c.format, singles_set3_format: c.singles_set3_format ?? null });
     setError(null);
     setShowForm(true);
   };
@@ -374,28 +385,50 @@ function CompetitionsSection({
     setDraft((d) => ({
       ...d,
       type,
-      genre: GENRES_BY_TYPE[type].includes(d.genre) ? d.genre : GENRES_BY_TYPE[type][0],
-      categorie: CATEGORIES_BY_TYPE[type].includes(d.categorie) ? d.categorie : CATEGORIES_BY_TYPE[type][0],
+      genre: d.genre === '' ? '' : GENRES_BY_TYPE[type].includes(d.genre) ? d.genre : GENRES_BY_TYPE[type][0],
+      categorie: d.categorie === '' ? '' : CATEGORIES_BY_TYPE[type].includes(d.categorie) ? d.categorie : CATEGORIES_BY_TYPE[type][0],
     }));
   };
 
-  const handleSubmit = async () => {
+  const handlePrefill = async () => {
+    if (!clubId || !selectedSaisonId || prefilling || saving) return;
+    setPrefilling(true);
     setError(null);
-    if (!selectedSaisonId) {
-      setError('Sélectionnez une saison.');
-      return;
-    }
-    if (!draft.singles_set3_format) {
-      setError('Précisez le troisième set des simples pour cette compétition.');
-      return;
-    }
-    const payload = { saison_id: selectedSaisonId, ...draft };
-    const { error: err } = editingId
-      ? await supabase.from('team_competitions').update(payload).eq('id', editingId).eq('club_id', clubId)
-      : await supabase.from('team_competitions').insert({ ...payload, club_id: clubId });
-    if (err) return setError(err.message);
-    setShowForm(false);
-    onChange();
+    try {
+      const preview = await previewTenupCompetition(supabase, clubId, selectedSaisonId, draft.tenup_url);
+      setDraft(d => ({ ...d, nom: preview.nom, tenup_url: preview.url,
+        genre: '', categorie: '', format: preview.format ?? '', singles_set3_format: preview.singles_set3_format }));
+      setWarnings(preview.warnings);
+      setPrefilled(true);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Préremplissage indisponible.'); }
+    finally { setPrefilling(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (saving || prefilling) return;
+    setError(null);
+    if (!clubId || !selectedSaisonId) return setError('Sélectionnez une saison.');
+    const nom = draft.nom.trim();
+    if (!nom || nom.length > 160) return setError('Renseignez un nom de compétition de 1 à 160 caractères.');
+    if (!draft.genre || !draft.categorie || !draft.format) return setError('Précisez le genre, la catégorie et le format de la compétition.');
+    if (!draft.singles_set3_format) return setError('Précisez le troisième set des simples pour cette compétition.');
+    let tenup_url: string | null = null;
+    try { if (draft.tenup_url.trim()) tenup_url = normalizeTenupCompetitionUrl(draft.tenup_url); }
+    catch (err) { return setError(err instanceof Error ? err.message : 'Lien Ten’Up invalide.'); }
+    const payload = { saison_id: selectedSaisonId, ...draft, nom, tenup_url };
+    setSaving(true);
+    try {
+      const { error: err } = editingId
+        ? await supabase.from('team_competitions').update(payload).eq('id', editingId).eq('club_id', clubId)
+        : await supabase.from('team_competitions').insert({ ...payload, club_id: clubId });
+      if (err) {
+        setError(err.code === '23505' ? 'Ce championnat Ten’Up est déjà associé à une compétition de cette saison.' : err.message);
+        return;
+      }
+      setShowForm(false);
+      onChange();
+    } catch { setError('Impossible d’enregistrer la compétition. Réessayez.'); }
+    finally { setSaving(false); }
   };
 
   const handleToggleTerminee = async (c: TeamCompetition) => {
@@ -493,7 +526,9 @@ function CompetitionsSection({
             <tbody className="divide-y divide-border">
               {competitions.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-2.5 font-medium">{c.nom}</td>
+                  <td className="px-4 py-2.5 font-medium">{c.nom}
+                    {c.tenup_url && <a href={c.tenup_url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-xs text-primary underline">Voir sur Ten’Up</a>}
+                  </td>
                   <td className="px-4 py-2.5">{TYPE_LABELS[c.type]}</td>
                   <td className="px-4 py-2.5">{GENRE_LABELS[c.genre]}</td>
                   <td className="px-4 py-2.5">{CATEGORIE_LABELS[c.categorie]}</td>
@@ -538,25 +573,32 @@ function CompetitionsSection({
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-xl">
-            <h3 className="mb-4 text-lg font-semibold">
+          <div role="dialog" aria-modal="true" aria-labelledby="competition-dialog-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl">
+            <h3 id="competition-dialog-title" className="mb-4 text-lg font-semibold">
               {editingId ? 'Modifier la compétition' : 'Nouvelle compétition'}
             </h3>
 
-            <div className="space-y-4">
+            <fieldset disabled={prefilling || saving} className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <label htmlFor="competition-tenup-url" className="block text-sm font-medium">Lien Ten’Up (facultatif)</label>
+                <input id="competition-tenup-url" type="url" value={draft.tenup_url}
+                  onChange={e => { setDraft(d => ({ ...d, tenup_url: e.target.value })); setPrefilled(false); setWarnings([]); }}
+                  placeholder="https://tenup.fft.fr/championnat/…?division=…&phase=…&poule=…"
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                <p className="mt-2 text-xs text-muted-foreground">Le nom et les règles sont lus sur la fiche du championnat, sans les filtres de division et de poule. Vérifiez les paramètres avant de créer.</p>
+                <button type="button" onClick={handlePrefill} disabled={!draft.tenup_url.trim() || prefilling || saving}
+                  className="mt-3 rounded-lg border border-border px-3 py-2 text-sm font-medium disabled:opacity-50">
+                  {prefilling ? 'Lecture de Ten’Up…' : 'Préremplir depuis Ten’Up'}
+                </button>
+                {prefilled && <p role="status" className="mt-2 text-xs text-primary">Fiche lue. Complétez le genre et la catégorie, puis vérifiez les règles ci-dessous.</p>}
+                {warnings.map((warning, i) => <p key={i} className="mt-2 text-xs text-amber-700">{warning}</p>)}
+              </div>
               <div>
-                <label className="block text-sm font-medium text-foreground">Nom</label>
-                <select
-                  value={draft.nom}
-                  onChange={(e) => setDraft((d) => ({ ...d, nom: e.target.value as TeamCompetitionNom }))}
-                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                >
-                  {COMPETITION_NOMS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                <label htmlFor="competition-name" className="block text-sm font-medium text-foreground">Nom</label>
+                <input id="competition-name" value={draft.nom} maxLength={160} required
+                  onChange={e => setDraft(d => ({ ...d, nom: e.target.value }))}
+                  placeholder="Nom de la compétition"
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
               </div>
 
               <div>
@@ -581,12 +623,14 @@ function CompetitionsSection({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-foreground">Genre</label>
+                  <label htmlFor="competition-genre" className="block text-sm font-medium text-foreground">Genre</label>
                   <select
+                    id="competition-genre"
                     value={draft.genre}
                     onChange={(e) => setDraft((d) => ({ ...d, genre: e.target.value as TeamGenre }))}
                     className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   >
+                    <option value="">À renseigner</option>
                     {GENRES_BY_TYPE[draft.type].map((g) => (
                       <option key={g} value={g}>
                         {GENRE_LABELS[g]}
@@ -595,12 +639,14 @@ function CompetitionsSection({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground">Catégorie</label>
+                  <label htmlFor="competition-categorie" className="block text-sm font-medium text-foreground">Catégorie</label>
                   <select
+                    id="competition-categorie"
                     value={draft.categorie}
                     onChange={(e) => setDraft((d) => ({ ...d, categorie: e.target.value as TeamCategorie }))}
                     className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   >
+                    <option value="">À renseigner</option>
                     {CATEGORIES_BY_TYPE[draft.type].map((cat) => (
                       <option key={cat} value={cat}>
                         {CATEGORIE_LABELS[cat]}
@@ -611,12 +657,14 @@ function CompetitionsSection({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-foreground">Format</label>
+                <label htmlFor="competition-format" className="block text-sm font-medium text-foreground">Format</label>
                 <select
+                  id="competition-format"
                   value={draft.format}
                   onChange={(e) => setDraft((d) => ({ ...d, format: e.target.value as TeamFormat }))}
                   className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                 >
+                  <option value="">À renseigner</option>
                   {FORMATS.map((f) => (
                     <option key={f} value={f}>
                       {FORMAT_LABELS[f]}
@@ -638,22 +686,24 @@ function CompetitionsSection({
                 </select>
                 <p className="mt-2 text-xs text-muted-foreground">En double : super tie-break systématique. Les matchs déjà créés conservent leur règle.</p>
               </div>
-            </div>
+            </fieldset>
 
-            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
 
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setShowForm(false)}
+                disabled={prefilling || saving}
                 className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
               >
                 Annuler
               </button>
               <button
                 onClick={handleSubmit}
+                disabled={prefilling || saving}
                 className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
               >
-                {editingId ? 'Enregistrer' : 'Créer'}
+                {saving ? 'Enregistrement…' : editingId ? 'Enregistrer' : 'Créer'}
               </button>
             </div>
           </div>

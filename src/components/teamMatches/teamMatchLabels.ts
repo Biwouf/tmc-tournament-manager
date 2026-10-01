@@ -1,7 +1,6 @@
 import type {
   TeamCategorie,
   TeamCompetition,
-  TeamCompetitionNom,
   TeamEtape,
   TeamFormat,
   TeamGenre,
@@ -11,14 +10,6 @@ import type {
 } from '../../types';
 
 // --- Listes de référence ---
-
-export const COMPETITION_NOMS: TeamCompetitionNom[] = [
-  'Pyrénées Interclubs',
-  'CODEP',
-  'GAN 35',
-  'Thénégal',
-  'Interclubs',
-];
 
 export const DIVISIONS = ['R1A', 'R1B', 'R2', 'R3', 'R4', 'R5', 'R6'] as const;
 
