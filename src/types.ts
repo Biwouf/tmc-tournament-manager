@@ -223,12 +223,7 @@ export interface LiveMatch {
 // Module Matches par équipe
 // ============================================================
 
-export type TeamCompetitionNom =
-  | 'Pyrénées Interclubs'
-  | 'CODEP'
-  | 'GAN 35'
-  | 'Thénégal'
-  | 'Interclubs';
+export type TeamCompetitionNom = string;
 
 export type TeamType = 'adultes' | 'jeunes';
 
@@ -255,7 +250,7 @@ export type TeamFormat =
   | '4S1D2'   // 4 simples et 1 double (double = 2 pts)
   | '4S2D';   // 4 simples et 2 doubles
 
-export type TeamDivision = 'R1A' | 'R1B' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6';
+export type TeamDivision = string;
 
 export type TeamStadeFinale = '1/16' | '1/8' | '1/4' | '1/2' | 'finale';
 
@@ -273,6 +268,7 @@ export interface TeamSaison {
 export interface TeamCompetition {
   id: string;
   saison_id: string;
+  tenup_url?: string | null;
   nom: TeamCompetitionNom;
   type: TeamType;
   genre: TeamGenre;
@@ -288,6 +284,9 @@ export interface TeamEquipe {
   competition_id: string;
   numero: number;           // 1, 2, 3…
   division: TeamDivision;
+  tenup_team_id?: string | null;
+  tenup_team_name?: string | null;
+  tenup_source_url?: string | null;
   nb_journees_poule: number;
   qualifiee: boolean | null; // null = non encore déterminé
   stade_finale_depart: TeamStadeFinale | null;
@@ -298,6 +297,7 @@ export interface TeamEtape {
   id: string;
   equipe_id: string;
   phase: 'poule' | 'finale';
+  exempt?: boolean;
   numero_journee: number | null;        // renseigné si phase = 'poule'
   stade_finale: TeamStadeFinale | null;  // renseigné si phase = 'finale'
   created_at: string;

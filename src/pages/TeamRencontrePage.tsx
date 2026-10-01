@@ -17,6 +17,7 @@ import TeamMatchLineModal from '../components/teamMatches/TeamMatchLineModal';
 import TeamMatchScoreModal from '../components/teamMatches/TeamMatchScoreModal';
 import TeamScoreSection from '../components/teamMatches/TeamScoreSection';
 import TeamPhotosSection from '../components/teamMatches/TeamPhotosSection';
+import ResultPosterSection from '../components/teamMatches/poster/ResultPosterSection';
 import {
   competitionLabel,
   etapeLabel,
@@ -443,6 +444,8 @@ export default function TeamRencontrePage() {
             onSaved={load}
           />
         )}
+
+        {context && <ResultPosterSection rencontre={rencontre} lines={lines} competition={context.competition} equipe={context.equipe} etape={context.etape} />}
 
         {/* Photos */}
         <TeamPhotosSection rencontre={rencontre} onChange={load} />

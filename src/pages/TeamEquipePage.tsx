@@ -311,7 +311,7 @@ export default function TeamEquipePage() {
             {pouleEtapes.map((etape) => (
               <EtapeRow
                 key={etape.id}
-                titre={`J${etape.numero_journee}`}
+                titre={`J${etape.numero_journee}${etape.exempt ? " · Exempte" : ""}`}
                 rencontre={rencontreByEtape[etape.id]}
                 onCreate={() =>
                   navigate(`/team-matches/rencontre/new?etapeId=${etape.id}`)
