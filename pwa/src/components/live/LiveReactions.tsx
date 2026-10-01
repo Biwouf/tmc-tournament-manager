@@ -75,7 +75,7 @@ export default function LiveReactions({
     }
   }
   return (
-    <div className="spectator-dock">
+    <div className="reaction-dock">
       <div className="reaction-anchor">
         {canSend && open && (
           <div

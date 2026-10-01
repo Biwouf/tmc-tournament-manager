@@ -413,15 +413,15 @@ button.live-note {
 .live-view:has(.member-dock) .latest-button {
   bottom: 100px;
 }
-.spectator-dock {
+.reaction-dock {
   position: absolute;
   right: 16px;
   bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 5;
   pointer-events: none;
 }
-.live-view:has(.member-dock) .spectator-dock {
-  bottom: 100px;
+.member-dock .reaction-dock {
+  bottom: calc(100% + 12px);
 }
 .reaction-anchor {
   position: relative;

@@ -19,9 +19,11 @@ texte, sondage, clôture et suppression des publications. `scored_by` attribue
 la dernière saisie et ne confère aucune exclusivité. Ce changement vaut aussi
 pour la confirmation d’un résultat d’équipe depuis la PWA.
 
-Les visiteurs lisent le fil. Les spectateurs connectés peuvent voter et envoyer
-les réactions 👏 🔥 💪 ❤️ 😮 🎉 ; ils n’ont pas de champ de texte.
-Les membres disposent du champ d’animation, sans bouton de réactions.
+Les visiteurs lisent le fil et voient le bouton de réactions, qui les invite à
+se connecter. Tous les utilisateurs connectés, membres et owners compris, peuvent
+voter et envoyer les réactions 👏 🔥 💪 ❤️ 😮 🎉 pendant le live.
+Les spectateurs n’ont pas de champ de texte. Les membres disposent du champ
+d’animation et du bouton de réactions au-dessus, même quand le champ s’agrandit.
 Photos et texte des spectateurs restent différés.
 
 Texte : 280 caractères. Sondage : question de 140 caractères, 2 à 4 réponses
@@ -85,7 +87,7 @@ BO n’est pas refondue ici, et la base autorise désormais les membres du club.
   ainsi que l’intégration des lives d’équipes, les liens indépendants des cartes
   et les scores provisoires pondérés accessibles aux spectateurs.
 - Régressions : `test:live-score`, `test:team-matches`, `test:pwa-network`,
-  `test:pwa-updates`, `test:security` (86 tests au total).
+  `test:pwa-updates`, `test:security` (87 tests au total).
 - Compilation PWA et contrôle du service worker ; lint ciblé des nouveaux composants,
   hooks et règles de score. Avertissement de taille du bundle déjà présent.
 

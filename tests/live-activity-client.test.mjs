@@ -399,7 +399,7 @@ test('Member: shared scoring, successive undo, remote revision, durable retry an
   const screen = setup('member', true);
   try {
     await screen.mount();
-    assert.equal(screen.button('Ouvrir les réactions'), undefined);
+    assert.ok(screen.button('Ouvrir les réactions'));
     await screen.click('+ jeu pour Alex A');
     await screen.click('+ jeu pour Sam B');
     assert.equal(screen.match().set1_j1, 5);
@@ -444,6 +444,31 @@ test('Member: shared scoring, successive undo, remote revision, durable retry an
     assert.equal(screen.match().court, '3');
   } finally {
     await screen.dispose();
+  }
+});
+
+test('Members and owners: reactions preserve the comment draft and score controls', async () => {
+  for (const user of ['member', 'owner']) {
+    const screen = setup(user, true);
+    try {
+      await screen.mount();
+      const before = { ...screen.match() };
+      await screen.type('textarea', 'Quel échange !');
+      assert.ok(screen.button('Ouvrir les réactions').closest('.member-dock'));
+      await screen.click('Ouvrir les réactions');
+      for (let i = 0; i < 4; i++) await screen.click('Applaudir');
+      assert.equal(screen.calls.filter(c => c.p_action === 'reaction').length, 4);
+      assert.equal(document.querySelectorAll('.emoji-combo').length, 1);
+      assert.equal(document.querySelector('textarea').value, 'Quel échange !');
+      assert.deepEqual(screen.match(), before, 'encouragements do not change the score');
+      assert.ok(screen.button('+ jeu pour Alex A'));
+      await screen.click('Fermer les réactions');
+      await screen.click('Publier le commentaire');
+      assert.equal(screen.calls.filter(c => c.p_action === 'message').length, 1);
+      assert.equal(document.querySelector('textarea').value, '');
+    } finally {
+      await screen.dispose();
+    }
   }
 });
 

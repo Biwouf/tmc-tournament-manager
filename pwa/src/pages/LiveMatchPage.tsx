@@ -173,6 +173,16 @@ function LiveMatchScreen({
       </div>
     );
   const poll = activity.items.find((p) => p.id === pollId);
+  const showMemberDock = canAnimate && match.status === 'live';
+  const reactionDock = (
+    <LiveReactions
+      matchId={match.id}
+      clubId={clubId!}
+      userId={userId}
+      canSend={match.status === 'live' && !activity.isPending && !activity.isError}
+      {...reactions}
+    />
+  );
   return (
     <div
       className="live-view"
@@ -355,8 +365,9 @@ function LiveMatchScreen({
       >
         ↓ Derniers commentaires
       </button>
-      {canAnimate && match.status === 'live' && (
+      {showMemberDock && (
         <div className="member-dock">
+          {reactionDock}
           {menu && (
             <div className="dock-options">
               <button
@@ -435,18 +446,7 @@ function LiveMatchScreen({
           {activity.actionError}
         </p>
       )}
-      <LiveReactions
-        matchId={match.id}
-        clubId={clubId!}
-        userId={userId}
-        canSend={
-          !canAnimate &&
-          match.status === 'live' &&
-          !activity.isPending &&
-          !activity.isError
-        }
-        {...reactions}
-      />
+      {!showMemberDock && reactionDock}
       {sheet === 'info' && (
         <LiveSheet title="Le match" onClose={() => setSheet(null)}>
           <div className="match-details">
