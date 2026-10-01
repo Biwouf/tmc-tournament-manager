@@ -1,3 +1,4 @@
+import { normalizeTenupPoolUrl, validateTenupPool } from '../../../shared/tenupPool.mjs';
 import { normalizeTenupCompetitionUrl } from '../../../shared/tenupCompetitionUrl.mjs';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const headers = {
@@ -33,6 +34,27 @@ Deno.serve(async req => {
     try { body = JSON.parse(raw); } catch { return json(400, { error: 'Requête invalide.' }); }
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!body || typeof body !== 'object') return json(400, { error: 'Requête invalide.' });
+    if (body.kind === 'pool') {
+      if (!uuid.test(body.club_id) || !uuid.test(body.competition_id)) return json(400, { error: 'Requête invalide.' });
+      let url: string;
+      try { url = normalizeTenupPoolUrl(body.url); } catch { return json(400, { error: 'Copiez le lien Ten’Up complet de la poule.' }); }
+      const { data: id, error } = await client.rpc('team_tenup_pool_begin', { p_club: body.club_id, p_competition: body.competition_id, p_url: url });
+      if (error) return json(error.code === '42501' ? 403 : 400, { error: error.message });
+      const response = await fetch(workerEndpoint, {
+        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(50_000), headers: workerHeaders,
+        body: JSON.stringify({ kind: 'pool', url }),
+      });
+      if (!response.ok) return json(502, { error: 'Le calendrier Ten’Up est indisponible. Réessayez ou créez l’équipe manuellement.' });
+      const raw = await response.text();
+      if (raw.length > 200_000) return json(502, { error: 'Calendrier Ten’Up trop volumineux.' });
+      let payload;
+      try { payload = validateTenupPool(JSON.parse(raw), url); }
+      catch { return json(502, { error: 'Calendrier Ten’Up incomplet ou illisible. Aucune équipe créée.' }); }
+      const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { error: saveError } = await admin.from('team_tenup_pool_previews').update({ payload }).eq('id', id).eq('actor_id', user.id);
+      if (saveError) return json(500, { error: 'Impossible de préparer le calendrier.' });
+      return json(200, { id, url, ...payload });
+    }
     if (body.kind === 'competition') {
       if (!uuid.test(body.club_id) || !uuid.test(body.saison_id)) return json(400, { error: 'Requête invalide.' });
       let url: string;

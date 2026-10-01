@@ -5,18 +5,17 @@ import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCategorie,
   TeamCompetition,
-  TeamDivision,
   TeamEquipe,
   TeamFormat,
   TeamGenre,
   TeamSaison,
   TeamType,
 } from '../types';
+import CreateEquipeForm from '../components/teamMatches/CreateEquipeForm';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
 import {
   CATEGORIE_LABELS,
   CATEGORIES_BY_TYPE,
-  DIVISIONS,
   FORMAT_LABELS,
   GENRE_LABELS,
   GENRES_BY_TYPE,
@@ -791,7 +790,7 @@ function EquipesSection({
                     <td className="px-4 py-2.5 text-muted-foreground">
                       {competition ? competitionLabel(competition) : '—'}
                     </td>
-                    <td className="px-4 py-2.5">{eq.division}</td>
+                    <td className="px-4 py-2.5">{eq.division}{eq.tenup_team_name && <p className="text-xs text-muted-foreground">{eq.tenup_team_name}</p>}</td>
                     <td className="px-4 py-2.5">{eq.nb_journees_poule}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex justify-end gap-2">
@@ -830,161 +829,5 @@ function EquipesSection({
         />
       )}
     </section>
-  );
-}
-
-function CreateEquipeForm({
-  competitions,
-  existingEquipes,
-  defaultCompetitionId,
-  onClose,
-  onCreated,
-}: {
-  competitions: TeamCompetition[];
-  existingEquipes: TeamEquipe[];
-  defaultCompetitionId: string;
-  onClose: () => void;
-  onCreated: () => void;
-}) {
-  const { clubId } = useClub();
-  const [competitionId, setCompetitionId] = useState(defaultCompetitionId);
-  const [division, setDivision] = useState<TeamDivision>('R2');
-  const [nbJournees, setNbJournees] = useState(5);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Numéro auto = plus grand numéro existant dans la compétition + 1.
-  const numero = useMemo(() => {
-    const nums = existingEquipes
-      .filter((e) => e.competition_id === competitionId)
-      .map((e) => e.numero);
-    return nums.length ? Math.max(...nums) + 1 : 1;
-  }, [existingEquipes, competitionId]);
-
-  const handleSubmit = async () => {
-    setError(null);
-    if (!competitionId) {
-      setError('Sélectionnez une compétition.');
-      return;
-    }
-    if (!Number.isInteger(nbJournees) || nbJournees < 1) {
-      setError('Le nombre de journées doit être un entier ≥ 1.');
-      return;
-    }
-    setSaving(true);
-
-    const { data, error: insertErr } = await supabase
-      .from('team_equipes')
-      .insert({
-        competition_id: competitionId,
-        numero,
-        division,
-        nb_journees_poule: nbJournees,
-        club_id: clubId,
-      })
-      .select('id')
-      .single();
-
-    if (insertErr || !data) {
-      setError(insertErr?.message ?? 'Création impossible.');
-      setSaving(false);
-      return;
-    }
-
-    // Génération automatique des étapes de poule J1..JN.
-    const etapes = Array.from({ length: nbJournees }, (_, i) => ({
-      equipe_id: data.id,
-      phase: 'poule' as const,
-      numero_journee: i + 1,
-      club_id: clubId,
-    }));
-    const { error: etapesErr } = await supabase.from('team_etapes').insert(etapes);
-    if (etapesErr) {
-      setError(`Équipe créée mais erreur sur les journées : ${etapesErr.message}`);
-      setSaving(false);
-      return;
-    }
-
-    onCreated();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold">Créer une équipe</h3>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground">Compétition</label>
-            <select
-              value={competitionId}
-              onChange={(e) => setCompetitionId(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              {competitions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {competitionLabel(c)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground">Numéro</label>
-              <input
-                type="text"
-                value={`Équipe ${numero}`}
-                readOnly
-                className="mt-1 block w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground">Division</label>
-              <select
-                value={division}
-                onChange={(e) => setDivision(e.target.value as TeamDivision)}
-                className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              >
-                {DIVISIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground">Journées de poule</label>
-            <input
-              type="number"
-              min={1}
-              value={nbJournees}
-              onChange={(e) => setNbJournees(Number(e.target.value))}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
-
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-          >
-            {saving ? 'Création...' : 'Créer'}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }

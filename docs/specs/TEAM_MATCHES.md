@@ -912,3 +912,17 @@ src/
 6. **Page suivi** (matches individuels + score) — `TeamRencontrePage`
 7. **Intégration Live Score** (basculement + mise à jour score)
 8. **Photos + lien Actu**
+
+### Création d’une équipe depuis Ten’Up
+
+Les divisions acceptent un libellé libre (1–160 caractères), par exemple « Groupe A ». L’administrateur peut lire le lien complet de la poule depuis le formulaire de création d’équipe. La liste conserve chaque identifiant Ten’Up, même si plusieurs équipes du même club participent au championnat ou à la même division. Le nom du club suggère les équipes plausibles ; le choix et la confirmation du calendrier restent explicites. Le numéro d’équipe local est modifiable.
+
+L’aperçu présente chaque journée, adversaire, date et domicile/déplacement. Les heures doivent être précisées ensuite. L’équipe, les étapes et les rencontres sont créées dans une seule transaction, depuis un aperçu sauvegardé côté serveur, sans résultats. Le même aperçu rejoué retourne l’équipe déjà créée. Une équipe externe déjà ajoutée est refusée ; une seconde équipe de la même division est acceptée. Une journée exempte conserve son étape sans créer de rencontre.
+
+Migration : `2026100102_tenup_team_calendar.sql`. Le worker et `tenup-sync` doivent également être redéployés.
+
+Le numéro d’équipe n’est pas unique dans une compétition : plusieurs équipes distinctes peuvent avoir le même numéro et la même division. Seul l’identifiant Ten’Up empêche l’import en double d’une même équipe. Migration corrective : `2026100103_team_numbers_not_unique.sql`.
+
+La présélection d’équipe utilise le nom configuré (`club_settings.config.brand.name`), puis le nom du club, puis sa ville configurée si aucun nom ne correspond. Une seule équipe correspondante non encore importée est proposée par défaut ; plusieurs correspondances exigent un choix. La confirmation du calendrier reste obligatoire.
+
+Le contrôle du championnat compare son identifiant Ten’Up au lien enregistré sur la compétition. Une compétition sans lien ne bénéficie pas de cette vérification : après une lecture Ten’Up réussie, le formulaire affiche un avertissement invitant à enregistrer son lien. Aucun avertissement n’apparaît à l’ouverture ou pendant une saisie manuelle. Les noms, genres et catégories ne sont pas comparés approximativement.

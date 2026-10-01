@@ -11,8 +11,6 @@ import type {
 
 // --- Listes de référence ---
 
-export const DIVISIONS = ['R1A', 'R1B', 'R2', 'R3', 'R4', 'R5', 'R6'] as const;
-
 export const STADES_FINALE: TeamStadeFinale[] = ['1/16', '1/8', '1/4', '1/2', 'finale'];
 
 // --- Libellés d'affichage ---

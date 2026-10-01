@@ -184,3 +184,30 @@ Le test valide la lecture depuis Vercel, pas l’import de bout en bout en produ
 Aucune migration ou fonction Supabase distante ni application BO/PWA n’a été déployée.
 Pour la mise en service, configurer un point d’entrée accessible à Supabase, conserver
 le secret obligatoire, puis tester le parcours complet avec aperçu et confirmation.
+
+## Ajouter une équipe et son calendrier
+
+Le mode `pool` lit le lien complet de la poule (championnat + division + phase + poule), les identifiants des équipes et toutes les journées du sélecteur public Ten’Up. Il refuse les calendriers incomplets. Le nom du club aide à suggérer des équipes, mais l’administrateur choisit toujours l’équipe exacte et confirme l’aperçu.
+
+Pour déployer cette évolution, depuis le worktree :
+
+```sh
+supabase db push --dry-run
+supabase db push
+vercel deploy --prod --cwd services/tenup-worker --project tmc-tenup-worker-check --scope biwoufs-projects
+supabase functions deploy tenup-sync
+```
+
+La nouvelle migration est `2026100102_tenup_team_calendar.sql`. Déployer également le backoffice ; la PWA doit être reconstruite lorsqu’elle est publiée avec ces types. Les secrets existants restent valables.
+
+La création atomique passe par `team_equipe_create`. Pour Ten’Up, le navigateur transmet l’identifiant d’un aperçu et d’une équipe ; le serveur utilise le calendrier sauvegardé depuis le worker. Les aperçus expirent après 15 minutes. Chaque équipe Ten’Up ne peut être ajoutée qu’une fois dans une compétition. Deux équipes du club peuvent partager une division, une poule, et même une rencontre : leur côté domicile/extérieur distingue leurs sources. Aucun résultat n’est importé à la création.
+
+Le calendrier public donne des dates sans heures : la date est stockée à minuit Europe/Paris pour conserver le jour exact. L’aperçu indique que les heures doivent être précisées dans les rencontres. Une journée exempte crée une étape sans rencontre. La saisie manuelle des divisions et journées reste disponible.
+
+Validation : `npm run test:team-calendar`, puis les suites compétitions/Ten’Up existantes.
+
+Le lecteur de poule attend l’ouverture effective du menu après hydratation de la page, puis chaque journée complète (toutes ses cartes de rencontres). Le test `tests/tenup-pool-loading.test.mjs` simule ces délais dans Chromium. Les erreurs techniques d’extraction sont journalisées côté worker sans corps de requête ni variables d’environnement ; la réponse publique reste générique.
+
+La migration `2026100103_team_numbers_not_unique.sql` autorise plusieurs équipes au même numéro dans une compétition, sans supprimer le contrôle de doublon sur l’identifiant Ten’Up. Ce correctif SQL ne nécessite pas de redéploiement du worker ou de `tenup-sync`.
+
+Dans le backoffice, une seule équipe probable peut être présélectionnée depuis le nom ou la ville configurés du club ; l’administrateur confirme toujours le calendrier. La correspondance entre compétition et championnat est contrôlée par l’identifiant de son lien Ten’Up lorsqu’il est enregistré. Sans ce lien, le formulaire avertit que la correspondance n’est pas vérifiable. Ces ajustements de suggestion nécessitent seulement le déploiement du backoffice.
