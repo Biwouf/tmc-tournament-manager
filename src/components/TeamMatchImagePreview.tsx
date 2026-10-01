@@ -3,7 +3,9 @@ import type { TeamMatch, TeamMatchType } from '../types';
 const POSTER_W = 1414;
 const POSTER_H = 2000;
 const CONTENT_TOP = 245;
-const CONTENT_BOTTOM = 1780;
+// Le bandeau partenaires commence à 1760 px sur le fond A4.
+// Garder 40 px de marge, dont les 10 px de l’ombre des cartes.
+const CONTENT_BOTTOM = 1720;
 const CONTENT_PAD_X = 60;
 
 const SHORT_TYPE: Record<TeamMatchType, string> = {
