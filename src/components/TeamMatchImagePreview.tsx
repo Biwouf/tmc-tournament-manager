@@ -1,4 +1,5 @@
-import type { TeamMatch, TeamMatchType } from '../types';
+import type { TeamMatch } from '../types';
+import { CATEGORIE_LABELS, GENRE_LABELS } from './teamMatches/teamMatchLabels';
 
 const POSTER_W = 1414;
 const POSTER_H = 2000;
@@ -7,14 +8,6 @@ const CONTENT_TOP = 245;
 // Garder 40 px de marge, dont les 10 px de l’ombre des cartes.
 const CONTENT_BOTTOM = 1720;
 const CONTENT_PAD_X = 60;
-
-const SHORT_TYPE: Record<TeamMatchType, string> = {
-  'Seniors':          'Seniors',
-  'Seniors +35':      'Seniors +35',
-  'Jeunes 15/16 ans': '15/16 ans',
-  'Jeunes 13/14 ans': '13/14 ans',
-  'Jeunes 11/12 ans': '11/12 ans',
-};
 
 const JOURS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const MOIS  = ['janvier','février','mars','avril','mai','juin',
@@ -83,7 +76,7 @@ const POSTER_STYLES = `
 }
 .tmc-poster .va-body .category {
   font-size: 38px; font-weight: 800; color: #1a1416;
-  letter-spacing: -0.4px; line-height: 1;
+  letter-spacing: -0.4px; line-height: 1.15; overflow-wrap: anywhere;
 }
 .tmc-poster .va-body .team-no {
   display: inline-flex; align-items: center; gap: 10px;
@@ -136,7 +129,7 @@ const POSTER_STYLES = `
 .tmc-poster .va-cell.hero .va-date .time  { font-size: 32px; padding: 6px 22px; margin-top: 14px; }
 
 .tmc-poster .va-cell.hero .va-body { padding: 40px 48px; gap: 16px; justify-content: center; }
-.tmc-poster .va-cell.hero .va-body .category { font-size: 52px; line-height: 1; }
+.tmc-poster .va-cell.hero .va-body .category { font-size: 52px; }
 .tmc-poster .va-cell.hero .va-body .team-no  { font-size: 24px; letter-spacing: 3px; }
 .tmc-poster .va-cell.hero .va-body .team-no::before { width: 40px; height: 4px; }
 .tmc-poster .va-cell.hero .va-body .vs-line { margin-top: 14px; align-items: baseline; }
@@ -191,7 +184,7 @@ function MatchCell({ match, size }: { match: TeamMatch; size: SizeClass }) {
         <div className="time">{formatMatchTime(match.time)}</div>
       </div>
       <div className="va-body">
-        <div className="category">{match.gender} · {SHORT_TYPE[match.matchType]}</div>
+        <div className="category">{match.competitionName} - {GENRE_LABELS[match.gender]} - {CATEGORIE_LABELS[match.ageCategory]}</div>
         <div className="team-no">Équipe {match.teamNumber}</div>
         <div className="vs-line">
           <span className="vs">vs</span>

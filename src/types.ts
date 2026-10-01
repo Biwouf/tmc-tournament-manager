@@ -107,8 +107,9 @@ export const TEAM_MATCH_TYPES: TeamMatchType[] = [
 
 export interface TeamMatch {
   id: string;                // local uuid, used for React keys and reordering
-  gender: TeamMatchGender;
-  matchType: TeamMatchType;
+  competitionName: string;
+  gender: TeamGenre;
+  ageCategory: TeamCategorie;
   teamNumber: 1 | 2 | 3;
   opponent: string;
   location: 'home' | 'away'; // home = Au club, away = Chez l'adversaire
