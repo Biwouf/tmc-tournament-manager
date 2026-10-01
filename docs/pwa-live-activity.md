@@ -65,18 +65,51 @@ La préférence système de mouvement réduit masque les animations.
 - Les résultats d’équipe restent soumis à leurs révisions, règles de format,
   confirmations et invalidation lors d’une correction. Les liens sont conservés.
 
-## Ordre de livraison
+## Livraison en production
 
-Appliquer les migrations dans cet ordre : `2026093001_live_activity.sql`,
-`2026093002_team_live_shared_scoring.sql`, `2026100104_live_encounter_scores.sql`,
-puis livrer la PWA. La première ajoute
-les tables à `supabase_realtime` si cette publication existe. Vérifier que le
-service Realtime est activé dans l’environnement cible.
+Livrer la base avant la PWA. Le projet Supabase de production doit disposer de :
 
-Aucune migration n’a été appliquée à un service distant pendant ce développement.
-Ne pas ouvrir le nouveau parcours contre une base qui ne dispose pas des RPC.
-L’ancien client BO peut encore présenter sa reprise explicite ; cette interface
-BO n’est pas refondue ici, et la base autorise désormais les membres du club.
+1. `2026093001_live_activity.sql` : publications, sondages, votes et réactions,
+   RPC et droits des membres ; ajout de `live_posts` et `live_reactions` à
+   `supabase_realtime` si cette publication existe.
+2. `2026093002_team_live_shared_scoring.sql` : droits partagés sur les lives
+   d’équipes, confirmations et invalidation lors des corrections.
+3. `2026100104_live_encounter_scores.sql` : score provisoire des rencontres
+   affiché dans les cartes. Cette migration est la seule nouvelle migration
+   du diff de la PR ; les deux premières sont déjà versionnées sur `main`.
+
+Vérifier l’historique du projet de production et appliquer seulement les migrations
+manquantes, dans leur ordre chronologique. Le CLI du worktree est actuellement
+lié au projet de la PWA locale ; ce lien ne désigne pas automatiquement la production.
+Les commandes suivantes doivent cibler explicitement le projet de production :
+
+```bash
+supabase link --project-ref <reference-production>
+supabase migration list
+supabase db push --dry-run
+# Après vérification des migrations proposées :
+supabase db push
+```
+
+Vérifier que `live_matches`, `live_posts` et `live_reactions` sont dans la
+publication `supabase_realtime` et que le service Realtime est activé.
+Une fois la base prête, fusionner la PR puis vérifier le déploiement Vercel de
+`pwa-cac-tennis`. Conserver les variables Supabase de production existantes.
+Aucune nouvelle variable, Edge Function, configuration de bucket ou tâche cron
+n’est nécessaire pour ce lot.
+
+Après déploiement, faire la recette mobile décrite ci-dessous sur un live de
+production : un membre publie et saisit le score, un second compte reçoit les
+changements, vote et envoie des réactions ; vérifier aussi le score de rencontre.
+Les PWA déjà installées doivent accepter le bandeau « Actualiser » pour charger
+l’interface livrée. Voir `PWA_UPDATES.md` pour les versions antérieures au bandeau.
+Après une utilisation ponctuelle du CLI sur la production, rétablir le lien vers
+le projet de développement pour poursuivre le travail local.
+
+L’agent n’a appliqué aucune migration ni modifié de service distant. L’état des
+migrations en production reste à vérifier. L’ancien client BO peut encore
+présenter sa reprise explicite ; cette interface BO n’est pas refondue ici,
+et la base autorise désormais les membres du club.
 
 ## Validation
 
