@@ -66,7 +66,7 @@ La préférence système de mouvement réduit masque les animations.
 ## Ordre de livraison
 
 Appliquer les migrations dans cet ordre : `2026093001_live_activity.sql`,
-`2026093002_team_live_shared_scoring.sql`, `2026100101_live_encounter_scores.sql`,
+`2026093002_team_live_shared_scoring.sql`, `2026100104_live_encounter_scores.sql`,
 puis livrer la PWA. La première ajoute
 les tables à `supabase_realtime` si cette publication existe. Vérifier que le
 service Realtime est activé dans l’environnement cible.

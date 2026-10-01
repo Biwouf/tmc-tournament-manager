@@ -350,7 +350,7 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
     await db.exec(await migration('2026092601_team_format_3s1d'));
     await db.exec(await migration('2026093001_live_activity'));
     await db.exec(await migration('2026093002_team_live_shared_scoring'));
-    await db.exec(await migration('2026100101_live_encounter_scores'));
+    await db.exec(await migration('2026100104_live_encounter_scores'));
     await db.exec("UPDATE team_competitions SET singles_set3_format='normal'");
 
     async function as(user, sql, args = []) {
