@@ -47,14 +47,24 @@ export default function TeamRencontrePage() {
     if (winner) score[winner] += line.match_type === 'double' ? spec.doublePoints : 1;
     return score;
   }, { club: 0, adverse: 0 });
+  // La fiche reste ouverte pendant le live : relire les révisions au moment du clic.
+  const revisions = async () => {
+    if (!selection) return null;
+    const fresh = (await query.refetch()).data;
+    const line = fresh?.lines.find(l => l.id === selection.line.id) ?? selection.line;
+    const live = fresh ? fresh.lives.find(m => m.id === line.live_match_id) : selection.live;
+    return { id: line.id, revision: line.revision, live_revision: live?.revision };
+  };
   const start = async () => {
-    if (!selection) return;
-    const result = await action.run('start_live', { id: selection.line.id, revision: selection.line.revision, live_revision: selection.live?.revision });
+    const base = await revisions();
+    if (!base) return;
+    const result = await action.run('start_live', base);
     if (result?.live_match_id) navigate(`/matches/${result.live_match_id}/score`);
   };
   const chooseRule = async (rule: 'normal' | 'super_tiebreak') => {
-    if (!selection) return;
-    if (await action.run('resolve_rule', { id: selection.line.id, revision: selection.line.revision, live_revision: selection.live?.revision, set3_format: rule })) close();
+    const base = await revisions();
+    if (!base) return;
+    if (await action.run('resolve_rule', { ...base, set3_format: rule })) close();
   };
   return <div className="space-y-5 p-4">
     <section className="rounded-2xl border border-border bg-card p-5">

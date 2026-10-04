@@ -351,6 +351,16 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
     await db.exec(await migration('2026093001_live_activity'));
     await db.exec(await migration('2026093002_team_live_shared_scoring'));
     await db.exec(await migration('2026100104_live_encounter_scores'));
+    await db.exec(await migration('2026100401_no_retry_errcodes'));
+    assert.equal(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prosrc LIKE '%''40001''%'",
+        )
+      ).rows[0].n,
+      0,
+      'PostgREST retries SQLSTATE 40001 forever: no business error may use it',
+    );
     await db.exec("UPDATE team_competitions SET singles_set3_format='normal'");
 
     async function as(user, sql, args = []) {
@@ -427,6 +437,16 @@ test('Shared team live: all members edit, fixed formats and confirmation invalid
     );
     m = await live(m.id);
     assert.equal(m.set1_j1, 1, 'non-owner scores without takeover');
+    assert.equal(
+      (await line(created.id)).revision,
+      1,
+      'a point without result to invalidate keeps the line revision',
+    );
+    await assert.rejects(
+      command('start_live', { id: created.id, revision: 0, live_revision: m.revision }),
+      (e) => e.code === 'PT409' && /Le match a changé/.test(e.message),
+      'stale revisions answer 409 instead of a retried serialization failure',
+    );
     await assert.rejects(
       as(
         104,
