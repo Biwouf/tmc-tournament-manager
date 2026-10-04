@@ -57,6 +57,10 @@ Lots 1 à 3 implémentés dans `codex/pwa-equipes-live` :
   WO et abandon, pondération des doubles. Historique des changements conservé côté serveur.
 - Révision du match et du live vérifiée à la saisie, révision de la rencontre au
   récapitulatif. Identifiant de commande stable lors d'une nouvelle tentative réseau.
+  Un conflit de révision répond en SQLSTATE `PT409` (HTTP 409) : **jamais `40001`**, que
+  PostgREST rejoue indéfiniment (saturation de la base lors du test du 04/10/2026). Un point
+  marqué sur le live ne modifie la ligne que s'il invalide un résultat, et la PWA relit la
+  rencontre avant « Ouvrir le live » / choix de règle pour envoyer des révisions à jour.
 - PWA : fiche accessible depuis une rencontre, assistant de création en trois étapes,
   recherche de membres, grille de classement, résultats numériques et récapitulatif.
 - Live lié : règle fixée automatiquement, retour vers la rencontre, résultat terminé
