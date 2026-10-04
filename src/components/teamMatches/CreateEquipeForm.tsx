@@ -325,8 +325,8 @@ export default function CreateEquipeForm({
                 </tbody>
               </table>
               <p className="mt-2 text-xs text-muted-foreground">
-                Les heures ne sont pas fournies par ce calendrier : elles seront
-                à préciser dans les rencontres. Les résultats seront
+                Les heures ne sont pas fournies par ce calendrier : les rencontres
+                sont créées à 09:00, à préciser ensuite. Les résultats seront
                 synchronisés séparément.
               </p>
               <label className="mt-3 flex items-center gap-2">

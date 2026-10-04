@@ -87,6 +87,7 @@ test('team creation imports a trusted snapshot atomically and permits both club 
     await db.exec(await migration('2026100101_admin_competitions'));
     await db.exec(await migration('2026100102_tenup_team_calendar'));
     await db.exec(await migration('2026100103_team_numbers_not_unique'));
+    await db.exec(await migration('2026100404_tenup_default_hour'));
     const url =
       'https://tenup.fft.fr/championnat/82678463?division=144146&phase=233672&poule=513524';
     const doc = new JSDOM(
@@ -155,7 +156,7 @@ test('team creation imports a trusted snapshot atomically and permits both club 
     assert.equal(r.tenup_synced_at, null);
     assert.equal(
       new Date(r.date_heure).toISOString(),
-      '2026-10-03T22:00:00.000Z'
+      '2026-10-04T07:00:00.000Z'
     );
     const pid2 = await begin();
     await attach(pid2);
