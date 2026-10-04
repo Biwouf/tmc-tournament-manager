@@ -63,14 +63,9 @@ export type TeamGenre =
   | 'garcons'
   | 'filles';
 
-export type TeamCategorie =
-  | 'seniors'
-  | '35_ans'
-  | '60_ans'
-  | '17_18'
-  | '15_16'
-  | '13_14'
-  | '11_12';
+// Libellé libre depuis 2026100403 (ex. '+70 ans') ; codes historiques conservés :
+// 'seniors', '35_ans', '60_ans', '17_18', '15_16', '13_14', '11_12'.
+export type TeamCategorie = string;
 
 export type TeamFormat =
   | '2S1D'    // 2 simples et 1 double
@@ -194,12 +189,23 @@ Les valeurs de `genre` valides dépendent du `type` :
 | `adultes` | `hommes`, `femmes`, `mixte` |
 | `jeunes` | `garcons`, `filles` |
 
-Les valeurs de `categorie` valides dépendent du `type` :
+`categorie` est un **libellé libre** depuis la migration `2026100403_team_categorie_libre.sql`
+(1–40 caractères, au moins un caractère non blanc), comme le nom et la division. Le BO propose
+des suggestions selon le `type` (`CATEGORIES_BY_TYPE`) sans les imposer :
 
-| type | catégories valides |
+| type | suggestions |
 |---|---|
-| `adultes` | `seniors`, `35_ans`, `60_ans` |
-| `jeunes` | `17_18`, `15_16`, `13_14`, `11_12` |
+| `adultes` | Seniors, +35 ans, +45 ans, +55 ans, +60 ans, +65 ans, +70 ans, +75 ans |
+| `jeunes` | 17/18 ans, 15/16 ans, 13/14 ans, 11/12 ans |
+
+Les codes historiques (`seniors`, `35_ans`, `60_ans`, `17_18`…) restent en base et sont traduits
+à l'affichage par `formatCategorie()` (BO `teamMatchLabels.ts`, PWA `matchesEquipes/labels.ts`) ;
+toute autre valeur est affichée telle quelle. Une compétition historique réenregistrée depuis
+l'admin stocke le libellé (`+35 ans`) à la place du code.
+
+Au préremplissage Ten'Up, la fiche du championnat n'expose pas la catégorie : elle est déduite
+du **nom** par `inferCategorie()` (ex. « GAN 70 MESSIEURS » → `+70 ans`, « … 13/14 ans » →
+`13/14 ans`, « … Seniors » → `Seniors`), sinon laissée vide. L'admin la vérifie avant de créer.
 
 ---
 
@@ -606,7 +612,7 @@ Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localeme
   affiche `n / 8 sélectionnées`.
 - **Conversion** : `rencontreToTeamMatch()` (dans `components/teamMatches/poster/posterHelpers.ts`)
   mappe chaque rencontre en `TeamMatch` — genre déduit de `competition.genre`, type de
-  `competition.categorie` (fallback `60_ans → 'Seniors +35'`), `teamNumber = min(numero, 3)`,
+  `competition.categorie` (affichée via `formatCategorie`), `teamNumber = min(numero, 3)`,
   `location` selon `domicile`, date/heure locales.
 - **Rendu** : `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`)
   → `html-to-image#toJpeg` (q=0.92, pixelRatio 2), plus un aperçu A4 mis à l'échelle dans le

@@ -6,7 +6,7 @@ import type { TeamMatchLine } from '../../types';
 import type { CellRef } from './gridTypes';
 import { STATE_LABELS } from './gridTypes';
 import {
-  CATEGORIE_LABELS,
+  formatCategorie,
   FORMAT_LABELS,
   FORMAT_SPECS,
   etapeLabel,
@@ -131,7 +131,7 @@ export default function RencontrePanel({
   return (
     <div className="flex h-full flex-col overflow-y-auto p-5">
       <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-        {competition.nom} — {CATEGORIE_LABELS[competition.categorie]} · Équipe {equipe.numero} ·{' '}
+        {competition.nom} — {formatCategorie(competition.categorie)} · Équipe {equipe.numero} ·{' '}
         {equipe.division}
       </p>
 

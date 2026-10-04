@@ -59,3 +59,13 @@ test('admin creates a free name, edits existing names and reviews Tenup prefill 
   await rm(dir,{recursive:true,force:true});
  }
 });
+
+test('age category is free text: legacy codes keep their label, Tenup names suggest a category',async()=>{
+ const dir=new URL('../node_modules/.tmp/competition-labels/',import.meta.url);await mkdir(dir,{recursive:true});const out=new URL('labels.mjs',dir);
+ try {
+  await build({entryPoints:[new URL('../src/components/teamMatches/teamMatchLabels.ts',import.meta.url).pathname],outfile:out.pathname,bundle:true,platform:'node',format:'esm'});
+  const {formatCategorie,inferCategorie}=await import(out.href);
+  assert.equal(formatCategorie('35_ans'),'+35 ans');assert.equal(formatCategorie('+70 ans'),'+70 ans');
+  for(const [nom,expected] of [['GAN 70 MESSIEURS (MPY)','+70 ans'],['GAN 35','+35 ans'],['Seniors +45 Dames','+45 ans'],['Championnat 13/14 ans garçons','13/14 ans'],['Interclubs Seniors 2026','Seniors'],['Pyrénées Interclubs 2026',null],['Coupe 350',null]]) assert.equal(inferCategorie(nom),expected,nom);
+ } finally { await rm(dir,{recursive:true,force:true}); }
+});

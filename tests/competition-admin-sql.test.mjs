@@ -31,6 +31,11 @@ test('free competition names preserve existing rows; Tenup prefill checks roles,
   const insert=(nom,source=null,season=id(10),club=id(1),user=101)=>as(user,`INSERT INTO team_competitions(saison_id,club_id,nom,type,genre,categorie,format,tenup_url) VALUES($1,$2,$3,'adultes','femmes','seniors','3S1D2',$4) RETURNING nom`,[season,club,nom,source]);
   assert.equal((await insert('Challenge Féminin Max Espiaut',url))[0].nom,'Challenge Féminin Max Espiaut');
   for(const name of ['', ' \t\n ', 'a'.repeat(161)]) await assert.rejects(insert(name),/check constraint/);
+  await db.exec(await migration('2026100403_team_categorie_libre'));
+  assert.equal((await db.query(`SELECT categorie FROM team_competitions WHERE id='${id(11)}'`)).rows[0].categorie,'35_ans');
+  const withCategorie=(categorie)=>as(101,`INSERT INTO team_competitions(saison_id,club_id,nom,type,genre,categorie,format) VALUES($1,$2,'GAN 70','adultes','hommes',$3,'3S1D2') RETURNING categorie`,[id(10),id(1),categorie]);
+  assert.equal((await withCategorie('+70 ans'))[0].categorie,'+70 ans');
+  for(const categorie of ['', '   ', 'a'.repeat(41)]) await assert.rejects(withCategorie(categorie),/check constraint/);
   await assert.rejects(insert('Championnat doublon',url.split('?')[0]),/unique constraint/);
   await insert('Même championnat autre club',url,id(20),id(2),106);
   await db.exec(`INSERT INTO team_saisons(id,label) VALUES('${id(12)}','2027')`);
