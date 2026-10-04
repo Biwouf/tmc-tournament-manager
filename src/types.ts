@@ -235,14 +235,8 @@ export type TeamGenre =
   | 'garcons'
   | 'filles';
 
-export type TeamCategorie =
-  | 'seniors'
-  | '35_ans'
-  | '60_ans'
-  | '17_18'
-  | '15_16'
-  | '13_14'
-  | '11_12';
+// Libellé libre (ex. '+70 ans') ; codes historiques : 'seniors', '35_ans', '60_ans', '17_18'…
+export type TeamCategorie = string;
 
 export type TeamFormat =
   | '2S1D'    // 2 simples et 1 double

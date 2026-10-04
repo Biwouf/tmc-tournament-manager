@@ -1,5 +1,5 @@
 import type { TeamMatch } from '../types';
-import { CATEGORIE_LABELS, GENRE_LABELS } from './teamMatches/teamMatchLabels';
+import { formatCategorie, GENRE_LABELS } from './teamMatches/teamMatchLabels';
 
 const POSTER_W = 1414;
 const POSTER_H = 2000;
@@ -184,7 +184,7 @@ function MatchCell({ match, size }: { match: TeamMatch; size: SizeClass }) {
         <div className="time">{formatMatchTime(match.time)}</div>
       </div>
       <div className="va-body">
-        <div className="category">{match.competitionName} - {GENRE_LABELS[match.gender]} - {CATEGORIE_LABELS[match.ageCategory]}</div>
+        <div className="category">{match.competitionName} - {GENRE_LABELS[match.gender]} - {formatCategorie(match.ageCategory)}</div>
         <div className="team-no">Équipe {match.teamNumber}</div>
         <div className="vs-line">
           <span className="vs">vs</span>

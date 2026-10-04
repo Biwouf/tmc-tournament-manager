@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type {
-  TeamCategorie,
   TeamCompetition,
   TeamEquipe,
   TeamFormat,
@@ -14,13 +13,14 @@ import type {
 import CreateEquipeForm from '../components/teamMatches/CreateEquipeForm';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
 import {
-  CATEGORIE_LABELS,
   CATEGORIES_BY_TYPE,
   FORMAT_LABELS,
   GENRE_LABELS,
   GENRES_BY_TYPE,
   TYPE_LABELS,
   competitionLabel,
+  formatCategorie,
+  inferCategorie,
 } from '../components/teamMatches/teamMatchLabels';
 
 import { previewTenupCompetition } from '../../shared/tenupCompetitionClient';
@@ -315,13 +315,13 @@ interface CompetitionDraft {
   tenup_url: string;
   type: TeamType;
   genre: TeamGenre | '';
-  categorie: TeamCategorie | '';
+  categorie: string;
   format: TeamFormat | '';
   singles_set3_format: 'normal' | 'super_tiebreak' | null;
 }
 
 function emptyDraft(): CompetitionDraft {
-  return { nom: '', tenup_url: '', type: 'adultes', genre: 'hommes', categorie: 'seniors', format: '3S1D2', singles_set3_format: null };
+  return { nom: '', tenup_url: '', type: 'adultes', genre: 'hommes', categorie: 'Seniors', format: '3S1D2', singles_set3_format: null };
 }
 
 function CompetitionsSection({
@@ -374,18 +374,18 @@ function CompetitionsSection({
     setEditingId(c.id);
     setWarnings([]);
     setPrefilled(false);
-    setDraft({ nom: c.nom, tenup_url: c.tenup_url ?? '', type: c.type, genre: c.genre, categorie: c.categorie, format: c.format, singles_set3_format: c.singles_set3_format ?? null });
+    setDraft({ nom: c.nom, tenup_url: c.tenup_url ?? '', type: c.type, genre: c.genre, categorie: formatCategorie(c.categorie), format: c.format, singles_set3_format: c.singles_set3_format ?? null });
     setError(null);
     setShowForm(true);
   };
 
-  // Réaligne genre/catégorie quand le type change.
+  // Réaligne genre/catégorie quand le type change (une catégorie saisie librement est conservée).
   const setType = (type: TeamType) => {
     setDraft((d) => ({
       ...d,
       type,
       genre: d.genre === '' ? '' : GENRES_BY_TYPE[type].includes(d.genre) ? d.genre : GENRES_BY_TYPE[type][0],
-      categorie: d.categorie === '' ? '' : CATEGORIES_BY_TYPE[type].includes(d.categorie) ? d.categorie : CATEGORIES_BY_TYPE[type][0],
+      categorie: CATEGORIES_BY_TYPE[type === 'adultes' ? 'jeunes' : 'adultes'].includes(d.categorie) ? CATEGORIES_BY_TYPE[type][0] : d.categorie,
     }));
   };
 
@@ -396,7 +396,7 @@ function CompetitionsSection({
     try {
       const preview = await previewTenupCompetition(supabase, clubId, selectedSaisonId, draft.tenup_url);
       setDraft(d => ({ ...d, nom: preview.nom, tenup_url: preview.url,
-        genre: '', categorie: '', format: preview.format ?? '', singles_set3_format: preview.singles_set3_format }));
+        genre: '', categorie: inferCategorie(preview.nom) ?? '', format: preview.format ?? '', singles_set3_format: preview.singles_set3_format }));
       setWarnings(preview.warnings);
       setPrefilled(true);
     } catch (err) { setError(err instanceof Error ? err.message : 'Préremplissage indisponible.'); }
@@ -409,12 +409,14 @@ function CompetitionsSection({
     if (!clubId || !selectedSaisonId) return setError('Sélectionnez une saison.');
     const nom = draft.nom.trim();
     if (!nom || nom.length > 160) return setError('Renseignez un nom de compétition de 1 à 160 caractères.');
-    if (!draft.genre || !draft.categorie || !draft.format) return setError('Précisez le genre, la catégorie et le format de la compétition.');
+    const categorie = draft.categorie.trim();
+    if (!draft.genre || !categorie || !draft.format) return setError('Précisez le genre, la catégorie et le format de la compétition.');
+    if (categorie.length > 40) return setError('La catégorie ne doit pas dépasser 40 caractères.');
     if (!draft.singles_set3_format) return setError('Précisez le troisième set des simples pour cette compétition.');
     let tenup_url: string | null = null;
     try { if (draft.tenup_url.trim()) tenup_url = normalizeTenupCompetitionUrl(draft.tenup_url); }
     catch (err) { return setError(err instanceof Error ? err.message : 'Lien Ten’Up invalide.'); }
-    const payload = { saison_id: selectedSaisonId, ...draft, nom, tenup_url };
+    const payload = { saison_id: selectedSaisonId, ...draft, nom, categorie, tenup_url };
     setSaving(true);
     try {
       const { error: err } = editingId
@@ -530,7 +532,7 @@ function CompetitionsSection({
                   </td>
                   <td className="px-4 py-2.5">{TYPE_LABELS[c.type]}</td>
                   <td className="px-4 py-2.5">{GENRE_LABELS[c.genre]}</td>
-                  <td className="px-4 py-2.5">{CATEGORIE_LABELS[c.categorie]}</td>
+                  <td className="px-4 py-2.5">{formatCategorie(c.categorie)}</td>
                   <td className="px-4 py-2.5">{FORMAT_LABELS[c.format]}</td>
                   <td className="px-4 py-2.5">{c.singles_set3_format === 'normal' ? 'Set classique' : c.singles_set3_format === 'super_tiebreak' ? 'Super tie-break' : 'À renseigner'}</td>
                   <td className="px-4 py-2.5">
@@ -589,7 +591,7 @@ function CompetitionsSection({
                   className="mt-3 rounded-lg border border-border px-3 py-2 text-sm font-medium disabled:opacity-50">
                   {prefilling ? 'Lecture de Ten’Up…' : 'Préremplir depuis Ten’Up'}
                 </button>
-                {prefilled && <p role="status" className="mt-2 text-xs text-primary">Fiche lue. Complétez le genre et la catégorie, puis vérifiez les règles ci-dessous.</p>}
+                {prefilled && <p role="status" className="mt-2 text-xs text-primary">Fiche lue. Complétez le genre, vérifiez la catégorie (déduite du nom) et les règles ci-dessous.</p>}
                 {warnings.map((warning, i) => <p key={i} className="mt-2 text-xs text-amber-700">{warning}</p>)}
               </div>
               <div>
@@ -639,19 +641,20 @@ function CompetitionsSection({
                 </div>
                 <div>
                   <label htmlFor="competition-categorie" className="block text-sm font-medium text-foreground">Catégorie</label>
-                  <select
+                  <input
                     id="competition-categorie"
+                    list="competition-categorie-suggestions"
                     value={draft.categorie}
-                    onChange={(e) => setDraft((d) => ({ ...d, categorie: e.target.value as TeamCategorie }))}
+                    maxLength={40}
+                    onChange={(e) => setDraft((d) => ({ ...d, categorie: e.target.value }))}
+                    placeholder="ex. +70 ans"
                     className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">À renseigner</option>
+                  />
+                  <datalist id="competition-categorie-suggestions">
                     {CATEGORIES_BY_TYPE[draft.type].map((cat) => (
-                      <option key={cat} value={cat}>
-                        {CATEGORIE_LABELS[cat]}
-                      </option>
+                      <option key={cat} value={cat} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
 

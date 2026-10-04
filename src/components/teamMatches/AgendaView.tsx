@@ -1,6 +1,6 @@
 import type { CellState, RencontreEntry } from './gridTypes';
 import { CELL_CLASSES } from './gridTypes';
-import { CATEGORIE_LABELS, etapeLabelCourt } from './teamMatchLabels';
+import { formatCategorie, etapeLabelCourt } from './teamMatchLabels';
 import {
   currentWeekendRange,
   formatWeekendLabel,
@@ -53,7 +53,7 @@ function Row({
 }) {
   const { rencontre, etape, equipe, competition } = entry;
   const tag = tagOf(entry);
-  const chain = `${competition.nom} · ${CATEGORIE_LABELS[competition.categorie]} · Éq. ${equipe.numero} · ${etapeLabelCourt(etape)}`;
+  const chain = `${competition.nom} · ${formatCategorie(competition.categorie)} · Éq. ${equipe.numero} · ${etapeLabelCourt(etape)}`;
 
   return (
     <button

@@ -8,7 +8,8 @@ const GENRE_LABELS: Record<TeamGenre, string> = {
   filles: 'Filles',
 };
 
-const CATEGORIE_LABELS: Record<TeamCategorie, string> = {
+// Codes historiques (avant la catégorie libre) ; toute autre valeur est déjà un libellé.
+const CATEGORIE_LABELS: Record<string, string> = {
   seniors: 'Seniors',
   '35_ans': '+35 ans',
   '60_ans': '+60 ans',
@@ -23,7 +24,7 @@ export function formatGenre(g: TeamGenre): string {
 }
 
 export function formatCategorie(c: TeamCategorie): string {
-  return CATEGORIE_LABELS[c];
+  return CATEGORIE_LABELS[c] ?? c;
 }
 
 /** ex. "Hommes Seniors" — libellé court mobile (genre + catégorie). */

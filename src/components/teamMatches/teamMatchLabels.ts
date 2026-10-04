@@ -28,7 +28,8 @@ export const GENRE_LABELS: Record<TeamGenre, string> = {
   filles: 'Filles',
 };
 
-export const CATEGORIE_LABELS: Record<TeamCategorie, string> = {
+// Codes historiques (avant la catégorie libre) ; toute autre valeur est déjà un libellé.
+const CATEGORIE_LABELS: Record<string, string> = {
   seniors: 'Seniors',
   '35_ans': '+35 ans',
   '60_ans': '+60 ans',
@@ -37,6 +38,10 @@ export const CATEGORIE_LABELS: Record<TeamCategorie, string> = {
   '13_14': '13/14 ans',
   '11_12': '11/12 ans',
 };
+
+export function formatCategorie(c: TeamCategorie): string {
+  return CATEGORIE_LABELS[c] ?? c;
+}
 
 export const FORMAT_LABELS: Record<TeamFormat, string> = {
   '2S1D': '2 simples et 1 double',
@@ -61,10 +66,21 @@ export const GENRES_BY_TYPE: Record<TeamType, TeamGenre[]> = {
   jeunes: ['garcons', 'filles'],
 };
 
-export const CATEGORIES_BY_TYPE: Record<TeamType, TeamCategorie[]> = {
-  adultes: ['seniors', '35_ans', '60_ans'],
-  jeunes: ['17_18', '15_16', '13_14', '11_12'],
+// Suggestions du champ catégorie (saisie libre possible).
+export const CATEGORIES_BY_TYPE: Record<TeamType, string[]> = {
+  adultes: ['Seniors', '+35 ans', '+45 ans', '+55 ans', '+60 ans', '+65 ans', '+70 ans', '+75 ans'],
+  jeunes: ['17/18 ans', '15/16 ans', '13/14 ans', '11/12 ans'],
 };
+
+/** Catégorie déduite du nom Ten'Up (ex. "GAN 70 MESSIEURS" → "+70 ans") ; null si rien de sûr. */
+export function inferCategorie(nom: string): string | null {
+  const jeunes = /\b(11|13|15|17)\s*[/-]\s*(12|14|16|18)\b/.exec(nom);
+  if (jeunes && Number(jeunes[2]) === Number(jeunes[1]) + 1) return `${jeunes[1]}/${jeunes[2]} ans`;
+  const veterans = /(?:^|[^0-9])\+?\s?(35|45|55|60|65|70|75|80|85)(?![0-9])/.exec(nom);
+  if (veterans) return `+${veterans[1]} ans`;
+  if (/\bseniors?\b/i.test(nom)) return 'Seniors';
+  return null;
+}
 
 // --- Spécification d'un format (nb de matches, points du double) ---
 
@@ -98,7 +114,7 @@ export function totalPointsFormat(format: TeamFormat): number {
 
 /** ex. "Pyrénées Interclubs — Hommes Seniors" */
 export function competitionLabel(c: Pick<TeamCompetition, 'nom' | 'genre' | 'categorie'>): string {
-  return `${c.nom} — ${GENRE_LABELS[c.genre]} ${CATEGORIE_LABELS[c.categorie]}`;
+  return `${c.nom} — ${GENRE_LABELS[c.genre]} ${formatCategorie(c.categorie)}`;
 }
 
 /** ex. "J3" ou "1/4 de finale" */

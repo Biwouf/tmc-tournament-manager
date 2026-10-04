@@ -105,8 +105,8 @@ export interface Actu {
 export type TeamCompetitionNom = string;
 export type TeamType = 'adultes' | 'jeunes';
 export type TeamGenre = 'hommes' | 'femmes' | 'mixte' | 'garcons' | 'filles';
-export type TeamCategorie =
-  | 'seniors' | '35_ans' | '60_ans' | '17_18' | '15_16' | '13_14' | '11_12';
+// Libellé libre (ex. '+70 ans') ; codes historiques : 'seniors', '35_ans', '60_ans', '17_18'…
+export type TeamCategorie = string;
 export type TeamDivision = string;
 export type TeamStadeFinale = '1/16' | '1/8' | '1/4' | '1/2' | 'finale';
 
