@@ -33,7 +33,7 @@ function parseConfig(raw: unknown): ClubConfig {
 /** PR7-bis — lecture minimale de l'identité visuelle du club pour la PWA. */
 export function useClubConfig() {
   const { clubId } = useClub();
-  const { data: config = DEFAULT_CONFIG } = useQuery({
+  const { data: config = DEFAULT_CONFIG, isFetched, isSuccess } = useQuery({
     queryKey: ['club-config', clubId],
     // La marque est publique même pour un compte en attente/refusé.
     enabled: !!clubId,
@@ -44,5 +44,5 @@ export function useClubConfig() {
       return parseConfig(data);
     },
   });
-  return { config };
+  return { config, isFetched, isSuccess };
 }

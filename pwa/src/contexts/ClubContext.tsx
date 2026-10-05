@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '../lib/supabase';
 import { resolveClubSlug } from '../lib/clubHost';
 import ClubUnavailable from '../components/ClubUnavailable';
+import { hideSplash } from '../lib/splash';
 
 type Club = { id: string; slug: string; name: string; sport: string; status: string };
 type ClubContextValue = { clubId: string | null; club: Club | null; loading: boolean };
@@ -26,6 +27,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+  // Sans club, AppShell ne monte jamais : c'est ici que le splash doit céder la place.
+  useEffect(() => { if (!loading && !club) hideSplash(); }, [loading, club]);
   if (loading) return <p role="status" className="p-8 text-center">Chargement du club…</p>;
   if (!club) return <ClubUnavailable temporary={temporary} />;
   return <ClubContext.Provider value={{ clubId: club.id, club, loading: false }}>{children}</ClubContext.Provider>;

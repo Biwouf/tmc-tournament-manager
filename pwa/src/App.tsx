@@ -24,6 +24,7 @@ import { useAuth } from './hooks/useAuth';
 import { ClubProvider, useClub } from './contexts/ClubContext';
 import { useClubConfig } from './hooks/useClubConfig';
 import { applyClubTheme } from './lib/theme';
+import { hideSplash, rememberSplashBrand } from './lib/splash';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -49,7 +50,7 @@ export default function App() {
 
 function AppShell() {
   const { club, loading: clubLoading } = useClub();
-  const { config } = useClubConfig();
+  const { config, isFetched: configFetched, isSuccess: configLoaded } = useClubConfig();
   const location = useLocation();
   const immersive = /^\/matches\/(?!new(?:\/|$))[^/]+(?:\/score)?\/?$/.test(location.pathname);
 
@@ -62,6 +63,13 @@ function AppShell() {
       accent: config.brand.color_accent,
     });
   }, [config]);
+
+  // La marque n'est mise en cache qu'après un chargement réussi : une erreur réseau ne doit
+  // pas effacer le splash du prochain lancement.
+  useEffect(() => {
+    if (configLoaded) rememberSplashBrand(config.brand);
+    if (configFetched) hideSplash();
+  }, [config, configLoaded, configFetched]);
 
   useEffect(() => {
     if (!club) return;
@@ -94,7 +102,8 @@ function AppShell() {
       short_name: name,
       description: `L'application de ${name}`,
       theme_color: config.brand.color || '#e51828',
-      background_color: '#ffffff',
+      // Fond du splash natif Android, aligné sur le splash HTML.
+      background_color: config.brand.color || '#ffffff',
       display: 'standalone',
       start_url: `${window.location.origin}/`,
       icons: [
