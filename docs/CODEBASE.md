@@ -498,7 +498,8 @@ Spec : `docs/specs/COURSES.md`. Livraison et déploiement : `docs/COURSES_BO_DEL
 | `src/pages/CourseTypesPage.tsx` | `/courses/types`, types, images, archivage et suppression conditionnelle |
 | `src/pages/CourseRegistrationsPage.tsx` | `/courses/:id/registrations`, décisions, ajout admin, recherche membres, historique, correction du quota |
 | `src/components/courses/CourseUI.tsx` | Shell admin, erreur accessible et pagination commune |
-| `src/components/courses/MemberProfileEditor.tsx` | Édition admin du prénom/nom/sexe, intégrée à Membres et aux inscriptions |
+| `src/components/courses/MemberProfileEditor.tsx` | Édition admin du prénom/nom/sexe d'un membre, ou d'une fiche invité (`guestId`), intégrée à Membres et aux inscriptions |
+| `src/components/courses/GuestRegistrationForm.tsx` | Inscription confirmée d'une personne sans compte : suggère les fiches invité existantes du club, sinon en crée une (`save_guest`) |
 | `src/components/courses/RegistrationHistory.tsx` | Historique des inscriptions et événements du membre dans le club, paginé |
 | `src/hooks/useCourseAdmin.ts` | Commandes sans succès optimiste, verrou de double clic et clé de retry conservée après erreur |
 | `src/hooks/useCourseClock.ts` | Horloge d'affichage BO ; la base reste autoritaire pour les délais |
@@ -514,7 +515,11 @@ sexe sans modifier la lecture publique des noms utilisée par Live Score.
 un trigger de retrait du club annule les inscriptions futures actives. Les futures écritures
 PWA doivent utiliser les mêmes verrous. Aucun endpoint public Cours dans ce premier lot.
 
-`tests/courses-sql.test.mjs` et `tests/courses-client.test.mjs` : `npm run test:courses`.
+`2026100501_course_guests.sql` : invités sans compte. Table privée `club_guests` (fiche par
+club), `course_registrations.guest_id` exclusif de `user_id`, commande `save_guest`, lecture
+`guests`, noms d'invités dans les inscriptions BO et la file PWA (`is_guest`).
+
+`tests/courses-sql.test.mjs`, `tests/course-guests-sql.test.mjs` et `tests/courses-client.test.mjs` : `npm run test:courses`.
 
 `tests/courses-concurrency.test.mjs` : test opt-in sur PostgreSQL réel, deux connexions ;
 `tests/helpers/courses-fixture.mjs` : socle SQL de test partagé avec PGlite.

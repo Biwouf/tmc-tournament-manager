@@ -131,6 +131,12 @@ export default function CourseQueue({
                 <div>
                   <h3>
                     {`${r.prenom ?? ''} ${r.nom ?? ''}`.trim() || 'Membre'}
+                    {r.is_guest && (
+                      <>
+                        {' '}
+                        <span className="booking-badge neutral">Invité</span>
+                      </>
+                    )}
                   </h3>
                   <p>
                     {quotaLabel(r.quota_sex)} · {courseDate(r.requested_at)}

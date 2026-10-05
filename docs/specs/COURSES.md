@@ -45,7 +45,7 @@ depuis la PWA. Un administrateur du club examine les demandes dans le BO.
 
 | ID | Sujet | Décision |
 |---|---|---|
-| D01 | Public éligible | Hommes et femmes avec compte personnel déjà rattaché au club, tous rôles. Un enfant avec son compte peut s'inscrire. Aucun âge ni contrôle d'âge ajouté ; aucun invité sans compte ni compte familial. |
+| D01 | Public éligible | Hommes et femmes avec compte personnel déjà rattaché au club, tous rôles. Un enfant avec son compte peut s'inscrire. Aucun âge ni contrôle d'âge ajouté ; pas de compte familial. **Révisé le 05/10/2026** : un admin peut inscrire une personne sans compte (fiche invité, cf. §7 BO). |
 | D02 | Occupation | Seuls les `approved` consomment une place ; les `pending` ne réservent rien. |
 | D03 | Cours complet | Demandes possibles avant H−4 même quota plein ; aucune promotion automatique ni redistribution automatique entre quotas. |
 | D04 | Désistement | Membre autorisé avant H−4 ; nouvelle demande après désistement, pas après refus. |
@@ -302,6 +302,15 @@ Après timeout, relire l'état avant de proposer une relance ; double clic idemp
 - Ajout manuel : recherche paginée des membres du club (réutiliser/étendre le contrat
   `club-members`), signalement d'un profil incomplet ou d'une demande existante.
 - Pas de succès optimiste sur une approbation. Après conflit, recharger effectifs/statut.
+- **Personne sans compte** (05/10/2026, migration `2026100501_course_guests.sql`) : l'ajout
+  manuel propose « Personne sans compte » (prénom, nom, sexe). La fiche `club_guests` est
+  propre au club et réutilisable (suggestions par nom, historique, « Modifier la fiche »).
+  Une inscription vise soit `user_id`, soit `guest_id` (CHECK). Un invité est toujours
+  `approved` (quota vérifié) ; seules les transitions approved ↔ cancelled sont permises.
+  Le quota se fige sur le sexe de la fiche ; « Corriger le quota » relit la fiche. La
+  restauration d'un cours annulé réinscrit aussi les invités. Aucun email ni push. Dans la
+  PWA, le responsable voit l'invité (badge « Invité ») parmi les demandes traitées, sans
+  action. Pas de rattachement d'une fiche invité à un compte créé plus tard.
 - Toute suppression/annulation affiche clairement sa portée avant validation.
 
 ### PWA
