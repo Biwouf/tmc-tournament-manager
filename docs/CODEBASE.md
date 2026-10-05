@@ -138,6 +138,14 @@ config, pas de `clubs.name`. Les assets historiques restent les fallbacks pour l
 identité configurée. ⚠️ La lecture est **authentifiée** : avant connexion, la PWA garde les
 valeurs d'`index.css`.
 
+**Splash de démarrage** (05/10/2026) — `pwa/index.html` pose un écran `#splash` plein écran
+avant React : fond `brand.color` et `brand.logo` centré, lus dans le cache `localStorage`
+`pwa-splash-brand` (écrit par `AppShell` après chaque lecture réussie de la marque). Sans cache
+(tout premier lancement), fond blanc sans logo. Retiré en fondu par `hideSplash()` quand la
+config est chargée, ou par `ClubProvider` si le club est introuvable ; filet de 6 s dans le
+script inline. Le `background_color` du manifest runtime suit aussi `brand.color`, pour que le
+splash natif Android soit raccord.
+
 ---
 
 ## Flux de données — TMC Planner
@@ -293,6 +301,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 |---|---|
 | `App.tsx` | Routes + guard `RequireAuth` (redirige `/login` avec `state.from`). **Mode immersif** (30/09/2026) : sur `/matches/:id` (et `/matches/:id/score`), `AppHeader`, `UpdateBanner`, `SignupNotice`, `InstallBanner` et `BottomNav` ne sont pas rendus et `<main>` reçoit la classe `live-immersive`. |
 | `lib/supabase.ts` | Client Supabase avec `persistSession: true` + `autoRefreshToken: true` (durée du JWT à régler dans le dashboard Supabase) |
+| `lib/splash.ts` | Splash de démarrage : `rememberSplashBrand(brand)` met en cache couleur + logo du club pour le prochain lancement, `hideSplash()` retire `#splash` en fondu. ⚠️ Même clé `localStorage` que le script inline de `pwa/index.html`. |
 | `lib/pwa.ts` | Helper `isStandalone()` — détecte si l'app tourne en mode PWA installée (display-mode standalone ou iOS Safari `navigator.standalone`) |
 | `contexts/ClubContext.tsx` | **Copie** de `src/contexts/ClubContext.tsx` (BO) — `ClubProvider` + `useClub()`, résolution du tenant par hostname. Englobe `<HeaderActionProvider>` dans `pwa/src/App.tsx` (gate `loading`). Toutes les queries PWA filtrent par `clubId` (+ `clubId` ajouté aux `queryKey` TanStack Query). Porte le même écran bloquant PR3 que le BO quand la résolution échoue. À synchroniser manuellement avec le BO. |
 | `hooks/useAuth.ts` | Lit le contexte de session partagé `{ user, loading }`, sans abonnement individuel. |

@@ -76,6 +76,11 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Pas d'édition depuis la PWA, pas d'exposition des joueurs nominatifs
 - **Live** : suivi du live score (inchangé)
 
+### PWA — écran de démarrage
+- À l'ouverture, un écran plein aux couleurs du club, logo centré, s'affiche le temps du chargement, comme sur une app native
+- Au tout premier lancement, l'écran est blanc (les couleurs du club ne sont pas encore connues) ; elles sont mémorisées pour les lancements suivants
+- Sur Android, l'écran de lancement natif de l'app installée prend lui aussi la couleur du club
+
 ### PWA — bannière d'incitation à l'installation
 - Bannière fixe en bas (au-dessus de la barre de navigation) qui invite à installer l'app sur l'écran d'accueil
 - Variante Android Chrome/Edge : bouton « Installer » qui déclenche le prompt natif (`beforeinstallprompt`)

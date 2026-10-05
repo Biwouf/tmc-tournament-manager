@@ -14,6 +14,36 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Splash de démarrage, retiré par `hideSplash()` (src/lib/splash.ts) une fois le club et
+         sa marque chargés. Fond blanc sans logo tant que la marque n'est pas en cache. -->
+    <div
+      id="splash"
+      aria-hidden="true"
+      style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#fff;transition:opacity .3s ease"
+    >
+      <img alt="" style="display:none;width:40vw;max-width:160px;height:auto;object-fit:contain" />
+    </div>
+    <script>
+      (function () {
+        var splash = document.getElementById('splash');
+        try {
+          // ⚠️ Même clé que `src/lib/splash.ts`.
+          var brand = JSON.parse(localStorage.getItem('pwa-splash-brand') || 'null');
+          if (brand && brand.color) splash.style.background = brand.color;
+          if (brand && brand.logo) {
+            var img = splash.querySelector('img');
+            img.src = brand.logo;
+            img.style.display = 'block';
+          }
+        } catch (e) { /* cache illisible : fond blanc */ }
+        // Filet de sécurité : le splash ne bloque jamais l'app.
+        setTimeout(function () {
+          if (!splash.isConnected) return;
+          splash.style.opacity = '0';
+          setTimeout(function () { splash.remove(); }, 300);
+        }, 6000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
