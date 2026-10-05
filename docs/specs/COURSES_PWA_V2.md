@@ -34,7 +34,9 @@ sont des choix d'intégration pour rendre ce périmètre cohérent et testable.
 - Prénom/nom non blancs et sexe renseigné avant réservation, côté membre comme côté admin.
 - Sexe `female` / `male`, capacité distincte pour chaque quota ; seuls les `approved` comptent.
 - Demandes possibles avant H−4 même quota plein, sans place garantie, ordre de priorité ou
-  promotion automatique. Aucun dépassement, y compris par responsable/admin.
+  promotion automatique. **Exception (05/10/2026)** : cours complet global (deux quotas
+  atteints) → bouton « Complet » désactivé à la place de « Demander une place » (carte et
+  fiche détail), blocage PWA seulement — le serveur ne rejette pas la demande. Aucun dépassement, y compris par responsable/admin.
 - Fermeture des nouvelles demandes **et désistements membres** à H−4 exactement.
 - Décision du responsable/admin possible jusqu'au début du cours, même après H−4.
 - Aucun changement d'inscription ni annulation du cours une fois le cours commencé.

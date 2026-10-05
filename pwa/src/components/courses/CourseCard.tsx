@@ -2,6 +2,7 @@ import {
   bookingOpen,
   courseDay,
   courseEnd,
+  courseFull,
   coursePhase,
   courseState,
   courseTime,
@@ -73,11 +74,16 @@ export default function CourseCard({
                   : 'Annuler ma demande'}
               </button>
             ) : (
-              c.registration?.status !== 'denied' && (
+              c.registration?.status !== 'denied' &&
+              (courseFull(c) ? (
+                <button className="booking-button primary" disabled>
+                  Complet
+                </button>
+              ) : (
                 <button className="booking-button primary" onClick={onRequest}>
                   Demander une place
                 </button>
-              )
+              ))
             ))}
         </div>
         {c.can_manage && (

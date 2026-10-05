@@ -47,7 +47,7 @@ depuis la PWA. Un administrateur du club examine les demandes dans le BO.
 |---|---|---|
 | D01 | Public éligible | Hommes et femmes avec compte personnel déjà rattaché au club, tous rôles. Un enfant avec son compte peut s'inscrire. Aucun âge ni contrôle d'âge ajouté ; pas de compte familial. **Révisé le 05/10/2026** : un admin peut inscrire une personne sans compte (fiche invité, cf. §7 BO). |
 | D02 | Occupation | Seuls les `approved` consomment une place ; les `pending` ne réservent rien. |
-| D03 | Cours complet | Demandes possibles avant H−4 même quota plein ; aucune promotion automatique ni redistribution automatique entre quotas. |
+| D03 | Cours complet | Demandes possibles avant H−4 même quota plein ; aucune promotion automatique ni redistribution automatique entre quotas. **Révisé le 05/10/2026** : quand le cours est **complet global** (les deux quotas atteints), la PWA remplace « Demander une place » par un bouton « Complet » grisé et non cliquable. Blocage **côté client uniquement** : le RPC membre accepte toujours une demande (client en retard). Un quota personnel plein seul ne bloque rien. |
 | D04 | Désistement | Membre autorisé avant H−4 ; nouvelle demande après désistement, pas après refus. |
 | D05 | Admin | Ajout directement approuvé avec choix explicite ; décisions jusqu'au début du cours, aucun dépassement. |
 | D06 | Profil | Seuls admin/super-admin modifient les membres. Gestion de son profil par le membre hors V1. Profil complet obligatoire pour réserver, sans bloquer les autres modules. |

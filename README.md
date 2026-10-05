@@ -67,7 +67,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 
 ### Cours
 
-- Back-office `/courses` : types de cours, séances avec quotas femmes / hommes, responsable, validation des demandes et inscriptions manuelles. Les membres demandent une place depuis l'onglet Cours de la PWA.
+- Back-office `/courses` : types de cours, séances avec quotas femmes / hommes, responsable, validation des demandes et inscriptions manuelles. Les membres demandent une place depuis l'onglet Cours de la PWA. Quand les deux quotas sont pleins, le bouton affiche « Complet » et n'est plus cliquable.
 - Une personne **sans compte** sur l'application (par exemple quelqu'un qui ne parvient pas à en créer un) peut être inscrite par un admin depuis la page d'inscriptions d'un cours : prénom, nom et sexe. Sa fiche est conservée pour les cours suivants ; l'inscription est confirmée directement, dans la limite du quota, sans notification.
 
 ### PWA — navigation
