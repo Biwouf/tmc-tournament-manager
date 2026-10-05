@@ -3,6 +3,7 @@ import {
   bookingOpen,
   courseDate,
   courseEnd,
+  courseFull,
   courseImage,
   courseState,
   profileComplete,
@@ -142,14 +143,22 @@ export default function CourseInteraction({
                   )}
               </div>
               {bookingOpen(c, now) &&
-                (!c.registration || c.registration.status === 'cancelled') && (
+                (!c.registration || c.registration.status === 'cancelled') &&
+                (courseFull(c) ? (
+                  <button
+                    className="booking-button primary booking-wide"
+                    disabled
+                  >
+                    Complet
+                  </button>
+                ) : (
                   <button
                     className="booking-button primary booking-wide"
                     onClick={() => setMode('request')}
                   >
                     Demander une place
                   </button>
-                )}
+                ))}
             </>
           ) : (
             <>
@@ -161,6 +170,10 @@ export default function CourseInteraction({
               {!bookingOpen(c, now) ? (
                 <p className="booking-info">
                   Les demandes et désistements sont fermés pour ce cours.
+                </p>
+              ) : mode === 'request' && courseFull(c) ? (
+                <p className="booking-info">
+                  Ce cours est complet : plus aucune demande n’est possible.
                 </p>
               ) : !authenticated ? (
                 <>
@@ -211,7 +224,7 @@ export default function CourseInteraction({
                   <p className="booking-info">
                     {mode === 'cancel'
                       ? 'Votre place ou votre demande sera annulée. Vous pourrez refaire une demande avant la clôture, sans garantie de place.'
-                      : 'Cours gratuit. Une demande ne réserve pas de place, même si le quota est plein. Consultez votre statut ici après la décision du club.'}
+                      : 'Cours gratuit. Une demande ne réserve pas de place. Consultez votre statut ici après la décision du club.'}
                   </p>
                   {action.error && (
                     <p className="booking-error" role="alert">

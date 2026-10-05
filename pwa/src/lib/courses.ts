@@ -149,25 +149,27 @@ export function courseState(
       return {
         label: 'Inscription annulée',
         tone: 'neutral',
-        note: bookingOpen(c, now)
-          ? 'Vous pouvez envoyer une nouvelle demande.'
-          : 'Votre inscription est annulée.',
+        note:
+          bookingOpen(c, now) && !courseFull(c)
+            ? 'Vous pouvez envoyer une nouvelle demande.'
+            : 'Votre inscription est annulée.',
       };
     default:
       return {
         label:
           coursePhase(c, now) ||
-          (c.approved_female >= c.capacity_female &&
-          c.approved_male >= c.capacity_male
-            ? 'Complet'
-            : 'Places disponibles'),
+          (courseFull(c) ? 'Complet' : 'Places disponibles'),
         tone: 'neutral',
-        note: bookingOpen(c, now)
-          ? 'Une demande ne réserve pas de place.'
-          : 'Aucune nouvelle demande possible.',
+        note: !bookingOpen(c, now)
+          ? 'Aucune nouvelle demande possible.'
+          : courseFull(c)
+            ? 'Toutes les places sont prises.'
+            : 'Une demande ne réserve pas de place.',
       };
   }
 }
+export const courseFull = (c: Course) =>
+  c.approved_female >= c.capacity_female && c.approved_male >= c.capacity_male;
 export const courseTime = (date: string | number) =>
   new Intl.DateTimeFormat('fr-FR', {
     timeZone: 'Europe/Paris',
