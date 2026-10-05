@@ -35,9 +35,18 @@ export type CourseMember = {
   revision: number;
   complete: boolean;
 };
+// Personne sans compte inscrite par un admin ; fiche propre au club.
+export type CourseGuest = {
+  guest_id: string;
+  prenom: string;
+  nom: string;
+  sex: Sex;
+  revision: number;
+};
 export type Registration = {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  guest_id: string | null;
   prenom: string;
   nom: string;
   status: RegistrationStatus;

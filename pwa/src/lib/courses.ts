@@ -53,6 +53,7 @@ export type CoursePage<T> = {
 export type QueueRow = MyRegistration & {
   prenom: string | null;
   nom: string | null;
+  is_guest: boolean;
 };
 
 export async function courseRpc<T>(

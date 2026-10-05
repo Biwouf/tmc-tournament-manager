@@ -21,6 +21,7 @@ import {
 import MemberAutocomplete from "../components/courses/MemberAutocomplete";
 import MemberProfileEditor from "../components/courses/MemberProfileEditor";
 import RegistrationHistory from "../components/courses/RegistrationHistory";
+import GuestRegistrationForm from "../components/courses/GuestRegistrationForm";
 export default function CourseRegistrationsPage() {
   const now = useCourseClock();
   const { clubId } = useClub();
@@ -40,6 +41,8 @@ export default function CourseRegistrationsPage() {
     name: string;
   } | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [guestProfileId, setGuestProfileId] = useState<string | null>(null);
+  const [addGuest, setAddGuest] = useState(false);
   const [refusal, setRefusal] = useState<Registration | null>(null);
   const [reason, setReason] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -222,65 +225,114 @@ export default function CourseRegistrationsPage() {
           }}
         />
       )}
+      {clubId && guestProfileId && (
+        <MemberProfileEditor
+          key={guestProfileId}
+          clubId={clubId}
+          guestId={guestProfileId}
+          onClose={() => setGuestProfileId(null)}
+          onSaved={reload}
+        />
+      )}
       {!closed && clubId && (
         <details className="course-panel registration-add" open>
           <summary>
             <span>
-              Ajouter un membre au cours
+              Ajouter une personne au cours
               <small>Inscription manuelle par un administrateur</small>
             </span>
             <span aria-hidden="true">＋</span>
           </summary>
-          <form className="registration-add-form" onSubmit={add}>
-            <MemberAutocomplete
-              clubId={clubId}
-              value={selectedMember}
-              onChange={setSelectedMember}
-              disabled={busy}
-            />
-            <label>
-              Statut initial
-              <select
-                className="course-field"
-                aria-label="Statut initial"
-                value={addStatus}
-                disabled={busy}
-                onChange={(e) =>
-                  setAddStatus(e.target.value as RegistrationStatus)
-                }
-              >
-                <option value="pending">En attente de validation</option>
-                <option value="approved">Inscription confirmée</option>
-              </select>
-            </label>
+          <div
+            className="registration-filters mb-4"
+            role="group"
+            aria-label="Type de personne"
+          >
             <button
-              className="course-primary"
-              disabled={busy || !selectedMember?.complete}
+              type="button"
+              aria-pressed={!addGuest}
+              onClick={() => setAddGuest(false)}
             >
-              Ajouter
+              Membre du club
             </button>
-            {selectedMember && (
-              <div className="registration-selected">
-                <p>
-                  {selectedMember.complete
-                    ? "Ce membre peut être inscrit."
-                    : "Complétez le prénom, le nom et le sexe de ce membre avant de l’inscrire."}
-                </p>
-                <button
-                  type="button"
-                  className="course-button"
+            <button
+              type="button"
+              aria-pressed={addGuest}
+              onClick={() => setAddGuest(true)}
+            >
+              Personne sans compte
+            </button>
+          </div>
+          {addGuest ? (
+            <>
+              <GuestRegistrationForm
+                clubId={clubId}
+                courseId={id!}
+                onAdded={() => {
+                  setNotice("Personne inscrite au cours.");
+                  reload();
+                }}
+              />
+              <p className="mt-3 text-xs text-muted-foreground">
+                Pour une personne sans compte sur l’application : l’inscription
+                est confirmée directement (dans la limite du quota) et n’envoie
+                aucune notification.
+              </p>
+            </>
+          ) : (
+            <>
+              <form className="registration-add-form" onSubmit={add}>
+                <MemberAutocomplete
+                  clubId={clubId}
+                  value={selectedMember}
+                  onChange={setSelectedMember}
                   disabled={busy}
-                  onClick={() => setProfileId(selectedMember.user_id)}
+                />
+                <label>
+                  Statut initial
+                  <select
+                    className="course-field"
+                    aria-label="Statut initial"
+                    value={addStatus}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setAddStatus(e.target.value as RegistrationStatus)
+                    }
+                  >
+                    <option value="pending">En attente de validation</option>
+                    <option value="approved">Inscription confirmée</option>
+                  </select>
+                </label>
+                <button
+                  className="course-primary"
+                  disabled={busy || !selectedMember?.complete}
                 >
-                  Modifier le profil
+                  Ajouter
                 </button>
-              </div>
-            )}
-          </form>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Seules les inscriptions confirmées occupent une place. Le membre
-            consulte son statut dans la PWA.
-          </p>
+                {selectedMember && (
+                  <div className="registration-selected">
+                    <p>
+                      {selectedMember.complete
+                        ? "Ce membre peut être inscrit."
+                        : "Complétez le prénom, le nom et le sexe de ce membre avant de l’inscrire."}
+                    </p>
+                    <button
+                      type="button"
+                      className="course-button"
+                      disabled={busy}
+                      onClick={() => setProfileId(selectedMember.user_id)}
+                    >
+                      Modifier le profil
+                    </button>
+                  </div>
+                )}
+              </form>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Seules les inscriptions confirmées occupent une place. Le membre
+                consulte son statut dans la PWA.
+              </p>
+            </>
+          )}
         </details>
       )}
       <section className="registration-list-heading">
@@ -348,6 +400,11 @@ export default function CourseRegistrationsPage() {
                 <div className="registration-identity">
                   <h3>
                     {r.prenom} {r.nom}
+                    {r.guest_id && (
+                      <span className="registration-badge ml-2">
+                        Sans compte
+                      </span>
+                    )}
                   </h3>
                   <p>
                     Quota {r.quota_sex === "female" ? "femmes" : "hommes"} ·
@@ -376,29 +433,31 @@ export default function CourseRegistrationsPage() {
                         Approuver
                       </button>
                     )}
-                    {(r.status === "denied" || r.status === "cancelled") && (
-                      <button
-                        className="course-button"
-                        disabled={busy}
-                        onClick={() => status(r, "pending")}
-                      >
-                        Réexaminer
-                      </button>
-                    )}
-                    {(r.status === "pending" || r.status === "approved") && (
-                      <>
+                    {!r.guest_id &&
+                      (r.status === "denied" || r.status === "cancelled") && (
                         <button
-                          className="course-button registration-refuse-button"
+                          className="course-button"
                           disabled={busy}
-                          onClick={() => {
-                            setRefusal(r);
-                            setReason("");
-                          }}
+                          onClick={() => status(r, "pending")}
                         >
-                          {r.status === "approved" ? "Révoquer" : "Refuser"}
+                          Réexaminer
                         </button>
-                      </>
-                    )}
+                      )}
+                    {!r.guest_id &&
+                      (r.status === "pending" || r.status === "approved") && (
+                        <>
+                          <button
+                            className="course-button registration-refuse-button"
+                            disabled={busy}
+                            onClick={() => {
+                              setRefusal(r);
+                              setReason("");
+                            }}
+                          >
+                            {r.status === "approved" ? "Révoquer" : "Refuser"}
+                          </button>
+                        </>
+                      )}
                   </>
                 )}
               </div>
@@ -451,13 +510,21 @@ export default function CourseRegistrationsPage() {
                     className="course-button"
                     onClick={() =>
                       setHistory({
-                        userId: r.user_id,
+                        userId: (r.user_id ?? r.guest_id)!,
                         name: `${r.prenom} ${r.nom}`,
                       })
                     }
                   >
                     Historique
                   </button>
+                  {r.guest_id && (
+                    <button
+                      className="course-button"
+                      onClick={() => setGuestProfileId(r.guest_id)}
+                    >
+                      Modifier la fiche
+                    </button>
+                  )}
                   {!closed && (
                     <>
                       {(r.status === "pending" || r.status === "approved") && (
