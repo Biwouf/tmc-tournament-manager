@@ -19,6 +19,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Saisie manuelle via CSV
 - Export en image JPEG (haute qualité, ratio 2×)
 - Mise en page A4 avec 8 matches par page (2 colonnes × 4 lignes)
+- **Affiche des résultats** : depuis un PDF Ten'Up, bascule Programmation / Résultats — les matchs terminés (score + vainqueur lus dans la feuille) forment une affiche « Résultats du … », vainqueur à gauche, score au centre ; WO exclus
 - Charte graphique CAC Tennis intégrée
 - **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
 
@@ -300,7 +301,7 @@ Deux méthodes disponibles :
 
 #### 2. Export en image
 
-Une fois les matches chargés, cliquez sur "Télécharger" pour générer une image JPEG par page.
+Une fois les matches chargés, cliquez sur "Télécharger", en tête de l'aperçu, pour générer une image JPEG par page.
 - Chaque page contient jusqu'à 8 matches
 - Le fond de l'affiche se choisit **parmi les fonds du club**, ajoutés dans *Admin › Configuration du site › Affiches* : une rangée de vignettes au-dessus de l'aperçu, le premier fond par défaut. **Sans aucun fond configuré, la génération est impossible.**
 

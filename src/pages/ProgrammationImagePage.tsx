@@ -30,6 +30,10 @@ interface Match {
   j2_classement: string;
   j2_club: string;
   wo: boolean;
+  // Résultat lu dans le PDF (zone « Score » + coupe sur la ligne du vainqueur). Vides pour un
+  // match pas encore joué et pour tout import CSV.
+  score: string;
+  winner: 1 | 2 | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,7 +70,7 @@ function parseCSV(text: string): Match[] {
   return lines.slice(1).map(line => {
     const [date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j2_prenom, j2_nom, j2_classement, wo] =
       line.split(',').map(s => s.trim());
-    return { date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j1_club: '', j2_prenom, j2_nom, j2_classement, j2_club: '', wo: parseWoCell(wo) };
+    return { date, heure, type_tournoi, j1_prenom, j1_nom, j1_classement, j1_club: '', j2_prenom, j2_nom, j2_classement, j2_club: '', wo: parseWoCell(wo), score: '', winner: null };
   });
 }
 
@@ -119,12 +123,49 @@ function parseFullName(str: string): { nom: string; prenom: string } {
 //      y ≈ 150    → noms des joueurs + noms des clubs
 //      y ≈ 323    → classements des joueurs (séparés des noms)
 //  - Chaque colonne-match est ancrée par un item "N° Court"
+type Matrix = [number, number, number, number, number, number];
+
+function multiply(a: Matrix, b: Matrix): Matrix {
+  return [
+    a[0] * b[0] + a[2] * b[1],
+    a[1] * b[0] + a[3] * b[1],
+    a[0] * b[2] + a[2] * b[3],
+    a[1] * b[2] + a[3] * b[3],
+    a[0] * b[4] + a[2] * b[5] + a[4],
+    a[1] * b[4] + a[3] * b[5] + a[5],
+  ];
+}
+
+// Ten'Up dessine une petite coupe (image ≈ 10 × 9) sur la ligne du vainqueur de chaque match
+// joué. On rejoue la pile de transformations pour obtenir le centre de chaque image dans le
+// même repère que le texte. Le logo d'en-tête, bien plus grand, est écarté par la taille.
+async function findCupCenters(page: pdfjsLib.PDFPageProxy): Promise<{ x: number; y: number }[]> {
+  const { fnArray, argsArray } = await page.getOperatorList();
+  const stack: Matrix[] = [];
+  let ctm: Matrix = [1, 0, 0, 1, 0, 0];
+  const cups: { x: number; y: number }[] = [];
+  fnArray.forEach((fn, i) => {
+    if (fn === pdfjsLib.OPS.save) stack.push(ctm);
+    else if (fn === pdfjsLib.OPS.restore) ctm = stack.pop() ?? ctm;
+    else if (fn === pdfjsLib.OPS.transform) ctm = multiply(ctm, argsArray[i] as Matrix);
+    else if (fn === pdfjsLib.OPS.paintImageXObject) {
+      const w = Math.hypot(ctm[0], ctm[1]);
+      const h = Math.hypot(ctm[2], ctm[3]);
+      if (w < 20 && h < 20) {
+        cups.push({ x: ctm[4] + (ctm[0] + ctm[2]) / 2, y: ctm[5] + (ctm[1] + ctm[3]) / 2 });
+      }
+    }
+  });
+  return cups;
+}
+
 async function parsePDF(file: File): Promise<Match[]> {
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
 
   const RANK_RE = /^(2\/6|5\/6|15\/[1-5]|15|30\/[1-5]|30|40|NC)$/;
   const TIME_RE = /^\d{1,2}:\d{2}$/;
+  const SCORE_RE = /^\d{1,2}\/\d{1,2}( \d{1,2}\/\d{1,2})*$/;
   const Y_TOL = 12;
 
   const allMatches: Match[] = [];
@@ -133,6 +174,7 @@ async function parsePDF(file: File): Promise<Match[]> {
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const tc = await page.getTextContent();
+    const cups = await findCupCenters(page);
 
     const items: PdfItem[] = [];
     for (const raw of tc.items as Array<{ str: string; transform: number[] }>) {
@@ -175,9 +217,19 @@ async function parsePDF(file: File): Promise<Match[]> {
 
       // Dans la colonne-match, j1 ≈ nc.x − 6 et j2 ≈ nc.x + 24 (même bande Y).
       const slotSplit = nc.x + 9;
+
       const j1NameItem = names.find(it => it.x < slotSplit) ?? null;
       const j2NameItem = names.find(it => it.x >= slotSplit) ?? null;
       const bothPlayers = !!j1NameItem && !!j2NameItem;
+
+      // Résultat : score (un seul token, ex. "3/6 6/0 10/8", y≈648–670, au-delà de "N° Court")
+      // noté du point de vue du vainqueur, et coupe (y≈619) sur la ligne du vainqueur, de
+      // part et d'autre de slotSplit comme les noms. Un match non joué n'a ni l'un ni l'autre.
+      const score = col
+        .map(it => it.str.replace(/\s+/g, ' '))
+        .find((str, i) => col[i].y > nc.y && SCORE_RE.test(str)) ?? '';
+      const cup = cups.find(c => c.x >= xMin && c.x <= xMax && c.y > nc.y);
+      const winner: 1 | 2 | null = bothPlayers && cup ? (cup.x < slotSplit ? 1 : 2) : null;
 
       // Clubs : items en majuscules à y≈150. Peuvent être éclatés en plusieurs
       // tokens (noms longs) → on concatène.
@@ -220,12 +272,28 @@ async function parsePDF(file: File): Promise<Match[]> {
         j2_classement: j2.classement,
         j2_club: j2.club,
         wo,
+        score,
+        winner,
       });
     }
   }
 
   return allMatches;
 }
+
+// Affiche de résultats : le vainqueur passe à gauche, le score (noté de son point de vue) se
+// lit alors naturellement de gauche à droite.
+function winnerFirst(m: Match): Match {
+  if (m.winner !== 2) return m;
+  return {
+    ...m,
+    j1_prenom: m.j2_prenom, j1_nom: m.j2_nom, j1_classement: m.j2_classement, j1_club: m.j2_club,
+    j2_prenom: m.j1_prenom, j2_nom: m.j1_nom, j2_classement: m.j1_classement, j2_club: m.j1_club,
+    winner: 1,
+  };
+}
+
+type PosterMode = 'programmation' | 'resultats';
 
 function formatTime(heure: string): string {
   const [h, m] = heure.split(':');
@@ -245,7 +313,7 @@ function formatDate(dateStr: string): string {
 const W = 794;
 const H = 1123;
 
-const GRID_TOP = 305;
+const GRID_TOP = 255;
 const GRID_LEFT = 18;
 const GRID_RIGHT = 18;
 const GRID_GAP = 20;
@@ -256,22 +324,26 @@ const MAX_PER_PAGE = 8; // 2 colonnes × 4 lignes
 // Le double mixte et tout le reste retombent sur le masculin.
 const FEMININE_RE = /\b(SD|DD|dames?|femmes?|f[ée]minin\w*)\b/i;
 
-const BANNER_H = 24;
+// Le bandeau partenaires des fonds commence vers y ≈ 1000 et la grille standard finit à 923 :
+// ~75 px pour 4 rangées. Le cartouche se pose donc en pied, dans le padding bas de la cellule
+// (+14 px : ~10 px d'air entre lui et le fond rosé qui déborde de 4 px), pas en tête (+31 px).
+const BANNER_H = 16;
+const BANNER_GAP = 14;
 
-function involvesClub(match: Match, club: string | null): boolean {
-  return !!club && (match.j1_club === club || match.j2_club === club);
-}
-
-// Cartouche bordeaux en tête de cellule quand un joueur du club mis en valeur est impliqué.
+// Cartouche bordeaux en pied de cellule quand un joueur du club mis en valeur est impliqué.
 function ClubBanner({ text }: { text: string }) {
   return (
     <div
       style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
         background: '#8E0B20',
         color: 'white',
-        fontSize: 11,
+        fontSize: 9,
         fontWeight: 800,
-        letterSpacing: 2.5,
+        letterSpacing: 2,
         textAlign: 'center',
         padding: '0 16px',
         height: BANNER_H,
@@ -319,12 +391,13 @@ const NAME_LINE: React.CSSProperties = {
 
 const VS_RULE: React.CSSProperties = { flex: 1, width: 1.5, background: 'rgba(200, 16, 46, 0.25)' };
 
-// Fond rosé derrière le bloc d'un joueur du club mis en valeur.
-const HOME_PLAYER_BG: React.CSSProperties = { background: '#FCEBEB', borderRadius: 10, padding: '4px 2px' };
+// Fond rosé derrière le bloc d'un joueur du club mis en valeur. La marge négative annule le
+// padding vertical : le fond déborde sans grandir la cellule.
+const HOME_PLAYER_BG: React.CSSProperties = { background: '#FCEBEB', borderRadius: 10, padding: '4px 2px', margin: '-4px 0' };
 
-// `alignWithBanner` : la voisine de ligne porte un cartouche → on réserve sa hauteur en tête
-// pour garder heure, noms et VS alignés d'une cellule à l'autre.
-function MatchCell({ match, highlightedClub, alignWithBanner }: { match: Match; highlightedClub: string | null; alignWithBanner: boolean }) {
+// `result` : affiche de résultats — pas d'heure, score à la place du VS, vainqueur toujours
+// en j1 (cf. winnerFirst), perdant estompé.
+function MatchCell({ match, highlightedClub, result }: { match: Match; highlightedClub: string | null; result: boolean }) {
   const j1Home = !!highlightedClub && match.j1_club === highlightedClub;
   const j2Home = !!highlightedClub && match.j2_club === highlightedClub;
   const bothHome = j1Home && j2Home;
@@ -344,22 +417,23 @@ function MatchCell({ match, highlightedClub, alignWithBanner }: { match: Match; 
         outlineOffset: anyHome ? 5 : undefined,
         minWidth: 0,
         overflow: 'hidden',
+        position: 'relative',
       }}
     >
       {anyHome && <ClubBanner text={bannerText} />}
 
       <div
         style={{
-          padding: anyHome ? '10px 16px 16px' : `${alignWithBanner ? BANNER_H + 10 : 12}px 16px 16px`,
+          padding: anyHome ? `12px 16px ${BANNER_H + BANNER_GAP}px` : '12px 16px 16px',
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
           minWidth: 0,
         }}
       >
-        {/* Heure + type */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span
+        {/* Heure + type (hauteur fixe : l'en-tête reste aligné sans badge d'heure) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 24 }}>
+          {!result && <span
             style={{
               background: '#C8102E',
               color: 'white',
@@ -375,7 +449,7 @@ function MatchCell({ match, highlightedClub, alignWithBanner }: { match: Match; 
             }}
           >
             {formatTime(match.heure)}
-          </span>
+          </span>}
           <span style={{ color: '#C8102E', fontWeight: 700, fontSize: 15 }}>
             {match.type_tournoi}
           </span>
@@ -393,6 +467,24 @@ function MatchCell({ match, highlightedClub, alignWithBanner }: { match: Match; 
           {/* VS ancré par un filet vertical sur toute la hauteur des blocs joueurs */}
           <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <div style={VS_RULE} />
+            {result ? (
+              <div style={{ padding: '0 8px', textAlign: 'center', color: '#C8102E', fontSize: 17, fontWeight: 800, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
+                {/* Set par set, les jeux de celui qui a gagné le set en rouge gras, les autres en
+                    gris. Gauche = vainqueur du match (cf. winnerFirst). */}
+                {match.score.split(' ').map((set, i) => {
+                  const [left, right] = set.split('/');
+                  const leftWon = Number(left) > Number(right);
+                  const lost: React.CSSProperties = { color: '#a3a3a3', fontWeight: 600 };
+                  return (
+                    <div key={i}>
+                      <span style={leftWon ? undefined : lost}>{left}</span>
+                      <span style={lost}>/</span>
+                      <span style={leftWon ? lost : undefined}>{right}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none" style={{ height: 44, width: 44, flexShrink: 0 }}>
               <defs>
                 <mask id="bolt">
@@ -402,10 +494,11 @@ function MatchCell({ match, highlightedClub, alignWithBanner }: { match: Match; 
               </defs>
               <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill="#C8102E" mask="url(#bolt)">VS</text>
             </svg>
+            )}
             <div style={VS_RULE} />
           </div>
 
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j2Home ? HOME_PLAYER_BG : {}) }}>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j2Home ? HOME_PLAYER_BG : {}), ...(result ? { opacity: 0.5 } : {}) }}>
             {match.j2_nom === '' ? (
               <div style={{ fontSize: 20, fontWeight: 400, lineHeight: 1.3, color: '#6b6b6b' }}>
                 À déterminer
@@ -425,7 +518,7 @@ function MatchCell({ match, highlightedClub, alignWithBanner }: { match: Match; 
   );
 }
 
-function PosterPage({ matches, date, highlightedClub, background }: { matches: Match[]; date: string; highlightedClub: string | null; background?: string }) {
+function PosterPage({ matches, date, highlightedClub, background, mode }: { matches: Match[]; date: string; highlightedClub: string | null; background?: string; mode: PosterMode }) {
   return (
     <div
       data-page
@@ -464,7 +557,7 @@ function PosterPage({ matches, date, highlightedClub, background }: { matches: M
           letterSpacing: -0.5,
         }}
       >
-        Programme du {formatDate(date)}
+        {mode === 'resultats' ? 'Résultats' : 'Programme'} du {formatDate(date)}
       </div>
 
       {/* Grille de cellules */}
@@ -480,13 +573,12 @@ function PosterPage({ matches, date, highlightedClub, background }: { matches: M
           gap: GRID_GAP,
         }}
       >
-        {/* Grille à 2 colonnes : la voisine de ligne de la cellule i est i ^ 1 (0↔1, 2↔3…). */}
         {matches.map((m, i) => (
           <MatchCell
             key={i}
             match={m}
             highlightedClub={highlightedClub}
-            alignWithBanner={involvesClub(matches[i ^ 1] ?? m, highlightedClub)}
+            result={mode === 'resultats'}
           />
         ))}
       </div>
@@ -534,6 +626,7 @@ export default function ProgrammationImagePage() {
   const [highlightedClub, setHighlightedClub] = useState<string | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [listExpanded, setListExpanded] = useState(false);
+  const [mode, setMode] = useState<PosterMode>('programmation');
 
   const availableClubs = useMemo(() => {
     const clubs = new Set<string>();
@@ -550,9 +643,19 @@ export default function ProgrammationImagePage() {
     [matches],
   );
 
+  // Matchs terminés : score + vainqueur lus dans le PDF. Les WO sont exclus (décision produit),
+  // même si Ten'Up leur pose une coupe.
+  const resultMatches = useMemo(
+    () => matches.filter((m) => !m.wo && m.j2_nom !== '' && m.score && m.winner).map(winnerFirst),
+    [matches],
+  );
+
   // Matchs affichés sur l'affiche : on exclut les WO (forfait, aucun match à jouer).
   // L'état `matches` source conserve tout — ce filtrage est purement applicatif.
-  const displayMatches = useMemo(() => matches.filter((m) => !m.wo), [matches]);
+  const displayMatches = useMemo(
+    () => (mode === 'resultats' ? resultMatches : matches.filter((m) => !m.wo)),
+    [mode, matches, resultMatches],
+  );
 
   useEffect(() => {
     supabase
@@ -573,6 +676,7 @@ export default function ProgrammationImagePage() {
     setTransferError(null);
     setHighlightedClub(null);
     setListExpanded(false);
+    setMode('programmation');
     const completeCount = matches.filter((m) => !m.wo && m.j2_nom !== '').length;
     setSelectedIndices(new Set(Array.from({ length: completeCount }, (_, i) => i)));
   }, [matches]);
@@ -680,7 +784,8 @@ export default function ProgrammationImagePage() {
     for (let i = 0; i < pages.length; i++) {
       const dataUrl = await toJpeg(pages[i], { quality: 0.92, pixelRatio: 2 });
       const link = document.createElement('a');
-      link.download = pages.length === 1 ? 'programmation.jpg' : `programmation-page-${i + 1}.jpg`;
+      const base = mode === 'resultats' ? 'resultats' : 'programmation';
+      link.download = pages.length === 1 ? `${base}.jpg` : `${base}-page-${i + 1}.jpg`;
       link.href = dataUrl;
       link.click();
     }
@@ -760,22 +865,42 @@ export default function ProgrammationImagePage() {
             >
               Générer l'aperçu
             </button>
-            {matches.length > 0 && (
-              <button
-                onClick={handleDownload}
-                disabled={isGenerating || !background}
-                title={background ? undefined : 'Aucun fond d’affiche configuré'}
-                className="rounded-lg border border-border px-5 py-2 text-sm font-semibold transition hover:bg-muted disabled:opacity-40"
-              >
-                {isGenerating ? 'Génération…' : `Télécharger${pages.length > 1 ? ` (${pages.length} pages)` : ''}`}
-              </button>
-            )}
           </div>
-          {!configLoading && !background && <PosterBackgroundEmpty poster="la programmation TMC" />}
         </div>
 
+        {/* Affiche programmation / résultats */}
+        {matches.length > 0 && (
+          <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Type d'affiche</h2>
+            <div className="inline-flex rounded-lg border border-border p-1">
+              {([
+                ['programmation', 'Programmation'],
+                ['resultats', `Résultats (${resultMatches.length})`],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setMode(value)}
+                  disabled={value === 'resultats' && resultMatches.length === 0}
+                  className={`rounded-md px-4 py-1.5 text-sm font-semibold transition disabled:opacity-40 ${
+                    mode === value ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {resultMatches.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Aucun match terminé détecté : les résultats sont lus dans le PDF Ten'Up (score + coupe du vainqueur), WO exclus.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Mise en valeur d'un club */}
-        {availableClubs.length > 0 && (
+        {/* Pas en mode Résultats : cartouche et fond rosé brouillent la lecture vainqueur / perdant. */}
+        {availableClubs.length > 0 && mode === 'programmation' && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
             <h2 className="text-lg font-semibold">Mettre en valeur un club</h2>
             <select
@@ -890,9 +1015,20 @@ export default function ProgrammationImagePage() {
         {/* Aperçu */}
         {displayMatches.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">
-              Aperçu — {displayMatches.length} match{displayMatches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">
+                Aperçu — {displayMatches.length} match{displayMatches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
+              </h2>
+              <button
+                onClick={handleDownload}
+                disabled={isGenerating || !background}
+                title={background ? undefined : 'Aucun fond d’affiche configuré'}
+                className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+              >
+                {isGenerating ? 'Génération…' : `Télécharger${pages.length > 1 ? ` (${pages.length} images)` : ' l’image'}`}
+              </button>
+            </div>
+            {!configLoading && !background && <PosterBackgroundEmpty poster="la programmation TMC" />}
             <PosterBackgroundPicker
               backgrounds={backgrounds}
               selectedIndex={backgroundIndex}
@@ -904,8 +1040,9 @@ export default function ProgrammationImagePage() {
                   <PosterPage
                     matches={pageMatches}
                     date={date}
-                    highlightedClub={highlightedClub}
+                    highlightedClub={mode === 'resultats' ? null : highlightedClub}
                     background={background?.image}
+                    mode={mode}
                   />
                 </div>
               ))}

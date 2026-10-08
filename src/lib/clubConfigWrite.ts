@@ -764,7 +764,7 @@ const POSTERS: GroupSpec = {
       key: 'tmc_backgrounds',
       label: 'Fonds disponibles',
       singular: 'fond TMC',
-      help: 'Format A4 portrait (ratio 0,71) — 794 × 1123 px au minimum, plus grand accepté. Repères donnés sur cette base : le titre et la date se surimpriment dans le haut (la date à 170 px) ; la grille des matchs occupe tout l’espace à partir de 305 px, avec 18 px de marge à gauche et à droite. Laissez ces zones libres. Sans aucun fond, l’affiche ne peut pas être générée.',
+      help: 'Format A4 portrait (ratio 0,71) — 794 × 1123 px au minimum, plus grand accepté. Repères donnés sur cette base : le titre et la date se surimpriment dans le haut (la date à 170 px) ; la grille des matchs occupe tout l’espace à partir de 255 px, avec 18 px de marge à gauche et à droite. Laissez ces zones libres. Sans aucun fond, l’affiche ne peut pas être générée.',
       fields: [
         { key: 'name', label: 'Nom', type: 'text', required: true, help: 'Ce que vous lirez au moment de choisir.', placeholder: 'Tournoi de la Pentecôte' },
         { key: 'image', label: 'Image', type: 'image', required: true, dimensions: { width: 794, height: 1123 } },
