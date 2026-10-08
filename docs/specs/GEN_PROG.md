@@ -124,6 +124,8 @@ interface Match {
   j2_classement: string;
   j2_club: string;        // vide si import CSV
   wo: boolean;            // true si walkover — défaut false
+  score: string;          // ex. "3/6 6/0 10/8", noté du point de vue du vainqueur — "" si non joué ou CSV
+  winner: 1 | 2 | null;   // joueur portant la coupe dans le PDF — null si non joué ou CSV
 }
 ```
 
@@ -134,8 +136,11 @@ Un match incomplet = `Match` avec `j2_nom === ""`. Pas de champ `incomplete` sup
 ## Filtrage avant rendu
 
 ```ts
-// Matchs non-WO uniquement (avant pagination)
-const displayMatches = matches.filter(m => !m.wo);
+// Matchs terminés (mode Résultats), vainqueur ramené en j1 par winnerFirst
+const resultMatches = matches.filter(m => !m.wo && m.j2_nom !== "" && m.score && m.winner).map(winnerFirst);
+
+// Matchs affichés (avant pagination) : non-WO en Programmation, résultats en Résultats
+const displayMatches = mode === 'resultats' ? resultMatches : matches.filter(m => !m.wo);
 
 // Matchs transférables vers Live Score (complets + non-WO)
 const transferableMatches = matches.filter(m => !m.wo && m.j2_nom !== "");
@@ -176,8 +181,8 @@ graphisme. Zones à laisser libres :
 | Zone | Occupée par |
 |---|---|
 | `y = 170` | La date, en surimpression sur toute la largeur |
-| `y = 0 → 305` | Le haut du template (header : logos, titre) |
-| `y = 305 → bas`, marges de 18 px | La grille des cellules de match |
+| `y = 0 → 255` | Le haut du template (header : logos, titre) |
+| `y = 255 → bas`, marges de 18 px | La grille des cellules de match |
 
 Le gabarit est donc **contrôlé avant l'upload** (`SiteConfigFields.tsx`) : **proportions A4 à
 2 % près** — sinon l'image serait déformée sous des textes posés à coordonnées fixes — et
@@ -199,7 +204,8 @@ genre demande d'ouvrir le fichier téléchargé, pas de regarder l'écran.
 ### Date
 
 Affichée en haut de chaque page :  
-`"Programme du <jour> <numéro> <mois>"` — ex. `"Programme du samedi 28 mars"`  
+`"Programme du <jour> <numéro> <mois>"` — ex. `"Programme du samedi 28 mars"` ; en mode
+Résultats : `"Résultats du <jour> <numéro> <mois>"`.  
 La date est celle du premier match de la page (`matches[0].date`).
 
 ### Cellule match (`MatchCell`)
@@ -252,7 +258,7 @@ const bothHome = j1Home && j2Home;
 const anyHome  = j1Home || j2Home;
 ```
 
-| Condition | Passe-partout blanc | Cartouche en tête | Fond rosé joueur | ClubLabel rouge |
+| Condition | Passe-partout blanc | Cartouche en pied | Fond rosé joueur | ClubLabel rouge |
 |---|:---:|:---:|:---:|:---:|
 | Aucun joueur du club | — | — | — | — |
 | 1 joueur du club | ✓ | « JOUEUR DU CLUB » / « JOUEUSE DU CLUB » | Côté joueur local uniquement | Côté joueur local uniquement |
@@ -265,12 +271,12 @@ Les matchs hors club sélectionné restent strictement inchangés.
 > Remplace (oct. 2026) l'ancienne couronne de 12 étoiles, le ruban diagonal « CLUB » et le bandeau « ★ DERBY ★ » en pied de cellule, jugés trop chargés.
 
 - **Passe-partout blanc** (`anyHome`) : `outline: 2px solid white` + `outline-offset: 5px` sur la cellule. Le contour suit l'arrondi de la cellule et se détache sur le fond rouge de l'affiche sans rien ajouter dans la cellule. Il tient dans le `GRID_GAP` (20 px).
-- **Cartouche en tête** (`anyHome`, composant `ClubBanner`) : bande pleine largeur de 24 px, fond bordeaux `#8E0B20`, texte blanc 11 px gras, espacement 2,5 px, ellipse si trop long (nom de club long en derby). Le padding haut de la cellule passe de 12 à 10 quand elle est présente. Libellé :
+- **Cartouche en pied** (`anyHome`, composant `ClubBanner`) : bande pleine largeur de 16 px (`BANNER_H`) en `position: absolute` au bas de la cellule, fond bordeaux `#8E0B20`, texte blanc 9 px gras, espacement 2 px, ellipse si trop long (nom de club long en derby). Le padding bas de la cellule passe de 16 à `BANNER_H + BANNER_GAP` = 30 px : **+14 px par rangée**, ce qui laisse ~10 px d'air entre le cartouche et le fond rosé (collés à +4 px, c'était laid). Libellé :
   - derby (`bothHome`) → `DERBY · <highlightedClub>` ;
   - sinon → `JOUEUSE DU CLUB` si le tournoi est féminin, `JOUEUR DU CLUB` sinon.
-- **Alignement de ligne** : une cellule sans cartouche dont la voisine de ligne (indice `i ^ 1` dans la grille à 2 colonnes) en porte un réserve la même hauteur en tête (`alignWithBanner`, padding haut `BANNER_H + 10`) : heure, noms et VS restent alignés d'une colonne à l'autre.
+- ⚠️ **Budget de hauteur** : sur les fonds du club, le bandeau partenaires commence vers y ≈ 1000 ; la grille standard (4 rangées de 152 px) finissait à 973 avec `GRID_TOP = 305` — il ne restait que ~25 px pour 4 rangées. Depuis `GRID_TOP = 255`, elle finit à 923. Le premier cartouche, **en tête** (24 px + fond rosé paddé, +31 px par rangée), poussait la grille à y ≈ 1096, en plein sur les partenaires. En pied, pire cas mesuré (4 rangées concernées) : y = 982. Tout ajout vertical dans une cellule doit être mesuré contre cette limite. Les cellules d'une même rangée ont la même hauteur (étirement de la grille) : le cartouche reste au ras du bas, sans réservation chez la voisine.
 - **Genre du tournoi** : `FEMININE_RE` testé sur `type_tournoi` — `SD` / `DD` (PDF FFT : « SD Senior »…) ou `Dames` / `Femmes` / `Féminin…` (libellés libres du CSV). Le double mixte et tout le reste retombent sur le masculin.
-- **Fond rosé** : le bloc du joueur du club (`j1Home` / `j2Home`) reçoit un fond `#FCEBEB`, `border-radius: 10`, pour désigner *quel* joueur est du club.
+- **Fond rosé** : le bloc du joueur du club (`j1Home` / `j2Home`) reçoit un fond `#FCEBEB`, `border-radius: 10`, pour désigner *quel* joueur est du club. Son padding vertical (4 px) est annulé par une marge négative : le fond déborde sans agrandir la cellule.
 - **`ClubLabel`** accepte une prop `home?: boolean` : rouge `#C8102E`, `font-weight: 700`, `font-size: 9.5` quand `home`, sinon gris `#6b6b6b`.
 - **Box-shadow** : constant (`5px 6px 0px rgba(200, 16, 46, 0.3)`). Une bordure rouge avait été envisagée mais se fond dans le fond rouge de l'affiche → écartée.
 
@@ -285,7 +291,7 @@ Tous les effets sont du CSS / SVG pur → exportables par `html-to-image`.
 ### Layout de la grille
 
 ```
-GRID_TOP   = 305 px  (depuis le haut de l'affiche)
+GRID_TOP   = 255 px  (depuis le haut de l'affiche ; 305 jusqu'en oct. 2026, jugé trop loin de la date)
 GRID_LEFT  = 18 px
 GRID_RIGHT = 18 px
 GRID_GAP   = 20 px   (entre les cellules)
@@ -295,10 +301,10 @@ GRID_GAP   = 20 px   (entre les cellules)
 
 ## Export
 
-Clic sur « Télécharger » → une image JPEG par page est générée via `html-to-image` (`toJpeg`, qualité 0.92, pixelRatio 2).
+Le bouton « Télécharger » est en tête de l'aperçu, au-dessus des images (à côté du titre « Aperçu — N matchs · P pages »), avec le message « aucun fond configuré » le cas échéant. Clic → une image JPEG par page est générée via `html-to-image` (`toJpeg`, qualité 0.92, pixelRatio 2).
 
-- 1 page → fichier nommé `programmation.jpg`
-- N pages → fichiers nommés `programmation-page-1.jpg`, `programmation-page-2.jpg`, etc.
+- 1 page → fichier nommé `programmation.jpg` (`resultats.jpg` en mode Résultats)
+- N pages → fichiers nommés `programmation-page-1.jpg`, `programmation-page-2.jpg`, etc. (`resultats-page-N.jpg`)
 
 Les téléchargements sont déclenchés séquentiellement.
 
@@ -319,6 +325,7 @@ Les téléchargements sont déclenchés séquentiellement.
 | `transferStatus` | `'idle'\|'loading'\|'done'\|'error'` | État du bouton « Basculer vers Live Score » |
 | `transferError` | `string \| null` | Message d'erreur du transfert |
 | `highlightedClub` | `string \| null` | Club sélectionné dans le sélecteur « Mettre en valeur un club ». `null` = aucun. Repassé à `null` à chaque changement de `matches`. |
+| `mode` | `'programmation' \| 'resultats'` | Type d'affiche. Repassé à `'programmation'` à chaque changement de `matches`. |
 | `selectedMatchIndices` | `Set<number>` | Indices dans `transferableMatches` sélectionnés. Initialisé avec tous les indices. Réinitialisé à chaque changement de `matches`. |
 
 ---
@@ -430,6 +437,52 @@ Pour chaque `Match` sélectionné (`transferableMatches.filter((_, i) => selecte
 Sur un match WO, le token `"WO"` remplace les scores habituels. Calibré sur `public/feuille_de_pointage_wo.pdf` : token `"WO"` à y ≈ 668, dans la slice X `[nc.x - 15, nc.x + 50]`. Scanner tous les items de la slice — `wo: true` si l'un est `"WO"` (insensible à la casse). Aucune contrainte Y supplémentaire.
 
 Les matchs WO sont conservés dans `matches` mais exclus de `displayMatches` (affiche) et de `transferableMatches` (Live Score).
+
+---
+
+## Affiche des résultats (PDF)
+
+Bascule **Programmation / Résultats** (carte « Type d'affiche », visible dès qu'un import a
+produit des matchs). « Résultats (n) » est désactivé quand aucun match terminé n'a été détecté
+— toujours le cas d'un import CSV, qui ne porte ni score ni vainqueur. Un même PDF peut mêler
+matchs joués et non joués : seuls les premiers passent sur l'affiche de résultats.
+
+### Détection
+
+Repère brut du PDF (page pivotée à 90°, mêmes coordonnées que le texte, cf. plus haut) :
+
+- **Score** : un seul token texte dans la slice X `[nc.x - 15, nc.x + 50]`, au-delà de `N° Court`
+  (y ≈ 648–670, centré verticalement), de forme `6/4 5/7 14/12`. Il est **noté du point de vue du
+  vainqueur** (le dernier set est toujours gagné par le premier chiffre).
+- **Vainqueur** : Ten'Up dessine une **petite image de coupe** (≈ 10 × 9) à y ≈ 619, sur la ligne
+  du vainqueur. Le texte seul ne permet pas de le savoir (une seule police, pas de gras, et en
+  TMC les deux joueurs rejouent ensuite). `findCupCenters` rejoue la pile de transformations
+  de `page.getOperatorList()` (`save` / `restore` / `transform`) et retient le centre de chaque
+  `paintImageXObject` de moins de 20 unités — le logo d'en-tête est écarté par la taille.
+  La coupe de la slice donne `winner = cup.x < slotSplit ? 1 : 2` (même frontière que les noms).
+
+Calibré sur une feuille de 43 matchs (8 pages) : 43 coupes, 40 scores, 3 WO.
+
+### Filtrage
+
+`!wo && j2_nom !== "" && score && winner`. **Les WO sont exclus** (décision produit), bien que
+Ten'Up leur pose aussi une coupe.
+
+### Rendu (`MatchCell` avec `result`)
+
+- **Vainqueur toujours à gauche** (`winnerFirst` permute j1/j2) : le score se lit alors de
+  gauche à droite.
+- Pas de badge d'heure ; l'en-tête garde sa hauteur (`minHeight: 24`) pour l'alignement.
+- Le **score remplace l'icône VS** : un set par ligne, entre les filets verticaux. Dans chaque
+  set, les jeux de **celui qui a gagné le set** sont en rouge gras, les autres en gris : `5/7`
+  → 5 gris (vainqueur du match, à gauche), 7 rouge (côté droit).
+- Bloc du perdant à `opacity: 0.5`. Aucun autre signe : la coupe du PDF, essayée, faisait
+  pièce rapportée — et Tailwind (`svg { display: block }`) la mettait sur sa propre ligne,
+  ce qui faisait déborder la grille sur le bandeau partenaires.
+- **Pas de mise en valeur de club** : en mode Résultats le sélecteur est masqué et
+  `highlightedClub` passé à `null` (cartouche et fond rosé brouillaient la lecture vainqueur /
+  perdant). Le club choisi est conservé pour le retour en Programmation.
+- Hauteur de cellule identique à la Programmation sans highlight (152 px, grille jusqu'à y≈923).
 
 ---
 
