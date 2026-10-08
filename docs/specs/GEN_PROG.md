@@ -229,7 +229,7 @@ Cela garde une hauteur de cellule constante quels que soient les noms longs.
 
 #### Icône VS
 
-SVG inline entre les deux joueurs, avec effet "éclair" masqué.
+SVG inline entre les deux joueurs, avec effet "éclair" masqué. Centré verticalement sur la hauteur des blocs joueurs et ancré par un filet vertical (`VS_RULE` : 1,5 px, `rgba(200, 16, 46, 0.25)`) au-dessus et en dessous, sur toute cette hauteur — sans lui, le VS flotte dans le vide entre deux blocs hauts.
 
 ### Highlight par club
 
@@ -252,21 +252,27 @@ const bothHome = j1Home && j2Home;
 const anyHome  = j1Home || j2Home;
 ```
 
-| Condition | Couronne d'étoiles | Ruban « CLUB » | Bandeau « DERBY » | ClubLabel rouge |
+| Condition | Passe-partout blanc | Cartouche en tête | Fond rosé joueur | ClubLabel rouge |
 |---|:---:|:---:|:---:|:---:|
 | Aucun joueur du club | — | — | — | — |
-| 1 joueur du club | ✓ | ✓ | — | Côté joueur local uniquement |
-| 2 joueurs du club (derby) | ✓ | — | ✓ | Les deux côtés |
+| 1 joueur du club | ✓ | « JOUEUR DU CLUB » / « JOUEUSE DU CLUB » | Côté joueur local uniquement | Côté joueur local uniquement |
+| 2 joueurs du club (derby) | ✓ | « DERBY · \<club\> » | Les deux côtés | Les deux côtés |
 
 Les matchs hors club sélectionné restent strictement inchangés.
 
 #### Effets visuels
 
-- **Couronne d'étoiles** (`anyHome`) : 12 étoiles blanches `#ffffff` débordant à l'extérieur de la cellule, sur le fond rouge de l'affiche. Tailles : 11 px de base, 13 px pour les indices 0/3/6/9 (légère respiration). Opacités : 1 pour les indices 0/4/8, sinon 0.85. Positions : 4 coins, 4 milieux haut/bas (`32%` et `62%`), 4 milieux gauche/droite (`38%` et `68%`). Implémentation : composant `StarsRing` posé sur un **wrapper externe** `position: relative` (sans `overflow: hidden`) qui enveloppe la cellule. La cellule elle-même garde `overflow: hidden` pour clipper le ruban.
-- **Ruban diagonal « CLUB »** (`anyHome && !bothHome`) : `div` en `position: absolute` dans le coin supérieur droit de la cellule, `transform: rotate(45deg)`, fond `#C8102E`.
-- **Bandeau « ★ DERBY \<club\> ★ »** (`bothHome`) : `div` en `position: absolute` en pied de cellule, `left/right: 16`, `bottom: 6`, `height: 16`. Le padding bas de la cellule passe de `16` à `26` quand `bothHome` pour laisser la place. Le nom du club (`highlightedClub`) est inséré dans le texte.
+> Remplace (oct. 2026) l'ancienne couronne de 12 étoiles, le ruban diagonal « CLUB » et le bandeau « ★ DERBY ★ » en pied de cellule, jugés trop chargés.
+
+- **Passe-partout blanc** (`anyHome`) : `outline: 2px solid white` + `outline-offset: 5px` sur la cellule. Le contour suit l'arrondi de la cellule et se détache sur le fond rouge de l'affiche sans rien ajouter dans la cellule. Il tient dans le `GRID_GAP` (20 px).
+- **Cartouche en tête** (`anyHome`, composant `ClubBanner`) : bande pleine largeur de 24 px, fond bordeaux `#8E0B20`, texte blanc 11 px gras, espacement 2,5 px, ellipse si trop long (nom de club long en derby). Le padding haut de la cellule passe de 12 à 10 quand elle est présente. Libellé :
+  - derby (`bothHome`) → `DERBY · <highlightedClub>` ;
+  - sinon → `JOUEUSE DU CLUB` si le tournoi est féminin, `JOUEUR DU CLUB` sinon.
+- **Alignement de ligne** : une cellule sans cartouche dont la voisine de ligne (indice `i ^ 1` dans la grille à 2 colonnes) en porte un réserve la même hauteur en tête (`alignWithBanner`, padding haut `BANNER_H + 10`) : heure, noms et VS restent alignés d'une colonne à l'autre.
+- **Genre du tournoi** : `FEMININE_RE` testé sur `type_tournoi` — `SD` / `DD` (PDF FFT : « SD Senior »…) ou `Dames` / `Femmes` / `Féminin…` (libellés libres du CSV). Le double mixte et tout le reste retombent sur le masculin.
+- **Fond rosé** : le bloc du joueur du club (`j1Home` / `j2Home`) reçoit un fond `#FCEBEB`, `border-radius: 10`, pour désigner *quel* joueur est du club.
 - **`ClubLabel`** accepte une prop `home?: boolean` : rouge `#C8102E`, `font-weight: 700`, `font-size: 9.5` quand `home`, sinon gris `#6b6b6b`.
-- **Box-shadow / bordure** : **aucun changement** entre cellule highlight et cellule standard. Le `box-shadow` reste constant (`5px 6px 0px rgba(200, 16, 46, 0.3)`). Une bordure rouge avait été envisagée mais se fond dans le fond rouge de l'affiche → écartée.
+- **Box-shadow** : constant (`5px 6px 0px rgba(200, 16, 46, 0.3)`). Une bordure rouge avait été envisagée mais se fond dans le fond rouge de l'affiche → écartée.
 
 Tous les effets sont du CSS / SVG pur → exportables par `html-to-image`.
 
@@ -460,7 +466,7 @@ Quand `match.j2_nom === ""` :
 - **Côté j2** : afficher le texte `"À déterminer"` à la place du bloc joueur (prénom + nom + classement). Style : gris muted, taille identique au prénom, non gras.
 - **Icône VS** : conservée entre j1 et le côté "À déterminer".
 - **Club j2** : rien (champ vide, comportement déjà existant pour l'import CSV).
-- **Highlight club** : le match incomplet ne peut pas être un derby. Si `j1_club === highlightedClub`, les effets club s'appliquent côté j1 normalement. Côté j2, aucun effet (pas de ruban, pas de `ClubLabel` coloré).
+- **Highlight club** : le match incomplet ne peut pas être un derby. Si `j1_club === highlightedClub`, les effets club s'appliquent côté j1 normalement. Côté j2, aucun effet (pas de fond rosé, pas de `ClubLabel` coloré).
 
 ### Basculement vers Live Score
 

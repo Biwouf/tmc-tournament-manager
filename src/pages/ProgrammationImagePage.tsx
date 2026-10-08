@@ -252,49 +252,37 @@ const GRID_GAP = 20;
 
 const MAX_PER_PAGE = 8; // 2 colonnes × 4 lignes
 
-// Couronne d'étoiles blanches débordant à l'extérieur de la cellule highlight
-const STAR_POSITIONS: React.CSSProperties[] = [
-  { top: -8, left: -8 },
-  { top: -8, right: -8 },
-  { bottom: -8, left: -8 },
-  { bottom: -8, right: -8 },
-  { top: -6, left: '32%' },
-  { top: -6, left: '62%' },
-  { bottom: -6, left: '32%' },
-  { bottom: -6, left: '62%' },
-  { left: -6, top: '38%' },
-  { left: -6, top: '68%' },
-  { right: -6, top: '38%' },
-  { right: -6, top: '68%' },
-];
+// Tournoi féminin : simple/double dames (« SD », « DD ») ou libellé CSV « Femmes » / « Dames ».
+// Le double mixte et tout le reste retombent sur le masculin.
+const FEMININE_RE = /\b(SD|DD|dames?|femmes?|f[ée]minin\w*)\b/i;
 
-function Star({ size, style }: { size: number; style: React.CSSProperties }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" style={style} aria-hidden>
-      <path
-        d="M12 2 L14.6 9.3 L22 9.6 L16.2 14.3 L18.2 21.5 L12 17.3 L5.8 21.5 L7.8 14.3 L2 9.6 L9.4 9.3 Z"
-        fill="#ffffff"
-      />
-    </svg>
-  );
+const BANNER_H = 24;
+
+function involvesClub(match: Match, club: string | null): boolean {
+  return !!club && (match.j1_club === club || match.j2_club === club);
 }
 
-function StarsRing() {
+// Cartouche bordeaux en tête de cellule quand un joueur du club mis en valeur est impliqué.
+function ClubBanner({ text }: { text: string }) {
   return (
-    <>
-      {STAR_POSITIONS.map((p, i) => (
-        <Star
-          key={i}
-          size={11 + (i % 3 === 0 ? 2 : 0)}
-          style={{
-            position: 'absolute',
-            ...p,
-            zIndex: 4,
-            opacity: i % 4 === 0 ? 1 : 0.85,
-          }}
-        />
-      ))}
-    </>
+    <div
+      style={{
+        background: '#8E0B20',
+        color: 'white',
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 2.5,
+        textAlign: 'center',
+        padding: '0 16px',
+        height: BANNER_H,
+        lineHeight: `${BANNER_H}px`,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
+      {text}
+    </div>
   );
 }
 
@@ -329,30 +317,44 @@ const NAME_LINE: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
-function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: string | null }) {
+const VS_RULE: React.CSSProperties = { flex: 1, width: 1.5, background: 'rgba(200, 16, 46, 0.25)' };
+
+// Fond rosé derrière le bloc d'un joueur du club mis en valeur.
+const HOME_PLAYER_BG: React.CSSProperties = { background: '#FCEBEB', borderRadius: 10, padding: '4px 2px' };
+
+// `alignWithBanner` : la voisine de ligne porte un cartouche → on réserve sa hauteur en tête
+// pour garder heure, noms et VS alignés d'une cellule à l'autre.
+function MatchCell({ match, highlightedClub, alignWithBanner }: { match: Match; highlightedClub: string | null; alignWithBanner: boolean }) {
   const j1Home = !!highlightedClub && match.j1_club === highlightedClub;
   const j2Home = !!highlightedClub && match.j2_club === highlightedClub;
   const bothHome = j1Home && j2Home;
   const anyHome = j1Home || j2Home;
+  const bannerText = bothHome
+    ? `DERBY · ${highlightedClub}`
+    : FEMININE_RE.test(match.type_tournoi) ? 'JOUEUSE DU CLUB' : 'JOUEUR DU CLUB';
 
   return (
-    // Wrapper externe : permet à la couronne d'étoiles de déborder en dehors de la cellule
-    <div style={{ position: 'relative', minWidth: 0 }}>
-      {anyHome && <StarsRing />}
+    <div
+      style={{
+        background: 'white',
+        borderRadius: 18,
+        boxShadow: '5px 6px 0px rgba(200, 16, 46, 0.3)',
+        // Passe-partout blanc décollé de la cellule : visible sur le fond rouge de l'affiche.
+        outline: anyHome ? '2px solid white' : undefined,
+        outlineOffset: anyHome ? 5 : undefined,
+        minWidth: 0,
+        overflow: 'hidden',
+      }}
+    >
+      {anyHome && <ClubBanner text={bannerText} />}
 
-      {/* Cellule : overflow:hidden pour clipper le ruban d'angle aux coins arrondis */}
       <div
         style={{
-          background: 'white',
-          borderRadius: 18,
-          padding: bothHome ? '12px 16px 26px' : '12px 16px 16px',
-          boxShadow: '5px 6px 0px rgba(200, 16, 46, 0.3)',
+          padding: anyHome ? '10px 16px 16px' : `${alignWithBanner ? BANNER_H + 10 : 12}px 16px 16px`,
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
           minWidth: 0,
-          position: 'relative',
-          overflow: 'hidden',
         }}
       >
         {/* Heure + type */}
@@ -381,24 +383,29 @@ function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: 
 
         {/* Adversaires */}
         <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j1Home ? HOME_PLAYER_BG : {}) }}>
             <div style={NAME_LINE}>{match.j1_prenom}</div>
             <div style={NAME_LINE}>{match.j1_nom}</div>
             <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
             <ClubLabel club={match.j1_club} home={j1Home} />
           </div>
 
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none" style={{ height: 44, width: 44, flexShrink: 0, marginTop: 4, alignSelf: 'flex-start' }}>
-            <defs>
-              <mask id="bolt">
-                <rect width="300" height="200" fill="white"/>
-                <path d="M112,8 L122,0 L134,8 L168,95 L184,80 L210,192 L216,200 L204,192 L178,108 L162,122 Z" fill="black"/>
-              </mask>
-            </defs>
-            <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill="#C8102E" mask="url(#bolt)">VS</text>
-          </svg>
+          {/* VS ancré par un filet vertical sur toute la hauteur des blocs joueurs */}
+          <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={VS_RULE} />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" fill="none" style={{ height: 44, width: 44, flexShrink: 0 }}>
+              <defs>
+                <mask id="bolt">
+                  <rect width="300" height="200" fill="white"/>
+                  <path d="M112,8 L122,0 L134,8 L168,95 L184,80 L210,192 L216,200 L204,192 L178,108 L162,122 Z" fill="black"/>
+                </mask>
+              </defs>
+              <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill="#C8102E" mask="url(#bolt)">VS</text>
+            </svg>
+            <div style={VS_RULE} />
+          </div>
 
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif" }}>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j2Home ? HOME_PLAYER_BG : {}) }}>
             {match.j2_nom === '' ? (
               <div style={{ fontSize: 20, fontWeight: 400, lineHeight: 1.3, color: '#6b6b6b' }}>
                 À déterminer
@@ -413,57 +420,6 @@ function MatchCell({ match, highlightedClub }: { match: Match; highlightedClub: 
             )}
           </div>
         </div>
-
-        {/* Ruban diagonal "CLUB" — cas standard (1 joueur du club) */}
-        {anyHome && !bothHome && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 14,
-              right: -42,
-              width: 140,
-              transform: 'rotate(45deg)',
-              background: '#C8102E',
-              color: 'white',
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: 1.5,
-              textAlign: 'center',
-              padding: '4px 0',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-              zIndex: 3,
-            }}
-          >
-            CLUB
-          </div>
-        )}
-
-        {/* Bandeau "★ DERBY <CLUB> ★" — cas derby (2 joueurs du club) */}
-        {bothHome && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 16,
-              right: 16,
-              bottom: 6,
-              height: 16,
-              borderRadius: 4,
-              background: '#C8102E',
-              color: 'white',
-              fontSize: 9,
-              fontWeight: 800,
-              letterSpacing: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 3,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-            }}
-          >
-            ★ DERBY {highlightedClub} ★
-          </div>
-        )}
       </div>
     </div>
   );
@@ -524,8 +480,14 @@ function PosterPage({ matches, date, highlightedClub, background }: { matches: M
           gap: GRID_GAP,
         }}
       >
+        {/* Grille à 2 colonnes : la voisine de ligne de la cellule i est i ^ 1 (0↔1, 2↔3…). */}
         {matches.map((m, i) => (
-          <MatchCell key={i} match={m} highlightedClub={highlightedClub} />
+          <MatchCell
+            key={i}
+            match={m}
+            highlightedClub={highlightedClub}
+            alignWithBanner={involvesClub(matches[i ^ 1] ?? m, highlightedClub)}
+          />
         ))}
       </div>
     </div>
