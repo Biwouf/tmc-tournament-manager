@@ -24,16 +24,16 @@ export default function PartnersSection() {
               <ConfigImage loading="lazy" decoding="async"
                 src={partner.logo!}
                 alt={partner.name || ''}
-                className="max-h-12 w-auto object-contain"
+                className="max-h-12 max-w-full w-auto object-contain"
               />
             );
             return (
               <div
                 key={index}
-                className="flex h-20 min-w-36 items-center justify-center rounded-soft border border-line bg-card px-6"
+                className="flex h-20 w-40 items-center justify-center rounded-soft border border-line bg-card px-6"
               >
                 {partner.url ? (
-                  <a href={partner.url} target="_blank" rel="noreferrer noopener">
+                  <a href={partner.url} target="_blank" rel="noreferrer noopener" className="flex h-full w-full items-center justify-center">
                     {logo}
                   </a>
                 ) : (
