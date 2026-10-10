@@ -106,7 +106,14 @@ export default function MatchesPage() {
       return b.created_at.localeCompare(a.created_at);
     }) ?? [];
   const pendingMatches = matches?.filter((m) => m.status === 'pending')  ?? [];
-  const finishedMatches = matches?.filter((m) => m.status === 'finished') ?? [];
+  const finishedMatches = matches
+    ?.filter((m) => m.status === 'finished')
+    .sort((a, b) => {
+      if (a.finished_at && b.finished_at) return b.finished_at.localeCompare(a.finished_at);
+      if (a.finished_at) return -1;
+      if (b.finished_at) return 1;
+      return `${b.match_date} ${b.start_time ?? ''}`.localeCompare(`${a.match_date} ${a.start_time ?? ''}`);
+    }) ?? [];
 
   return (
     <div className="p-4 flex flex-col gap-6">

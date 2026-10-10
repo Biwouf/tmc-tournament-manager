@@ -241,8 +241,8 @@ Vue conçue pour projection sur TV en club (V1 « TV Board »). Header `← Accu
 - Trois sections empilées : **En live** (status=`live`), **En attente** (status=`pending`), **Terminés** (status=`finished`)
 - Header de section : titre uppercase + badge compteur coloré (rouge / slate / emerald) + ligne de séparation
 - Grid `grid-cols-1 lg:grid-cols-2 gap-4` (2 colonnes max — cartes plus larges, score plus gros pour la TV)
-- Les matchs terminés depuis plus de 2 jours (`finished_at + 2j < now()`) affichent un badge **« À supprimer »** rouge dans le hero bar de la carte
-- **En attente** et **Terminés** : triés par `match_date` + `start_time` ASC (ordre par défaut de la requête Supabase)
+- **En attente** : triés par `match_date` + `start_time` ASC (ordre par défaut de la requête Supabase)
+- **Terminés** : tri client antéchronologique par `finished_at` DESC (le plus récent en premier) ; les matchs sans `finished_at` passent après, triés par `match_date` + `start_time` DESC. Logique répliquée à l'identique dans `pwa/src/pages/MatchesPage.tsx`.
 - **En live** : tri client par `started_at` DESC (le plus récemment démarré en premier), fallback `created_at` DESC quand `started_at` est null. Tri côté client volontaire : à chaque UPDATE de score, le trigger `updated_at` réordonne la ligne dans le heap Postgres ; un tri DB par démarrage stable garde l'ordre figé. Logique répliquée à l'identique dans `pwa/src/pages/MatchesPage.tsx`.
 
 **Anatomie carte (`LiveMatchCard.tsx`) :**
@@ -367,7 +367,7 @@ Les boutons **+** sont désactivés dès qu'une limite est atteinte :
 ## Gestion de la durée de vie des matchs
 
 - À la fin d'un match (`status = 'finished'`), `finished_at` est renseigné automatiquement.
-- Les matchs dont `finished_at + 2 jours < now()` sont signalés dans la liste avec un badge **"À supprimer"**.
+- Les matchs terminés depuis plus de 3 jours (`finished_at`) sont masqués des listes BO et PWA (cf. « Visibilité à trois jours »).
 - La suppression est **manuelle** : l'utilisateur clique "Supprimer" sur chaque match concerné.
 - Pas de suppression automatique en v1.
 
@@ -452,7 +452,7 @@ const { data } = await supabase
 - `finished` → score final, badge "Terminé"
 - Double : "Équipe 1 : Prenom Nom / Prenom Nom" vs "Équipe 2 : ..."
 
-Les matchs `finished` du jour restent affichés jusqu'à minuit (retirés à `match_date < today`).
+Les matchs `finished` restent affichés trois jours après `finished_at`, du plus récent au plus ancien (cf. « Visibilité à trois jours »).
 
 ### Dialog de saisie du court au démarrage (PWA — `MatchCard.tsx`)
 
@@ -590,11 +590,11 @@ restent inchangés. Le filtre de dates de la liste PWA reste identique pour tous
 Appliquer cette migration après celle de versionnement sur dev, puis prod.
 
 
-### Visibilité à sept jours — BO et PWA
+### Visibilité à trois jours — BO et PWA
 
 Les listes excluent à la source les matchs `finished` dont `finished_at` est strictement
-antérieur à maintenant moins 7 × 24 heures. La PWA ne filtre plus sur `match_date` : les
-résultats des jours précédents restent visibles durant ces sept jours, et les matchs
+antérieur à maintenant moins 3 × 24 heures. La PWA ne filtre plus sur `match_date` : les
+résultats des jours précédents restent visibles durant ces trois jours, et les matchs
 encore en cours ne disparaissent pas au changement de jour. Les matchs sans `finished_at`
 restent visibles pour ne pas les masquer sur une hypothèse. La règle est évaluée à chaque
 chargement/rafraîchissement de la liste. Les fiches accessibles par lien restent consultables.
