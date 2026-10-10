@@ -33,7 +33,7 @@ Le Send Email Hook de Supabase ne concerne que les emails Auth.
 3. Déployer `supabase functions deploy course-email-dispatch`, en conservant la vérification JWT.
 4. Créer les secrets Vault `course_email_project_url` et `course_email_service_role_key` (JWT historique `service_role`, jamais une variable `VITE_`).
 5. Générer un secret aléatoire (`openssl rand -hex 32`) et enregistrer la même valeur dans Edge Functions → Secrets sous `COURSE_EMAIL_CRON_SECRET` et dans Vault sous `course_email_cron_secret`. Ce secret authentifie le cron dans la fonction via `x-course-email-secret`, indépendamment de la clé serveur injectée dans le runtime. La vérification JWT Supabase reste activée.
-6. Exécuter `supabase/scripts/course-email-cron.sql` pour un traitement chaque minute, dix mails par lot.
+6. Exécuter `supabase/scripts/course-email-cron.sql` pour un traitement chaque minute, dix mails par lot. Réexécuter ce script met à jour la tâche du même nom. La tâche ne déclenche l’appel HTTP (et donc l’Edge Function) que si la file contient un envoi dû ou un bail expiré : une file vide ne coûte qu’une requête SQL par minute (10/10/2026). Exécuter aussi une fois `supabase/scripts/cron-history-purge.sql` (purge quotidienne de l’historique pg_cron, 7 jours).
 7. Avec des comptes de test autorisés, vérifier une demande, une acceptation et un refus : propriétaire puis membre, état de la file et réception réelle. Surveiller les lignes `failed` et les erreurs du cron/Edge.
 
 Une configuration mail absente provoque une réponse 503 sans consommer la file. L’envoi est asynchrone : une panne Brevo ne remet pas en cause la décision sur la place.

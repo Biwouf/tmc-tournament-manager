@@ -13,5 +13,10 @@ SELECT cron.schedule('signup-email-dispatch', '* * * * *', $$
      'x-signup-email-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets
        WHERE name='signup_email_cron_secret')),
    body := '{}'::jsonb, timeout_milliseconds := 120000
- );
+ )
+ -- Skip the HTTP call (and its Edge invocation) while the queue is idle;
+ -- same predicate as signup_email_claim's `picked`.
+ WHERE EXISTS (SELECT 1 FROM public.signup_email_deliveries d
+   WHERE (d.status='pending' AND d.next_attempt_at<=now())
+      OR (d.status='sending' AND d.lease_until<now()));
 $$);
