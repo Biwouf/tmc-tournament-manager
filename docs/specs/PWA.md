@@ -573,7 +573,7 @@ reste consultable en lecture seule depuis son écran. Voir `LIVE_SCORE.md`, sect
 
 ### Visibilité des résultats Live
 
-L'onglet Live conserve les matchs terminés pendant sept jours après `finished_at`.
+L'onglet Live conserve les matchs terminés pendant trois jours après `finished_at`, triés du plus récent au plus ancien.
 Les matchs en attente/en cours et ceux sans date de fin restent visibles. Le filtre est
 appliqué dans la requête Supabase ; il remplace la restriction à `match_date >= aujourd'hui`.
 Les données restent en base. Voir la règle commune BO/PWA dans `LIVE_SCORE.md`.

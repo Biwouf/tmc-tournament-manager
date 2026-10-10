@@ -104,13 +104,6 @@ function teamMembers(match: LiveMatch, side: LiveMatchWinner): TeamMember[] {
   return members;
 }
 
-function needsDeletionBadge(m: LiveMatch): boolean {
-  if (m.team_match_line_id && !m.team_result_confirmed) return false;
-  if (m.status !== 'finished' || !m.finished_at) return false;
-  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-  return Date.now() - new Date(m.finished_at).getTime() > twoDaysMs;
-}
-
 function winnerName(match: LiveMatch): string {
   if (match.winner === 'j1') return `${match.j1_prenom} ${match.j1_nom}`;
   if (match.winner === 'j2') return `${match.j2_prenom} ${match.j2_nom}`;
@@ -265,7 +258,6 @@ export default function LiveMatchCard({ match, isOwnLive, onPrimary, onDelete }:
   const sets = buildSets(match);
   const cellsJ1 = cellsForSide(sets, 'j1');
   const cellsJ2 = cellsForSide(sets, 'j2');
-  const toDelete = needsDeletionBadge(match);
 
   const cardClass = isLive
     ? 'border-red-200 shadow-[0_0_0_1px_rgba(229,24,40,0.12),0_8px_30px_rgba(229,24,40,0.08)]'
@@ -303,11 +295,6 @@ export default function LiveMatchCard({ match, isOwnLive, onPrimary, onDelete }:
             <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase bg-slate-100 text-slate-600">
               {match.match_type === 'double' ? 'Double' : 'Simple'}
             </span>
-            {toDelete && (
-              <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-wide uppercase bg-red-100 text-red-700">
-                À supprimer
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
             {isLive && (

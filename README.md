@@ -38,7 +38,6 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Interface +/- par joueur pour saisir les jeux et les tiebreaks
 - Détection automatique du vainqueur (sets 1 et 2, avec set décisif normal ou super tiebreak)
 - Possibilité d'annuler la fin de match pour corriger une erreur de saisie
-- Badge « À supprimer » sur les matchs terminés depuis plus de 2 jours
 - Table `live_matches` exposée via Supabase Realtime
 - Disponible aussi côté PWA : connexion avec un compte BO → création de match, démarrage/reprise/libération d'un live, suivi du score, suppression. Un live a un gestionnaire (champ `scored_by`) ; un autre utilisateur authentifié peut **prendre le contrôle** après confirmation (warning avec le nom du gestionnaire actuel) — le précédent gestionnaire, s'il est sur la page de saisie, voit un bandeau l'avertir et bascule en lecture seule via Realtime.
 
@@ -410,7 +409,7 @@ les nouveaux clients, puis recharger les deux applications. Tests : `npm run tes
 
 La migration `20260908_live_matches_public_read.sql` permet aux visiteurs non connectés de suivre les matchs des clubs actifs ; la connexion reste nécessaire pour leur gestion.
 
-Les listes Live du BO et de la PWA masquent les matchs terminés depuis plus de sept jours après `finished_at`. Les données restent conservées en base ; aucune migration n’est nécessaire pour ce filtre.
+Les listes Live du BO et de la PWA masquent les matchs terminés depuis plus de trois jours après `finished_at` et affichent les matchs terminés du plus récent au plus ancien. Les données restent conservées en base ; aucune migration n’est nécessaire pour ce filtre.
 
 ### Formulaire de contact (PR11)
 
