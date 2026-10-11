@@ -45,6 +45,9 @@ du sondage/match. Les identités des votants ne sont jamais publiques.
 Quatre réactions identiques consécutives du même compte, en moins de deux
 secondes, fusionnent. Un autre emoji ou un combo terminé relance le compteur.
 Pas de délai minimum, de confirmation d’envoi ou d’option d’animation.
+Plafond souple par compte : au-delà de 6 réactions en 2 secondes, les taps
+suivants s’affichent localement mais ne sont pas envoyés (le serveur applique
+la même limite et ignore l’excédent sans erreur). Un combo passe toujours.
 La préférence système de mouvement réduit masque les animations.
 
 ## Données et fiabilité
@@ -63,6 +66,9 @@ La préférence système de mouvement réduit masque les animations.
 - `live_reactions` : événements éphémères, accessibles pendant 15 secondes,
   purgés au-delà de 30 secondes à l’arrivée de la prochaine réaction. Des lignes
   expirées peuvent subsister sans activité ; elles sont invisibles aux clients.
+  Une réaction ne verrouille pas la ligne du match (contrairement aux autres
+  commandes) pour ne pas retarder la saisie du score
+  (`2026101104_live_reactions_throttle.sql`).
 - `live_activity_page` : 50 éléments par page, agrégats et capacités de l’utilisateur,
   validation du couple match/club et du statut actif du club.
 - `live_activity_command` : validation serveur, verrou transactionnel du match,
@@ -134,9 +140,7 @@ Appliquer `2026101102_live_photos.sql` en production avant de fusionner la PR.
 La migration crée le bucket `live-images` (public, JPEG, 5 Mo) et ses policies :
 aucune configuration manuelle au dashboard. Elle redéfinit entièrement
 `live_activity_command` et `live_activity_page` : toute autre branche qui les
-modifie doit repartir de cette version. C'est le cas de `fix/live-reactions-throttle`,
-livrée après ce lot : sa migration doit être renumérotée après `2026101102` et garder
-l'action `photo`.
+modifie doit repartir de cette version.
 Dette : les images d’un live supprimé (cascade sur `live_posts`) restent dans le
 bucket. Recette : photo depuis la pellicule et prise de vue en direct sur iOS
 et Android, photo HEIC d’iPhone, réseau lent, suppression.
