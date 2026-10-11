@@ -330,6 +330,45 @@ const FEMININE_RE = /\b(SD|DD|dames?|femmes?|f[ée]minin\w*)\b/i;
 const BANNER_H = 16;
 const BANNER_GAP = 14;
 
+// Bandeau partenaires dynamique (`config.partners`), posé dans le bas du fond (y ≈ 1000 → 1123),
+// sous la grille (pire cas mesuré : y = 982). Le fond ne doit donc plus porter de logos.
+// 2 rangées de 5 au plus : au-delà, seuls les 10 premiers (ordre de /admin/site) sortent.
+const MAX_PARTNERS = 10;
+const PARTNERS_PER_ROW = 5;
+const PARTNERS_BOTTOM = 14;
+const PARTNER_ROW_H = 44;
+const PARTNER_ROW_GAP = 10;
+
+function PartnersBand({ logos }: { logos: string[] }) {
+  // 6 logos → 3 + 3 plutôt que 5 + 1.
+  const perRow = logos.length <= PARTNERS_PER_ROW ? logos.length : Math.ceil(logos.length / 2);
+  const rows = [logos.slice(0, perRow), logos.slice(perRow)].filter((row) => row.length > 0);
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: GRID_LEFT,
+        right: GRID_RIGHT,
+        bottom: PARTNERS_BOTTOM,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: PARTNER_ROW_GAP,
+      }}
+    >
+      {rows.map((row, r) => (
+        <div key={r} style={{ display: 'flex', justifyContent: 'center', height: PARTNER_ROW_H }}>
+          {row.map((logo, i) => (
+            <div key={i} style={{ width: `${100 / PARTNERS_PER_ROW}%`, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* `crossOrigin` : même raison que le fond — logo servi par le Storage. */}
+              <img src={logo} alt="" crossOrigin="anonymous" style={{ maxWidth: '100%', maxHeight: PARTNER_ROW_H, objectFit: 'contain' }} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Cartouche bordeaux en pied de cellule quand un joueur du club mis en valeur est impliqué.
 function ClubBanner({ text }: { text: string }) {
   return (
@@ -518,7 +557,7 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
   );
 }
 
-function PosterPage({ matches, date, highlightedClub, background, mode }: { matches: Match[]; date: string; highlightedClub: string | null; background?: string; mode: PosterMode }) {
+function PosterPage({ matches, date, highlightedClub, background, mode, partnerLogos }: { matches: Match[]; date: string; highlightedClub: string | null; background?: string; mode: PosterMode; partnerLogos: string[] }) {
   return (
     <div
       data-page
@@ -582,6 +621,8 @@ function PosterPage({ matches, date, highlightedClub, background, mode }: { matc
           />
         ))}
       </div>
+
+      {partnerLogos.length > 0 && <PartnersBand logos={partnerLogos} />}
     </div>
   );
 }
@@ -611,6 +652,9 @@ export default function ProgrammationImagePage() {
    *  s'applique par défaut. `?? backgrounds[0]` couvre un index devenu hors bornes. */
   const [backgroundIndex, setBackgroundIndex] = useState(0);
   const background = backgrounds[backgroundIndex] ?? backgrounds[0];
+  const partnerLogos = config.partners.map((p) => p.logo).filter(Boolean);
+  /** Comme le fond : propre à la génération en cours, coché par défaut. */
+  const [showPartners, setShowPartners] = useState(true);
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1034,6 +1078,24 @@ export default function ProgrammationImagePage() {
               selectedIndex={backgroundIndex}
               onSelect={setBackgroundIndex}
             />
+            {partnerLogos.length > 0 && (
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={showPartners}
+                    onChange={(e) => setShowPartners(e.target.checked)}
+                  />
+                  Afficher les partenaires en bas de l’affiche
+                </label>
+                {showPartners && partnerLogos.length > MAX_PARTNERS && (
+                  <p className="text-xs text-muted-foreground">
+                    {partnerLogos.length} partenaires configurés : seuls les {MAX_PARTNERS} premiers (ordre de la{' '}
+                    <Link to="/admin/site" className="underline">configuration du site</Link>) figurent sur l’affiche.
+                  </p>
+                )}
+              </div>
+            )}
             <div ref={posterRef} className="space-y-6">
               {pages.map((pageMatches, i) => (
                 <div key={i} className="shadow-xl rounded-sm overflow-hidden" style={{ width: W }}>
@@ -1043,6 +1105,7 @@ export default function ProgrammationImagePage() {
                     highlightedClub={mode === 'resultats' ? null : highlightedClub}
                     background={background?.image}
                     mode={mode}
+                    partnerLogos={showPartners ? partnerLogos.slice(0, MAX_PARTNERS) : []}
                   />
                 </div>
               ))}
