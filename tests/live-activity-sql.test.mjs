@@ -300,6 +300,123 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
   }
 });
 
+test('Live photos: members upload in their live, object required, optional caption, delete frees the file', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(coursesFixtureSQL);
+    await db.exec(`CREATE TABLE events(id uuid PRIMARY KEY);
+   CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=now(); RETURN NEW; END $$;`);
+    await db.exec(
+      (await migration('20260423_live_matches')).replace(
+        'ALTER PUBLICATION supabase_realtime ADD TABLE live_matches;',
+        '',
+      ),
+    );
+    await db.exec(`ALTER TABLE live_matches ADD COLUMN club_id uuid NOT NULL DEFAULT '${id(1)}', ADD COLUMN court text,ADD COLUMN started_at timestamptz,ADD COLUMN retired_player live_match_winner;
+   GRANT SELECT ON club_members TO authenticated;
+   INSERT INTO auth.users VALUES('${id(109)}'); INSERT INTO profiles(id,prenom,nom) VALUES('${id(109)}','Spectateur','Connecté');`);
+    await db.exec(await migration('20260907_live_match_consistency'));
+    await db.exec(await migration('2026093001_live_activity'));
+    await db.exec(await migration('2026101102_live_photos'));
+    await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status)
+   VALUES('${id(20)}','${id(1)}','2026-10-11','Alex','A','Sam','B','live'),
+   ('${id(21)}','${id(2)}','2026-10-11','Autre','Club','Autre','Club','live'),
+   ('${id(23)}','${id(1)}','2026-10-11','Fini','A','Fini','B','finished');`);
+    async function as(user, sql, args = []) {
+      await db.exec(
+        `BEGIN; SET LOCAL ROLE ${user === null ? 'anon' : 'authenticated'}; SELECT set_config('request.jwt.claim.sub','${user === null ? '' : id(user)}',true);`,
+      );
+      try {
+        const { rows } = await db.query(sql, args);
+        await db.exec('COMMIT');
+        return rows;
+      } catch (e) {
+        await db.exec('ROLLBACK');
+        throw e;
+      }
+    }
+    const command = (action, data, user = 103, match = id(20), club = id(1)) =>
+      as(user, 'SELECT live_activity_command($1,$2,$3,$4) AS result', [
+        match,
+        club,
+        action,
+        data,
+      ]).then((rows) => rows[0].result);
+    const page = () =>
+      as(null, 'SELECT live_activity_page($1,$2,null) AS result', [
+        id(20),
+        id(1),
+      ]).then((rows) => rows[0].result);
+    const upload = (user, name) =>
+      as(
+        user,
+        "INSERT INTO storage.objects(bucket_id,name) VALUES('live-images',$1)",
+        [name],
+      );
+    const remove = (user, name) =>
+      as(
+        user,
+        "DELETE FROM storage.objects WHERE bucket_id='live-images' AND name=$1 RETURNING id",
+        [name],
+      );
+    const post = randomUUID();
+    const path = `${id(1)}/${id(20)}/${post}.jpg`;
+    for (const [user, name, why] of [
+      [109, path, 'spectator'],
+      [106, path, 'member of another club'],
+      [103, `${id(1)}/${id(23)}/${post}.jpg`, 'finished match'],
+      [103, `${id(1)}/${id(21)}/${post}.jpg`, 'match of another club'],
+      [103, `${id(1)}/${id(20)}/${post}.png`, 'not the expected path'],
+    ])
+      await assert.rejects(upload(user, name), /row-level security/, why);
+    await assert.rejects(
+      command('photo', { id: post, body: '' }, 104),
+      /Photo introuvable/,
+      'post requires the uploaded object',
+    );
+    await upload(104, path);
+    await assert.rejects(
+      command('photo', { id: post, body: '' }, 109),
+      /membres/,
+    );
+    await command('photo', { id: post, body: '  ' }, 104);
+    await command('photo', { id: post }, 104);
+    let items = (await page()).items;
+    assert.equal(items.length, 1, 'retry is idempotent');
+    assert.equal(items[0].kind, 'photo');
+    assert.equal(items[0].body, '', 'caption is optional');
+    assert.equal(items[0].image_path, path, 'path is server generated');
+    await assert.rejects(
+      command('photo', { id: post, body: 'Autre légende' }, 104),
+      /déjà utilisée/,
+    );
+    const captioned = randomUUID();
+    await upload(103, `${id(1)}/${id(20)}/${captioned}.jpg`);
+    await assert.rejects(
+      command('photo', { id: captioned, body: 'x'.repeat(281) }, 103),
+      /Texte invalide/,
+    );
+    await command('photo', { id: captioned, body: ' Balle de match ' }, 103);
+    assert.equal((await page()).items[1].body, 'Balle de match');
+    await assert.rejects(
+      command('message', { id: randomUUID(), body: '' }, 103),
+      /Texte invalide/,
+      'messages still require text',
+    );
+    assert.equal(
+      (await remove(103, path)).length,
+      0,
+      'displayed photo cannot be deleted',
+    );
+    await command('delete', { id: post }, 103);
+    assert.equal((await remove(106, path)).length, 0, 'other club cannot');
+    assert.equal((await remove(103, path)).length, 1, 'freed after delete');
+    assert.equal((await page()).items.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
 test('Shared team live: all members edit, fixed formats and confirmation invalidation survive', async () => {
   const db = new PGlite();
   try {

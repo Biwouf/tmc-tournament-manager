@@ -21,6 +21,19 @@ dom.window.HTMLDialogElement.prototype.close = function () {
   this.removeAttribute('open');
 };
 window.confirm = () => true;
+// Pas de canvas dans jsdom : la compression est simulée (4000×3000 → 1600×1200).
+globalThis.createImageBitmap = async () => ({
+  width: 4000,
+  height: 3000,
+  close() {},
+});
+const drawn = [];
+dom.window.HTMLCanvasElement.prototype.getContext = function () {
+  return { drawImage: (_b, _x, _y, w, h) => drawn.push([w, h]) };
+};
+dom.window.HTMLCanvasElement.prototype.toBlob = function (callback, type) {
+  callback(new Blob(['jpeg'], { type }));
+};
 const req = createRequire(new URL('../pwa/package.json', import.meta.url));
 const React = req('react');
 const { act, createElement: h } = React;
@@ -108,6 +121,8 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
     },
   ];
   const calls = [];
+  const uploads = [];
+  const removed = [];
   const scoreWrites = [];
   const channels = new Set();
   let failAccepted = false;
@@ -130,6 +145,23 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
     },
     removeChannel(channel) {
       channels.delete(channel);
+    },
+    storage: {
+      from() {
+        return {
+          async upload(path, blob, options) {
+            uploads.push({ path, type: blob.type, options });
+            return { error: null };
+          },
+          async remove(paths) {
+            removed.push(...paths);
+            return { error: null };
+          },
+          getPublicUrl: (path) => ({
+            data: { publicUrl: `https://cdn.test/${path}` },
+          }),
+        };
+      },
     },
     from() {
       let patch;
@@ -179,13 +211,17 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
               };
             calls.push(params);
             const { p_action: action, p_data: data } = params;
-            if (action === 'message' || action === 'poll') {
+            if (['message', 'poll', 'photo'].includes(action)) {
               if (!posts.some((p) => p.id === data.id))
                 posts.push({
                   id: data.id,
                   sequence: posts.length + 1,
                   kind: action,
                   body: data.body,
+                  image_path:
+                    action === 'photo'
+                      ? `${params.p_club}/${params.p_match}/${data.id}.jpg`
+                      : null,
                   options: data.options ?? [],
                   author_name: 'Vous',
                   created_at: new Date().toISOString(),
@@ -308,6 +344,8 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
     type,
     button,
     calls,
+    uploads,
+    removed,
     scoreWrites,
     posts,
     load,
@@ -442,6 +480,84 @@ test('Member: shared scoring, successive undo, remote revision, durable retry an
     await screen.type('#live-court', '3');
     await screen.click('Enregistrer le court');
     assert.equal(screen.match().court, '3');
+  } finally {
+    await screen.dispose();
+  }
+});
+
+test('Member photo: system picker, compressed upload, retry without re-upload, optional caption and file cleanup', async () => {
+  const screen = setup('member', true);
+  const pick = async () => {
+    const input = document.querySelector('input[type="file"]');
+    assert.equal(input.getAttribute('accept'), 'image/*');
+    assert.equal(input.hasAttribute('capture'), false, 'library or camera');
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [new File(['raw'], 'IMG_0001.HEIC', { type: 'image/heic' })],
+    });
+    await act(async () =>
+      input.dispatchEvent(new window.Event('change', { bubbles: true })),
+    );
+    await screen.flush();
+  };
+  try {
+    await screen.mount();
+    await screen.click('Options de publication');
+    assert.deepEqual(
+      [...document.querySelectorAll('.dock-options button')].map((b) =>
+        b.textContent.trim(),
+      ),
+      ['Lancer un sondage', 'Ajouter une photo'],
+      'no quick replies in the menu',
+    );
+    await screen.click('Ajouter une photo');
+    assert.equal(document.querySelector('.dock-options'), null);
+    assert.equal(screen.button('Publier le commentaire').disabled, true);
+    await pick();
+    assert.deepEqual(drawn.at(-1), [1600, 1200], 'resized before upload');
+    assert.ok(document.querySelector('.dock-photo img'));
+    assert.match(
+      document.querySelector('textarea').placeholder,
+      /légende/,
+    );
+    assert.equal(
+      screen.button('Publier le commentaire').disabled,
+      false,
+      'caption is optional',
+    );
+    screen.failNextAccepted();
+    await screen.click('Publier le commentaire');
+    assert.match(document.body.textContent, /Connexion interrompue/);
+    assert.ok(document.querySelector('.dock-photo img'), 'photo kept');
+    await screen.click('Publier le commentaire');
+    assert.equal(screen.uploads.length, 1, 'no second upload on retry');
+    const [upload] = screen.uploads;
+    assert.equal(upload.type, 'image/jpeg');
+    assert.equal(upload.options.upsert, false);
+    const publishes = screen.calls.filter((c) => c.p_action === 'photo');
+    assert.equal(publishes.length, 2);
+    assert.equal(publishes[0].p_data.id, publishes[1].p_data.id);
+    assert.equal(upload.path, `club-a/match-a/${publishes[0].p_data.id}.jpg`);
+    assert.equal(publishes[1].p_data.body, '');
+    assert.equal(document.querySelector('.dock-photo'), null);
+    const img = document.querySelector('.post-photo img');
+    assert.equal(img.getAttribute('src'), `https://cdn.test/${upload.path}`);
+    await screen.click('Supprimer cette photo');
+    assert.deepEqual(screen.removed, [upload.path], 'file removed with post');
+    assert.equal(document.querySelector('.post-photo'), null);
+    await pick();
+    await screen.click('Retirer la photo');
+    assert.equal(document.querySelector('.dock-photo'), null);
+    assert.equal(screen.removed.length, 1, 'nothing uploaded, nothing removed');
+    await pick();
+    await screen.type('textarea', 'Balle de match !');
+    await screen.click('Publier le commentaire');
+    assert.equal(screen.calls.at(-1).p_data.body, 'Balle de match !');
+    assert.equal(document.querySelector('textarea').value, '');
+    assert.match(
+      document.querySelector('.post-photo').parentElement.textContent,
+      /Balle de match !/,
+    );
   } finally {
     await screen.dispose();
   }

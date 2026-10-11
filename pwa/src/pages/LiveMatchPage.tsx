@@ -24,6 +24,13 @@ import LiveSheet from '../components/live/LiveSheet';
 import LiveReactions from '../components/live/LiveReactions';
 import { useReactionBursts } from '../hooks/useReactionBursts';
 import { PollAnswers, PollForm } from '../components/live/LivePoll';
+import {
+  compressPhoto,
+  livePhotoPath,
+  livePhotoUrl,
+  removeLivePhoto,
+  uploadLivePhoto,
+} from '../lib/liveActivity';
 import '../components/live/live.css';
 
 export default function LiveMatchPage() {
@@ -69,6 +76,19 @@ function LiveMatchScreen({
   >(null);
   const [pollId, setPollId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [photo, setPhoto] = useState<{
+    id: string;
+    blob: Blob;
+    preview: string;
+    sent: boolean;
+  } | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
+  const preview = photo?.preview;
+  useEffect(() => {
+    if (preview) return () => URL.revokeObjectURL(preview);
+  }, [preview]);
   const [menu, setMenu] = useState(false);
   const [history, setHistory] = useState<
     { before: Partial<LiveMatch>; revision: number }[]
@@ -156,6 +176,61 @@ function LiveMatchScreen({
     });
     if (success) jumpToLatest();
     else forceFollow.current = false;
+    return success;
+  }
+  async function choosePhoto(file: File | undefined) {
+    if (!file) return;
+    setPhotoError('');
+    setPhotoBusy(true);
+    try {
+      const blob = await compressPhoto(file);
+      discardPhoto();
+      setPhoto({
+        id: crypto.randomUUID(),
+        blob,
+        preview: URL.createObjectURL(blob),
+        sent: false,
+      });
+    } catch (error) {
+      setPhotoError(
+        error instanceof Error ? error.message : 'Photo illisible.',
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+  function discardPhoto() {
+    // Fichier déjà envoyé sans publication aboutie : on ne laisse pas d'orphelin.
+    if (photo?.sent)
+      void removeLivePhoto(livePhotoPath(clubId!, match!.id, photo.id));
+    setPhoto(null);
+  }
+  async function publishPhoto(body: string) {
+    if (!canWrite || !photo) return false;
+    setPhotoError('');
+    if (!photo.sent) {
+      setPhotoBusy(true);
+      try {
+        await uploadLivePhoto(
+          livePhotoPath(clubId!, match!.id, photo.id),
+          photo.blob,
+        );
+        setPhoto({ ...photo, sent: true });
+      } catch (error) {
+        setPhotoError(
+          error instanceof Error ? error.message : 'Envoi impossible.',
+        );
+        return false;
+      } finally {
+        setPhotoBusy(false);
+      }
+    }
+    forceFollow.current = true;
+    const success = await activity.run('photo', { id: photo.id, body });
+    if (success) {
+      setPhoto(null);
+      jumpToLatest();
+    } else forceFollow.current = false;
     return success;
   }
   if (live.loading || authLoading)
@@ -332,18 +407,44 @@ function LiveMatchScreen({
                   {canAnimate && (
                     <button
                       className="icon-button delete-post"
-                      aria-label="Supprimer ce commentaire"
+                      aria-label={
+                        post.kind === 'photo'
+                          ? 'Supprimer cette photo'
+                          : 'Supprimer ce commentaire'
+                      }
                       disabled={activity.busy}
-                      onClick={() => {
-                        if (window.confirm('Supprimer ce commentaire ?'))
-                          void activity.run('delete', { id: post.id });
+                      onClick={async () => {
+                        if (
+                          window.confirm(
+                            post.kind === 'photo'
+                              ? 'Supprimer cette photo ?'
+                              : 'Supprimer ce commentaire ?',
+                          ) &&
+                          (await activity.run('delete', { id: post.id })) &&
+                          post.image_path
+                        )
+                          void removeLivePhoto(post.image_path);
                       }}
                     >
                       ×
                     </button>
                   )}
                 </div>
-                <p>{post.body}</p>
+                {post.image_path && (
+                  <a
+                    className="post-photo"
+                    href={livePhotoUrl(post.image_path)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <img
+                      src={livePhotoUrl(post.image_path)}
+                      alt={post.body || `Photo de ${post.author_name}`}
+                      loading="lazy"
+                    />
+                  </a>
+                )}
+                {post.body && <p>{post.body}</p>}
                 <div className="post-score">
                   Au score de {scoreLabel(post.score) || '0–0'}
                 </div>
@@ -378,29 +479,40 @@ function LiveMatchScreen({
               >
                 <LiveIcon kind="poll" /> Lancer un sondage
               </button>
-              {[
-                'Quel échange ! 🔥',
-                'Ambiance au rendez-vous 👏',
-                'Petite pause ☀️',
-              ].map((text) => (
-                <button
-                  key={text}
-                  onClick={() => {
-                    setDraft(text);
-                    setMenu(false);
-                    input.current?.focus();
-                  }}
-                >
-                  {text}
-                </button>
-              ))}
+              <button
+                disabled={photoBusy || activity.busy}
+                onClick={() => {
+                  setMenu(false);
+                  fileInput.current?.click();
+                }}
+              >
+                <LiveIcon kind="photo" /> Ajouter une photo
+              </button>
+            </div>
+          )}
+          {photo && (
+            <div className="dock-photo">
+              <img src={photo.preview} alt="Photo à publier" />
+              <button
+                type="button"
+                aria-label="Retirer la photo"
+                disabled={photoBusy || activity.busy}
+                onClick={discardPhoto}
+              >
+                ×
+              </button>
             </div>
           )}
           <form
             className="dock-form"
             onSubmit={async (e) => {
               e.preventDefault();
-              if (draft.trim() && (await publish(draft.trim()))) setDraft('');
+              if (
+                photo
+                  ? await publishPhoto(draft.trim())
+                  : draft.trim() && (await publish(draft.trim()))
+              )
+                setDraft('');
             }}
           >
             <button
@@ -413,13 +525,26 @@ function LiveMatchScreen({
             >
               +
             </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              hidden
+              aria-label="Photo du live"
+              onChange={(e) => {
+                void choosePhoto(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
             <textarea
               ref={input}
               aria-label="Commentaire du live"
               placeholder={
-                match.status === 'live'
-                  ? 'Un temps fort du match…'
-                  : 'Le fil est en lecture seule'
+                match.status !== 'live'
+                  ? 'Le fil est en lecture seule'
+                  : photo
+                    ? 'Une légende (facultatif)…'
+                    : 'Un temps fort du match…'
               }
               rows={1}
               maxLength={280}
@@ -430,7 +555,12 @@ function LiveMatchScreen({
             <button
               className="dock-send"
               aria-label="Publier le commentaire"
-              disabled={!canWrite || activity.busy || !draft.trim()}
+              disabled={
+                !canWrite ||
+                activity.busy ||
+                photoBusy ||
+                (!draft.trim() && !photo)
+              }
             >
               ↑
             </button>
@@ -441,9 +571,9 @@ function LiveMatchScreen({
           </div>
         </div>
       )}
-      {activity.actionError && sheet !== 'poll' && (
+      {(photoError || activity.actionError) && sheet !== 'poll' && (
         <p className="live-error action-error" role="alert">
-          {activity.actionError}
+          {photoError || activity.actionError}
         </p>
       )}
       {!showMemberDock && reactionDock}

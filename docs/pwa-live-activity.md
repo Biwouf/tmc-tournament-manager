@@ -24,7 +24,17 @@ se connecter. Tous les utilisateurs connectés, membres et owners compris, peuve
 voter et envoyer les réactions 👏 🔥 💪 ❤️ 😮 🎉 pendant le live.
 Les spectateurs n’ont pas de champ de texte. Les membres disposent du champ
 d’animation et du bouton de réactions au-dessus, même quand le champ s’agrandit.
-Photos et texte des spectateurs restent différés.
+Le texte et les photos des spectateurs restent différés.
+
+Photos (11/10/2026) : « Ajouter une photo », dans le menu « + » du champ
+d’animation, ouvre le menu système du téléphone (photothèque ou prise de vue).
+Ce menu ne contient que le sondage et la photo ; les réponses rapides prérédigées
+ont été retirées. L’image est réduite à
+1600 px de côté et convertie en JPEG avant l’envoi. On peut ajouter une légende
+facultative de 280 caractères maximum. L’aperçu se retire avant publication.
+Si la publication échoue après l’envoi, un nouvel essai réutilise le fichier
+déjà reçu. Retirer l’aperçu ou supprimer la publication supprime aussi le fichier.
+Un appui sur la photo l’ouvre en grand.
 
 Texte : 280 caractères. Sondage : question de 140 caractères, 2 à 4 réponses
 distinctes de 60 caractères. Plusieurs sondages restent ouverts simultanément.
@@ -41,6 +51,13 @@ La préférence système de mouvement réduit masque les animations.
 
 - `live_posts` : messages et sondages dans un fil ordonné par séquence ; auteur
   et score au moment de la publication calculés côté serveur ; suppression logique.
+- `live_posts.image_path` (`2026101102_live_photos.sql`) : type `photo` avec une
+  image obligatoire et une légende de 0 à 280 caractères. Le chemin
+  `<club_id>/<match_id>/<post_id>.jpg` du bucket public `live-images` est
+  recalculé côté serveur, et la commande refuse une photo dont l’objet est absent.
+  Policies Storage : envoi réservé aux membres du club sur un live en cours ;
+  lecture et suppression réservées aux membres, suppression possible seulement
+  quand plus aucune publication visible ne référence l’image.
 - `live_votes` : clé primaire `(post_id, user_id)`, aucune lecture/écriture directe
   autorisée aux clients ; seules les commandes et agrégats sont exposés.
 - `live_reactions` : événements éphémères, accessibles pendant 15 secondes,
@@ -110,6 +127,19 @@ L’agent n’a appliqué aucune migration ni modifié de service distant. L’�
 migrations en production reste à vérifier. L’ancien client BO peut encore
 présenter sa reprise explicite ; cette interface BO n’est pas refondue ici,
 et la base autorise désormais les membres du club.
+
+### Lot photos (11/10/2026)
+
+Appliquer `2026101102_live_photos.sql` en production avant de fusionner la PR.
+La migration crée le bucket `live-images` (public, JPEG, 5 Mo) et ses policies :
+aucune configuration manuelle au dashboard. Elle redéfinit entièrement
+`live_activity_command` et `live_activity_page` : toute autre branche qui les
+modifie doit repartir de cette version. C'est le cas de `fix/live-reactions-throttle`,
+livrée après ce lot : sa migration doit être renumérotée après `2026101102` et garder
+l'action `photo`.
+Dette : les images d’un live supprimé (cascade sur `live_posts`) restent dans le
+bucket. Recette : photo depuis la pellicule et prise de vue en direct sur iOS
+et Android, photo HEIC d’iPhone, réseau lent, suppression.
 
 ## Validation
 
