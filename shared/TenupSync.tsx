@@ -31,10 +31,11 @@ export default function TenupSync(props: TenupSyncProps) {
     const existing = props.lines.find(l => l.match_type === line.match_type && l.slot === line.slot);
     const club = side === 1 ? line.players_b : line.players_a;
     const adverse = side === 1 ? line.players_a : line.players_b;
-    const compositionConflict = existing && (identity(existing.joueurs_club) !== identity(club) || identity(existing.joueurs_adverse) !== identity(adverse));
-    const preserve = !!existing && (!!existing.live_match_id || existing.score !== null || !!existing.gagnant || !!existing.confirmed_at || !!existing.sets?.length || compositionConflict);
+    const compositionConflict = !!existing && (identity(existing.joueurs_club) !== identity(club) || identity(existing.joueurs_adverse) !== identity(adverse));
     const score = line.sets.map(s => side === 1 ? `${s.b}-${s.a}` : `${s.a}-${s.b}`).join(' ');
-    return { line, club, adverse, preserve, existing, score, compositionConflict };
+    // Ten'Up fait foi : tout ce qui diffère est remplacé.
+    const replace = !!existing && (compositionConflict || !!existing.live_match_id || (existing.score !== null && existing.score !== score));
+    return { line, club, adverse, replace, existing, score, compositionConflict };
   }) ?? [];
   const run = async (action: () => Promise<void>) => {
     if (busyRef.current) return;
@@ -47,9 +48,9 @@ export default function TenupSync(props: TenupSyncProps) {
     <button type="button" className="min-h-11 w-full rounded-lg border border-primary px-4 py-2 font-semibold text-primary disabled:opacity-50" disabled={busy}
       aria-expanded={open} onClick={() => { setOpen(!open); setError(''); }}>Synchroniser depuis Ten’Up</button>
     {props.syncedAt && <p className="mt-2 text-xs text-muted-foreground">Synchronisé depuis <a className="underline" href={props.sourceUrl ?? undefined} target="_blank" rel="noreferrer">Ten’Up</a> le {new Date(props.syncedAt).toLocaleString('fr-FR')}.</p>}
-    {result && <p role="status" className="mt-3 text-sm">{result.imported} résultat(s) importé(s), {result.preserved} match(s) conservé(s). {result.confirmed ? 'Rencontre confirmée.' : 'Vérifiez les résultats conservés avant de confirmer la rencontre.'}</p>}
+    {result && <p role="status" className="mt-3 text-sm">{result.imported} résultat(s) importé(s) depuis Ten’Up. {result.confirmed ? 'Rencontre confirmée.' : 'Vérifiez les résultats avant de confirmer la rencontre.'}</p>}
     {open && <div className="mt-4 space-y-4">
-      <p className="text-sm text-muted-foreground">Récupérez les résultats publiés après la rencontre. Les scores et les suivis déjà saisis seront conservés.</p>
+      <p className="text-sm text-muted-foreground">Récupérez les résultats publiés après la rencontre. Ten’Up fait foi : compositions, scores, date et adversaire déjà saisis (y compris en live) seront remplacés.</p>
       <form className="space-y-3" onSubmit={e => { e.preventDefault(); void run(async () => { setPreview(null); setChecked(false); setResult(null); setSide(props.sourceSide ?? null); setPreview(await props.preview(props.sourceUrl ?? url)); }); }}>
         <label className="block text-sm font-medium">Lien de la rencontre Ten’Up
           <input required type="url" maxLength={500} value={props.sourceUrl ?? url} readOnly={!!props.sourceUrl} disabled={busy}
@@ -63,7 +64,7 @@ export default function TenupSync(props: TenupSyncProps) {
         <h3 className="font-semibold">{preview.teams[0]} — {preview.teams[1]}</h3>
         <p className="text-sm">Ten’Up : {preview.date.split('-').reverse().join('/')} · Score {preview.scores.join(' – ')}</p>
         <p className="text-sm">Votre rencontre : {props.clubName} — {props.opponent} · {new Date(props.date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}</p>
-        {dateMismatch && <p role="alert" className="text-sm text-red-700">Les dates diffèrent. Vérifiez le lien ou corrigez la date de la rencontre avant l’import.</p>}
+        {dateMismatch && <p role="alert" className="text-sm text-amber-800">Les dates diffèrent : la date Ten’Up remplacera celle de la rencontre (heure conservée). Vérifiez qu’il s’agit bien de la bonne rencontre.</p>}
         <fieldset disabled={busy || props.sourceSide != null} className="space-y-2"><legend className="mb-2 text-sm font-semibold">Quelle équipe représente votre club ?</legend>
           {preview.teams.map((team, index) => <label key={index} className="flex min-h-11 items-center gap-3 rounded-lg border border-border p-3 text-sm">
             <input type="radio" name={`tenup-side-${preview.id}`} checked={side === index} onChange={() => { setSide(index); setChecked(false); }} />{team}
@@ -71,16 +72,16 @@ export default function TenupSync(props: TenupSyncProps) {
         </fieldset>
         {side !== null && <>
           <p className="text-sm text-muted-foreground">Scores présentés dans l’ordre : votre club — adversaire.</p>
-          <ul className="space-y-3">{plan.map(({ line, club, adverse, preserve, existing, score, compositionConflict }) => <li key={`${line.match_type}-${line.slot}`} className="rounded-lg border border-border p-3 text-sm">
-            <p className="font-semibold">{line.match_type === 'simple' ? 'Simple' : 'Double'} {line.slot} · {preserve ? 'Conservé' : 'À importer'}</p>
+          <ul className="space-y-3">{plan.map(({ line, club, adverse, replace, existing, score, compositionConflict }) => <li key={`${line.match_type}-${line.slot}`} className="rounded-lg border border-border p-3 text-sm">
+            <p className="font-semibold">{line.match_type === 'simple' ? 'Simple' : 'Double'} {line.slot} · {replace ? 'À remplacer' : 'À importer'}</p>
             <p>{names(club)}</p><p className="text-muted-foreground">{names(adverse)}</p>
             <p className="mt-1 font-semibold">Ten’Up : {score}</p>
-            {preserve && <p className="mt-1 text-amber-800">{compositionConflict ? 'Composition différente.' : existing?.live_match_id ? 'Un suivi live existe.' : `Résultat existant : ${existing?.score ?? 'déjà validé'}.`} Aucune modification de ce match.</p>}
+            {replace && existing && <p className="mt-1 text-amber-800">Remplace : {compositionConflict ? `${names(existing.joueurs_club)} — ${names(existing.joueurs_adverse)}` : existing.live_match_id ? 'le suivi live' : 'le résultat'}{existing.score ? ` (${existing.score})` : ''}.</p>}
           </li>)}</ul>
-          <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" disabled={busy || dateMismatch} checked={checked} onChange={e => setChecked(e.target.checked)} />J’ai vérifié les équipes, la date et les résultats de cette rencontre.</label>
-          <button type="button" disabled={busy || !checked || dateMismatch} className="min-h-12 w-full rounded-lg bg-primary p-3 font-semibold text-primary-foreground disabled:opacity-50"
+          <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" disabled={busy} checked={checked} onChange={e => setChecked(e.target.checked)} />J’ai vérifié les équipes, la date et les résultats de cette rencontre.</label>
+          <button type="button" disabled={busy || !checked} className="min-h-12 w-full rounded-lg bg-primary p-3 font-semibold text-primary-foreground disabled:opacity-50"
             onClick={() => void run(async () => { const data = await props.apply(preview.id, side); setResult(data); setPreview(null); setOpen(false); props.onSynced(); })}>
-            Importer les résultats manquants ({plan.filter(p => !p.preserve).length})
+            Importer les résultats Ten’Up ({plan.length})
           </button>
         </>}
       </div>}

@@ -61,6 +61,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Référentiel** (carte « Saisons & équipes » sur l'accueil) : saisons (une seule active à la fois), compétitions (nom, type adultes/jeunes, genre, catégorie d'âge libre — ex. « +70 ans », suggestions proposées et déduite du nom au préremplissage Ten'Up —, format) et équipes (création/suppression)
 - Une compétition peut être marquée **« terminée »** : elle quitte la grille active pour une section repliée, sans disparaître
 - **Équipes** par compétition : division, nombre de journées de poule (les journées sont générées automatiquement)
+- **Synchronisation Ten'Up** d'une rencontre : la feuille officielle fait foi et **écrase tout** — compositions, classements, scores (y compris saisis en live), date et nom de l'adversaire ; la rencontre est confirmée
 - **Phase de poule** puis **phases finales** : qualification d'une équipe avec stade de départ (les stades 1/16 → finale sont générés automatiquement)
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre

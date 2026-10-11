@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { coursesFixtureSQL, id } from './helpers/courses-fixture.mjs';
 const migration = async name => readFile(new URL(`../supabase/migrations/${name}.sql`, import.meta.url),'utf8');
 
-test('Ten’Up import is atomic, tenant scoped, idempotent and preserves existing results', async () => {
+test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existing data', async () => {
  const db=new PGlite();
  try {
   await db.exec(coursesFixtureSQL);
@@ -50,6 +50,10 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and preserves existin
 
   await db.exec('CREATE ROLE service_role');
   await db.exec(await migration('2026092901_tenup_sync'));
+  await db.exec(await migration('2026093001_live_activity'));
+  await db.exec(await migration('2026093002_team_live_shared_scoring'));
+  await db.exec(await migration('2026100401_no_retry_errcodes'));
+  await db.exec(await migration('2026101106_tenup_overwrite'));
   await db.exec(`UPDATE team_competitions SET format='3S1D' WHERE id='${id(11)}'`);
   const url='https://tenup.fft.fr/championnat/1/division/2/phase/3/poule/4/rencontre/5';
   const begin=(source=url,user=103,club=id(1))=>as(user,'SELECT team_tenup_begin($1,$2,$3) AS value',[club,id(14),source]).then(r=>r[0].value.id);
@@ -70,8 +74,6 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and preserves existin
   await attach(pid,{...sheet,scores:[3,1]});
   await assert.rejects(apply(pid),/total Ten’Up/);
   assert.equal((await db.query('SELECT count(*)::int AS n FROM team_match_lines')).rows[0].n,0,'all inserts rolled back when the total differs');
-  await attach(pid,{...sheet,date:'2026-09-22'});
-  await assert.rejects(apply(pid),/date Ten’Up/);
   await attach(pid,{...sheet,lines:sheet.lines.slice(0,3)});
   await assert.rejects(apply(pid),/format Ten’Up/);
   const broken=structuredClone(sheet);broken.lines[3].sets=[{a:6,b:5}];
@@ -87,9 +89,20 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and preserves existin
   assert.equal(r.score_club,4);assert.equal(r.score_adverse,0);assert.ok(r.confirmed_at);assert.ok(r.tenup_synced_at);assert.equal(r.tenup_url,url);
   await assert.rejects(as(101,'UPDATE team_rencontres SET tenup_url=NULL WHERE id=$1',[id(14)]),/source/);
   const history=(await db.query('SELECT count(*)::int AS n FROM team_match_history')).rows[0].n;
-  pid=await begin();await attach(pid);
-  assert.equal((await apply(pid)).preserved,4);
-  assert.equal((await db.query('SELECT count(*)::int AS n FROM team_match_history')).rows[0].n,history,'a new import never rewrites existing results');
+  // Ten'Up is authoritative: a new import rewrites results, compositions and date.
+  const corrected=structuredClone(sheet);corrected.date='2026-09-22';corrected.scores=[3,1];corrected.lines[0].sets=[{a:2,b:6},{a:3,b:6}];
+  corrected.lines[1].players_a=[{prenom:'Alicia',nom:'Officielle',classement:'15/5'}];
+  await db.exec(`UPDATE team_match_lines SET joueurs_club='[{"prenom":"Alice","nom":"Club","classement":"30","member_id":"${id(103)}"}]' WHERE slot=3 AND match_type='simple'`);
+  pid=await begin();await attach(pid,corrected);
+  assert.deepEqual(await apply(pid),{imported:4,preserved:0,notes:[],confirmed:true});
+  assert.ok((await db.query('SELECT count(*)::int AS n FROM team_match_history')).rows[0].n>history,'a new import rewrites existing results');
+  r=(await db.query(`SELECT *,to_char(date_heure AT TIME ZONE 'Europe/Paris','YYYY-MM-DD HH24:MI') AS local FROM team_rencontres`)).rows[0];
+  assert.equal(r.local,'2026-09-22 09:00','Ten’Up date replaces the day and keeps the hour');
+  assert.equal(r.score_club,3);assert.equal(r.score_adverse,1);assert.ok(r.confirmed_at);
+  let lines=(await db.query("SELECT * FROM team_match_lines WHERE match_type='simple' ORDER BY slot")).rows;
+  assert.equal(lines[0].score,'2-6 3-6');assert.equal(lines[0].gagnant,'adverse');
+  assert.deepEqual(lines[1].joueurs_club,[{prenom:'Alicia',nom:'Officielle',classement:'15/5'}]);
+  assert.equal(lines[2].joueurs_club[0].member_id,id(103),'member link kept for the same player');
   await assert.rejects(begin(url.replace('/5','/6')),/autre lien/);
   pid=await begin();await attach(pid);
   await db.exec(`UPDATE team_rencontres SET club_adverse='Autre' WHERE id='${id(14)}'`);
@@ -102,8 +115,8 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and preserves existin
   await db.exec(`UPDATE clubs SET status='active' WHERE id='${id(1)}'`);
   await db.query("UPDATE team_tenup_previews SET expires_at=now()-interval '1 minute' WHERE id=$1",[pid]);
   await assert.rejects(apply(pid),/expiré/);
-  // Reversed home/away and partial follow-up: free matching composition receives
-  // its score; a different composition and linked live are never overwritten.
+  // Reversed home/away: a different composition, a linked live and an existing
+  // result are all overwritten by the official sheet.
   await db.exec('DELETE FROM team_match_lines; DELETE FROM team_tenup_previews');
   await db.exec(`UPDATE team_rencontres SET tenup_url=NULL,tenup_side=NULL WHERE id='${id(14)}'`);
   const create=async(slot,players=b)=>(await as(103,'SELECT team_match_command($1,$2,$3,$4,$5) AS value',[id(1),id(14),'create',{match_type:'simple',slot,joueurs_club:players,joueurs_adverse:a},randomUUID()]))[0].value;
@@ -112,17 +125,22 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and preserves existin
   const third=await create(3);
   await as(103,'SELECT team_match_command($1,$2,$3,$4,$5)',[id(1),id(14),'start_live',{id:third.id,revision:0},randomUUID()]);
   pid=await begin();await attach(pid);
-  const partial=await apply(pid,1);
-  assert.equal(partial.imported,2);assert.equal(partial.preserved,2);assert.equal(partial.confirmed,false);
+  const full=await apply(pid,1);
+  assert.deepEqual(full,{imported:4,preserved:0,notes:[],confirmed:true});
   assert.equal((await db.query('SELECT score FROM team_match_lines WHERE id=$1',[first.id])).rows[0].score,'2-6 3-6');
-  assert.equal((await db.query('SELECT status FROM live_matches')).rows[0].status,'live');
-  r=(await db.query('SELECT * FROM team_rencontres')).rows[0];assert.equal(r.confirmed_at,null);
-  // Global scores entered without detailed lines are also protected.
+  lines=(await db.query("SELECT * FROM team_match_lines WHERE match_type='simple' ORDER BY slot")).rows;
+  assert.deepEqual(lines[1].joueurs_club,b,'a different composition is replaced');
+  assert.equal(lines[2].score,'2-6 3-6');
+  const live=(await db.query('SELECT * FROM live_matches')).rows[0];
+  assert.equal(live.status,'finished');assert.equal(live.winner,'j2');assert.equal(live.set1_j1,2);assert.equal(live.team_result_confirmed,true);
+  assert.equal(live.j1_prenom,'Bob');assert.equal(live.j2_prenom,'Alice');assert.equal(live.j2_club,'Club 1');
+  r=(await db.query('SELECT * FROM team_rencontres')).rows[0];assert.ok(r.confirmed_at);assert.equal(r.club_adverse,'Club 1','Ten’Up opponent name replaces the local one');
+  // A global score entered without detailed lines is replaced as well.
   await db.exec('DELETE FROM team_match_lines');
   await db.exec(`UPDATE team_rencontres SET tenup_url=NULL,tenup_side=NULL,score_club=2,score_adverse=2 WHERE id='${id(14)}'`);
   await resetRate();pid=await begin();await attach(pid);
-  await assert.rejects(apply(pid),/score global différent/);
-  assert.equal((await db.query('SELECT count(*)::int AS n FROM team_match_lines')).rows[0].n,0);
+  await apply(pid);
+  r=(await db.query('SELECT * FROM team_rencontres')).rows[0];assert.equal(r.score_club,4);assert.equal(r.score_adverse,0);
   await db.exec(`UPDATE team_rencontres SET tenup_url='${url}',tenup_side=1 WHERE id='${id(14)}'`);
   // A duplicate association within one club is refused.
   await db.exec(`INSERT INTO team_etapes(id,equipe_id,phase,numero_journee) VALUES('${id(16)}','${id(12)}','poule',2); INSERT INTO team_rencontres(id,etape_id,club_adverse,date_heure,domicile) VALUES('${id(15)}','${id(16)}','X','2026-09-23',true)`);
