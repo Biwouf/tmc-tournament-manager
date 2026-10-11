@@ -5,7 +5,7 @@ import type { TeamCompetition, TeamEquipe, TeamEtape, TeamMatchLine, TeamRencont
 import { competitionLabel, etapeLabel } from '../teamMatchLabels';
 import PhotoFocusPicker from './PhotoFocusPicker';
 import { finalResult } from './resultPoster';
-import { renderResultPoster, type ResultPosterInput } from './renderResultPoster';
+import { renderResultPoster, resultPosterFooterHeight, type ResultPosterInput } from './renderResultPoster';
 
 interface Props {
   rencontre: TeamRencontre;
@@ -47,7 +47,7 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
     heading: competitionLabel(competition), stage: `Équipe ${equipe.numero} · ${etapeLabel(etape)}`,
   }), [rencontre, lines, config, result, model, photo, crop, club, competition, equipe.numero, etape]);
   const partnerCount = config.partners.filter(partner => partner.logo || partner.name).length;
-  const frameHeight = 1350 - Math.max(190, 76 + Math.ceil(partnerCount / 4) * 92) - 150;
+  const frameHeight = 1350 - resultPosterFooterHeight(partnerCount) - 150;
   const needsPhoto = model === 'photo' && !photo;
   useEffect(() => {
     if (loading || needsPhoto) return;

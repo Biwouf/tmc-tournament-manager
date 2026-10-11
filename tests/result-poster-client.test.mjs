@@ -16,7 +16,7 @@ const club = { name: 'Club' };
 const mocks = {
   '/contexts/ClubContext.tsx': { useClub: () => ({ club }) },
   '/hooks/useClubConfig.ts': { useClubConfig: () => ({ config, loading: false }) },
-  '/poster/renderResultPoster.ts': { renderResultPoster: input => new Promise((resolve, reject) => pending.push({ input, resolve, reject })) },
+  '/poster/renderResultPoster.ts': { resultPosterFooterHeight: () => 190, renderResultPoster: input => new Promise((resolve, reject) => pending.push({ input, resolve, reject })) },
 };
 const modules = new Map();
 function load(file) {
