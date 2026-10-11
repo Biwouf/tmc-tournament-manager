@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LiveMatch } from '../../types';
 import { lineLabel, liveSets, playerLabel, resultWinner, setWinner, type TeamLine, type TeamSet } from '../../lib/teamMatches';
 import { useTeamAction } from '../../hooks/useTeamAction';
 import TeamSheet from './TeamSheet';
 
 type Kind = 'normal' | 'wo' | 'retired';
+// Saisie terminée : un chiffre pour un set ; pour le super tie-break, « 1 » peut encore
+// devenir 10, 11… On attend alors le chiffre suivant (perdre 1–10 demande un tap manuel).
+const isComplete = (value: string, superTb: boolean) =>
+  value !== '' && (!superTb || value.length >= 2 || value !== '1');
 export default function TeamResultSheet({ line, live, clubId, onClose }: {
   line: TeamLine; live?: LiveMatch; clubId: string; onClose: () => void;
 }) {
@@ -19,6 +23,17 @@ export default function TeamResultSheet({ line, live, clubId, onClose }: {
   })));
   const [specialWinner, setSpecialWinner] = useState<'club' | 'adverse' | ''>(base.line.gagnant ?? (base.live?.winner === 'j1' ? 'club' : base.live?.winner === 'j2' ? 'adverse' : ''));
   const action = useTeamAction(clubId, line.rencontre_id);
+  // Champs dans l'ordre de saisie : set 1 club, set 1 adversaire, set 2 club…
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const focusNext = useRef<number | null>(null);
+  // Champ pas encore affiché (3e set, qui n'apparaît qu'une fois les deux premiers
+  // partagés) : focus après le rendu, sinon fin de saisie et fermeture du clavier.
+  useEffect(() => {
+    if (focusNext.current === null) return;
+    const next = inputs.current[focusNext.current];
+    focusNext.current = null;
+    if (next) next.focus(); else (document.activeElement as HTMLElement | null)?.blur();
+  });
   const parsed = values.map(v => ({ ...v, club: v.club === '' ? NaN : Number(v.club), adverse: v.adverse === '' ? NaN : Number(v.adverse) }));
   const split = !!setWinner(parsed[0]) && !!setWinner(parsed[1]) && setWinner(parsed[0]) !== setWinner(parsed[1]);
   const count = split ? 3 : 2;
@@ -27,7 +42,15 @@ export default function TeamResultSheet({ line, live, clubId, onClose }: {
   const validNumbers = used.every(s => [s.club, s.adverse].every(n => Number.isInteger(n) && n >= 0 && n <= 32767));
   const winner = kind === 'normal' ? resultWinner(used, base.line.set3_format) : specialWinner;
   const canSubmit = !!winner && validNumbers;
-  const update = (i: number, side: 'club' | 'adverse', value: string) => setValues(old => old.map((v, n) => n === i ? { ...v, [side]: value, tb_club: undefined, tb_adverse: undefined } : v));
+  const update = (i: number, side: 'club' | 'adverse', value: string) => {
+    const superTb = i === 2 && base.line.set3_format === 'super_tiebreak';
+    if (value.length > values[i][side].length && isComplete(value, superTb)) {
+      const index = i * 2 + (side === 'club' ? 1 : 2);
+      const next = inputs.current[index];
+      if (next) next.focus(); else focusNext.current = index;
+    }
+    setValues(old => old.map((v, n) => n === i ? { ...v, [side]: value, tb_club: undefined, tb_adverse: undefined } : v));
+  };
   const submit = async () => {
     if (!canSubmit) return;
     const sets: TeamSet[] = used.map(s => ({ club: s.club, adverse: s.adverse, tb_club: s.tb_club ?? null, tb_adverse: s.tb_adverse ?? null }));
@@ -47,6 +70,7 @@ export default function TeamResultSheet({ line, live, clubId, onClose }: {
       {values.slice(0, count).map((v, i) => <fieldset key={i} className="mb-3 rounded-xl border border-border p-3">
         <legend className="px-2 text-sm">{i === 2 && line.set3_format === 'super_tiebreak' ? 'Super tie-break · 10 points' : `Set ${i + 1}`}</legend>
         <div className="grid grid-cols-2 gap-3">{(['club', 'adverse'] as const).map(side => <input key={side} type="number" inputMode="numeric" min="0" max={i === 2 && line.set3_format === 'super_tiebreak' ? 32767 : 7} step="1"
+          ref={el => { inputs.current[i * 2 + (side === 'club' ? 0 : 1)] = el; }} onFocus={e => e.target.select()}
           aria-label={`${side === 'club' ? 'Club' : 'Adversaire'} · set ${i + 1}`} value={v[side]} onChange={e => update(i, side, e.target.value)}
           className="min-h-12 w-full rounded-lg border border-border bg-background text-center text-xl font-semibold" />)}</div>
         {v.tb_club != null && v.tb_adverse != null && <p className="mt-2 text-center text-xs text-muted-foreground">Tie-break : {v.tb_club}–{v.tb_adverse}</p>}
