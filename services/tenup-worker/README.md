@@ -11,11 +11,14 @@ aucun secret et ne peut pas modifier le contenu qui sera importé.
 L’équipe 0 est la première de la feuille, l’équipe 1 la seconde. L’utilisateur doit
 explicitement choisir son équipe et vérifier les deux clubs et la date dans l’aperçu.
 L’association est ensuite fixe et unique par club. Le serveur compare la date locale
-Europe/Paris, le format, les places, les scores et le barème. Tout le lot est atomique.
-Les résultats existants, les matchs liés au Live et les compositions différentes sont
-conservés. Une modification concurrente invalide l’aperçu. La réponse perdue peut être
-redemandée avec le même identifiant sans double import. Un import complet confirme la
-rencontre ; un import partiel laisse la vérification habituelle aux membres.
+Le serveur vérifie le format, les places, les scores et le barème. Tout le lot est atomique.
+**Ten’Up fait foi** (depuis le 11/10/2026, `2026101106_tenup_overwrite.sql`) : la feuille
+officielle écrase composition, classements et score de chaque match — y compris un résultat
+déjà saisi ou un match lié au Live, qui reçoit les mêmes noms et le score officiel —, la date
+de la rencontre (heure de Paris conservée) et le nom de l’adversaire. Le lien d’un joueur à
+un membre du club est gardé quand c’est le même joueur. Une modification concurrente
+invalide l’aperçu. La réponse perdue peut être redemandée avec le même identifiant sans
+double import. L’import confirme toujours la rencontre.
 
 ## Lancer en local
 
@@ -98,8 +101,8 @@ Documentation : [Protection Bypass for Automation](https://vercel.com/docs/deplo
   par minute et par utilisateur. La lecture expire en moins de 50 secondes.
 - Les aperçus de plus d’un jour sont purgés lors de la prochaine demande du même
   utilisateur. Le quota compte aussi les échecs, pour éviter les rafales de requêtes.
-- Le résultat importé ne fabrique pas de suivi point par point. Les corrections d’un
-  résultat déjà saisi restent dans le parcours manuel ; elles ne sont pas écrasées.
+- Le résultat importé ne fabrique pas de suivi point par point. Une resynchronisation
+  écrase les corrections manuelles faites depuis : Ten’Up reste la référence.
 
 ## Vérifications
 

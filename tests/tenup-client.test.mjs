@@ -43,11 +43,13 @@ test('shared BO/PWA flow requires side and review, handles protected scores, err
   await click(button('Synchroniser depuis'));
   await act(async()=>root.render(React.createElement(TenupSync,{...props,lines:[{match_type:'simple',slot:1,score:'3-6 4-6',gagnant:'adverse',live_match_id:null,confirmed_at:'date',joueurs_club:other,joueurs_adverse:players}]})));
   await submit();await click(document.querySelectorAll('input[type=radio]')[1]);
-  assert.match(document.body.textContent,/Résultat existant : 3-6 4-6/);
-  assert.match(button('Importer les résultats').textContent,/\(0\)/);
+  assert.match(document.body.textContent,/À remplacer/);
+  assert.match(document.body.textContent,/Remplace : .*\(3-6 4-6\)/);
+  assert.match(button('Importer les résultats').textContent,/\(1\)/);
   await act(async()=>root.render(React.createElement(TenupSync,{...props,date:'2026-09-28T09:00:00+02:00'})));
-  assert.match(document.querySelector('[role=alert]').textContent,/dates diffèrent/);
-  assert.equal(button('Importer les résultats').disabled,true);
+  assert.match(document.querySelector('[role=alert]').textContent,/date Ten’Up remplacera/);
+  await click(document.querySelector('input[type=checkbox]'));
+  assert.equal(button('Importer les résultats').disabled,false,'a different date no longer blocks the import');
  } finally {
   await act(async()=>root.unmount());dom.window.close();
   for(const [key,value] of descriptors) { if(value)Object.defineProperty(globalThis,key,value);else delete globalThis[key]; }
