@@ -4,8 +4,9 @@ import type { LiveMatch } from '../types';
 export type LivePost = {
   id: string;
   sequence: number;
-  kind: 'message' | 'poll';
+  kind: 'message' | 'poll' | 'photo';
   body: string;
+  image_path: string | null;
   author_name: string;
   created_at: string;
   score: Partial<LiveMatch>;
@@ -67,4 +68,41 @@ export async function activityCommand(
     .abortSignal(AbortSignal.timeout(15000));
   if (error) throw new Error(error.message);
   return data as { id: string };
+}
+
+const LIVE_IMAGES = 'live-images';
+const MAX_SIDE = 1600;
+export const livePhotoPath = (club: string, match: string, post: string) =>
+  `${club}/${match}/${post}.jpg`;
+export const livePhotoUrl = (path: string) =>
+  supabase.storage.from(LIVE_IMAGES).getPublicUrl(path).data.publicUrl;
+/** Réduit la photo (1600 px de côté max) et la convertit en JPEG, orientation EXIF appliquée. */
+export async function compressPhoto(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file, {
+    imageOrientation: 'from-image',
+  }).catch(() => {
+    throw new Error('Choisissez une image.');
+  });
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, 'image/jpeg', 0.82),
+  );
+  if (!blob) throw new Error('Photo illisible.');
+  return blob;
+}
+export async function uploadLivePhoto(path: string, photo: Blob) {
+  const { error } = await supabase.storage
+    .from(LIVE_IMAGES)
+    .upload(path, photo, { contentType: 'image/jpeg', upsert: false });
+  // 409 : déjà reçue lors d'une tentative interrompue, le chemin est unique par publication.
+  if (error && !('statusCode' in error && error.statusCode === '409'))
+    throw new Error('Envoi de la photo impossible.');
+}
+export async function removeLivePhoto(path: string) {
+  await supabase.storage.from(LIVE_IMAGES).remove([path]);
 }

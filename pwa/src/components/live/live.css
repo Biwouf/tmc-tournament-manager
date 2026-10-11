@@ -258,6 +258,38 @@ button.live-note {
 .post-score {
   margin-left: 35px;
 }
+.post-photo {
+  display: block;
+  margin: 8px 0 6px 35px;
+}
+.post-photo img {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.dock-photo {
+  position: relative;
+  width: fit-content;
+  margin: 0 0 8px 52px;
+}
+.dock-photo img {
+  display: block;
+  height: 72px;
+  border-radius: 10px;
+}
+.dock-photo button {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #27202a;
+  color: white;
+  font-size: 16px;
+}
 .poll-summary {
   display: flex;
   align-items: center;

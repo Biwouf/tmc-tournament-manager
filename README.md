@@ -41,6 +41,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Possibilité d'annuler la fin de match pour corriger une erreur de saisie
 - Table `live_matches` exposée via Supabase Realtime
 - Disponible aussi côté PWA : connexion avec un compte BO → création de match, démarrage/reprise/libération d'un live, suivi du score, suppression. Un live a un gestionnaire (champ `scored_by`) ; un autre utilisateur authentifié peut **prendre le contrôle** après confirmation (warning avec le nom du gestionnaire actuel) — le précédent gestionnaire, s'il est sur la page de saisie, voit un bandeau l'avertir et bascule en lecture seule via Realtime.
+- PWA — fil du live : les membres du club publient des messages, des sondages et des **photos** (pellicule ou prise de vue en direct, légende facultative) ; les spectateurs connectés votent et réagissent.
 
 ### Actus
 - Rédaction d'actualités du club avec contenu en Markdown (aperçu intégré)
