@@ -41,6 +41,7 @@ export default function TeamRencontrePage() {
   const spec = TEAM_FORMATS[competition.format];
   const completed = lines.filter(l => l.confirmed_at && l.gagnant).length;
   const expected = spec.simples + spec.doubles;
+  const ready = completed === expected && lines.length === expected;
   const total = lines.reduce((score, line) => {
     const live = lives.find(m => m.id === line.live_match_id);
     const winner = line.gagnant ?? (live?.status === 'finished' ? live.winner === 'j1' ? 'club' : live.winner === 'j2' ? 'adverse' : null : null);
@@ -98,8 +99,9 @@ export default function TeamRencontrePage() {
     })}</div>
     {canEdit && !rencontre.wo && <>
       {lines.length < expected && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">Ajouter un match</button>}
-      {!rencontre.confirmed_at && <button disabled={completed !== expected || lines.length !== expected} onClick={() => setRecap({ revision: rencontre.revision, lines })}
-        className="min-h-12 w-full rounded-xl border border-primary p-3 font-semibold text-primary disabled:opacity-40">Vérifier et confirmer la rencontre</button>}
+      {!rencontre.confirmed_at && ready && <p className="text-sm font-medium">Tous les résultats sont saisis. Vérifiez les scores puis confirmez la rencontre.</p>}
+      {!rencontre.confirmed_at && <button disabled={!ready} onClick={() => setRecap({ revision: rencontre.revision, lines })}
+        className={`min-h-12 w-full rounded-xl border border-primary p-3 font-semibold disabled:opacity-40 ${ready ? 'bg-primary text-primary-foreground' : 'text-primary'}`}>Vérifier et confirmer la rencontre</button>}
       {rencontre.confirmed_at && <p className="text-sm text-muted-foreground">Chaque membre peut corriger un résultat. La rencontre sera alors à confirmer à nouveau.</p>}
     </>}
     {creating && clubId && <CreateTeamMatch detail={detail} clubId={clubId} onClose={close} />}
@@ -107,7 +109,7 @@ export default function TeamRencontrePage() {
       {selection.line.set3_format ? <div className="space-y-3">
         <p className="text-sm text-muted-foreground">3e set : {selection.line.set3_format === 'super_tiebreak' ? 'super tie-break' : 'set classique'} · règle conservée pour ce match</p>
         <button disabled={action.busy || selection.line.result_kind === 'wo'} onClick={() => void start()} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground disabled:opacity-40">{selection.live ? 'Gérer dans l’onglet Live →' : 'Suivre en live'}</button>
-        <button disabled={action.busy} onClick={() => setSelection({ ...selection, mode: 'result' })} className="min-h-12 w-full rounded-xl border border-border p-3 font-semibold">{selection.live?.status === 'finished' ? 'Valider le résultat' : 'Saisir le résultat'}</button>
+        <button disabled={action.busy} onClick={() => setSelection({ ...selection, mode: 'result' })} className="min-h-12 w-full rounded-xl border border-border p-3 font-semibold">{selection.line.confirmed_at ? 'Modifier le résultat' : selection.live?.status === 'finished' ? 'Valider le résultat' : 'Saisir le résultat'}</button>
       </div> : <div className="space-y-3">
         <p className="text-sm">La règle de ce match historique n’est pas connue. Précisez-la avant de le suivre ou de vérifier son résultat.</p>
         {selection.line.match_type === 'simple' && <button disabled={action.busy} className="min-h-11 w-full rounded-lg border border-border p-3" onClick={() => void chooseRule('normal')}>Troisième set classique</button>}

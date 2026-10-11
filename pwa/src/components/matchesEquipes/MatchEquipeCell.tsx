@@ -15,8 +15,13 @@ interface Props {
 const JOURS = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
 const MOIS = ['JANV', 'FÉVR', 'MARS', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
 
+// 0–0 hors WO = aucun résultat saisi (match nul impossible à 0 point).
+function hasScore(r: TeamRencontre): boolean {
+  return r.score_club != null && r.score_adverse != null && (r.wo || r.score_club + r.score_adverse > 0);
+}
+
 function outcome(r: TeamRencontre): 'win' | 'lose' | 'draw' | null {
-  if (r.score_club == null || r.score_adverse == null) return null;
+  if (r.score_club == null || r.score_adverse == null || !hasScore(r)) return null;
   if (r.score_club > r.score_adverse) return 'win';
   if (r.score_club < r.score_adverse) return 'lose';
   return 'draw';
@@ -123,7 +128,14 @@ export default function MatchEquipeCell({ rencontre, equipe, competition, etape,
         </div>
       ) : isPending ? (
         <div className="flex flex-col items-center justify-center gap-1 bg-muted px-1 text-center text-muted-foreground">
-          <span className="text-[10px] font-semibold">En attente</span>
+          {hasScore(rencontre) ? (
+            <>
+              <span className="text-[26px] font-black tabular-nums leading-none text-foreground">{rencontre.score_club}<span className="opacity-55">–</span>{rencontre.score_adverse}</span>
+              <span className="text-[9px] font-medium">Provisoire</span>
+            </>
+          ) : (
+            <span className="text-[10px] font-semibold">En attente</span>
+          )}
           <span className="text-[9px]">{rencontre.domicile ? 'Au club' : 'Extérieur'}</span>
         </div>
       ) : isUpcoming ? (

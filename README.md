@@ -76,7 +76,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 ### PWA — navigation
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
 - **Actu** : Actualités et Événements fusionnés, basculables via des sous-onglets soulignés (l'URL conserve `?tab=…`, pull-to-refresh sur les deux flux)
-- **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Pas d'édition depuis la PWA, pas d'exposition des joueurs nominatifs
+- **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Une rencontre commencée affiche son **score provisoire** (« En cours » pendant un live, sinon « Provisoire ») ; cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Les membres saisissent les matchs depuis la rencontre : un **live terminé valide automatiquement le résultat du match**, une saisie directe aussi, et le score de la rencontre suit ; la vérification se fait une fois, à la **confirmation de la rencontre**
 - **Live** : suivi du live score (inchangé)
 
 ### PWA — écran de démarrage

@@ -17,8 +17,9 @@ y compris lancement en cours de match, sans perdre les scores.
 
 Live jeu par jeu existant, points uniquement pour les tie-breaks ; pas de
 0/15/30/40. Plusieurs marqueurs sur une rencontre, un seul marqueur actif par
-match, avec reprise explicite. Un live terminé reste visible et préremplit le
-résultat à confirmer ou corriger sans ressaisie obligatoire.
+match, avec reprise explicite. Un live terminé avec un vainqueur **valide
+automatiquement** le résultat du match (décision du 11/10/2026, cf. plus bas) ; il reste
+corrigeable via « Modifier le résultat ».
 
 Le troisième set des simples dépend de la compétition (classique ou super
 tie-break). Le double utilise un super tie-break. Règle conservée à la création
@@ -45,6 +46,34 @@ Cette règle doit être intégrée aux mutations de la PWA, pas uniquement au mo
 3. Écran rencontre PWA, création guidée et résultats ; intégration au Live.
 4. Infrastructure hors connexion partagée et intégration des mutations,
    résolution des conflits et validation des parcours sur mobile.
+
+## Validation automatique des lives et score de la liste — 11 octobre 2026
+
+Décision : la vérification humaine se fait une seule fois, à la confirmation de la
+rencontre, et plus match par match.
+
+- `2026101107_team_live_auto_result.sql` : un live lié qui passe `finished` avec un
+  `winner` (fin normale ou abandon) remplit la ligne (`gagnant`, `sets`, `score`,
+  `result_kind` `normal`/`retired`, `confirmed_at`) et passe `team_result_confirmed` à vrai.
+  `refresh_team_result` recalcule alors `score_club`/`score_adverse` de la rencontre, comme
+  pour une saisie directe (`result`). Toute autre modification du live (reprise, retour en
+  cours) invalide le résultat comme avant ; une correction de score sur un live terminé
+  met la ligne à jour. Rattrapage des lives terminés non validés au déploiement.
+- Conséquence : `team_rencontres.score_club/score_adverse` est le score provisoire à jour,
+  identique à celui de la page rencontre et de l'onglet Live.
+- Liste « Matchs par équipe » : une rencontre commencée et non confirmée affiche ce score
+  avec « Provisoire » (au lieu de « En attente », réservé à l'absence de résultat). Un
+  0–0 hors WO n'est plus présenté comme un nul dans « Passés ».
+- Rencontre : quand toutes les places ont un résultat, un message invite à vérifier et le
+  bouton « Vérifier et confirmer la rencontre » passe en bouton principal.
+
+- Saisie directe du résultat (`TeamResultSheet`) : le focus passe au champ suivant dès
+  qu'un score est complet (set 1 club → adversaire → set 2 → 3e set s'il apparaît, sinon
+  fermeture du clavier). Un set tient en un chiffre ; au super tie-break, un « 1 » seul
+  attend le chiffre suivant (10, 11…) — perdre 1–10 demande de toucher le champ suivant.
+  Le contenu d'un champ est sélectionné au focus pour être remplacé à la frappe.
+
+Tests : `tests/team-live-auto-result.test.mjs` (inclus dans `npm run test:team-matches`).
 
 ## État de livraison — 24 septembre 2026
 
