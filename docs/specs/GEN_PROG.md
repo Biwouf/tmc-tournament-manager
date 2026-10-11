@@ -182,7 +182,28 @@ graphisme. Zones à laisser libres :
 |---|---|
 | `y = 170` | La date, en surimpression sur toute la largeur |
 | `y = 0 → 255` | Le haut du template (header : logos, titre) |
-| `y = 255 → bas`, marges de 18 px | La grille des cellules de match |
+| `y = 255 → ~982`, marges de 18 px | La grille des cellules de match |
+| `y ≈ 1000 → 1123` | Le bandeau partenaires (logos ajoutés par l'app) |
+
+### Bandeau partenaires
+
+Les logos de **`config.partners`** (*Admin › Configuration du site › Partenaires*) sont posés
+dans le bas de l'affiche par le composant `PartnersBand` : **le fond ne doit plus dessiner les
+partenaires**, sans quoi ils seraient en double. Une case **« Afficher les partenaires en bas de
+l'affiche »** sous le sélecteur de fond, **cochée par défaut**, non enregistrée (comme le choix du
+fond), vaut pour les deux modes (Programmation et Résultats). Elle n'apparaît pas si aucun
+partenaire n'a de logo. Le bandeau sort même si `settings.show_partners` masque les partenaires
+sur la vitrine, comme pour l'affiche résultats par équipe.
+
+- **10 logos au maximum** (`MAX_PARTNERS`) : au-delà, les 10 premiers dans l'ordre de
+  `/admin/site`, et un avertissement le dit sous la case.
+- Mise en page : **2 rangées de 5** au plus, centrées, ancrées à 14 px du bas
+  (`PARTNERS_BOTTOM`), rangées de 44 px (`PARTNER_ROW_H`) espacées de 10 px. Jusqu'à 5 logos,
+  une seule rangée ; au-delà, partage équilibré (6 → 3 + 3, 7 → 4 + 3). Chaque logo occupe une
+  case d'1/5 de la largeur utile, rendu en `contain`.
+- Pas de titre « Ils soutiennent le club » : il coûterait ~20 px dans une zone déjà serrée.
+- Un partenaire sans logo est ignoré (cas qui ne se présente pas, le logo étant ⬤).
+- Les `<img>` portent `crossOrigin="anonymous"`, pour la même raison que le fond (Storage).
 
 Le gabarit est donc **contrôlé avant l'upload** (`SiteConfigFields.tsx`) : **proportions A4 à
 2 % près** — sinon l'image serait déformée sous des textes posés à coordonnées fixes — et
