@@ -433,6 +433,20 @@ test('Spectator: mutable unique vote, no text composer, unrestricted emoji combo
   }
 });
 
+test('Spectator: beyond 6 reactions in 2 s, taps stay local without requests', async () => {
+  const screen = setup('spectator', false);
+  try {
+    await screen.mount();
+    await screen.click('Ouvrir les réactions');
+    for (let i = 0; i < 8; i++) await screen.click('Applaudir');
+    assert.equal(screen.calls.filter((c) => c.p_action === 'reaction').length, 6);
+    assert.ok(document.querySelectorAll('.emoji-combo, .emoji-single').length > 0);
+    assert.doesNotMatch(document.body.textContent, /Réaction non envoyée/);
+  } finally {
+    await screen.dispose();
+  }
+});
+
 test('Member: shared scoring, successive undo, remote revision, durable retry and simultaneous polls', async () => {
   const screen = setup('member', true);
   try {

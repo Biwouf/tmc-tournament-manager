@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   activityCommand,
   LIVE_REACTIONS,
+  REACTION_LIMIT,
+  REACTION_WINDOW_MS,
   type LiveReaction,
 } from '../../lib/liveActivity';
 
@@ -30,6 +32,7 @@ export default function LiveReactions({
   const palette = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const lifetime = useRef(0);
+  const sent = useRef<number[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
   function keepOpen() {
@@ -56,7 +59,6 @@ export default function LiveReactions({
     setError('');
     const version = lifetime.current;
     const id = crypto.randomUUID();
-    setPending((n) => n + 1);
     // Le feedback local répond au geste. L'événement serveur est dédupliqué par id.
     receive({
       id,
@@ -65,6 +67,12 @@ export default function LiveReactions({
       emoji,
       created_at: new Date().toISOString(),
     });
+    // Même plafond que le serveur : au-delà, le geste reste local, sans requête.
+    const now = Date.now();
+    sent.current = sent.current.filter((t) => now - t < REACTION_WINDOW_MS);
+    if (sent.current.length >= REACTION_LIMIT) return;
+    sent.current.push(now);
+    setPending((n) => n + 1);
     try {
       await activityCommand(matchId, clubId, 'reaction', { id, emoji });
     } catch (e) {

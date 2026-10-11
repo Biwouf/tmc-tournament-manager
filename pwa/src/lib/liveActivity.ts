@@ -37,6 +37,9 @@ export const LIVE_REACTIONS = [
   ['😮', 'Incroyable'],
   ['🎉', 'Célébrer'],
 ] as const;
+// Plafond souple par compte, identique côté serveur (live_activity_command).
+export const REACTION_LIMIT = 6;
+export const REACTION_WINDOW_MS = 2000;
 export async function readActivity(
   match: string,
   club: string,

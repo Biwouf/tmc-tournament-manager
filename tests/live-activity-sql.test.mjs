@@ -32,6 +32,8 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
    INSERT INTO auth.users VALUES('${id(109)}'); INSERT INTO profiles(id,prenom,nom) VALUES('${id(109)}','Spectateur','Connecté');`);
     await db.exec(await migration('20260907_live_match_consistency'));
     await db.exec(await migration('2026093001_live_activity'));
+    await db.exec(await migration('2026101102_live_photos'));
+    await db.exec(await migration('2026101104_live_reactions_throttle'));
     await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status,scored_by,set1_j1,set1_j2)
    VALUES('${id(20)}','${id(1)}','2026-09-30','Alex','A','Sam','B','live','${id(103)}',4,3),
    ('${id(21)}','${id(2)}','2026-09-30','Autre','Club','Autre','Club','live','${id(106)}',0,0),
@@ -251,6 +253,26 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
       0,
       'old reactions are not replayed',
     );
+    for (let i = 0; i < 8; i++)
+      await command('reaction', { id: randomUUID(), emoji: '👏' }, 109);
+    assert.equal(
+      (await db.query("SELECT count(*)::int n FROM live_reactions WHERE user_id=$1 AND created_at>now()-interval '2 seconds'", [id(109)])).rows[0].n,
+      6,
+      'beyond 6 reactions in 2 s, extra taps are ignored without error',
+    );
+    await command('reaction', { id: randomUUID(), emoji: '🔥' }, 106);
+    assert.equal(
+      (await db.query('SELECT count(*)::int n FROM live_reactions WHERE user_id=$1', [id(106)])).rows[0].n,
+      1,
+      'the cap is per account',
+    );
+    await db.exec("UPDATE live_reactions SET created_at=now()-interval '3 seconds'");
+    await command('reaction', { id: randomUUID(), emoji: '👏' }, 109);
+    assert.equal(
+      (await db.query("SELECT count(*)::int n FROM live_reactions WHERE user_id=$1 AND created_at>now()-interval '2 seconds'", [id(109)])).rows[0].n,
+      1,
+      'the window slides',
+    );
     for (let i = 0; i < 51; i++)
       await command('message', { id: randomUUID(), body: `Message ${i}` }, 104);
     let latest = await page();
@@ -318,6 +340,7 @@ test('Live photos: members upload in their live, object required, optional capti
     await db.exec(await migration('20260907_live_match_consistency'));
     await db.exec(await migration('2026093001_live_activity'));
     await db.exec(await migration('2026101102_live_photos'));
+    await db.exec(await migration('2026101104_live_reactions_throttle'));
     await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status)
    VALUES('${id(20)}','${id(1)}','2026-10-11','Alex','A','Sam','B','live'),
    ('${id(21)}','${id(2)}','2026-10-11','Autre','Club','Autre','Club','live'),
