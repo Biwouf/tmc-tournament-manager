@@ -45,6 +45,7 @@ export default function TenupSync(props: TenupSyncProps) {
     finally { busyRef.current = false; setBusy(false); }
   };
   return <section className="rounded-xl border border-border bg-card p-4" aria-label="Synchronisation Ten’Up">
+    <p className="mb-2 text-sm font-medium">Rencontre terminée ?</p>
     <button type="button" className="min-h-11 w-full rounded-lg border border-primary px-4 py-2 font-semibold text-primary disabled:opacity-50" disabled={busy}
       aria-expanded={open} onClick={() => { setOpen(!open); setError(''); }}>Synchroniser depuis Ten’Up</button>
     {props.syncedAt && <p className="mt-2 text-xs text-muted-foreground">Synchronisé depuis <a className="underline" href={props.sourceUrl ?? undefined} target="_blank" rel="noreferrer">Ten’Up</a> le {new Date(props.syncedAt).toLocaleString('fr-FR')}.</p>}

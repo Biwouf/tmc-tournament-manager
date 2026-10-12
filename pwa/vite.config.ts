@@ -37,6 +37,8 @@ export default defineConfig(({ mode }) => {
         skipWaiting: false,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Décodeur HEIC (3 Mo) chargé seulement pour lire une photo d'iPhone hors Safari, en ligne.
+        globIgnores: ['**/heic-to-*.js'],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {

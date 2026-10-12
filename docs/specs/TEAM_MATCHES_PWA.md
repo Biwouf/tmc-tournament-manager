@@ -110,6 +110,52 @@ Le lot 4 (hors connexion transversal) reste à développer. Les nouvelles comman
 rejouables, mais aucune file locale durable ni synchronisation automatique n'est encore
 livrée. Une erreur réseau ne doit pas être présentée comme une sauvegarde réussie.
 
+## Saisie de la compo des simples — 11 octobre 2026
+
+Sur place, chaque capitaine écrit la compo de ses simples dans l'ordre (simple 1, 2…) avec
+les classements ; le double est décidé plus tard. Sur la fiche rencontre, **« Prendre en photo la
+compo »** ouvre un assistant qui crée **tous les simples encore libres d'un coup**, pour les deux
+équipes. Le parcours est dédié à la photo (aucune saisie de texte) ; un indicateur à trois étapes
+et un texte d'explication annoncent d'emblée les deux photos à prendre, dans l'ordre :
+1. photo de notre feuille (« Photographier notre compo »), lue aussitôt ;
+2. photo de la feuille adverse ;
+3. vérification : un bloc par simple (notre joueur avec le membre proposé, l'adversaire), champs
+   corrigeables, reprise possible de l'une ou l'autre photo sans quitter la vérification, puis
+   **« Valider la compo »** (désactivé tant qu'un joueur manque).
+En cas d'échec de lecture : message et « Reprendre la photo ». La saisie hors photo passe par
+**« Ajouter match manuellement »** (assistant match par match, inchangé).
+
+- **Photo de la feuille lue par Claude** (Edge Function `compo-scan`). La PWA réduit la photo
+  (1568 px max, JPEG, `pwa/src/lib/compoScan.ts` ; une photo HEIC d'iPhone, que seul Safari décode, est convertie par `heic-to` chargé à la demande, ~4 s) puis l'envoie avec le club. La fonction
+  vérifie la session, l'appartenance et le quota (`team_compo_scan_begin`) **avant** l'appel
+  payant, demande au modèle `claude-opus-5-5` (effort `low`, sortie JSON contrainte par schéma,
+  repli serveur `fallbacks: "default"` en cas de refus) les simples numérotés, puis revalide la
+  réponse (numéro 1–9, nom non vide, classement de la liste sinon `null`). La photo n'est ni
+  stockée ni journalisée. Secret requis : `ANTHROPIC_API_KEY` ; sans lui, réponse 503 et saisie
+  manuelle. Quota : 6 lectures / 10 min par membre, 60 / jour par club (journal
+  `team_compo_scans`, non exposé).
+- **Lecture native du téléphone abandonnée** (« Scanner du texte » iOS / Gboard) : trop peu
+  fiable sur les feuilles réelles ; le découpage de texte qui l'accompagnait a été retiré.
+- **Rapprochement des membres** (`matchMember`) : sans accents ni casse, prénom/nom dans les
+  deux ordres, distance d'édition (seuil 0,75), classement identique en départage. Deux
+  candidats trop proches (homonymes) ⇒ aucun choix automatique. La proposition reste
+  modifiable (liste des membres, ou « non membre »). Adversaires en texte libre.
+- **Classement** : celui de la feuille fait foi pour le match. S'il diffère de la fiche du
+  membre, une case cochée par défaut met à jour `profile_details.classement` (valeurs du
+  CHECK de la table uniquement, donc pas `-30`). Conséquence : tout membre voit et peut
+  corriger le classement des autres membres de son club.
+- **Serveur** (`2026101105_team_compo.sql` puis `2026101201_team_compo_scan_quota.sql`) : `team_member_roster(club)` (membres +
+  classement, réservé aux membres) ; `team_compo_command(club, rencontre, {simples:[{slot,
+  joueur_club, joueur_adverse, update_classement}]}, request_id)` appelle
+  `team_match_command('create')` pour chaque simple avec une clé dérivée de `request_id` (mêmes
+  contrôles, règle du 3ᵉ set et historique) : une erreur annule toute la compo, un rejeu réseau
+  renvoie les mêmes matchs ; `team_compo_scan_begin(club)` (quota, SQLSTATE `PT429` → HTTP 429).
+- Hors ligne : la lecture et l'enregistrement exigent le réseau ; utiliser « Ajouter match manuellement ».
+
+Déploiement : appliquer `2026101105_team_compo.sql` et `2026101201_team_compo_scan_quota.sql`, définir le secret `ANTHROPIC_API_KEY`
+(`supabase secrets set`), déployer la fonction `compo-scan`, puis la PWA.
+Tests : `npm run test:team-compo` (rapprochement, SQL PGlite, Edge Function simulée, parcours UI).
+
 ## Déploiement et recette
 
 Appliquer sur la base de développement, dans cet ordre, avant de déployer les clients :
