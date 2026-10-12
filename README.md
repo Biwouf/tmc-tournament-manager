@@ -77,6 +77,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
 - **Actu** : Actualités et Événements fusionnés, basculables via des sous-onglets soulignés (l'URL conserve `?tab=…`, pull-to-refresh sur les deux flux)
 - **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Une rencontre commencée affiche son **score provisoire** (« En cours » pendant un live, sinon « Provisoire ») ; cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Les membres saisissent les matchs depuis la rencontre : un **live terminé valide automatiquement le résultat du match**, une saisie directe aussi, et le score de la rencontre suit ; la vérification se fait une fois, à la **confirmation de la rencontre**
+  - Fiche d'une rencontre : un membre connecté peut **prendre en photo la compo** des deux équipes : les feuilles sont lues automatiquement (IA), vérifiées puis tous les simples sont créés en une fois (sinon « Ajouter match manuellement »), joueurs du club reconnus parmi les membres, classement de la feuille repris (et mis à jour sur la fiche du membre si on le souhaite)
 - **Live** : suivi du live score (inchangé)
 
 ### PWA — écran de démarrage

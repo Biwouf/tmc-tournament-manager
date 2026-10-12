@@ -14,6 +14,7 @@ import { useTeamAction } from '../hooks/useTeamAction';
 import { fetchTeamDetail, TEAM_FORMATS, lineLabel, liveSets, setsLabel, type TeamLine } from '../lib/teamMatches';
 import type { LiveMatch } from '../types';
 import CreateTeamMatch from '../components/teamMatches/CreateTeamMatch';
+import TeamCompoSheet from '../components/teamMatches/TeamCompoSheet';
 import TeamSheet from '../components/teamMatches/TeamSheet';
 import TeamResultSheet from '../components/teamMatches/TeamResultSheet';
 
@@ -25,6 +26,7 @@ export default function TeamRencontrePage() {
   const membership = useCourseContext();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [composing, setComposing] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [recap, setRecap] = useState<{ revision: number; lines: TeamLine[] } | null>(null);
   const action = useTeamAction(clubId, id);
@@ -32,7 +34,7 @@ export default function TeamRencontrePage() {
     queryKey: ['team-detail', clubId, id], enabled: !!clubId && !!id,
     queryFn: () => fetchTeamDetail(clubId!, id), staleTime: 0, refetchInterval: 15_000,
   });
-  const close = () => { setSelection(null); setCreating(false); setRecap(null); action.clearError(); void query.refetch(); };
+  const close = () => { setSelection(null); setCreating(false); setComposing(false); setRecap(null); action.clearError(); void query.refetch(); };
   const canEdit = !!user && !!(membership.data?.is_member || membership.data?.can_manage);
   if (query.isPending) return <p className="p-6" role="status">Chargement de la rencontre…</p>;
   if (!query.data) return <div className="p-6"><p role="alert">Impossible de charger la rencontre.</p><button className="min-h-11 underline" onClick={() => void query.refetch()}>Réessayer</button></div>;
@@ -42,6 +44,7 @@ export default function TeamRencontrePage() {
   const completed = lines.filter(l => l.confirmed_at && l.gagnant).length;
   const expected = spec.simples + spec.doubles;
   const ready = completed === expected && lines.length === expected;
+  const freeSimples = Array.from({ length: spec.simples }, (_, i) => i + 1).filter(slot => !lines.some(l => l.match_type === 'simple' && l.slot === slot));
   const total = lines.reduce((score, line) => {
     const live = lives.find(m => m.id === line.live_match_id);
     const winner = line.gagnant ?? (live?.status === 'finished' ? live.winner === 'j1' ? 'club' : live.winner === 'j2' ? 'adverse' : null : null);
@@ -98,13 +101,15 @@ export default function TeamRencontrePage() {
       </article>;
     })}</div>
     {canEdit && !rencontre.wo && <>
-      {lines.length < expected && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">Ajouter un match</button>}
+      {freeSimples.length > 0 && competition.singles_set3_format && <button onClick={() => setComposing(true)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">Prendre en photo la compo</button>}
+      {lines.length < expected && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl border border-primary p-3 font-semibold text-primary">Ajouter match manuellement</button>}
       {!rencontre.confirmed_at && ready && <p className="text-sm font-medium">Tous les résultats sont saisis. Vérifiez les scores puis confirmez la rencontre.</p>}
       {!rencontre.confirmed_at && <button disabled={!ready} onClick={() => setRecap({ revision: rencontre.revision, lines })}
         className={`min-h-12 w-full rounded-xl border border-primary p-3 font-semibold disabled:opacity-40 ${ready ? 'bg-primary text-primary-foreground' : 'text-primary'}`}>Vérifier et confirmer la rencontre</button>}
       {rencontre.confirmed_at && <p className="text-sm text-muted-foreground">Chaque membre peut corriger un résultat. La rencontre sera alors à confirmer à nouveau.</p>}
     </>}
     {creating && clubId && <CreateTeamMatch detail={detail} clubId={clubId} onClose={close} />}
+    {composing && clubId && <TeamCompoSheet detail={detail} clubId={clubId} slots={freeSimples} onClose={close} />}
     {selection?.mode === 'actions' && <TeamSheet title={lineLabel(selection.line)} onClose={close} busy={action.busy}>
       {selection.line.set3_format ? <div className="space-y-3">
         <p className="text-sm text-muted-foreground">3e set : {selection.line.set3_format === 'super_tiebreak' ? 'super tie-break' : 'set classique'} · règle conservée pour ce match</p>
