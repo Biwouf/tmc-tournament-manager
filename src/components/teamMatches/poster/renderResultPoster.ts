@@ -6,6 +6,8 @@ export interface ResultPosterInput {
   rencontre: TeamRencontre;
   lines: TeamMatchLine[];
   config: ClubConfig;
+  /** Partenaires à poser en pied, déjà tirés (`drawPosterPartners`) : 10 au plus. */
+  partners: ClubConfig['partners'];
   clubName: string;
   heading: string;
   stage: string;
@@ -31,8 +33,6 @@ export function loadPosterImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-const MAX_PARTNERS = 16;
-
 /** Logos par rangée : une seule rangée jusqu'à 5, sinon 2 rangées équilibrées (10 → 5 + 5, 7 → 4 + 3). */
 function partnersPerRow(partnerCount: number): number {
   return partnerCount <= 5 ? partnerCount : Math.ceil(partnerCount / 2);
@@ -45,8 +45,7 @@ export function resultPosterFooterHeight(partnerCount: number): number {
 }
 
 export async function renderResultPoster(input: ResultPosterInput): Promise<string> {
-  const { rencontre, config, result, model, crop } = input;
-  const partners = config.partners.filter(p => p.logo || p.name);
+  const { rencontre, config, partners, result, model, crop } = input;
   const sources = [...partners.map(p => p.logo), config.brand.logo || '', model === 'photo' ? input.photo : ''];
   const images = await Promise.all(sources.map(src => src ? loadPosterImage(src) : null));
   const canvas = document.createElement('canvas');
@@ -58,7 +57,6 @@ export async function renderResultPoster(input: ResultPosterInput): Promise<stri
   const brand = /^#[\da-f]{6}$/i.test(config.brand.color || '') ? config.brand.color! : '#e51828';
   const ink = '#191919';
   const ivory = '#faf7f1';
-  if (partners.length > MAX_PARTNERS) throw new Error(`Trop de partenaires pour ce format (${MAX_PARTNERS} maximum).`);
   const footerHeight = resultPosterFooterHeight(partners.length);
   const footerY = 1350 - footerHeight;
   ctx.fillStyle = ivory;

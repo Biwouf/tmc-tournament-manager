@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
 import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../components/PosterBackgroundPicker';
+import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../lib/posterPartners';
 import type { ClubEvent } from '../types';
 
 // Worker fourni en tant qu'instance (workerPort) : Vite le bundle correctement
@@ -332,8 +333,7 @@ const BANNER_GAP = 14;
 
 // Bandeau partenaires dynamique (`config.partners`), posé dans le bas du fond (y ≈ 1000 → 1123),
 // sous la grille (pire cas mesuré : y = 982). Le fond ne doit donc plus porter de logos.
-// 2 rangées de 5 au plus : au-delà, seuls les 10 premiers (ordre de /admin/site) sortent.
-const MAX_PARTNERS = 10;
+// 2 rangées de 5 au plus : au-delà de 10, tirage aléatoire (`drawPosterPartners`).
 const PARTNERS_PER_ROW = 5;
 const PARTNERS_BOTTOM = 14;
 const PARTNER_ROW_H = 44;
@@ -655,6 +655,9 @@ export default function ProgrammationImagePage() {
   const partnerLogos = config.partners.map((p) => p.logo).filter(Boolean);
   /** Comme le fond : propre à la génération en cours, coché par défaut. */
   const [showPartners, setShowPartners] = useState(true);
+  /** Tirage fait à l'ouverture de la page, relancé à la demande : l'aperçu est l'export. */
+  const [partnerSeed, setPartnerSeed] = useState(newPartnerSeed);
+  const drawnPartnerLogos = drawPosterPartners(partnerLogos, partnerSeed);
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1088,10 +1091,13 @@ export default function ProgrammationImagePage() {
                   />
                   Afficher les partenaires en bas de l’affiche
                 </label>
-                {showPartners && partnerLogos.length > MAX_PARTNERS && (
+                {showPartners && partnerLogos.length > MAX_POSTER_PARTNERS && (
                   <p className="text-xs text-muted-foreground">
-                    {partnerLogos.length} partenaires configurés : seuls les {MAX_PARTNERS} premiers (ordre de la{' '}
-                    <Link to="/admin/site" className="underline">configuration du site</Link>) figurent sur l’affiche.
+                    {partnerLogos.length} partenaires configurés : {MAX_POSTER_PARTNERS} sont tirés au hasard (affichés dans l’ordre de la{' '}
+                    <Link to="/admin/site" className="underline">configuration du site</Link>).{' '}
+                    <button type="button" className="underline" onClick={() => setPartnerSeed(newPartnerSeed())}>
+                      Autre tirage
+                    </button>
                   </p>
                 )}
               </div>
@@ -1105,7 +1111,7 @@ export default function ProgrammationImagePage() {
                     highlightedClub={mode === 'resultats' ? null : highlightedClub}
                     background={background?.image}
                     mode={mode}
-                    partnerLogos={showPartners ? partnerLogos.slice(0, MAX_PARTNERS) : []}
+                    partnerLogos={showPartners ? drawnPartnerLogos : []}
                   />
                 </div>
               ))}
