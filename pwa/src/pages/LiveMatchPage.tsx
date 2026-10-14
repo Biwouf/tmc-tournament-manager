@@ -12,6 +12,7 @@ import { useLiveMatch } from '../hooks/useLiveMatch';
 import { useLiveActivity } from '../hooks/useLiveActivity';
 import { getTeamLabel } from '../liveScoreRules';
 import {
+  canFinish,
   finalScorePatch,
   scoreSnapshot,
   scoreLabel,
@@ -659,6 +660,15 @@ function LiveMatchScreen({
               }
             >
               Rouvrir pour corriger
+            </button>
+          )}
+          {canFinish(match) && (
+            <button
+              className="primary-button"
+              disabled={blocked}
+              onClick={() => void patchScore({})}
+            >
+              Terminer le match
             </button>
           )}
           {match.status === 'live' && (

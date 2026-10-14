@@ -39,6 +39,10 @@ export function quickScoreLabel(m: LiveMatch) {
     ? '+ point'
     : '+ jeu';
 }
+// Rouvert sur un score déjà final : plus aucun point à marquer, seule la clôture reste.
+export function canFinish(m: LiveMatch): boolean {
+  return m.status === 'live' && !m.retired_player && !!getMatchWinner(m);
+}
 export function finalScorePatch(
   m: LiveMatch,
   patch: Partial<LiveMatch>,
