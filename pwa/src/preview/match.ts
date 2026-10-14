@@ -10,5 +10,5 @@ export const previewMatch: LiveMatch = {
   set1_j1: 6, set1_j2: 4, set1_tb_j1: null, set1_tb_j2: null,
   set2_j1: 3, set2_j2: 2, set2_tb_j1: null, set2_tb_j2: null,
   set3_format: 'normal', set3_j1: null, set3_j2: null, set3_tb_j1: null, set3_tb_j2: null,
-  winner: null, retired_player: null, started_at: null, finished_at: null, created_at: '', updated_at: '',
+  winner: null, retired_player: null, started_at: null, finished_at: null, set1_ended_at: null, set2_ended_at: null, created_at: '', updated_at: '',
 };

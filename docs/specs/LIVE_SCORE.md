@@ -104,6 +104,8 @@ export interface LiveMatch {
 
   started_at: string | null;           // ISO 8601 — renseigné au passage en `live` (sert au tri "En live" — plus récent d'abord)
   finished_at: string | null;          // ISO 8601 — renseigné à la fin du match (pour la règle des 2 jours)
+  set1_ended_at: string | null;        // ISO 8601 — fin du set 1, posée par le serveur (durée des sets, PWA)
+  set2_ended_at: string | null;        // ISO 8601 — fin du set 2, posée par le serveur
   created_at: string;
   updated_at: string;
 }
@@ -122,6 +124,7 @@ export interface LiveMatch {
 
 - `supabase/migrations/20260519_live_matches_court.sql` — ajoute la colonne `court TEXT` (nullable, sans défaut).
 - `supabase/migrations/2026052301_live_matches_started_at.sql` — ajoute la colonne `started_at TIMESTAMPTZ` (nullable, sans défaut).
+- `supabase/migrations/2026101301_live_set_times.sql` — ajoute `set1_ended_at` / `set2_ended_at` (cf. « Durée du match et des sets »).
 - `supabase/migrations/2026052302_live_matches_retired_player.sql` — ajoute la colonne `retired_player live_match_winner` (nullable). Renseignée lors d'un abandon ; le vainqueur (`winner`) reste défini comme pour une fin de match normale.
 
 ---
@@ -602,3 +605,26 @@ chargement/rafraîchissement de la liste. Les fiches accessibles par lien resten
 Aucune suppression en base. Les liens `team_match_lines.live_match_id` et la synchronisation
 des résultats interclubs sont conservés. Une future purge nécessite de définir la durée de
 conservation et de garantir la synchronisation des résultats avant suppression.
+
+### Durée du match et des sets — PWA (13/10/2026)
+
+La page live de la PWA (`LiveScoreboard`) affiche « Durée du match : 1 h 23 » à côté du badge
+de statut et une ligne « Durée » sous les colonnes S1–S3
+(« 42′ », « 1h05 »). Pendant le live, la durée du match et celle du set en cours avancent
+toutes les 30 s. Le BO n'affiche rien.
+
+- Match : `finished_at` (ou maintenant si `live`) − `started_at`.
+- Set 1 : `set1_ended_at` − `started_at` ; set 2 : `set2_ended_at` − `set1_ended_at` ;
+  set 3 : `finished_at` − `set2_ended_at`. Le set en cours se mesure jusqu'à maintenant, et
+  un set interrompu par un abandon jusqu'à `finished_at`.
+- `set1_ended_at` / `set2_ended_at` sont posés par le trigger `live_matches_set_times`
+  (après `live_matches_guard`), jamais par les clients : horodatage quand le set devient gagné
+  alors que le match était `live`, conservé ensuite, effacé si une correction annule le set.
+  Un score historique (insertion, Ten'Up, match hors live) ne reçoit pas d'heure. La règle
+  `live_set_won` est le miroir SQL de `getNormalSetWinner`.
+- Sans ces heures (matchs antérieurs ou migration non appliquée), seule la durée du match
+  s'affiche. Une saisie en retard date la fin du set au moment de la saisie ; une
+  réouverture de match compte dans sa durée.
+
+Calcul : `pwa/src/lib/liveDurations.ts`. Test : `tests/live-set-times-sql.test.mjs`
+(`npm run test:live-score`).

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { LiveMatch } from '../../types';
 import {
@@ -12,6 +13,7 @@ import {
   quickScore,
   quickScoreLabel,
 } from '../../lib/liveScoreActions';
+import { formatDuration, liveDurations } from '../../lib/liveDurations';
 export default function LiveScoreboard({
   match,
   canAnimate,
@@ -39,19 +41,32 @@ export default function LiveScoreboard({
 }) {
   const currentSet = activeSet(match);
   const quickAvailable = !!quickScore(match, 'j1');
+  const [now, setNow] = useState(() => new Date().toISOString());
+  useEffect(() => {
+    if (match.status !== 'live') return;
+    setNow(new Date().toISOString());
+    const timer = setInterval(() => setNow(new Date().toISOString()), 30_000);
+    return () => clearInterval(timer);
+  }, [match.status]);
+  const durations = liveDurations(match, now);
   return (
     <section className="live-score" aria-label="Score du match">
       <div className="score-meta">
-        <span
-          className={
-            match.status === 'finished' ? 'status-finished' : 'status-live'
-          }
-        >
-          {match.status === 'live'
-            ? '● LIVE'
-            : match.status === 'pending'
-              ? 'À VENIR'
-              : 'TERMINÉ'}
+        <span className="score-status">
+          <span
+            className={
+              match.status === 'finished' ? 'status-finished' : 'status-live'
+            }
+          >
+            {match.status === 'live'
+              ? '● LIVE'
+              : match.status === 'pending'
+                ? 'À VENIR'
+                : 'TERMINÉ'}
+          </span>
+          {durations.match !== null && (
+            <span>Durée du match : {formatDuration(durations.match)}</span>
+          )}
         </span>
         <span>
           {match.court
@@ -139,6 +154,17 @@ export default function LiveScoreboard({
             </tr>
           ))}
         </tbody>
+        {durations.sets.some((d) => d !== null) && (
+          <tfoot>
+            <tr>
+              <th scope="row">Durée</th>
+              {durations.sets.map((d, i) => (
+                <td key={i}>{d === null ? '' : formatDuration(d, true)}</td>
+              ))}
+              {canAnimate && match.status === 'live' && <td />}
+            </tr>
+          </tfoot>
+        )}
       </table>
       {match.retired_player && (
         <p className="live-note">

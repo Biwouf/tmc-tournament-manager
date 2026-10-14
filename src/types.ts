@@ -216,6 +216,8 @@ export interface LiveMatch {
   retired_player: LiveMatchWinner | null;
   started_at: string | null;
   finished_at: string | null;
+  set1_ended_at: string | null;
+  set2_ended_at: string | null;
   created_at: string;
   updated_at: string;
 }

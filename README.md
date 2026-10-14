@@ -413,6 +413,8 @@ les nouveaux clients, puis recharger les deux applications. Tests : `npm run tes
 
 La migration `20260908_live_matches_public_read.sql` permet aux visiteurs non connectés de suivre les matchs des clubs actifs ; la connexion reste nécessaire pour leur gestion.
 
+Dans la PWA, la page live d'un match affiche la durée du match et celle de chaque set, mise à jour en direct pendant le match. La durée des sets nécessite `supabase/migrations/2026101301_live_set_times.sql` ; sans elle, seule la durée du match s'affiche.
+
 Les listes Live du BO et de la PWA masquent les matchs terminés depuis plus de trois jours après `finished_at` et affichent les matchs terminés du plus récent au plus ancien. Les données restent conservées en base ; aucune migration n’est nécessaire pour ce filtre.
 
 ### Formulaire de contact (PR11)
