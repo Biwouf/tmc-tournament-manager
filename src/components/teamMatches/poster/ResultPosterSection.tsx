@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClub } from '../../../contexts/ClubContext';
 import { useClubConfig } from '../../../hooks/useClubConfig';
+import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../../../lib/posterPartners';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamMatchLine, TeamRencontre } from '../../../types';
 import { competitionLabel, etapeLabel } from '../teamMatchLabels';
 import PhotoFocusPicker from './PhotoFocusPicker';
@@ -41,13 +42,16 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
   const [uploading, setUploading] = useState(false);
   const [retry, setRetry] = useState(0);
   const uploadRequest = useRef(0);
+  /** Au-delà de 10 partenaires : tirage à l'ouverture de l'aperçu, relancé à la demande. */
+  const [partnerSeed, setPartnerSeed] = useState(newPartnerSeed);
+  const allPartners = useMemo(() => config.partners.filter(partner => partner.logo || partner.name), [config.partners]);
+  const partners = useMemo(() => drawPosterPartners(allPartners, partnerSeed), [allPartners, partnerSeed]);
   const [rendered, setRendered] = useState<{ input: ResultPosterInput; url?: string; error?: string } | null>(null);
-  const input = useMemo<ResultPosterInput>(() => ({ rencontre, lines, config, result, model, photo, crop,
+  const input = useMemo<ResultPosterInput>(() => ({ rencontre, lines, config, partners, result, model, photo, crop,
     clubName: config.brand.name || club?.name || 'Notre club',
     heading: competitionLabel(competition), stage: `Équipe ${equipe.numero} · ${etapeLabel(etape)}`,
-  }), [rencontre, lines, config, result, model, photo, crop, club, competition, equipe.numero, etape]);
-  const partnerCount = config.partners.filter(partner => partner.logo || partner.name).length;
-  const frameHeight = 1350 - resultPosterFooterHeight(partnerCount) - 150;
+  }), [rencontre, lines, config, partners, result, model, photo, crop, club, competition, equipe.numero, etape]);
+  const frameHeight = 1350 - resultPosterFooterHeight(partners.length) - 150;
   const needsPhoto = model === 'photo' && !photo;
   useEffect(() => {
     if (loading || needsPhoto) return;
@@ -119,6 +123,10 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
     </div>}
     {model === 'photo' && photo && <PhotoFocusPicker key={photo} photo={photo} crop={crop} frameHeight={frameHeight} onChange={setCrop} />}
     <p className="text-xs text-muted-foreground">PNG · 1080 × 1350 px · couleurs, logo et partenaires du club inclus.</p>
+    {allPartners.length > MAX_POSTER_PARTNERS && <p className="text-xs text-muted-foreground">
+      {allPartners.length} partenaires configurés : {MAX_POSTER_PARTNERS} sont tirés au hasard (affichés dans l’ordre de la configuration du site).{' '}
+      <button type="button" className="underline" onClick={() => setPartnerSeed(newPartnerSeed())}>Autre tirage</button>
+    </p>}
     {needsPhoto ? <p role="status" className="text-sm">Choisissez ou importez une photo pour afficher ce modèle.</p> : error ? <p role="alert" className="text-sm text-red-600">{error}</p> : !url ? <p role="status" className="text-sm">Préparation de l’aperçu…</p> : <img src={url} alt={`Aperçu du résultat : ${input.clubName} ${result.club} – ${result.adverse} ${rencontre.club_adverse}`} className="mx-auto w-full max-w-md rounded-lg border" />}
     {error && <button type="button" className={button} onClick={() => { setRendered(null); setRetry(previous => previous + 1); }}>Réessayer</button>}
     {url && !uploading && <a href={url} download={`resultat-${rencontre.id}-${model}.png`} className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Télécharger le PNG</a>}

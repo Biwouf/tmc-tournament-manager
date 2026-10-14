@@ -51,3 +51,18 @@ test('The focus point is centered when possible and clamped at the photo edges',
   assert.equal(crop.sy + crop.sh / 2, 600);
   assert.equal(photoCrop(2000, 2000, 1000, 1000, 0, 0, 2).sy, 0);
 });
+test('Partner draw keeps at most 10, in configuration order, stable for a given seed', async () => {
+  const { drawPosterPartners, MAX_POSTER_PARTNERS } = await import('../src/lib/posterPartners.ts');
+  const few = [1, 2, 3];
+  assert.equal(drawPosterPartners(few, 42), few);
+  const many = Array.from({ length: 14 }, (_, index) => index);
+  const seen = new Set();
+  for (let seed = 0; seed < 50; seed++) {
+    const drawn = drawPosterPartners(many, seed);
+    assert.equal(drawn.length, MAX_POSTER_PARTNERS);
+    assert.deepEqual(drawn, [...drawn].sort((a, b) => a - b));
+    assert.deepEqual(drawPosterPartners(many, seed), drawn);
+    seen.add(drawn.join());
+  }
+  assert.ok(seen.size > 1);
+});
