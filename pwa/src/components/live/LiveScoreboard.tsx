@@ -10,6 +10,7 @@ import {
 } from '../../liveScoreRules';
 import {
   activeSet,
+  canFinish,
   quickScore,
   quickScoreLabel,
 } from '../../lib/liveScoreActions';
@@ -201,6 +202,11 @@ export default function LiveScoreboard({
             Choisir le format du set décisif →
           </button>
         )}
+      {canAnimate && canFinish(match) && (
+        <button className="start-live" disabled={blocked} onClick={() => onScore({})}>
+          Terminer le match
+        </button>
+      )}
       {match.status === 'pending' && canAnimate && (
         <button className="start-live" disabled={blocked} onClick={onStart}>
           Démarrer le live

@@ -319,6 +319,10 @@ Set 2 :  [−] [0] [+]           [−] [0] [+]
 - Remet le match en `status = 'live'`, vide `winner`, `finished_at` et `retired_player`.
 - Permet à l'opérateur de corriger une erreur de saisie (y compris un abandon mal déclaré).
 
+**Bouton "Terminer le match"** (visible si `status = 'live'`, sans `retired_player`, et que le score désigne déjà un vainqueur) :
+- Cas d'un match rouvert sans changer le score (ex. 8/10 au super tie-break) : les « + » sont désactivés et aucun point ne peut plus déclencher la détection automatique — le match restait bloqué en `live` (incident prod du 14/10/2026).
+- Le bouton réécrit le score inchangé en passant par la même détection : `status = 'finished'`, `winner` et `finished_at` renseignés. BO : bandeau vert au-dessus du `LiveScoreEntry` ; PWA : sous le tableau de score et dans la feuille « Ajuster le score » (`canFinish` dans `pwa/src/lib/liveScoreActions.ts`).
+
 **Abandon d'un joueur** (visible uniquement si `status = 'live'` et que l'opérateur est bien le gestionnaire courant) :
 - Sous le `LiveScoreEntry`, un bouton secondaire ambre **« Abandon d'un joueur »** ouvre un panneau inline (état local `showRetireConfirm`) : *« Quel joueur abandonne ? »* + deux boutons nommés (via `getTeamLabel`) + un bouton « Annuler ».
 - Au clic sur un joueur, le match passe en `status = 'finished'` avec `winner` = adversaire, `retired_player` = joueur ayant abandonné, `finished_at` = maintenant. Le score est figé à l'état courant — aucun set/point n'est modifié.

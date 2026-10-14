@@ -642,6 +642,16 @@ test('Tennis controls: winning game, regular tie-break, decisive super tie-break
     actions.quickScore({ ...superTb, set3_format: null }, 'j1'),
     null,
   );
+  // Rouvert à 8/10 au super tie-break : aucun point possible, la clôture doit rester accessible.
+  const reopened = { ...superTb, set3_j1: 8, set3_j2: 10, winner: null, finished_at: null };
+  assert.equal(actions.quickScore(reopened, 'j1'), null);
+  assert.equal(actions.canFinish(reopened), true);
+  const closing = actions.finalScorePatch(reopened, {});
+  assert.equal(closing.status, 'finished');
+  assert.equal(closing.winner, 'j2');
+  assert.equal(actions.canFinish(superTb), false, 'match still in play');
+  assert.equal(actions.canFinish({ ...reopened, status: 'finished' }), false);
+  assert.equal(actions.canFinish({ ...reopened, retired_player: 'j1' }), false);
   let streak = null;
   for (let i = 0; i < 4; i++) {
     const result = nextReaction(streak, '🔥', i * 400);

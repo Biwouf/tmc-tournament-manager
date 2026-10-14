@@ -205,6 +205,20 @@ export default function LiveMatchPage() {
                   ⚠️ Ce live a été repris par quelqu'un d'autre. Vous êtes en lecture seule.
                 </div>
               )}
+              {/* Rouvert sur un score déjà final : plus aucun point à marquer, seule la clôture reste. */}
+              {canRetire && !match.retired_player && getMatchWinner(match) && (
+                <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-sm font-medium text-emerald-900">
+                    Le score désigne un vainqueur : {getTeamLabel(match, getMatchWinner(match) === 'j1' ? 1 : 2)}.
+                  </p>
+                  <button
+                    onClick={() => void applyPatch({})}
+                    className="mt-3 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
+                  >
+                    Terminer le match
+                  </button>
+                </div>
+              )}
               <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl || saving || !!savingError} />
               {canRetire && (
                 <div className="mt-4">
