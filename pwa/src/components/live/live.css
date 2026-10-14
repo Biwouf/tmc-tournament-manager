@@ -9,8 +9,13 @@ body.has-install-banner .pwa-content.live-immersive {
   --ink: #25272d;
   --quiet: #665d6b;
   --line: #eeedef;
-  position: relative;
-  margin: auto;
+  /* Fixe et calée sur le viewport visible : au focus du composer, iOS décale
+     ce viewport pour dégager le clavier et la vue le suit (cf. LiveMatchPage). */
+  position: fixed;
+  top: var(--live-viewport-top, 0px);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
   max-width: 680px;
   height: var(--live-viewport-height, 100dvh);
   color: var(--ink);

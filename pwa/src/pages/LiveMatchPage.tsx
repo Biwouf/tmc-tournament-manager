@@ -3,7 +3,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
 } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
@@ -95,7 +94,6 @@ function LiveMatchScreen({
     { before: Partial<LiveMatch>; revision: number }[]
   >([]);
   const undo = history[history.length - 1];
-  const [height, setHeight] = useState<number>();
   const latest = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -114,16 +112,18 @@ function LiveMatchScreen({
   const login = () =>
     navigate('/login', { state: { from: location.pathname } });
   useEffect(() => {
+    // Au focus du composer, iOS décale le viewport visible pour dégager le
+    // clavier. La vue (position fixe) suit ce viewport à chaque événement,
+    // sans passer par un rendu React ni corriger le scroll après coup.
     const viewport = window.visualViewport;
+    const root = document.documentElement.style;
     const resize = () => {
-      if (!viewport || viewport.scale === 1) {
-        setHeight(viewport?.height ?? window.innerHeight);
-        // iOS fait défiler le document au focus du composer avant que la vue
-        // ne soit réduite à la hauteur du clavier : elle se retrouve alors
-        // hors écran jusqu'à la première frappe. La vue suit déjà le viewport
-        // visible, le document n'a donc jamais à défiler.
-        if (window.scrollY) window.scrollTo(0, 0);
-      }
+      if (viewport && viewport.scale !== 1) return;
+      root.setProperty(
+        '--live-viewport-height',
+        `${viewport?.height ?? window.innerHeight}px`,
+      );
+      root.setProperty('--live-viewport-top', `${viewport?.offsetTop ?? 0}px`);
     };
     resize();
     viewport?.addEventListener('resize', resize);
@@ -133,6 +133,8 @@ function LiveMatchScreen({
       viewport?.removeEventListener('resize', resize);
       viewport?.removeEventListener('scroll', resize);
       window.removeEventListener('resize', resize);
+      root.removeProperty('--live-viewport-height');
+      root.removeProperty('--live-viewport-top');
     };
   }, []);
   const refetchActivity = activity.refetch;
@@ -268,14 +270,7 @@ function LiveMatchScreen({
     />
   );
   return (
-    <div
-      className="live-view"
-      style={
-        {
-          '--live-viewport-height': height ? `${height}px` : '100dvh',
-        } as CSSProperties
-      }
-    >
+    <div className="live-view">
       <header className="live-header">
         <Link
           to="/matches"
