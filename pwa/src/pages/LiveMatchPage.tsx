@@ -116,14 +116,22 @@ function LiveMatchScreen({
   useEffect(() => {
     const viewport = window.visualViewport;
     const resize = () => {
-      if (!viewport || viewport.scale === 1)
+      if (!viewport || viewport.scale === 1) {
         setHeight(viewport?.height ?? window.innerHeight);
+        // iOS fait défiler le document au focus du composer avant que la vue
+        // ne soit réduite à la hauteur du clavier : elle se retrouve alors
+        // hors écran jusqu'à la première frappe. La vue suit déjà le viewport
+        // visible, le document n'a donc jamais à défiler.
+        if (window.scrollY) window.scrollTo(0, 0);
+      }
     };
     resize();
     viewport?.addEventListener('resize', resize);
+    viewport?.addEventListener('scroll', resize);
     window.addEventListener('resize', resize);
     return () => {
       viewport?.removeEventListener('resize', resize);
+      viewport?.removeEventListener('scroll', resize);
       window.removeEventListener('resize', resize);
     };
   }, []);
