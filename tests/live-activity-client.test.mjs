@@ -202,6 +202,12 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
                   items: posts.map((p) => ({
                     ...p,
                     closed: p.closed || match.status !== 'live',
+                    my_reaction: p.my_reaction ?? null,
+                    // Noms réservés aux comptes connectés, comme le serveur.
+                    reactions: (p.reactions ?? []).map((r) => ({
+                      ...r,
+                      names: user ? r.names : null,
+                    })),
                   })),
                   before: 1,
                   has_more: false,
@@ -245,6 +251,32 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
               post.counts = post.options.map((_, i) =>
                 i === data.option ? 1 : 0,
               );
+            } else if (action === 'react') {
+              const post = posts.find((p) => p.id === data.id);
+              post.reactions = (post.reactions ?? [])
+                .map((r) =>
+                  r.emoji === post.my_reaction
+                    ? {
+                        ...r,
+                        count: r.count - 1,
+                        names: r.names.filter((n) => n !== 'Vous'),
+                      }
+                    : r,
+                )
+                .filter((r) => r.count > 0);
+              if (data.emoji) {
+                const r = post.reactions.find((r) => r.emoji === data.emoji);
+                if (r) {
+                  r.count++;
+                  r.names.push('Vous');
+                } else
+                  post.reactions.push({
+                    emoji: data.emoji,
+                    count: 1,
+                    names: ['Vous'],
+                  });
+              }
+              post.my_reaction = data.emoji;
             } else if (action === 'close')
               posts.find((p) => p.id === data.id).closed = true;
             else if (action === 'delete')
@@ -363,22 +395,48 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
   };
 }
 
-test('Visitor: public live and login return path; finished live is read only', async () => {
+const message = (reactions = []) => ({
+  id: 'message-a',
+  sequence: 2,
+  kind: 'message',
+  body: 'Quel revers !',
+  image_path: null,
+  author_name: 'Camille',
+  created_at: new Date().toISOString(),
+  score: {},
+  options: [],
+  closed: false,
+  total: 0,
+  my_vote: null,
+  counts: null,
+  my_reaction: null,
+  reactions,
+});
+
+test('Visitor: public live, reaction counts without names and login return path; finished live is read only', async () => {
   const screen = setup(null, false);
   try {
+    screen.posts.push(message([{ emoji: '🔥', count: 2, names: ['A', 'B'] }]));
     await screen.mount();
     assert.match(document.body.textContent, /Alex A/);
     assert.equal(screen.button('Publier le commentaire'), undefined);
     assert.equal(screen.button('+ jeu pour Alex A'), undefined);
-    await screen.click('Ouvrir les réactions');
+    assert.equal(document.querySelector('.reaction-dock'), null, 'no floating button');
+    assert.ok(screen.button('Quel match ! : 2'));
+    assert.equal(document.querySelectorAll('.poll-summary .post-reactions').length, 0, 'polls are not reactable');
+    await screen.click('Réagir');
     assert.equal(screen.loginFrom(), '/matches/match-a');
+    assert.equal(screen.calls.length, 0);
   } finally {
     await screen.dispose();
   }
   const ended = setup('spectator', false, true);
   try {
+    ended.posts.push(message());
     await ended.mount();
-    assert.equal(ended.button('Ouvrir les réactions'), undefined);
+    await ended.click('Réagir');
+    await ended.click('Célébrer');
+    assert.equal(ended.posts[1].my_reaction, '🎉', 'reactions stay open after the match');
     await ended.click('Résultats');
     assert.ok(
       [...document.querySelectorAll('.poll-options button')].every(
@@ -390,9 +448,10 @@ test('Visitor: public live and login return path; finished live is read only', a
   }
 });
 
-test('Spectator: mutable unique vote, no text composer, unrestricted emoji combo and independent senders', async () => {
+test('Spectator: mutable unique vote, no text composer, one toggleable reaction per post, who reacted on other chips', async () => {
   const screen = setup('spectator', false);
   try {
+    screen.posts.push(message([{ emoji: '🔥', count: 1, names: ['Camille'] }]));
     await screen.mount();
     assert.equal(document.querySelector('textarea'), null);
     await screen.click('Répondre');
@@ -403,45 +462,35 @@ test('Spectator: mutable unique vote, no text composer, unrestricted emoji combo
     assert.equal(screen.posts[0].total, 1);
     assert.equal(screen.posts[0].my_vote, 1);
     await screen.click('Fermer');
-    await screen.click('Ouvrir les réactions');
-    for (let i = 0; i < 4; i++) await screen.click('Applaudir');
-    assert.equal(
-      screen.calls.filter((c) => c.p_action === 'reaction').length,
-      4,
-      'no cooldown',
+    const before = screen.calls.length;
+    await screen.click('Quel match ! : 1');
+    assert.equal(screen.calls.length, before, "tapping someone else's chip does not react");
+    assert.match(document.querySelector('.reaction-people').textContent, /Camille/);
+    await screen.click('Fermer');
+    await screen.click('Réagir');
+    await screen.click('Applaudir');
+    assert.deepEqual(
+      screen.calls.at(-1).p_data,
+      { id: 'message-a', emoji: '👏' },
     );
-    assert.equal(document.querySelectorAll('.emoji-combo').length, 1);
-    assert.doesNotMatch(
-      document.body.textContent,
-      /encouragement envoyé|Un instant|Animation/,
-    );
-    await screen.emit('live_reactions', {
-      id: 'remote-1',
-      user_id: 'remote',
-      match_id: 'match-a',
-      emoji: '❤️',
-      created_at: new Date().toISOString(),
-    });
-    for (let i = 0; i < 4; i++) await screen.click('Soutenir');
-    assert.equal(
-      document.querySelectorAll('.emoji-single').length,
-      1,
-      'a local combo leaves another sender reaction intact',
-    );
-  } finally {
-    await screen.dispose();
-  }
-});
-
-test('Spectator: beyond 6 reactions in 2 s, taps stay local without requests', async () => {
-  const screen = setup('spectator', false);
-  try {
-    await screen.mount();
-    await screen.click('Ouvrir les réactions');
-    for (let i = 0; i < 8; i++) await screen.click('Applaudir');
-    assert.equal(screen.calls.filter((c) => c.p_action === 'reaction').length, 6);
-    assert.ok(document.querySelectorAll('.emoji-combo, .emoji-single').length > 0);
-    assert.doesNotMatch(document.body.textContent, /Réaction non envoyée/);
+    assert.equal(screen.button('Applaudir : 1').getAttribute('aria-pressed'), 'true');
+    await screen.click('Réagir');
+    await screen.click('Quel match !');
+    assert.equal(screen.button('Applaudir : 1'), undefined, 'one reaction per account');
+    assert.equal(screen.button('Quel match ! : 2').getAttribute('aria-pressed'), 'true');
+    await screen.click('Quel match ! : 2');
+    assert.deepEqual(screen.calls.at(-1).p_data, { id: 'message-a', emoji: null });
+    assert.equal(screen.posts[1].my_reaction, null);
+    assert.ok(screen.button('Quel match ! : 1'));
+    await screen.click('Réagir');
+    await screen.click('Autre emoji');
+    assert.equal(document.activeElement.getAttribute('aria-label'), 'Emoji du clavier');
+    const calls = screen.calls.length;
+    await screen.type('.reaction-field', 'abc');
+    assert.equal(screen.calls.length, calls, 'text is not a reaction');
+    await screen.type('.reaction-field', '👍🏽');
+    assert.deepEqual(screen.calls.at(-1).p_data, { id: 'message-a', emoji: '👍🏽' });
+    assert.ok(screen.button('👍🏽 : 1'), 'any native emoji becomes a chip');
   } finally {
     await screen.dispose();
   }
@@ -451,7 +500,7 @@ test('Member: shared scoring, successive undo, remote revision, durable retry an
   const screen = setup('member', true);
   try {
     await screen.mount();
-    assert.ok(screen.button('Ouvrir les réactions'));
+    assert.equal(screen.button('Ouvrir les réactions'), undefined);
     await screen.click('+ jeu pour Alex A');
     await screen.click('+ jeu pour Sam B');
     assert.equal(screen.match().set1_j1, 5);
@@ -581,18 +630,16 @@ test('Members and owners: reactions preserve the comment draft and score control
   for (const user of ['member', 'owner']) {
     const screen = setup(user, true);
     try {
+      screen.posts.push(message());
       await screen.mount();
       const before = { ...screen.match() };
       await screen.type('textarea', 'Quel échange !');
-      assert.ok(screen.button('Ouvrir les réactions').closest('.member-dock'));
-      await screen.click('Ouvrir les réactions');
-      for (let i = 0; i < 4; i++) await screen.click('Applaudir');
-      assert.equal(screen.calls.filter(c => c.p_action === 'reaction').length, 4);
-      assert.equal(document.querySelectorAll('.emoji-combo').length, 1);
+      await screen.click('Réagir');
+      await screen.click('Applaudir');
+      assert.equal(screen.calls.filter(c => c.p_action === 'react').length, 1);
       assert.equal(document.querySelector('textarea').value, 'Quel échange !');
-      assert.deepEqual(screen.match(), before, 'encouragements do not change the score');
+      assert.deepEqual(screen.match(), before, 'reactions do not change the score');
       assert.ok(screen.button('+ jeu pour Alex A'));
-      await screen.click('Fermer les réactions');
       await screen.click('Publier le commentaire');
       assert.equal(screen.calls.filter(c => c.p_action === 'message').length, 1);
       assert.equal(document.querySelector('textarea').value, '');
@@ -602,10 +649,9 @@ test('Members and owners: reactions preserve the comment draft and score control
   }
 });
 
-test('Tennis controls: winning game, regular tie-break, decisive super tie-break and combo window', () => {
+test('Tennis controls: winning game, regular tie-break and decisive super tie-break', () => {
   const load = loader({});
   const actions = load(resolve(src, 'lib/liveScoreActions.ts'));
-  const { nextReaction } = load(resolve(src, 'lib/reactionCombo.ts'));
   const base = {
     status: 'live',
     set1_j1: 6,
@@ -652,23 +698,6 @@ test('Tennis controls: winning game, regular tie-break, decisive super tie-break
   assert.equal(actions.canFinish(superTb), false, 'match still in play');
   assert.equal(actions.canFinish({ ...reopened, status: 'finished' }), false);
   assert.equal(actions.canFinish({ ...reopened, retired_player: 'j1' }), false);
-  let streak = null;
-  for (let i = 0; i < 4; i++) {
-    const result = nextReaction(streak, '🔥', i * 400);
-    assert.equal(result.combo, i === 3);
-    streak = result.streak;
-  }
-  assert.equal(
-    nextReaction(streak, '🔥', 1700).combo,
-    false,
-    'a fifth starts a new quartet',
-  );
-  streak = nextReaction(null, '🔥', 0).streak;
-  streak = nextReaction(streak, '🔥', 500).streak;
-  streak = nextReaction(streak, '❤️', 700).streak;
-  assert.equal(streak.count, 1);
-  streak = nextReaction(streak, '❤️', 2700).streak;
-  assert.equal(streak.count, 1, 'exactly two seconds resets');
 });
 
 test('Double: decisive super tie-break, automatic finish and undo of the winning point', async () => {

@@ -22,8 +22,7 @@ import LiveScoreEntry from '../components/matches/LiveScoreEntry';
 import LiveIcon from '../components/live/LiveIcon';
 import LiveScoreboard from '../components/live/LiveScoreboard';
 import LiveSheet from '../components/live/LiveSheet';
-import LiveReactions from '../components/live/LiveReactions';
-import { useReactionBursts } from '../hooks/useReactionBursts';
+import PostReactions from '../components/live/PostReactions';
 import { PollAnswers, PollForm } from '../components/live/LivePoll';
 import {
   compressPhoto,
@@ -62,8 +61,7 @@ function LiveMatchScreen({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const reactions = useReactionBursts(id);
-  const activity = useLiveActivity(id, clubId, userId, reactions.receive);
+  const activity = useLiveActivity(id, clubId, userId);
   const live = useLiveMatch(
     id,
     clubId,
@@ -258,15 +256,6 @@ function LiveMatchScreen({
     );
   const poll = activity.items.find((p) => p.id === pollId);
   const showMemberDock = canAnimate && match.status === 'live';
-  const reactionDock = (
-    <LiveReactions
-      matchId={match.id}
-      clubId={clubId!}
-      userId={userId}
-      canSend={match.status === 'live' && !activity.isPending && !activity.isError}
-      {...reactions}
-    />
-  );
   return (
     <div
       className="live-view"
@@ -457,6 +446,12 @@ function LiveMatchScreen({
                 <div className="post-score">
                   Au score de {scoreLabel(post.score) || '0–0'}
                 </div>
+                <PostReactions
+                  post={post}
+                  signedIn={!!userId}
+                  pending={activity.reacting.includes(post.id)}
+                  onReact={(emoji) => void activity.react(post.id, emoji)}
+                />
               </article>
             ),
           )}
@@ -477,7 +472,6 @@ function LiveMatchScreen({
       </button>
       {showMemberDock && (
         <div className="member-dock">
-          {reactionDock}
           {menu && (
             <div className="dock-options">
               <button
@@ -585,7 +579,6 @@ function LiveMatchScreen({
           {photoError || activity.actionError}
         </p>
       )}
-      {!showMemberDock && reactionDock}
       {sheet === 'info' && (
         <LiveSheet title="Le match" onClose={() => setSheet(null)}>
           <div className="match-details">
