@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 // Exercise the generated worker with no external runtime available, as after
@@ -14,17 +15,25 @@ const self = {
   addEventListener(type, callback) { handlers.set(type, callback); },
   skipWaiting() {},
 };
-vm.runInNewContext(code, {
+const context = vm.createContext({
   self, location, URL, console, Request, Response, Headers,
-  importScripts() { throw new Error('External service worker runtime requested'); },
+  importScripts(...paths) {
+    for (const path of paths) {
+      // The local push extension is intentional; a split Workbox runtime is not.
+      assert.equal(path, '/course-push-sw.js', 'Unexpected external worker script');
+      const extension = readFileSync(new URL('../dist/course-push-sw.js', import.meta.url), 'utf8');
+      vm.runInContext(extension, context);
+    }
+  },
 });
-for (const type of ['install', 'activate', 'fetch', 'message']) assert.ok(handlers.has(type), type);
+vm.runInContext(code, context);
+for (const type of ['install', 'activate', 'fetch', 'message', 'push', 'notificationclick']) assert.ok(handlers.has(type), type);
 
 // Vercel must keep deep links working but never return index.html for a
 // missing Workbox runtime or JavaScript asset.
 const { routes } = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
 const fallback = routes.slice(routes.findIndex(route => route.handle === 'filesystem') + 1);
 const match = path => fallback.find(route => new RegExp(`^(?:${route.src})$`).test(path));
-for (const path of ['/workbox-01ded3f8.js', '/assets/missing.js', '/sw.js']) assert.equal(match(path).status, 404, path);
+for (const path of ['/workbox-01ded3f8.js', '/assets/missing.js', '/sw.js', '/course-push-sw.js']) assert.equal(match(path).status, 404, path);
 for (const path of ['/cours', '/reset-password', '/']) assert.equal(match(path).dest, '/index.html', path);
-console.log('Standalone worker starts without external scripts; missing assets return 404; deep links retain SPA fallback.');
+console.log('Worker starts without an external Workbox runtime; missing assets return 404; deep links retain SPA fallback.');

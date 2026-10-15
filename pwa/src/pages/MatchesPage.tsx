@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
 import { LIVE_SAFETY_POLL } from '../lib/liveChannel';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
+import { disableCoursePush } from '../lib/coursePush';
 
 async function fetchMatches(clubId: string | null): Promise<LiveMatch[]> {
   const { data, error } = await supabase
@@ -88,7 +89,12 @@ export default function MatchesPage() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      if (clubId) await disableCoursePush(clubId);
+      await supabase.auth.signOut();
+    } catch (error) {
+      setFlash(error instanceof Error ? error.message : 'Déconnexion impossible. Réessayez.');
+    }
   };
 
   useHeaderAction({
