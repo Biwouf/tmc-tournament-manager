@@ -13,9 +13,9 @@
         "Location": "https://app-cac-tennis.feelike.pro/$1"
       }
     },
-    { "src": "/(?:sw\\.js|index\\.html)", "headers": { "Cache-Control": "no-cache" }, "continue": true },
+    { "src": "/(?:sw\\.js|course-push-sw\\.js|index\\.html)", "headers": { "Cache-Control": "no-cache" }, "continue": true },
     { "handle": "filesystem" },
-    { "src": "/(?:assets/.*|workbox-[^/]+\\.js|sw\\.js)", "status": 404 },
+    { "src": "/(?:assets/.*|workbox-[^/]+\\.js|sw\\.js|course-push-sw\\.js)", "status": 404 },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

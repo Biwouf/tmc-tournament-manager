@@ -41,7 +41,7 @@ function loader(api, user = { id: 'me' }) {
     if (cache.has(file)) return cache.get(file).exports;
     const module = { exports: {} };
     cache.set(file, module);
-    const code = ts.transpileModule(readFileSync(file, 'utf8'), {
+    const code = ts.transpileModule(readFileSync(file, 'utf8').replace(/import\.meta\.env\.VITE_VAPID_PUBLIC_KEY/g, 'undefined'), {
       compilerOptions: {
         target: ts.ScriptTarget.ES2022,
         module: ts.ModuleKind.CommonJS,

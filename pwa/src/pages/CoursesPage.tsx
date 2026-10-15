@@ -22,6 +22,8 @@ import CourseInteraction, {
   type SheetMode,
 } from '../components/courses/CourseInteraction';
 import CourseSheet from '../components/courses/CourseSheet';
+import CoursePushSettings from '../components/courses/CoursePushSettings';
+import { disableCoursePush } from '../lib/coursePush';
 import '../components/courses/courses.css';
 
 export default function CoursesPage() {
@@ -61,8 +63,16 @@ export default function CoursesPage() {
     kind: 'text',
     label: user ? 'Déconnexion' : 'Connexion',
     onClick: () => {
-      if (user) void supabase.auth.signOut();
-      else navigate('/login', { state: { from: `/cours${window.location.search}` } });
+      if (user) {
+        void (async () => {
+          try {
+            if (clubId) await disableCoursePush(clubId);
+            await supabase.auth.signOut();
+          } catch (error) {
+            setToast(error instanceof Error ? error.message : 'Déconnexion impossible. Réessayez.');
+          }
+        })();
+      } else navigate('/login', { state: { from: `/cours${window.location.search}` } });
     },
   });
   useEffect(() => {
@@ -128,6 +138,9 @@ export default function CoursesPage() {
         Tous les cours sont gratuits. Une demande ne réserve pas de place : le
         club la valide.
       </p>
+      {user && clubId && context.data?.is_member && (
+        <CoursePushSettings clubId={clubId} userId={user.id} />
+      )}
       {user &&
         context.data?.is_member &&
         !profileComplete(context.data.profile) && (

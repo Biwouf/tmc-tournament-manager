@@ -25,6 +25,7 @@ import { ClubProvider, useClub } from './contexts/ClubContext';
 import { useClubConfig } from './hooks/useClubConfig';
 import { applyClubTheme } from './lib/theme';
 import { hideSplash, rememberSplashBrand } from './lib/splash';
+import { reconcileCoursePush } from './lib/coursePush';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -49,6 +50,20 @@ export default function App() {
 }
 
 function AppShell() {
+  const { user, loading: authLoading } = useAuth();
+  useEffect(() => {
+    if (authLoading) return;
+    const reconcile = () => { void reconcileCoursePush(user?.id ?? null).catch(() => {
+      console.warn('La désactivation des anciennes notifications sera réessayée.');
+    }); };
+    reconcile();
+    window.addEventListener('focus', reconcile);
+    window.addEventListener('online', reconcile);
+    return () => {
+      window.removeEventListener('focus', reconcile);
+      window.removeEventListener('online', reconcile);
+    };
+  }, [user?.id, authLoading]);
   const { club, loading: clubLoading } = useClub();
   const { config, isFetched: configFetched, isSuccess: configLoaded } = useClubConfig();
   const location = useLocation();
