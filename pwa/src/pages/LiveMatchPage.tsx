@@ -112,29 +112,44 @@ function LiveMatchScreen({
   const login = () =>
     navigate('/login', { state: { from: location.pathname } });
   useEffect(() => {
-    // Au focus du composer, iOS décale le viewport visible pour dégager le
-    // clavier. La vue (position fixe) suit ce viewport à chaque événement,
-    // sans passer par un rendu React ni corriger le scroll après coup.
+    // Clavier ouvert, iOS décale le viewport visible pour le dégager : la vue
+    // (position fixe) suit ce viewport à chaque événement, sans rendu React.
+    // Hors saisie, elle reste en plein écran CSS (100dvh) : la hauteur du
+    // viewport mesurée au chargement n'est pas fiable sur iOS.
     const viewport = window.visualViewport;
     const root = document.documentElement.style;
-    const resize = () => {
-      if (viewport && viewport.scale !== 1) return;
-      root.setProperty(
-        '--live-viewport-height',
-        `${viewport?.height ?? window.innerHeight}px`,
-      );
-      root.setProperty('--live-viewport-top', `${viewport?.offsetTop ?? 0}px`);
-    };
-    resize();
-    viewport?.addEventListener('resize', resize);
-    viewport?.addEventListener('scroll', resize);
-    window.addEventListener('resize', resize);
-    return () => {
-      viewport?.removeEventListener('resize', resize);
-      viewport?.removeEventListener('scroll', resize);
-      window.removeEventListener('resize', resize);
+    let editing = false;
+    const clear = () => {
       root.removeProperty('--live-viewport-height');
       root.removeProperty('--live-viewport-top');
+    };
+    const sync = () => {
+      if (!editing || !viewport || viewport.scale !== 1) return;
+      root.setProperty('--live-viewport-height', `${viewport.height}px`);
+      root.setProperty('--live-viewport-top', `${viewport.offsetTop}px`);
+    };
+    const focusIn = (event: FocusEvent) => {
+      editing =
+        event.target instanceof Element &&
+        event.target.matches(
+          'textarea, input:not([type=checkbox]):not([type=radio]):not([type=file])',
+        );
+      if (editing) sync();
+    };
+    const focusOut = () => {
+      editing = false;
+      clear();
+    };
+    document.addEventListener('focusin', focusIn);
+    document.addEventListener('focusout', focusOut);
+    viewport?.addEventListener('resize', sync);
+    viewport?.addEventListener('scroll', sync);
+    return () => {
+      document.removeEventListener('focusin', focusIn);
+      document.removeEventListener('focusout', focusOut);
+      viewport?.removeEventListener('resize', sync);
+      viewport?.removeEventListener('scroll', sync);
+      clear();
     };
   }, []);
   const refetchActivity = activity.refetch;
