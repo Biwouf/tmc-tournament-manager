@@ -1,26 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import {
-  activityCommand,
-  readActivity,
-  type LiveReaction,
-} from '../lib/liveActivity';
+import { activityCommand, readActivity } from '../lib/liveActivity';
 
 export function useLiveActivity(
   match: string | undefined,
   club: string | null,
   user: string | null,
-  onReaction: (reaction: LiveReaction) => void,
 ) {
   const client = useQueryClient();
-  const receiver = useRef(onReaction);
-  receiver.current = onReaction;
   const locked = useRef(false);
   const generation = useRef(0);
   const request = useRef({ fingerprint: '', id: '' });
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [reacting, setReacting] = useState<string[]>([]);
   const key = ['live-activity', club, match, user];
   const page = useInfiniteQuery({
     queryKey: key,
@@ -37,6 +31,7 @@ export function useLiveActivity(
     locked.current = false;
     setBusy(false);
     setActionError('');
+    setReacting([]);
     request.current = { fingerprint: '', id: '' };
     if (!match || !club) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -62,18 +57,6 @@ export function useLiveActivity(
           filter: `match_id=eq.${match}`,
         },
         refresh,
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'live_reactions',
-          filter: `match_id=eq.${match}`,
-        },
-        (event) => {
-          if (active) receiver.current(event.new as LiveReaction);
-        },
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') refresh();
@@ -127,6 +110,28 @@ export function useLiveActivity(
       }
     }
   }
+  // Indépendant de `run` : réagir ne bloque ni la publication ni les autres posts.
+  async function react(post: string, emoji: string | null) {
+    if (!match || !club || !user) return;
+    const lifetime = generation.current;
+    setReacting((ids) => [...ids, post]);
+    setActionError('');
+    try {
+      await activityCommand(match, club, 'react', { id: post, emoji });
+      if (lifetime === generation.current)
+        await client.invalidateQueries({
+          queryKey: ['live-activity', club, match],
+        });
+    } catch (error) {
+      if (lifetime === generation.current)
+        setActionError(
+          error instanceof Error ? error.message : 'Réaction non enregistrée.',
+        );
+    } finally {
+      if (lifetime === generation.current)
+        setReacting((ids) => ids.filter((id) => id !== post));
+    }
+  }
   const items = [
     ...new Map(
       page.data?.pages.flatMap((p) => p.items).map((p) => [p.id, p]) ?? [],
@@ -139,5 +144,7 @@ export function useLiveActivity(
     busy,
     actionError,
     run,
+    reacting,
+    react,
   };
 }

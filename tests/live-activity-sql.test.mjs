@@ -34,6 +34,7 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
     await db.exec(await migration('2026093001_live_activity'));
     await db.exec(await migration('2026101102_live_photos'));
     await db.exec(await migration('2026101104_live_reactions_throttle'));
+    await db.exec(await migration('2026101501_live_post_reactions'));
     await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status,scored_by,set1_j1,set1_j2)
    VALUES('${id(20)}','${id(1)}','2026-09-30','Alex','A','Sam','B','live','${id(103)}',4,3),
    ('${id(21)}','${id(2)}','2026-09-30','Autre','Club','Autre','Club','live','${id(106)}',0,0),
@@ -95,13 +96,13 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
     );
     await assert.rejects(
       command(
-        'reaction',
+        'react',
         { id: randomUUID(), emoji: '❤️' },
         107,
         id(22),
         id(3),
       ),
-      /introuvable/,
+      /indisponible/,
     );
     await assert.rejects(
       as(109, 'UPDATE live_matches SET set1_j1=5 WHERE id=$1', [id(20)]),
@@ -231,47 +232,68 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
       [0, 1],
     );
     await assert.rejects(
-      command('reaction', { id: randomUUID(), emoji: '😡' }, 109),
-      /Réaction invalide/,
+      command('react', { id: post, emoji: '❤️' }, null),
+      /permission denied/,
     );
-    const reaction = randomUUID();
-    await command('reaction', { id: reaction, emoji: '🔥' }, 109);
-    await command('reaction', { id: reaction, emoji: '🔥' }, 109);
+    for (const emoji of ['abc', '🔥 bravo', '中', '', ' 🔥', '🔥'.repeat(17)])
+      await assert.rejects(
+        command('react', { id: post, emoji }, 109),
+        /Réaction invalide/,
+        `${emoji} is not a single emoji`,
+      );
+    for (const emoji of ['😡', '👍🏽', '🇫🇷', '👨‍👩‍👧', '1️⃣', '❤️', '🏴󠁧󠁢󠁳󠁣󠁴󠁿'])
+      await command('react', { id: post, emoji }, 109);
+    await command('react', { id: post, emoji: null }, 109);
     await assert.rejects(
-      command('reaction', { id: reaction, emoji: '❤️' }, 106),
-      /déjà utilisée/,
+      command('react', { id: poll, emoji: '🔥' }, 109),
+      /indisponible/,
+      'polls are not reactable',
     );
-    assert.equal(
-      (await as(null, 'SELECT count(*)::int n FROM live_reactions'))[0].n,
-      1,
+    await assert.rejects(
+      command('react', { id: post, emoji: '🔥' }, 109, id(21), id(2)),
+      /indisponible/,
     );
-    await db.exec(
-      "UPDATE live_reactions SET created_at=now()-interval '20 seconds'",
+    await command('react', { id: post, emoji: '🔥' }, 109);
+    await command('react', { id: post, emoji: '🔥' }, 109);
+    await command('react', { id: post, emoji: '🔥' }, 104);
+    let reacted = (await page(109)).items.find((p) => p.id === post);
+    assert.equal(reacted.my_reaction, '🔥');
+    assert.deepEqual(
+      reacted.reactions,
+      [{ emoji: '🔥', count: 2, names: ['Spectateur Connecté', 'Prénom Nom'] }],
+      'one reaction per account, retry is idempotent',
     );
-    assert.equal(
-      (await as(null, 'SELECT count(*)::int n FROM live_reactions'))[0].n,
-      0,
-      'old reactions are not replayed',
+    await command('react', { id: post, emoji: '👏' }, 109);
+    reacted = (await page(106)).items.find((p) => p.id === post);
+    assert.equal(reacted.my_reaction, null);
+    assert.deepEqual(
+      reacted.reactions.map((r) => [r.emoji, r.count]),
+      [
+        ['🔥', 1],
+        ['👏', 1],
+      ],
+      'another emoji replaces the previous one',
     );
-    for (let i = 0; i < 8; i++)
-      await command('reaction', { id: randomUUID(), emoji: '👏' }, 109);
-    assert.equal(
-      (await db.query("SELECT count(*)::int n FROM live_reactions WHERE user_id=$1 AND created_at>now()-interval '2 seconds'", [id(109)])).rows[0].n,
-      6,
-      'beyond 6 reactions in 2 s, extra taps are ignored without error',
+    assert.deepEqual(
+      (await page()).items.find((p) => p.id === post).reactions,
+      [
+        { emoji: '🔥', count: 1, names: null },
+        { emoji: '👏', count: 1, names: null },
+      ],
+      'visitors see counts, not names',
     );
-    await command('reaction', { id: randomUUID(), emoji: '🔥' }, 106);
-    assert.equal(
-      (await db.query('SELECT count(*)::int n FROM live_reactions WHERE user_id=$1', [id(106)])).rows[0].n,
-      1,
-      'the cap is per account',
+    await command('react', { id: post, emoji: null }, 109);
+    await command('react', { id: post, emoji: null }, 109);
+    assert.deepEqual(
+      (await page(109)).items
+        .find((p) => p.id === post)
+        .reactions.map((r) => r.emoji),
+      ['🔥'],
+      'removal is idempotent',
     );
-    await db.exec("UPDATE live_reactions SET created_at=now()-interval '3 seconds'");
-    await command('reaction', { id: randomUUID(), emoji: '👏' }, 109);
-    assert.equal(
-      (await db.query("SELECT count(*)::int n FROM live_reactions WHERE user_id=$1 AND created_at>now()-interval '2 seconds'", [id(109)])).rows[0].n,
-      1,
-      'the window slides',
+    await assert.rejects(
+      as(109, 'SELECT * FROM live_post_reactions'),
+      /permission denied/,
     );
     for (let i = 0; i < 51; i++)
       await command('message', { id: randomUUID(), body: `Message ${i}` }, 104);
@@ -282,8 +304,14 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
     assert.equal(older.items.length, 4);
     assert.equal(older.has_more, false);
     assert.ok(older.items.at(-1).sequence < latest.items[0].sequence);
+    const post2 = latest.items.at(-1).id;
     await command('delete', { id: post }, 103);
     await command('delete', { id: post }, 104);
+    await assert.rejects(
+      command('react', { id: post, emoji: '🔥' }, 109),
+      /indisponible/,
+      'deleted posts are not reactable',
+    );
     assert.equal(
       (await page(null, latest.before)).items.some((p) => p.id === post),
       false,
@@ -302,9 +330,11 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
       command('vote', { id: poll2, option: 0 }, 109),
       /pas en cours/,
     );
-    await assert.rejects(
-      command('reaction', { id: randomUUID(), emoji: '❤️' }, 109),
-      /pas en cours/,
+    await command('react', { id: post2, emoji: '🎉' }, 109);
+    assert.equal(
+      (await page(109)).items.find((p) => p.id === post2).my_reaction,
+      '🎉',
+      'reactions stay open after the match',
     );
     await assert.rejects(
       command('message', { id: randomUUID(), body: 'Too late' }, 104),
@@ -341,6 +371,7 @@ test('Live photos: members upload in their live, object required, optional capti
     await db.exec(await migration('2026093001_live_activity'));
     await db.exec(await migration('2026101102_live_photos'));
     await db.exec(await migration('2026101104_live_reactions_throttle'));
+    await db.exec(await migration('2026101501_live_post_reactions'));
     await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status)
    VALUES('${id(20)}','${id(1)}','2026-10-11','Alex','A','Sam','B','live'),
    ('${id(21)}','${id(2)}','2026-10-11','Autre','Club','Autre','Club','live'),

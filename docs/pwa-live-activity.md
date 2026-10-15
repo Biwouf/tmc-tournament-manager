@@ -19,12 +19,24 @@ texte, sondage, clôture et suppression des publications. `scored_by` attribue
 la dernière saisie et ne confère aucune exclusivité. Ce changement vaut aussi
 pour la confirmation d’un résultat d’équipe depuis la PWA.
 
-Les visiteurs lisent le fil et voient le bouton de réactions, qui les invite à
-se connecter. Tous les utilisateurs connectés, membres et owners compris, peuvent
-voter et envoyer les réactions 👏 🔥 💪 ❤️ 😮 🎉 pendant le live.
+Réactions sur les publications (15/10/2026) : sous chaque commentaire et chaque
+photo (pas les sondages), des puces emoji avec leur compteur et un bouton neutre
+(smiley au trait avec « + », façon WhatsApp) qui ouvre la palette : six raccourcis
+👏 🔥 💪 ❤️ 😮 🎉 et un « + » qui ouvre le clavier du téléphone, pour choisir
+n’importe quel emoji (ton de peau, drapeau, séquences comprises). Seul le premier
+emoji saisi compte ; le texte est ignoré. Le champ est monté en permanence et reçoit
+le focus dans le geste, condition pour qu’iOS ouvre le clavier ; l’utilisateur bascule
+sur l’onglet emoji du clavier (aucune API web ne l’ouvre directement). Tout compte connecté, membre ou non, peut réagir :
+une réaction par compte et par publication. Toucher sa propre puce la retire, choisir
+un autre emoji la remplace. Les réactions restent ouvertes après la fin du match.
+Un visiteur voit les compteurs ; toucher une puce ou le bouton l’invite à se connecter.
+Toucher la puce d’un emoji qu’on n’a pas choisi (ou un appui long / clic droit sur
+n’importe quelle puce) ouvre la liste des noms par emoji, visible des seuls comptes
+connectés ; pour réagir avec ce même emoji, on passe par la palette.
+Le bouton flottant et les réactions éphémères (bulles, combos ×4, plafond de
+6 réactions en 2 s) ont été retirés.
 Les spectateurs n’ont pas de champ de texte. Les membres disposent du champ
-d’animation et du bouton de réactions au-dessus, même quand le champ s’agrandit.
-Le texte et les photos des spectateurs restent différés.
+d’animation. Le texte et les photos des spectateurs restent différés.
 
 Photos (11/10/2026) : « Ajouter une photo », dans le menu « + » du champ
 d’animation, ouvre le menu système du téléphone (photothèque ou prise de vue).
@@ -42,14 +54,6 @@ Un compte peut changer son vote jusqu’à la clôture, sans augmenter le nombre
 de participants. Les résultats détaillés se dévoilent après le vote ou la fin
 du sondage/match. Les identités des votants ne sont jamais publiques.
 
-Quatre réactions identiques consécutives du même compte, en moins de deux
-secondes, fusionnent. Un autre emoji ou un combo terminé relance le compteur.
-Pas de délai minimum, de confirmation d’envoi ou d’option d’animation.
-Plafond souple par compte : au-delà de 6 réactions en 2 secondes, les taps
-suivants s’affichent localement mais ne sont pas envoyés (le serveur applique
-la même limite et ignore l’excédent sans erreur). Un combo passe toujours.
-La préférence système de mouvement réduit masque les animations.
-
 ## Données et fiabilité
 
 - `live_posts` : messages et sondages dans un fil ordonné par séquence ; auteur
@@ -63,12 +67,16 @@ La préférence système de mouvement réduit masque les animations.
   quand plus aucune publication visible ne référence l’image.
 - `live_votes` : clé primaire `(post_id, user_id)`, aucune lecture/écriture directe
   autorisée aux clients ; seules les commandes et agrégats sont exposés.
-- `live_reactions` : événements éphémères, accessibles pendant 15 secondes,
-  purgés au-delà de 30 secondes à l’arrivée de la prochaine réaction. Des lignes
-  expirées peuvent subsister sans activité ; elles sont invisibles aux clients.
-  Une réaction ne verrouille pas la ligne du match (contrairement aux autres
-  commandes) pour ne pas retarder la saisie du score
-  (`2026101104_live_reactions_throttle.sql`).
+- `live_post_reactions` (`2026101501_live_post_reactions.sql`, qui supprime
+  l’ancienne table `live_reactions`) : clé primaire `(post_id, user_id)`, aucun
+  accès direct. `live_is_emoji` (contrainte et commande) accepte un seul emoji :
+  1 à 16 points de code, tous dans les blocs symboles/emoji, dont un pictogramme.
+  Commande `react` `{id, emoji}` (emoji `null` = retrait), rejouable,
+  sans verrou sur la ligne du match et permise quel que soit le statut du match ;
+  refusée sur un sondage ou une publication supprimée. Elle met à jour
+  `live_posts.updated_at` pour prévenir les autres lecteurs via le temps réel.
+  `live_activity_page` renvoie `my_reaction` et `reactions`
+  (`{emoji, count, names}`, `names` à `null` pour un visiteur).
 - `live_activity_page` : 50 éléments par page, agrégats et capacités de l’utilisateur,
   validation du couple match/club et du statut actif du club.
 - `live_activity_command` : validation serveur, verrou transactionnel du match,
@@ -76,9 +84,9 @@ La préférence système de mouvement réduit masque les animations.
 - Publications rejouées avec la même clé après un timeout : aucun doublon.
   Les scores utilisent toujours la révision confirmée, sans mise à jour optimiste.
   Un conflit recharge le score et demande de le vérifier avant de poursuivre.
-- Temps réel : `live_matches`, `live_posts`, `live_reactions`. Révalidation du fil
+- Temps réel : `live_matches`, `live_posts`. Révalidation du fil
   au retour réseau/focus, à la reconnexion et toutes les 15 secondes ; du score
-  toutes les 30 secondes. Les réactions manquées ne sont pas rejouées.
+  toutes les 30 secondes.
 - Les suppressions logiques peuvent ne pas déclencher d’événement chez un lecteur
   lorsque la RLS rend la nouvelle ligne invisible ; le rafraîchissement du fil les
   retire au plus tard au prochain intervalle de 15 secondes en premier plan.
@@ -114,7 +122,7 @@ supabase db push --dry-run
 supabase db push
 ```
 
-Vérifier que `live_matches`, `live_posts` et `live_reactions` sont dans la
+Vérifier que `live_matches` et `live_posts` sont dans la
 publication `supabase_realtime` et que le service Realtime est activé.
 Une fois la base prête, fusionner la PR puis vérifier le déploiement Vercel de
 `pwa-cac-tennis`. Conserver les variables Supabase de production existantes.
@@ -145,12 +153,26 @@ Dette : les images d’un live supprimé (cascade sur `live_posts`) restent dans
 bucket. Recette : photo depuis la pellicule et prise de vue en direct sur iOS
 et Android, photo HEIC d’iPhone, réseau lent, suppression.
 
+### Lot réactions sur les publications (15/10/2026)
+
+Appliquer `2026101501_live_post_reactions.sql` en production **avant** de fusionner
+la PR : elle supprime `live_reactions` (donc l’ancien client ne peut plus envoyer
+de réaction éphémère, et son abonnement temps réel à `live_reactions` peut faire
+échouer son canal : le fil se rafraîchit alors toutes les 15 secondes jusqu’à la
+mise à jour via le bandeau « Actualiser ») et redéfinit
+entièrement `live_activity_command` et `live_activity_page` : toute autre branche
+qui les modifie doit repartir de cette version. Aucune configuration Realtime :
+la table supprimée quitte d’elle-même la publication `supabase_realtime`.
+Recette : réagir, changer, retirer depuis deux comptes ; appui long sur iOS
+et Android ; visiteur non connecté ; réaction après la fin du match.
+
 ## Validation
 
 - `npm run test:live-activity` : composants réels avec backend simulé et migrations
   exécutées dans PostgreSQL local (PGlite). Accès public et entre clubs, membres,
   sondages simultanés, vote unique/modifiable et privé, idempotence, pagination,
-  réactions indépendantes par compte, combos, score rapide, annulations et conflits,
+  réactions sur les publications (une par compte, retrait, noms masqués aux
+  visiteurs, après la fin du match), score rapide, annulations et conflits,
   ainsi que l’intégration des lives d’équipes, les liens indépendants des cartes
   et les scores provisoires pondérés accessibles aux spectateurs.
 - Régressions : `test:live-score`, `test:team-matches`, `test:pwa-network`,
