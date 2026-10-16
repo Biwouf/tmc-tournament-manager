@@ -22,6 +22,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Affiche des résultats** : depuis un PDF Ten'Up, bascule Programmation / Résultats — les matchs terminés (score + vainqueur lus dans la feuille) forment une affiche « Résultats du … », vainqueur à gauche, score au centre ; WO exclus
 - Charte graphique CAC Tennis intégrée
 - **Partenaires en bas de l'affiche** : les logos configurés dans *Admin › Configuration du site › Partenaires* sont ajoutés automatiquement (10 max, 2 rangées de 5 ; au-delà de 10, tirage au hasard avec un bouton « Autre tirage », règle identique sur le visuel du résultat par équipe) ; case à cocher pour les retirer, cochée par défaut
+- **Couleurs du club** : l'affiche reprend la couleur principale du club (*Admin › Configuration du site › Identité du club › Couleur principale*), avec des nuances dérivées pour le cartouche et le fond des joueurs du club ; rouge `#c8102e` par défaut
 - **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
 
 ### Événements

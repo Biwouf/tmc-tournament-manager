@@ -6,6 +6,7 @@ import PdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
+import { clubTint, hexToHsl } from '../lib/theme';
 import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../components/PosterBackgroundPicker';
 import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../lib/posterPartners';
 import type { ClubEvent } from '../types';
@@ -369,8 +370,26 @@ function PartnersBand({ logos }: { logos: string[] }) {
   );
 }
 
+// Couleurs de l'affiche, dérivées de `brand.color` (repli `#c8102e`, le rouge historique de
+// l'affiche, si la couleur est vide ou illisible). Bordeaux et fond rosé suivent la dérivation
+// de `lib/theme.ts` : avec `#c8102e`, ils redonnent `#8E0B20` et `#FCEBEB`.
+const POSTER_FALLBACK_COLOR = '#c8102e';
+
+type PosterPalette = { brand: string; dark: string; soft: string; rule: string; shadow: string };
+
+function posterPalette(color: string): PosterPalette {
+  const brand = hexToHsl(color) ? color : POSTER_FALLBACK_COLOR;
+  return {
+    brand,
+    dark: clubTint(brand, 86, 30)!,
+    soft: clubTint(brand, 74, 95.5)!,
+    rule: clubTint(brand, undefined, undefined, 0.25)!,
+    shadow: clubTint(brand, undefined, undefined, 0.3)!,
+  };
+}
+
 // Cartouche bordeaux en pied de cellule quand un joueur du club mis en valeur est impliqué.
-function ClubBanner({ text }: { text: string }) {
+function ClubBanner({ text, color }: { text: string; color: string }) {
   return (
     <div
       style={{
@@ -378,7 +397,7 @@ function ClubBanner({ text }: { text: string }) {
         left: 0,
         right: 0,
         bottom: 0,
-        background: '#8E0B20',
+        background: color,
         color: 'white',
         fontSize: 9,
         fontWeight: 800,
@@ -398,12 +417,12 @@ function ClubBanner({ text }: { text: string }) {
 }
 
 // Affiche le club sous le classement. Style "home" (rouge, gras) quand le joueur appartient au club mis en valeur.
-function ClubLabel({ club, home = false }: { club: string; home?: boolean }) {
+function ClubLabel({ club, home = false, color }: { club: string; home?: boolean; color: string }) {
   if (!club) return null;
   return (
     <div
       style={{
-        color: home ? '#C8102E' : '#6b6b6b',
+        color: home ? color : '#6b6b6b',
         fontSize: home ? 9.5 : 9,
         fontWeight: home ? 700 : 500,
         letterSpacing: home ? 0.3 : 0,
@@ -428,15 +447,15 @@ const NAME_LINE: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
-const VS_RULE: React.CSSProperties = { flex: 1, width: 1.5, background: 'rgba(200, 16, 46, 0.25)' };
+const VS_RULE: React.CSSProperties = { flex: 1, width: 1.5 };
 
 // Fond rosé derrière le bloc d'un joueur du club mis en valeur. La marge négative annule le
 // padding vertical : le fond déborde sans grandir la cellule.
-const HOME_PLAYER_BG: React.CSSProperties = { background: '#FCEBEB', borderRadius: 10, padding: '4px 2px', margin: '-4px 0' };
+const HOME_PLAYER_BG: React.CSSProperties = { borderRadius: 10, padding: '4px 2px', margin: '-4px 0' };
 
 // `result` : affiche de résultats — pas d'heure, score à la place du VS, vainqueur toujours
 // en j1 (cf. winnerFirst), perdant estompé.
-function MatchCell({ match, highlightedClub, result }: { match: Match; highlightedClub: string | null; result: boolean }) {
+function MatchCell({ match, highlightedClub, result, palette }: { match: Match; highlightedClub: string | null; result: boolean; palette: PosterPalette }) {
   const j1Home = !!highlightedClub && match.j1_club === highlightedClub;
   const j2Home = !!highlightedClub && match.j2_club === highlightedClub;
   const bothHome = j1Home && j2Home;
@@ -450,7 +469,7 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
       style={{
         background: 'white',
         borderRadius: 18,
-        boxShadow: '5px 6px 0px rgba(200, 16, 46, 0.3)',
+        boxShadow: `5px 6px 0px ${palette.shadow}`,
         // Passe-partout blanc décollé de la cellule : visible sur le fond rouge de l'affiche.
         outline: anyHome ? '2px solid white' : undefined,
         outlineOffset: anyHome ? 5 : undefined,
@@ -459,7 +478,7 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
         position: 'relative',
       }}
     >
-      {anyHome && <ClubBanner text={bannerText} />}
+      {anyHome && <ClubBanner text={bannerText} color={palette.dark} />}
 
       <div
         style={{
@@ -474,7 +493,7 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 24 }}>
           {!result && <span
             style={{
-              background: '#C8102E',
+              background: palette.brand,
               color: 'white',
               borderRadius: 999,
               padding: '0 11px',
@@ -489,25 +508,25 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
           >
             {formatTime(match.heure)}
           </span>}
-          <span style={{ color: '#C8102E', fontWeight: 700, fontSize: 15 }}>
+          <span style={{ color: palette.brand, fontWeight: 700, fontSize: 15 }}>
             {match.type_tournoi}
           </span>
         </div>
 
         {/* Adversaires */}
         <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j1Home ? HOME_PLAYER_BG : {}) }}>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j1Home ? { ...HOME_PLAYER_BG, background: palette.soft } : {}) }}>
             <div style={NAME_LINE}>{match.j1_prenom}</div>
             <div style={NAME_LINE}>{match.j1_nom}</div>
-            <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
-            <ClubLabel club={match.j1_club} home={j1Home} />
+            <div style={{ color: palette.brand, fontSize: 15, fontWeight: 700 }}>{match.j1_classement}</div>
+            <ClubLabel club={match.j1_club} home={j1Home} color={palette.brand} />
           </div>
 
           {/* VS ancré par un filet vertical sur toute la hauteur des blocs joueurs */}
           <div style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <div style={VS_RULE} />
+            <div style={{ ...VS_RULE, background: palette.rule }} />
             {result ? (
-              <div style={{ padding: '0 8px', textAlign: 'center', color: '#C8102E', fontSize: 17, fontWeight: 800, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
+              <div style={{ padding: '0 8px', textAlign: 'center', color: palette.brand, fontSize: 17, fontWeight: 800, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
                 {/* Set par set, les jeux de celui qui a gagné le set en rouge gras, les autres en
                     gris. Gauche = vainqueur du match (cf. winnerFirst). */}
                 {match.score.split(' ').map((set, i) => {
@@ -531,13 +550,13 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
                   <path d="M112,8 L122,0 L134,8 L168,95 L184,80 L210,192 L216,200 L204,192 L178,108 L162,122 Z" fill="black"/>
                 </mask>
               </defs>
-              <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill="#C8102E" mask="url(#bolt)">VS</text>
+              <text x="2" y="180" fontFamily="'Arial Black', Impact, Arial, sans-serif" fontSize="182" fontWeight="900" fontStyle="italic" fill={palette.brand} mask="url(#bolt)">VS</text>
             </svg>
             )}
-            <div style={VS_RULE} />
+            <div style={{ ...VS_RULE, background: palette.rule }} />
           </div>
 
-          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j2Home ? HOME_PLAYER_BG : {}), ...(result ? { opacity: 0.5 } : {}) }}>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0, fontFamily: "'Prompt', sans-serif", ...(j2Home ? { ...HOME_PLAYER_BG, background: palette.soft } : {}), ...(result ? { opacity: 0.5 } : {}) }}>
             {match.j2_nom === '' ? (
               <div style={{ fontSize: 20, fontWeight: 400, lineHeight: 1.3, color: '#6b6b6b' }}>
                 À déterminer
@@ -546,8 +565,8 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
               <>
                 <div style={NAME_LINE}>{match.j2_prenom}</div>
                 <div style={NAME_LINE}>{match.j2_nom}</div>
-                <div style={{ color: '#C8102E', fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
-                <ClubLabel club={match.j2_club} home={j2Home} />
+                <div style={{ color: palette.brand, fontSize: 15, fontWeight: 700 }}>{match.j2_classement}</div>
+                <ClubLabel club={match.j2_club} home={j2Home} color={palette.brand} />
               </>
             )}
           </div>
@@ -557,7 +576,7 @@ function MatchCell({ match, highlightedClub, result }: { match: Match; highlight
   );
 }
 
-function PosterPage({ matches, date, highlightedClub, background, mode, partnerLogos }: { matches: Match[]; date: string; highlightedClub: string | null; background?: string; mode: PosterMode; partnerLogos: string[] }) {
+function PosterPage({ matches, date, highlightedClub, background, mode, partnerLogos, palette }: { matches: Match[]; date: string; highlightedClub: string | null; background?: string; mode: PosterMode; partnerLogos: string[]; palette: PosterPalette }) {
   return (
     <div
       data-page
@@ -567,7 +586,7 @@ function PosterPage({ matches, date, highlightedClub, background, mode, partnerL
         height: H,
         overflow: 'hidden',
         fontFamily: "'Arial', sans-serif",
-        background: '#C8102E',
+        background: palette.brand,
       }}
     >
       {/* Image template en fond — celle du club, ou aucune. `crossOrigin` est ce qui laisse
@@ -618,6 +637,7 @@ function PosterPage({ matches, date, highlightedClub, background, mode, partnerL
             match={m}
             highlightedClub={highlightedClub}
             result={mode === 'resultats'}
+            palette={palette}
           />
         ))}
       </div>
@@ -658,6 +678,7 @@ export default function ProgrammationImagePage() {
   /** Tirage fait à l'ouverture de la page, relancé à la demande : l'aperçu est l'export. */
   const [partnerSeed, setPartnerSeed] = useState(newPartnerSeed);
   const drawnPartnerLogos = drawPosterPartners(partnerLogos, partnerSeed);
+  const palette = useMemo(() => posterPalette(config.brand.color ?? ''), [config.brand.color]);
   const [csvText, setCsvText] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1112,6 +1133,7 @@ export default function ProgrammationImagePage() {
                     background={background?.image}
                     mode={mode}
                     partnerLogos={showPartners ? drawnPartnerLogos : []}
+                    palette={palette}
                   />
                 </div>
               ))}
