@@ -217,6 +217,9 @@ CREATE POLICY "live_matches_delete" ON live_matches FOR DELETE TO authenticated 
 
 ### Supabase Realtime
 
+> ⚠️ **Historique** — remplacé le 18/10/2026 par le Broadcast publié en base (cf. « Temps réel par
+> Broadcast » en fin de document). `live_matches` n'est plus dans la publication `supabase_realtime`.
+
 Activer Realtime sur la table `live_matches` depuis le dashboard Supabase (Table Editor → `live_matches` → Enable Realtime).
 
 Cela permet aux consommateurs futurs (PWA) de s'abonner aux changements via :
@@ -428,6 +431,8 @@ CREATE POLICY "live_matches_anon_select"
 
 ### Supabase Realtime
 
+> ⚠️ **Historique** — remplacé par le Broadcast publié en base (cf. « Temps réel par Broadcast »).
+
 Activer depuis le dashboard : Table Editor → `live_matches` → Enable Realtime.
 
 ```ts
@@ -632,3 +637,68 @@ toutes les 30 s. Le BO n'affiche rien.
 
 Calcul : `pwa/src/lib/liveDurations.ts`. Test : `tests/live-set-times-sql.test.mjs`
 (`npm run test:live-score`).
+
+---
+
+## Temps réel par Broadcast — octobre 2026
+
+Les pannes prod des 10, 17 et 18/10/2026 (instance Nano) ont montré que `postgres_changes`
+coûtait à lui seul environ 36 % du temps base : Realtime relit le WAL via wal2json en boucle tant
+qu'un abonné existe (655 000 lectures en 8 jours), et chaque (ré)abonnement écrit une ligne
+`realtime.subscription` puis évalue la RLS par abonné et par changement (17 000 abonnements en
+8 jours pour une dizaine d'appareils). S'y ajoutait un polling de 15 à 30 s sur chaque écran.
+
+### Côté base — `2026101820_live_broadcast.sql`
+
+Des triggers `AFTER` publient chaque écriture par `realtime.send(..., private => false)` ; Realtime
+diffuse le message aux canaux du topic, sans polling du WAL ni RLS par abonné.
+
+| Topic | Événement | Payload | Déclencheur |
+|---|---|---|---|
+| `live:match:<match_id>` | `score` | `{ row }` — ligne `live_matches` complète après écriture | INSERT/UPDATE `live_matches` |
+| `live:match:<match_id>` | `post` | `{ id, sequence, op }` | INSERT/UPDATE `live_posts` (message, sondage, photo, vote, clôture, réaction, suppression logique) |
+| `live:club:<club_id>` | `live` | `{ id, op, status, team_rencontre_id }` | INSERT/UPDATE/DELETE `live_matches` |
+| `live:club:<club_id>` | `team` | `{ rencontre_id }` | INSERT/UPDATE/DELETE `team_rencontres`, `team_match_lines` |
+
+- **Topics publics** : un visiteur lit déjà `live_matches` et `live_posts` des clubs actifs ; les
+  signaux d'équipe ne portent que des identifiants. Rien n'est publié pour un club non actif
+  (`live_club_active`).
+- La migration retire `live_matches` et `live_posts` de la publication `supabase_realtime`.
+- Fonctions `SECURITY DEFINER` (l'écriture dans `realtime.messages` n'est pas accordée à
+  `authenticated`), non exécutables directement par les clients.
+
+### Côté clients
+
+- `lib/liveChannel.ts` (copies BO `src/` et PWA `pwa/`) : **un canal par topic**, partagé entre
+  écouteurs avec un compteur de références (`supabase.channel(topic)` renvoie le canal existant de
+  même topic : sans partage, le `removeChannel` d'un écran couperait l'autre). Le canal reste
+  ouvert **10 s** après le dernier écouteur (`RELEASE_DELAY`) : naviguer entre la liste et un live
+  ne le rejoint pas à nouveau. Les noms de canal ne contiennent plus l'utilisateur : se connecter
+  ou se déconnecter ne rouvre rien.
+- Polling : **secours** à 15 s (fil, scores de rencontre, pages équipes) ou 30 s (score, listes)
+  tant que le canal n'est pas abonné ; **filet** de 2 min (`LIVE_SAFETY_POLL`) quand il l'est, un
+  message Broadcast perdu n'étant jamais rejoué. Revalidation à chaque (ré)abonnement, au retour
+  réseau et au focus.
+- Score (`useLiveMatch`, BO + PWA) : la ligne du message `score` passe par le même contrôle de
+  version (`revision`) qu'avant — aucun aller-retour supplémentaire pour afficher le point.
+- Fil (`useLiveActivity`) : un message `post` ou une commande de l'utilisateur ne relit que la
+  **tête du fil** (`live_activity_page` sans curseur), fusionnée dans la première page chargée
+  (`mergeActivityHead`) ; les pages plus anciennes ne sont relues que si le post concerné s'y
+  trouve. Avec une seule page chargée, c'est une invalidation ordinaire (une lecture). L'écho
+  d'une publication déjà affichée est ignoré.
+- Listes : `MatchesPage` (PWA) et `LiveScorePage` (BO) écoutent `live:club:<id>` / `live` ;
+  `MatchesEquipesPage` écoute `team` et les `live` dont le statut change l'état « en direct » d'une
+  rencontre affichée ; `TeamRencontrePage` (PWA) les `team` / `live` de sa rencontre.
+
+### Déploiement
+
+1. Vérifier dans le dashboard (Realtime → Settings) que les **canaux publics** sont autorisés.
+2. Appliquer la migration sur dev, tester (deux appareils : score, commentaire, réaction, liste,
+   rencontre d'équipe, mise en arrière-plan puis retour), puis en prod.
+3. Déployer BO et PWA juste après : un client resté sur l'ancienne version ne reçoit plus
+   d'événement et retombe sur son polling (la liste BO, qui n'en avait pas, jusqu'au rechargement).
+4. Contrôler dans `pg_stat_statements` la disparition des appels `realtime.list_changes` /
+   wal2json.
+
+Tests : `tests/live-broadcast-sql.test.mjs` (`npm run test:live-score`, `realtime.send` simulé),
+`tests/live-activity-head.test.mjs` (`npm run test:live-activity`), `tests/pwa-network.test.mjs`.

@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import { activityCommand, readActivity } from '../lib/liveActivity';
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
+import {
+  activityCommand,
+  mergeActivityHead,
+  readActivity,
+  type LiveActivityPage,
+} from '../lib/liveActivity';
+import { matchTopic } from '../lib/liveChannel';
+import { LIVE_SAFETY_POLL, useLiveTopic } from './useLiveTopic';
+
+type Feed = InfiniteData<LiveActivityPage, number | null>;
 
 export function useLiveActivity(
   match: string | undefined,
@@ -12,20 +24,91 @@ export function useLiveActivity(
   const locked = useRef(false);
   const generation = useRef(0);
   const request = useRef({ fingerprint: '', id: '' });
+  const burst = useRef<{
+    timer?: ReturnType<typeof setTimeout>;
+    full: boolean;
+    sequence: number | null;
+  }>({ full: false, sequence: null });
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
   const [reacting, setReacting] = useState<string[]>([]);
   const key = ['live-activity', club, match, user];
+  // Un topic par match, indépendant du compte : se connecter ne rouvre pas le canal.
+  const subscribed = useLiveTopic(
+    match && club ? matchTopic(match) : null,
+    ({ event, payload }) => {
+      if (event === 'subscribed') schedule(null, true);
+      else if (event === 'post') {
+        // Écho de sa propre publication, déjà affichée par la lecture qui suit la commande.
+        if (payload.op === 'INSERT' && sequenceOf(payload.id) !== undefined)
+          return;
+        schedule(
+          typeof payload.sequence === 'number' ? payload.sequence : null,
+          false,
+        );
+      }
+    },
+  );
   const page = useInfiniteQuery({
     queryKey: key,
     enabled: !!match && !!club,
     initialPageParam: null as number | null,
     queryFn: ({ pageParam }) => readActivity(match!, club!, pageParam),
     getNextPageParam: (p) => (p.has_more ? p.before : undefined),
-    refetchInterval: 15000,
+    // Le Broadcast pousse les changements : le polling n'est qu'un secours, ou un filet.
+    refetchInterval: subscribed ? LIVE_SAFETY_POLL : 15000,
     refetchOnWindowFocus: 'always',
     staleTime: 0,
   });
+  function sequenceOf(id: unknown) {
+    return client
+      .getQueryData<Feed>(key)
+      ?.pages.flatMap((p) => p.items)
+      .find((p) => p.id === id)?.sequence;
+  }
+  /**
+   * Relit la tête du fil et la fusionne dans la première page. Ne recharge tout le fil que si
+   * le changement touche une page plus ancienne, ou est inconnu (`full`).
+   */
+  async function refreshHead(sequence: number | null, full = false) {
+    if (!match || !club) return;
+    const data = client.getQueryData<Feed>(key);
+    const first = data?.pages[0];
+    if (
+      full ||
+      !data ||
+      data.pages.length < 2 ||
+      first?.before == null ||
+      (sequence !== null && sequence < first.before)
+    ) {
+      // Une seule page chargée : l'invalidation ne coûte qu'une lecture.
+      await client.invalidateQueries({ queryKey: key, exact: true });
+      return;
+    }
+    const head = await readActivity(match, club, null);
+    client.setQueryData<Feed>(key, (old) =>
+      old && old.pages[0] === first
+        ? {
+            ...old,
+            pages: [mergeActivityHead(first, head), ...old.pages.slice(1)],
+          }
+        : old,
+    );
+  }
+  function schedule(sequence: number | null, full: boolean) {
+    const b = burst.current;
+    b.full ||= full;
+    if (sequence !== null)
+      b.sequence = b.sequence === null ? sequence : Math.min(b.sequence, sequence);
+    if (b.timer) return;
+    const version = generation.current;
+    b.timer = setTimeout(() => {
+      const { full: all, sequence: lowest } = burst.current;
+      burst.current = { full: false, sequence: null };
+      if (version === generation.current)
+        void refreshHead(lowest, all).catch(() => undefined);
+    }, 200);
+  }
   useEffect(() => {
     const version = ++generation.current;
     locked.current = false;
@@ -34,41 +117,16 @@ export function useLiveActivity(
     setReacting([]);
     request.current = { fingerprint: '', id: '' };
     if (!match || !club) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let active = true;
-    const refresh = () => {
-      if (timer) return;
-      timer = setTimeout(() => {
-        timer = undefined;
-        if (active)
-          void client.invalidateQueries({
-            queryKey: ['live-activity', club, match],
-          });
-      }, 200);
-    };
-    const channel = supabase
-      .channel(`activity_${club}_${match}_${user ?? 'guest'}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'live_posts',
-          filter: `match_id=eq.${match}`,
-        },
-        refresh,
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') refresh();
-      });
+    const refresh = () => schedule(null, true);
     window.addEventListener('online', refresh);
     return () => {
-      active = false;
       generation.current = version + 1;
-      clearTimeout(timer);
+      clearTimeout(burst.current.timer);
+      burst.current = { full: false, sequence: null };
       window.removeEventListener('online', refresh);
-      void supabase.removeChannel(channel);
     };
+    // `schedule` ne lit que des refs et la clé du rendu courant.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match, club, user, client]);
   async function run(
     action: string,
@@ -93,9 +151,8 @@ export function useLiveActivity(
       );
       if (lifetime !== generation.current) return false;
       request.current = { fingerprint: '', id: '' };
-      await client.invalidateQueries({
-        queryKey: ['live-activity', club, match],
-      });
+      // Nouvelle publication : en tête ; vote, clôture, suppression : là où se trouve le post.
+      await refreshHead(sequenceOf(input.id) ?? null).catch(() => undefined);
       return true;
     } catch (error) {
       if (lifetime === generation.current)
@@ -119,9 +176,7 @@ export function useLiveActivity(
     try {
       await activityCommand(match, club, 'react', { id: post, emoji });
       if (lifetime === generation.current)
-        await client.invalidateQueries({
-          queryKey: ['live-activity', club, match],
-        });
+        await refreshHead(sequenceOf(post) ?? null).catch(() => undefined);
     } catch (error) {
       if (lifetime === generation.current)
         setActionError(

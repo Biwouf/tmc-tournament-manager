@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { writeLiveMatch, deleteLiveMatch } from '../lib/liveMatchWrites';
 import { liveMatchVisibilityFilter } from '../lib/liveMatchVisibility';
 import { supabase } from '../lib/supabase';
+import { clubTopic, LIVE_SAFETY_POLL, listenLiveTopic } from '../lib/liveChannel';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, Profile } from '../types';
 import LiveMatchCard from '../components/LiveMatchCard';
@@ -61,18 +62,42 @@ export default function LiveScorePage() {
     });
 
     fetchMatches();
+    if (!clubId) return;
 
-    const channel = supabase
-      .channel('live_matches_bo')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_matches' }, () => {
-        fetchMatches();
-      })
-      .subscribe();
+    // Broadcast `live:club:<id>` (publié en base) : seuls les matchs de ce club, rafales regroupées.
+    // Polling de secours si le canal tombe, simple filet sinon.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let subscribed = false;
+    let joined = false;
+    let lastRead = Date.now();
+    const refresh = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        lastRead = Date.now();
+        void fetchMatches();
+      }, 250);
+    };
+    const stop = listenLiveTopic(supabase, clubTopic(clubId), {
+      onMessage: ({ event }) => { if (event === 'live') refresh(); },
+      onStatus: (ok) => {
+        if (ok && joined) refresh(); // Rattraper les changements manqués pendant une coupure.
+        joined ||= ok;
+        subscribed = ok;
+      },
+    });
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      if (!subscribed || Date.now() - lastRead >= LIVE_SAFETY_POLL) refresh();
+    }, 30_000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearTimeout(timer);
+      clearInterval(poll);
+      stop();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clubId]);
 
   const confirmStart = async () => {
     if (!courtDialog) return;

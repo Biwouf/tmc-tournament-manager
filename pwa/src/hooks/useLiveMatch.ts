@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { LIVE_SAFETY_POLL, listenLiveTopic, matchTopic } from '../lib/liveChannel';
 import { writeLiveMatch, readLiveMatch, hasLiveMatchRevision } from '../lib/liveMatchWrites';
 import type { LiveMatch } from '../types';
 
@@ -49,26 +50,33 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     setError(null);
     if (!id || !clubId) return;
     let active = true;
-    const channel = supabase.channel(`score_${id}_${userId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${id}` }, payload => {
-        if (active) receive(payload.new as LiveMatch);
-      })
-      .subscribe(status => {
-        if (active && status === 'SUBSCRIBED') void reload();
-      });
-    void reload();
-    // Revalidation après une coupure et filet de secours si le canal est indisponible.
-    const refresh = () => { if (document.visibilityState !== 'hidden' && !busy.current) void reload(); };
+    let subscribed = false;
+    let lastRead = Date.now();
+    const revalidate = () => { lastRead = Date.now(); void reload(); };
+    // Broadcast publié en base (live:match:<id>) : la ligne complète après chaque écriture.
+    const stop = listenLiveTopic(supabase, matchTopic(id), {
+      onMessage: ({ event, payload }) => {
+        if (active && event === 'score' && payload.row) receive(payload.row as LiveMatch);
+      },
+      onStatus: ok => {
+        subscribed = ok;
+        if (active && ok) revalidate();
+      },
+    });
+    revalidate();
+    // Revalidation après une coupure ; polling de secours si le canal est indisponible, sinon simple filet.
+    const refresh = () => { if (document.visibilityState !== 'hidden' && !busy.current) revalidate(); };
+    const tick = () => { if (!subscribed || Date.now() - lastRead >= LIVE_SAFETY_POLL) refresh(); };
     window.addEventListener('online', refresh);
     window.addEventListener('focus', refresh);
-    const timer = setInterval(refresh, 30_000);
+    const timer = setInterval(tick, 30_000);
     return () => {
       active = false;
       generation.current = lifetime + 1;
       clearInterval(timer);
       window.removeEventListener('online', refresh);
       window.removeEventListener('focus', refresh);
-      void supabase.removeChannel(channel);
+      stop();
     };
   }, [id, clubId, userId, receive, reload]);
 

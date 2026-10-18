@@ -84,15 +84,17 @@ du sondage/match. Les identités des votants ne sont jamais publiques.
 - Publications rejouées avec la même clé après un timeout : aucun doublon.
   Les scores utilisent toujours la révision confirmée, sans mise à jour optimiste.
   Un conflit recharge le score et demande de le vérifier avant de poursuivre.
-- Temps réel : `live_matches`, `live_posts`. Révalidation du fil
-  au retour réseau/focus, à la reconnexion et toutes les 15 secondes ; du score
-  toutes les 30 secondes.
-- Les suppressions logiques peuvent ne pas déclencher d’événement chez un lecteur
-  lorsque la RLS rend la nouvelle ligne invisible ; le rafraîchissement du fil les
-  retire au plus tard au prochain intervalle de 15 secondes en premier plan.
+- Temps réel (18/10/2026) : Broadcast publié en base sur `live:match:<id>` —
+  `score` (ligne complète) et `post` (`{ id, sequence, op }`, qui ne relit que la
+  tête du fil). Révalidation au retour réseau/focus et à chaque (ré)abonnement ;
+  polling (fil 15 s, score 30 s) seulement si le canal n’est pas abonné, filet de
+  2 min sinon. Détail : `docs/specs/LIVE_SCORE.md`, « Temps réel par Broadcast ».
+- Les suppressions logiques sont diffusées comme toute mise à jour (plus de RLS
+  par abonné qui les masquerait) ; la relecture de tête les retire du fil.
 - `live_encounter_scores` : résumés publics limités au club actif, aux rencontres
   demandées et à 100 identifiants par appel. Lecture groupée pour toutes les cartes,
-  rafraîchie sur les changements du score live et toutes les 15 secondes en secours.
+  rafraîchie sur les changements du score live (Broadcast `live:club:<id>`) et toutes
+  les 15 secondes en secours si le canal tombe.
 - Les résultats d’équipe restent soumis à leurs révisions, règles de format,
   confirmations et invalidation lors d’une correction. Les liens sont conservés.
 
@@ -124,6 +126,8 @@ supabase db push
 
 Vérifier que `live_matches` et `live_posts` sont dans la
 publication `supabase_realtime` et que le service Realtime est activé.
+*(Historique : depuis `2026101820_live_broadcast.sql`, ces deux tables quittent la
+publication — le temps réel passe par Broadcast, cf. `docs/specs/LIVE_SCORE.md`.)*
 Une fois la base prête, fusionner la PR puis vérifier le déploiement Vercel de
 `pwa-cac-tennis`. Conserver les variables Supabase de production existantes.
 Aucune nouvelle variable, Edge Function, configuration de bucket ou tâche cron

@@ -20,6 +20,8 @@ for (const prefix of ['', 'pwa/']) {
     let nextReadError=null;
     let state;
     let callback;
+    // Broadcast publié en base (live:match:<id>, événement 'score') : la ligne après écriture.
+    const emit=row=>callback({event:'score',payload:{row}});
     let writes=0;
     let pending;
     let appliedPatch;
@@ -40,8 +42,8 @@ for (const prefix of ['', 'pwa/']) {
           },
         };
       },
-      channel(){return {on(_name,_filter,cb){callback=cb;return this;},subscribe(){return this;}};},
-      removeChannel(){},
+      channel(topic,params){assert.match(topic,/^live:match:match-[ab]$/);assert.equal(params.config.private,false);return {on(type,filter,cb){assert.equal(type,'broadcast');callback=cb;return this;},subscribe(){return this;}};},
+      async removeChannel(){},
     };
     const modules=new Map();
     function load(file){
@@ -78,14 +80,14 @@ for (const prefix of ['', 'pwa/']) {
         await assert.rejects(deleteLiveMatch(stale,'club-a'),/version du match est absente/);
       }
       assert.equal(writes,0,'invalid revisions never reach the write API');
-      await act(async()=>callback({new:{...server,revision:undefined,set1_j1:9}}));
+      await act(async()=>emit({...server,revision:undefined,set1_j1:9}));
       assert.equal(state.match.revision,1,'incomplete realtime payload cannot poison the current match');
       let save;
       await act(async()=>{save=state.save({set1_j1:1}); void state.save({set1_j1:2});});
       assert.equal(writes,1,'same-tick double click produces only one write');
       assert.equal(state.saving,true);
       assert.equal(state.match.set1_j1,0,'unconfirmed score is not presented as saved');
-      await act(async()=>callback({new:{...server,revision:0,set1_j1:9}}));
+      await act(async()=>emit({...server,revision:0,set1_j1:9}));
       assert.equal(state.match.set1_j1,0,'late event cannot revert the confirmed version');
       server={...server,...appliedPatch,revision:2};
       await act(async()=>{pending.resolve({data:{...server},error:null});await save;});
@@ -93,14 +95,14 @@ for (const prefix of ['', 'pwa/']) {
       await act(async()=>{save=state.save({set1_j1:2});});
       const ownAck={...server,...appliedPatch,revision:3};
       server={...ownAck,revision:4,scored_by:'user-b'};
-      await act(async()=>callback({new:{...server}}));
+      await act(async()=>emit({...server}));
       await act(async()=>{pending.resolve({data:ownAck,error:null});await save;});
       assert.equal(state.match.scored_by,'user-b','ack cannot undo a takeover');
       assert.equal(state.match.revision,4);
       await act(async()=>{await state.save({set1_j1:5});});
       assert.equal(writes,2,'previous owner no longer writes');
       server={...server,revision:5,scored_by:'user-a'};
-      await act(async()=>callback({new:{...server}}));
+      await act(async()=>emit({...server}));
       await act(async()=>{save=state.save({set1_j1:3});});
       await act(async()=>{pending.reject(new Error('Network offline'));await save;});
       assert.match(state.savingError,/Network offline/);
