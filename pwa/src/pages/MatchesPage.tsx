@@ -10,6 +10,7 @@ import type { LiveMatch } from '../types';
 import MatchCard from '../components/matches/MatchCard';
 import { useAuth } from '../hooks/useAuth';
 import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
+import { LIVE_SAFETY_POLL } from '../lib/liveChannel';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
 async function fetchMatches(clubId: string | null): Promise<LiveMatch[]> {
@@ -33,12 +34,14 @@ export default function MatchesPage() {
   const membership = useCourseContext();
   const { clubId } = useClub();
   const [flash, setFlash] = useState<string | null>(null);
+  // Canal Broadcast abonné : le polling n'est plus qu'un filet de sécurité.
+  const [subscribed, setSubscribed] = useState(false);
 
   const { data: matches, isLoading, isError } = useQuery({
     queryKey: ['matches', clubId],
     queryFn: () => fetchMatches(clubId),
     staleTime: 0, // Le Live se recharge immédiatement au retour sur cet écran.
-    refetchInterval: 30_000,
+    refetchInterval: subscribed ? LIVE_SAFETY_POLL : 30_000,
   });
 
   const encounterIds = [...new Set(
@@ -49,7 +52,7 @@ export default function MatchesPage() {
     enabled: !!clubId && encounterIds.length > 0,
     queryFn: () => fetchLiveEncounterScores(clubId!, encounterIds),
     staleTime: 0,
-    refetchInterval: 15_000,
+    refetchInterval: subscribed ? LIVE_SAFETY_POLL : 15_000,
   });
   const encounterScores = new Map(encounters.data?.map(row => [row.id, row]));
   const card = (m: LiveMatch) => (
@@ -66,7 +69,11 @@ export default function MatchesPage() {
 
   useEffect(() => {
     if (!clubId) return;
-    return subscribeToMatchList(supabase, queryClient, clubId);
+    const stop = subscribeToMatchList(supabase, queryClient, clubId, setSubscribed);
+    return () => {
+      stop();
+      setSubscribed(false);
+    };
   }, [queryClient, clubId]);
 
   // Lecture du flash venant d'une redirection (ex: /matches/:id/score → /matches)

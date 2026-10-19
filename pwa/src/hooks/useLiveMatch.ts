@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { LIVE_SAFETY_POLL, listenLiveTopic, matchTopic } from '../lib/liveChannel';
 import { writeLiveMatch, readLiveMatch, hasLiveMatchRevision } from '../lib/liveMatchWrites';
 import type { LiveMatch } from '../types';
 
-/** Lecture publique ; une sauvegarde en vol, autorité serveur et événements versionnés. */
-export function useLiveMatch(id: string | undefined, clubId: string | null, userId: string | null, canEdit?: boolean) {
+/**
+ * Lecture publique ; une sauvegarde en vol, autorité serveur et événements versionnés.
+ * `seed` : la ligne déjà en cache (liste Live), affichée sans attendre le réseau puis confirmée
+ * par la lecture serveur ; tant qu'elle ne l'est pas (`confirmed` faux), aucune écriture.
+ */
+export function useLiveMatch(id: string | undefined, clubId: string | null, userId: string | null, canEdit?: boolean, seed?: LiveMatch) {
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingError, setSavingError] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const confirmedRef = useRef(false);
+  const seedRef = useRef(seed);
+  // Avant l'effet principal : le seed du rendu courant est lu à l'ouverture de l'écran.
+  useEffect(() => { seedRef.current = seed; });
   const current = useRef<LiveMatch | null>(null);
   const busy = useRef(false);
   const generation = useRef(0);
@@ -31,6 +41,8 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
       const row = await readLiveMatch(id, clubId);
       if (generation.current !== version || reads.current !== read) return;
       receive(row);
+      confirmedRef.current = true;
+      setConfirmed(true);
       setError(null);
       setSavingError(null);
     } catch (e) {
@@ -42,39 +54,54 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     const lifetime = ++generation.current;
     current.current = null;
     busy.current = false;
+    confirmedRef.current = false;
+    setConfirmed(false);
     setMatch(null);
     setLoading(true);
     setSaving(false);
     setSavingError(null);
     setError(null);
     if (!id || !clubId) return;
+    const initial = seedRef.current;
+    if (initial && initial.id === id && hasLiveMatchRevision(initial)) {
+      current.current = initial;
+      setMatch(initial);
+      setLoading(false);
+    }
     let active = true;
-    const channel = supabase.channel(`score_${id}_${userId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${id}` }, payload => {
-        if (active) receive(payload.new as LiveMatch);
-      })
-      .subscribe(status => {
-        if (active && status === 'SUBSCRIBED') void reload();
-      });
-    void reload();
-    // Revalidation après une coupure et filet de secours si le canal est indisponible.
-    const refresh = () => { if (document.visibilityState !== 'hidden' && !busy.current) void reload(); };
+    let subscribed = false;
+    let lastRead = Date.now();
+    const revalidate = () => { lastRead = Date.now(); void reload(); };
+    // Broadcast publié en base (live:match:<id>) : la ligne complète après chaque écriture.
+    const stop = listenLiveTopic(supabase, matchTopic(id), {
+      onMessage: ({ event, payload }) => {
+        if (active && event === 'score' && payload.row) receive(payload.row as LiveMatch);
+      },
+      onStatus: ok => {
+        subscribed = ok;
+        if (active && ok) revalidate();
+      },
+    });
+    revalidate();
+    // Revalidation après une coupure ; polling de secours si le canal est indisponible, sinon simple filet.
+    const refresh = () => { if (document.visibilityState !== 'hidden' && !busy.current) revalidate(); };
+    const tick = () => { if (!subscribed || Date.now() - lastRead >= LIVE_SAFETY_POLL) refresh(); };
     window.addEventListener('online', refresh);
     window.addEventListener('focus', refresh);
-    const timer = setInterval(refresh, 30_000);
+    const timer = setInterval(tick, 30_000);
     return () => {
       active = false;
       generation.current = lifetime + 1;
       clearInterval(timer);
       window.removeEventListener('online', refresh);
       window.removeEventListener('focus', refresh);
-      void supabase.removeChannel(channel);
+      stop();
     };
   }, [id, clubId, userId, receive, reload]);
 
   const save = useCallback(async (patch: Partial<LiveMatch>) => {
     const base = current.current;
-    if (!base || !userId || busy.current || !(canEdit ?? base.scored_by === userId)) return;
+    if (!base || !userId || busy.current || !confirmedRef.current || !(canEdit ?? base.scored_by === userId)) return;
     if (base.revision !== match?.revision) {
       setSavingError('Le score vient de changer. Vérifiez-le avant de continuer.');
       return;
@@ -97,5 +124,5 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
       if (version === generation.current) { busy.current = false; setSaving(false); }
     }
   }, [clubId, userId, receive, reload, match, canEdit]);
-  return { match, loading, error, saving, savingError, save, reload };
+  return { match, loading, error, saving, savingError, save, reload, confirmed };
 }

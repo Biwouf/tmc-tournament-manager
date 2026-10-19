@@ -109,3 +109,26 @@ export async function uploadLivePhoto(path: string, photo: Blob) {
 export async function removeLivePhoto(path: string) {
   await supabase.storage.from(LIVE_IMAGES).remove([path]);
 }
+
+/**
+ * Rafraîchit la première page chargée du fil à partir d'une lecture de tête (`p_before` nul),
+ * sans recharger les pages plus anciennes. La première page couvre toutes les séquences
+ * ≥ `first.before` : la tête y remplace ce qu'elle couvre (ajouts, mises à jour, suppressions),
+ * les éléments plus anciens que la tête restent. `before` / `has_more` sont conservés, la page
+ * suivante garde donc son curseur.
+ */
+export function mergeActivityHead(
+  first: LiveActivityPage,
+  head: LiveActivityPage,
+): LiveActivityPage {
+  const floor = first.before ?? -Infinity;
+  const covered = head.before ?? -Infinity;
+  return {
+    ...first,
+    can_animate: head.can_animate,
+    items: [
+      ...first.items.filter((p) => p.sequence < covered),
+      ...head.items.filter((p) => p.sequence >= floor),
+    ].sort((a, b) => a.sequence - b.sequence),
+  };
+}

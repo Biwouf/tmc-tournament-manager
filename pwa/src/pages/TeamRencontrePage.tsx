@@ -4,9 +4,11 @@ import { supabase } from '../lib/supabase';
 import PerformanceBadge from '../components/teamMatches/PerformanceBadge';
 import { isClubPerformance } from '../lib/teamPerformance';
 import TeamPlayers from '../components/teamMatches/TeamPlayers';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { clubTopic } from '../lib/liveChannel';
+import { LIVE_SAFETY_POLL, useLiveTopic } from '../hooks/useLiveTopic';
 import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import { useCourseContext } from '../hooks/useCourses';
@@ -30,9 +32,23 @@ export default function TeamRencontrePage() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [recap, setRecap] = useState<{ revision: number; lines: TeamLine[] } | null>(null);
   const action = useTeamAction(clubId, id);
+  const queryClient = useQueryClient();
+  // Broadcast `live:club:<id>` : cette rencontre, ses matches ou un live lié ont changé.
+  const pending = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const subscribed = useLiveTopic(clubId ? clubTopic(clubId) : null, ({ event, payload }) => {
+    const concerned = event === 'subscribed'
+      || (event === 'team' && payload.rencontre_id === id)
+      || (event === 'live' && payload.team_rencontre_id === id);
+    if (!concerned || pending.current) return;
+    pending.current = setTimeout(() => {
+      pending.current = undefined;
+      void queryClient.invalidateQueries({ queryKey: ['team-detail', clubId, id], exact: true });
+    }, 250);
+  });
   const query = useQuery({
     queryKey: ['team-detail', clubId, id], enabled: !!clubId && !!id,
-    queryFn: () => fetchTeamDetail(clubId!, id), staleTime: 0, refetchInterval: 15_000,
+    queryFn: () => fetchTeamDetail(clubId!, id), staleTime: 0,
+    refetchInterval: subscribed ? LIVE_SAFETY_POLL : 15_000,
   });
   const close = () => { setSelection(null); setCreating(false); setComposing(false); setRecap(null); action.clearError(); void query.refetch(); };
   const canEdit = !!user && !!(membership.data?.is_member || membership.data?.can_manage);

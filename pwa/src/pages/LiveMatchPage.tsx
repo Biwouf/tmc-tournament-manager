@@ -6,6 +6,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import { useLiveMatch } from '../hooks/useLiveMatch';
@@ -62,11 +63,16 @@ function LiveMatchScreen({
   const navigate = useNavigate();
   const location = useLocation();
   const activity = useLiveActivity(id, clubId, userId);
+  // Ligne déjà chargée par la liste Live (tenue à jour par le Broadcast) : affichée tout de suite.
+  const queryClient = useQueryClient();
   const live = useLiveMatch(
     id,
     clubId,
     userId,
     !authLoading && activity.canAnimate,
+    queryClient
+      .getQueryData<LiveMatch[]>(['matches', clubId])
+      ?.find((m) => m.id === id),
   );
   const { match, saving, savingError, save } = live;
   const canAnimate = !authLoading && activity.canAnimate;
@@ -108,7 +114,7 @@ function LiveMatchScreen({
   const forceFollow = useRef(false);
   const canWrite = canAnimate && match?.status === 'live' && !activity.isError;
   const scoreError = savingError ?? live.error;
-  const blocked = saving || !!scoreError || !canAnimate;
+  const blocked = saving || !live.confirmed || !!scoreError || !canAnimate;
   const login = () =>
     navigate('/login', { state: { from: location.pathname } });
   useEffect(() => {
@@ -287,6 +293,7 @@ function LiveMatchScreen({
         canAnimate={canAnimate}
         blocked={blocked}
         saving={saving}
+        syncing={!live.confirmed}
         scoreError={scoreError}
         canUndo={!!undo && undo.revision === match.revision}
         onOpenScore={() => setSheet('score')}

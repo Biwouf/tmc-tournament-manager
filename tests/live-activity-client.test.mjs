@@ -127,9 +127,12 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
   const channels = new Set();
   let failAccepted = false;
   const supabase = {
-    channel() {
+    channel(topic, params) {
+      assert.match(topic, /^live:(match|club):/);
+      assert.equal(params.config.private, false);
       const handlers = [];
       const channel = {
+        topic,
         handlers,
         on(_event, filter, callback) {
           handlers.push({ filter, callback });
@@ -143,7 +146,7 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
       channels.add(channel);
       return channel;
     },
-    removeChannel(channel) {
+    async removeChannel(channel) {
       channels.delete(channel);
     },
     storage: {
@@ -361,11 +364,17 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
       input.dispatchEvent(new window.Event('input', { bubbles: true }));
     });
   };
+  // Broadcast publié en base : 'score' (ligne complète) ou 'post' sur live:match:<id>.
   const emit = async (table, row) => {
+    const message =
+      table === 'live_matches'
+        ? { event: 'score', payload: { row } }
+        : { event: 'post', payload: { id: row.id, sequence: row.sequence, op: 'UPDATE' } };
+    const topic = `live:match:${table === 'live_matches' ? row.id : row.match_id}`;
     await act(async () => {
       for (const channel of channels)
-        for (const { filter, callback } of channel.handlers)
-          if (filter.table === table) callback({ new: row });
+        if (channel.topic === topic)
+          for (const { callback } of channel.handlers) callback(message);
     });
     await flush();
   };

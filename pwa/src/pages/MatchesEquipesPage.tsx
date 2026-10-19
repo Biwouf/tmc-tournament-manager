@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
+import { clubTopic } from '../lib/liveChannel';
+import { LIVE_SAFETY_POLL, useLiveTopic } from '../hooks/useLiveTopic';
 import type {
   TeamCompetition,
   TeamEquipe,
@@ -69,6 +71,22 @@ export default function MatchesEquipesPage() {
     staleTime: 60_000,
   });
 
+  // Broadcast `live:club:<id>` : une rencontre ou un match d'équipe a changé ('team'), ou un live
+  // lié vient de démarrer ou de s'arrêter ('live' dont le statut ne correspond plus à l'affichage).
+  const queryClient = useQueryClient();
+  const pending = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const rencontresRef = useRef<EnrichedRencontre[] | undefined>(undefined);
+  const subscribed = useLiveTopic(clubId ? clubTopic(clubId) : null, ({ event, payload }) => {
+    if (event === 'live') {
+      const shown = rencontresRef.current?.find((x) => x.rencontre.id === payload.team_rencontre_id);
+      if (!shown || shown.isLive === (payload.status === 'live')) return;
+    } else if (event !== 'team' && event !== 'subscribed') return;
+    if (pending.current) return;
+    pending.current = setTimeout(() => {
+      pending.current = undefined;
+      void queryClient.invalidateQueries({ queryKey: ['team-rencontres'] });
+    }, 250);
+  });
   // 3) Rencontres de la saison + équipe sélectionnée
   const {
     data: rencontres,
@@ -78,7 +96,7 @@ export default function MatchesEquipesPage() {
   } = useQuery({
     queryKey: ['team-rencontres', currentSaisonId, equipeId, clubId],
     staleTime: 0,
-    refetchInterval: 15_000,
+    refetchInterval: subscribed ? LIVE_SAFETY_POLL : 15_000,
     enabled: !!currentSaisonId && !!equipesCtx,
     queryFn: async (): Promise<EnrichedRencontre[]> => {
       const equipeIds = equipeId ? [equipeId] : equipesCtx!.equipes.map((e) => e.id);
@@ -114,6 +132,10 @@ export default function MatchesEquipesPage() {
       });
     },
   });
+
+  useEffect(() => {
+    rencontresRef.current = rencontres;
+  }, [rencontres]);
 
   // Filtrage à venir / passés (côté client) : une rencontre commencée reste « à venir »
   // (en attente) jusqu'à confirmation du résultat ou WO, au plus tard jusqu'à minuit.

@@ -73,7 +73,7 @@ const supabase = {
     channels.push(channel);
     return channel;
   },
-  removeChannel(channel) { channel.removed = true; },
+  async removeChannel(channel) { channel.removed = true; },
 };
 const modules = new Map();
 const mocks = new Map([
@@ -135,7 +135,8 @@ async function cleanup(root) {
   await act(async () => root.unmount());
   for (const client of clients.splice(0)) client.clear();
   for (const key of Object.keys(counters)) delete counters[key];
-  channels.length = 0;
+  // Un canal libéré reste ouvert un moment (RELEASE_DELAY) et sera réutilisé : on le garde.
+  channels.splice(0, channels.length, ...channels.filter(c => !c.removed));
   clubId = 'club-a';
   session = null;
 }
@@ -191,10 +192,13 @@ test('Live: a score burst causes one list request; shared members need no scorer
   try {
     assert.equal(counters.live_matches, 1);
     assert.equal(counters.profiles ?? 0, 0, 'no profile request for the member rights model');
-    const channel = channels.findLast(c => !c.removed);
-    const update = channel.handlers.find(h => h.filter.event === 'UPDATE');
-    assert.equal(update.filter.filter, 'club_id=eq.club-a');
-    assert.equal(activeClient.getQueryCache().find({ queryKey: ['matches', clubId] }).options.refetchInterval, 30_000);
+    const channel = channels.findLast(c => !c.removed && c.name === 'live:club:club-a');
+    const update = { callback: () => channel.handlers[0].callback({ event: 'live', payload: { id: 'match-a', op: 'UPDATE' } }) };
+    assert.equal(channel.handlers[0].filter.event, '*');
+    assert.equal(
+      activeClient.getQueryCache().find({ queryKey: ['matches', clubId] }).options.refetchInterval, 120_000,
+      'subscribed channel: polling is only a safety net',
+    );
     records.live_matches[0].set1_j1 = 2;
     await act(async () => {
       for (let i = 0; i < 10; i++) update.callback({});
@@ -210,31 +214,37 @@ test('Live: a score burst causes one list request; shared members need no scorer
   } finally { records.live_matches[0].scored_by = 'scorer-a'; await cleanup(root); }
 });
 
-test('Live: deletes, reconnect and cleanup invalidate only the current club', async () => {
+test('Live: club topic, reconnect and cleanup invalidate only the current club; the channel is reused', async () => {
   const client = createPwaQueryClient();
   client.setQueryData(['matches', 'club-a'], [{ id: 'match-a' }]);
   client.setQueryData(['matches', 'club-b'], [{ id: 'match-b' }]);
-  const stop = subscribeToMatchList(supabase, client, 'club-a');
+  const statuses = [];
+  let stop = subscribeToMatchList(supabase, client, 'club-a', ok => statuses.push(ok));
   try {
-    const channel = channels.at(-1);
-    const remove = channel.handlers.find(h => h.filter.event === 'DELETE').callback;
-    remove({ old: { id: 'match-b' } });
+    const channel = channels.findLast(c => c.name === 'live:club:club-a');
+    const send = (event) => channel.handlers.forEach(h => h.callback({ event, payload: { id: 'match-a' } }));
+    assert.deepEqual(statuses, [true]);
+    send('team');
     await wait(300);
-    assert.equal(client.getQueryState(['matches', 'club-a']).isInvalidated, false);
-    remove({ old: { id: 'match-a' } });
+    assert.equal(client.getQueryState(['matches', 'club-a']).isInvalidated, false, 'team signals are not for the list');
+    send('live');
     await wait(300);
     assert.equal(client.getQueryState(['matches', 'club-a']).isInvalidated, true);
     assert.equal(client.getQueryState(['matches', 'club-b']).isInvalidated, false);
     client.setQueryData(['matches', 'club-a'], [{ id: 'match-a' }]);
     channel.status('CHANNEL_ERROR'); channel.status('SUBSCRIBED');
+    assert.deepEqual(statuses, [true, false, true]);
     await wait(300);
-    assert.equal(client.getQueryState(['matches', 'club-a']).isInvalidated, true);
+    assert.equal(client.getQueryState(['matches', 'club-a']).isInvalidated, true, 'reconnect catches up');
     client.setQueryData(['matches', 'club-a'], [{ id: 'match-a' }]);
-    remove({ old: { id: 'match-a' } });
+    send('live');
     stop();
     await wait(300);
     assert.equal(client.getQueryState(['matches', 'club-a']).isInvalidated, false);
-    assert.equal(channel.removed, true);
+    assert.equal(channel.removed, false, 'kept open for a while after the last listener');
+    const count = channels.length;
+    stop = subscribeToMatchList(supabase, client, 'club-a');
+    assert.equal(channels.length, count, 'coming back reuses the open channel, no new join');
   } finally { stop(); client.clear(); }
 });
 
@@ -249,8 +259,8 @@ test('Live encounter scores: several cards share one batch, and a score burst re
   try {
     await settle();
     assert.equal(counters.live_encounter_scores, 1, 'one summary request for multiple cards of the same encounter');
-    const channel = channels.findLast(c => !c.removed);
-    const update = channel.handlers.find(h => h.filter.event === 'UPDATE');
+    const channel = channels.findLast(c => !c.removed && c.name === 'live:club:club-a');
+    const update = { callback: () => channel.handlers[0].callback({ event: 'live', payload: { id: 'match-a', op: 'UPDATE' } }) };
     await act(async () => {
       for (let i = 0; i < 10; i++) update.callback({});
       await wait(300);
