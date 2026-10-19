@@ -28,7 +28,7 @@ test('real public DOM retains distinct team identities, dates and home/away', as
   assert.deepEqual(teamCalendar(p, '2474059')[0], {
     numero: 1,
     exempt: false,
-    date: '2026-10-04',
+    date: '2026-10-25',
     domicile: true,
     adversaire: 'AUCAMVILLE TENNIS CLUB 1',
     url: 'https://tenup.fft.fr/championnat/82678463/division/144146/phase/233672/poule/513524/rencontre/9886408',
@@ -59,4 +59,40 @@ test('rejects partial rounds, wrong pool sources, duplicate team identities and 
   p.teams.push({ id: '999', name: 'CASTELSARRASIN TENNIS CLUB 2' });
   validateTenupPool(p, url);
   assert.equal(teamCalendar(p, '999')[0].exempt, true);
+});
+test('a forfeit card without a link takes its rencontre id from the Next.js payload', async () => {
+  const html = await readFile(
+    new URL('./fixtures/tenup-pool-forfait.html', import.meta.url),
+    'utf8'
+  );
+  const parse = (value) =>
+    extractTenupPoolRound(new JSDOM(value).window.document);
+  const base =
+    'https://tenup.fft.fr/championnat/82647633/division/142820/phase/231381/poule/510344/rencontre/';
+  const { round, ...pool } = parse(html);
+  assert.deepEqual(round.matches[1], {
+    url: base + '9822752',
+    home_id: '2449814',
+    away_id: '2449821',
+    date: '2026-10-04',
+  });
+  validateTenupPool(
+    { ...pool, rounds: [{ ...round, numero: 1 }] },
+    'https://tenup.fft.fr/championnat/82647633?division=142820&phase=231381&poule=510344'
+  );
+  // Without the payload, or when its home side or date disagree, the card stays unreadable.
+  for (const value of [
+    html.replace(/<script>[\s\S]*<\/script>/, ''),
+    html.replace(
+      '\\"idEquipeDomicileReelle\\":2449814,\\"idEquipeDomicileTheorique\\":2449814,\\"idEquipeGagnante\\":2449821',
+      '\\"idEquipeDomicileReelle\\":2449821,\\"idEquipeDomicileTheorique\\":2449814,\\"idEquipeGagnante\\":2449821'
+    ),
+    html.replace(
+      '\\"id\\":9822752,\\"dateReelle\\":\\"2026-10-04\\"',
+      '\\"id\\":9822752,\\"dateReelle\\":\\"2026-10-05\\"'
+    ),
+  ]) {
+    assert.notEqual(value, html);
+    assert.throws(() => parse(value), /Incomplete calendar card/);
+  }
 });

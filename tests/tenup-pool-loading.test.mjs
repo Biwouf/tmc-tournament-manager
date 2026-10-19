@@ -16,11 +16,9 @@ test('pool extraction waits for delayed options and every card of the next round
     );
     await page.evaluate(() => {
       const button = document.querySelector(
-        'button[aria-label="Sélectionner une journée"]'
+        'main section button[data-slot="select-trigger"]'
       );
-      const cards = [
-        ...document.querySelectorAll('main a[href*="/rencontre/"]'),
-      ];
+      const cards = [...document.querySelectorAll('main [data-slot="card"]')];
       const parent = cards[0].parentElement;
       setTimeout(
         () =>
@@ -41,9 +39,12 @@ test('pool extraction waits for delayed options and every card of the next round
                       setTimeout(
                         () => {
                           const copy = a.cloneNode(true);
-                          copy.setAttribute(
+                          const link = copy.querySelector(
+                            'a[href*="/rencontre/"]'
+                          );
+                          link.setAttribute(
                             'href',
-                            copy
+                            link
                               .getAttribute('href')
                               .replace(/\d+$/, (x) => String(Number(x) + 100))
                           );

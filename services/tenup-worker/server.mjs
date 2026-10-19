@@ -3,7 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { chromium } from 'playwright';
 import { extractTenupPage } from './parse-page.mjs';
 import { extractTenupCompetition } from './parse-competition.mjs';
-import { readTenupPool } from './read-pool.mjs';
+import { poolDayButton, readTenupPool } from './read-pool.mjs';
 export const validPoolUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/\d+\?division=\d+&phase=\d+&poule=\d+$/.test(value);
 const validKindUrl = (kind, url) => kind === 'pool' ? validPoolUrl(url) : kind === 'competition' ? validCompetitionUrl(url) : validUrl(url);
 export const validCompetitionUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/[0-9]+$/.test(value);
@@ -68,7 +68,7 @@ export async function extract(url, launchOptions = {}, kind = 'rencontre') {
     const page = await context.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'competition') await page.locator('main p').filter({ hasText: /^Nombre de points pour un double\s*:/ }).waitFor({ timeout: 12_000 });
-    else if (kind === 'pool') await page.locator('button[aria-label="Sélectionner une journée"]').waitFor({ timeout: 12_000 });
+    else if (kind === 'pool') await poolDayButton(page).waitFor({ timeout: 12_000 });
     else await page.getByText(/^Simple 1$/, { exact: true }).waitFor({ timeout: 12_000 });
     if (page.url() !== url) throw new Error('Unexpected destination');
     if (kind === 'pool') return await readTenupPool(page);
