@@ -26,6 +26,9 @@ test('public championship prefill reads name and rules; unknown rules require ma
  assert.equal(result.format,'3S1D2');assert.equal(result.singles_set3_format,'normal');assert.deepEqual(result.warnings,[]);
  assert.equal(parse(html.replace('2 points','1 point')).format,'3S1D');
  assert.equal(parse(html.replace('1 - 3 sets à 6 jeux','2 - 2 sets à 6 jeux ; 3ème set = SJD à 10 pts')).singles_set3_format,'super_tiebreak');
+ // Some championships spell the super tie-break "10 points" (GAN 35, October 2026).
+ const points=parse(html.replace('1 - 3 sets à 6 jeux','2 - 2 sets à 6 jeux ; 3ème set = SJD à 10 points').replace('SJD à 10 pts</p>','SJD à 10 points</p>'));
+ assert.equal(points.singles_set3_format,'super_tiebreak');assert.equal(points.format,'3S1D2');assert.deepEqual(points.warnings,[]);
  const unsupported=parse(html.replace('3 simples','5 simples').replace('1 - 3 sets à 6 jeux','Format inconnu'));
  assert.equal(unsupported.format,null);assert.equal(unsupported.singles_set3_format,null);assert.equal(unsupported.warnings.length,2);
  assert.equal(parse(html.replace('égalité : </span>Non','égalité : </span>Oui')).format,null);

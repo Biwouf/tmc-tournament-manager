@@ -23,9 +23,9 @@ export function extractTenupCompetition(document) {
   const simple = value('Simple');
   let singles_set3_format = null;
   if (/^1 - 3 sets à 6 jeux$/.test(simple)) singles_set3_format = 'normal';
-  else if (/2 sets à 6 jeux.*3(?:ème|e) set = SJD à 10 pts/.test(simple)) singles_set3_format = 'super_tiebreak';
+  else if (/2 sets à 6 jeux.*3(?:ème|e) set = SJD à 10 (?:pts|points)/.test(simple)) singles_set3_format = 'super_tiebreak';
   if (!singles_set3_format) warnings.push('La règle du troisième set des simples doit être renseignée manuellement.');
-  if (!/^4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 pts$/.test(value('Double'))) {
+  if (!/^4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 (?:pts|points)$/.test(value('Double'))) {
     warnings.push('La règle des doubles Ten’Up diffère de celle de l’application (super tie-break). Vérifiez la compatibilité avant de créer.');
     format = null;
   }
