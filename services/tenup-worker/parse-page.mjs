@@ -62,7 +62,10 @@ export function extractTenupPage(document) {
   });
   if (lines.length < 1 || lines.length > 6 || new Set(lines.map(l => l.match_type + l.slot)).size !== lines.length) return fail();
   // Doubles show ranking weights. Recover actual rankings from the singles only
-  // when identity is unambiguous; otherwise explicitly keep them unknown.
+  // when identity is unambiguous, else from the weight (one step per ranking:
+  // 1 = 1/6 … 18 = 40, observed October 2026); otherwise keep them unknown.
+  // NC and rankings above 1/6 have no confirmed weight.
+  const byWeight = ['1/6', '2/6', '3/6', '4/6', '5/6', '15', '15/1', '15/2', '15/3', '15/4', '15/5', '30', '30/1', '30/2', '30/3', '30/4', '30/5', '40'];
   for (const side of ['players_a', 'players_b']) {
     const rankings = new Map();
     for (const p of lines.filter(l => l.match_type === 'simple').flatMap(l => l[side])) {
@@ -70,7 +73,7 @@ export function extractTenupPage(document) {
       rankings.set(key, rankings.has(key) ? null : p.classement);
     }
     for (const line of lines.filter(l => l.match_type === 'double')) {
-      for (const p of line[side]) { p.poids_double = p.classement; p.classement = rankings.get(p.prenom + ' ' + p.nom) ?? 'Non renseigné'; }
+      for (const p of line[side]) { p.poids_double = p.classement; p.classement = rankings.get(p.prenom + ' ' + p.nom) ?? (/^\d+$/.test(p.poids_double) ? byWeight[Number(p.poids_double) - 1] : null) ?? 'Non renseigné'; }
     }
   }
   const [day, month, year] = date.split('/');

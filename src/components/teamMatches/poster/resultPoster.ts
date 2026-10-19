@@ -28,5 +28,7 @@ export function orderedResultLines(lines: TeamMatchLine[]) {
 
 export function posterPlayerLabel(player: TeamJoueur) {
   const name = [player.prenom, player.nom].filter(Boolean).join(' ') || 'Joueur non renseigné';
-  return `${name} (${player.classement?.trim() || 'Classement non renseigné'})`;
+  // Unknown rankings (e.g. Ten'Up doubles) are left out rather than spelled out.
+  const classement = player.classement?.trim();
+  return classement && classement !== 'Non renseigné' ? `${name} (${classement})` : name;
 }

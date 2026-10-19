@@ -95,7 +95,11 @@ Documentation : [Protection Bypass for Automation](https://vercel.com/docs/deplo
   interprétation approximative ni contournement de CAPTCHA/file d’attente.
 - La règle du troisième set des simples doit être configurée dans la compétition.
 - En double, Ten’Up affiche des poids : le classement individuel est repris des simples
-  pour la même personne, ou affiché « Non renseigné ». Aucun membre interne n’est
+  pour la même personne, sinon déduit du poids (1 = 1/6 … 18 = 40, un échelon par
+  point, constaté en octobre 2026), sinon « Non renseigné » (NC et classements
+  au-dessus de 1/6 sans poids confirmé). Le visuel de résultat omet un classement
+  inconnu. Les joueurs masqués par Ten’Up (« Joueur ANONYME ») ne sont pas
+  récupérables sans compte FFT. Aucun membre interne n’est
   automatiquement associé sur la seule base de son nom.
 - Cache serveur de 60 secondes, une extraction à la fois par worker, trois demandes
   par minute et par utilisateur. La lecture expire en moins de 50 secondes.
