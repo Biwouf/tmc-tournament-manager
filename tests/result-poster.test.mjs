@@ -43,7 +43,8 @@ test('Poster order groups doubles last and retains the sporting slot order witho
 test('Player labels preserve names and rankings for both sides, including NC', () => {
   assert.equal(posterPlayerLabel({ prenom: 'Nathalie', nom: 'GUIRAL', classement: '30/1' }), 'Nathalie GUIRAL (30/1)');
   assert.equal(posterPlayerLabel({ prenom: 'Alex', nom: null, classement: 'NC' }), 'Alex (NC)');
-  assert.equal(posterPlayerLabel({ prenom: 'Alex', nom: null, classement: '' }), 'Alex (Classement non renseigné)');
+  assert.equal(posterPlayerLabel({ prenom: 'Alex', nom: null, classement: '' }), 'Alex');
+  assert.equal(posterPlayerLabel({ prenom: 'Alex', nom: 'MARTIN', classement: 'Non renseigné' }), 'Alex MARTIN');
 });
 test('The focus point is centered when possible and clamped at the photo edges', () => {
   const crop = photoCrop(2000, 2000, 1000, 1000, 50, 30, 2);

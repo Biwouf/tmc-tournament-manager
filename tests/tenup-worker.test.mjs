@@ -19,10 +19,13 @@ test('extracts actual DOM structure, separates doubles weights from rankings', (
  assert.deepEqual(result.lines[0].players_a,[{prenom:'Anne',nom:'MARTIN',classement:'30'}]);
  assert.equal(result.lines[1].players_a[0].classement,'30');
  assert.equal(result.lines[1].players_a[0].poids_double,'12');
- assert.equal(result.lines[1].players_a[1].classement,'Non renseigné');
+ assert.equal(result.lines[1].players_a[1].classement,'30/1','weight 13 without a single maps to 30/1');
+ assert.equal(result.lines[1].players_b[1].poids_double,'13');
+ const unknown=parse(html().replace(/>13</g,'>19<'));
+ assert.equal(unknown.lines[1].players_a[1].classement,'Non renseigné','weight outside 1..18 (NC?) stays unknown');
  assert.deepEqual(result.lines[0].sets,[{a:6,b:2},{a:6,b:3}]);
  const ambiguous=parse(html(match('Simple',1)+match('Simple',2)+match('Double',1)));
- assert.equal(ambiguous.lines[2].players_a[0].classement,'Non renseigné','same name in multiple singles is ambiguous');
+ assert.equal(ambiguous.lines[2].players_a[0].classement,'30','same name in multiple singles is ambiguous: fall back to weight 12');
 });
 test('rejects queue, missing scores, unknown result kinds, duplicate slots and mismatched teams', () => {
  for(const page of ['<main>Queue</main>',html().replace('<span>6</span>','<span>—</span>'),html().replace('<p>Club B</p>','<p>Club B</p>'+badge('WO')),html().replace('<p>Club B</p>','<p>Club B</p><span>Abandon</span>'),html(match('Simple',1)+match('Simple',1)),html().replace('<p>Club A</p>','<p>Club C</p>'),html().replace(' du 27/09/2026',''),html().replace('<span>0</span>','<span>—</span>')]) {
