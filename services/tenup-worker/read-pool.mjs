@@ -20,8 +20,17 @@ async function readRound(page, numero) {
   }
 }
 
+/** Round selector of the calendar section (the only unlabelled select). */
+export const poolDayButton = (page) =>
+  page
+    .locator('main section')
+    .filter({
+      has: page.locator('h3', { hasText: /^Le calendrier des rencontres$/ }),
+    })
+    .locator('button[data-slot="select-trigger"]');
+
 export async function readTenupPool(page) {
-  const button = page.locator('button[aria-label="Sélectionner une journée"]');
+  const button = poolDayButton(page);
   const options = page.getByRole('option');
   const openDays = async () => {
     for (let attempt = 0; attempt < 6; attempt++) {

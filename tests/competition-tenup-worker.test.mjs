@@ -4,13 +4,13 @@ import { JSDOM } from 'jsdom';
 import { extractTenupCompetition } from '../services/tenup-worker/parse-competition.mjs';
 import { createHandler } from '../services/tenup-worker/server.mjs';
 import { normalizeTenupCompetitionUrl } from '../shared/tenupCompetitionUrl.mjs';
-// Reduced public championship rendering observed on September 30, 2026.
-const html = `<main><h2>Challenge Féminin Max Espiaut de Valence d'Agen</h2><h3>Format</h3>
+// Reduced public championship rendering observed on October 19, 2026 (redesign).
+const html = `<main><h1>Challenge Féminin Max Espiaut de Valence d'Agen</h1><h2>Format</h2>
 <p><span>Simple : </span>1 - 3 sets à 6 jeux</p>
 <p><span>Double : </span>4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 pts</p>
 <p><span>Rencontres : </span>3 simples / 1 double</p>
 <p><span>Double supplémentaire en cas d'égalité : </span>Non</p>
-<h3>Points par match</h3><p><span>Nombre de points pour un simple : </span>1 point</p>
+<h2>Points par match</h2><p><span>Nombre de points pour un simple : </span>1 point</p>
 <p><span>Nombre de points pour un double : </span>2 points</p>
 <p><span>Point de bonus pour les deux doubles gagnés : </span>Non</p></main>`;
 const parse = value => extractTenupCompetition(new JSDOM(value).window.document);
@@ -32,7 +32,7 @@ test('public championship prefill reads name and rules; unknown rules require ma
  assert.equal(parse(html.replace('Double : </span>4','Double : </span>9')).format,null);
  assert.equal(parse(html.replace('3 simples / 1 double','inconnu')).format,null);
  assert.equal(parse(html.replace('2 points','3 points')).format,null);
- for(const value of ['<main><h2>Faute !</h2>500</main>',html.replace('<h3>Format</h3>','')]) assert.throws(()=>parse(value),/incomplète/);
+ for(const value of ['<main><h1>Faute !</h1>500</main>',html.replace('<h2>Format</h2>','')]) assert.throws(()=>parse(value),/incomplète/);
 });
 test('worker accepts only public championship URLs for the competition mode', async () => {
  const calls=[];

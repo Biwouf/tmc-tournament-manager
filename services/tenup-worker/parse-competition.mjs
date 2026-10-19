@@ -1,15 +1,15 @@
-// Rendered championship DOM observed on Ten'Up in September 2026. A championship
+// Rendered championship DOM observed on Ten'Up in October 2026 (redesign). A championship
 // exposes name and scoring rules publicly; genre/category still require review.
 export function extractTenupCompetition(document) {
   const text = el => el?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
   const main = document.querySelector('main');
-  const nom = text(main?.querySelector('h2'));
+  const nom = text(main?.querySelector('h1'));
   const paragraphs = [...(main?.querySelectorAll('p') ?? [])].map(text);
   const value = label => paragraphs.find(p => p.startsWith(`${label} : `))?.slice(label.length + 3) ?? '';
   const composition = /^([0-9]+) simples? \/ ([0-9]+) doubles?$/.exec(value('Rencontres'));
   const singlePoints = /^1 point$/.test(value('Nombre de points pour un simple'));
   const doublePoints = /^([12]) points?$/.exec(value('Nombre de points pour un double'));
-  const headings = [...(main?.querySelectorAll('h3') ?? [])].map(text);
+  const headings = [...(main?.querySelectorAll('h2') ?? [])].map(text);
   if (!nom || nom.length > 160 || !headings.includes('Format') || !headings.includes('Points par match')) {
     throw new Error('Fiche de championnat Ten’Up incomplète ou non reconnue.');
   }

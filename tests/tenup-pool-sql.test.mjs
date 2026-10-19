@@ -156,7 +156,7 @@ test('team creation imports a trusted snapshot atomically and permits both club 
     assert.equal(r.tenup_synced_at, null);
     assert.equal(
       new Date(r.date_heure).toISOString(),
-      '2026-10-04T07:00:00.000Z'
+      '2026-10-25T08:00:00.000Z'
     );
     const pid2 = await begin();
     await attach(pid2);
