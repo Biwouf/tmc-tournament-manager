@@ -681,6 +681,11 @@ diffuse le message aux canaux du topic, sans polling du WAL ni RLS par abonné.
   réseau et au focus.
 - Score (`useLiveMatch`, BO + PWA) : la ligne du message `score` passe par le même contrôle de
   version (`revision`) qu'avant — aucun aller-retour supplémentaire pour afficher le point.
+- Ouverture d'un live depuis la liste (PWA) : `LiveMatchPage` passe à `useLiveMatch` la ligne déjà
+  en cache (`['matches', clubId]`, tenue à jour par le Broadcast du club) ; elle s'affiche **sans
+  attendre le réseau** (« Synchronisation… »), puis la lecture serveur la remplace si elle est plus
+  récente. Tant qu'elle n'est pas confirmée (`confirmed`), la saisie est bloquée : jamais d'écriture
+  sur un score non vérifié. Un lien direct, sans liste en cache, attend la lecture comme avant.
 - Fil (`useLiveActivity`) : un message `post` ou une commande de l'utilisateur ne relit que la
   **tête du fil** (`live_activity_page` sans curseur), fusionnée dans la première page chargée
   (`mergeActivityHead`) ; les pages plus anciennes ne sont relues que si le post concerné s'y

@@ -4,13 +4,22 @@ import { LIVE_SAFETY_POLL, listenLiveTopic, matchTopic } from '../lib/liveChanne
 import { writeLiveMatch, readLiveMatch, hasLiveMatchRevision } from '../lib/liveMatchWrites';
 import type { LiveMatch } from '../types';
 
-/** Lecture publique ; une sauvegarde en vol, autorité serveur et événements versionnés. */
-export function useLiveMatch(id: string | undefined, clubId: string | null, userId: string | null, canEdit?: boolean) {
+/**
+ * Lecture publique ; une sauvegarde en vol, autorité serveur et événements versionnés.
+ * `seed` : la ligne déjà en cache (liste Live), affichée sans attendre le réseau puis confirmée
+ * par la lecture serveur ; tant qu'elle ne l'est pas (`confirmed` faux), aucune écriture.
+ */
+export function useLiveMatch(id: string | undefined, clubId: string | null, userId: string | null, canEdit?: boolean, seed?: LiveMatch) {
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingError, setSavingError] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const confirmedRef = useRef(false);
+  const seedRef = useRef(seed);
+  // Avant l'effet principal : le seed du rendu courant est lu à l'ouverture de l'écran.
+  useEffect(() => { seedRef.current = seed; });
   const current = useRef<LiveMatch | null>(null);
   const busy = useRef(false);
   const generation = useRef(0);
@@ -32,6 +41,8 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
       const row = await readLiveMatch(id, clubId);
       if (generation.current !== version || reads.current !== read) return;
       receive(row);
+      confirmedRef.current = true;
+      setConfirmed(true);
       setError(null);
       setSavingError(null);
     } catch (e) {
@@ -43,12 +54,20 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     const lifetime = ++generation.current;
     current.current = null;
     busy.current = false;
+    confirmedRef.current = false;
+    setConfirmed(false);
     setMatch(null);
     setLoading(true);
     setSaving(false);
     setSavingError(null);
     setError(null);
     if (!id || !clubId) return;
+    const initial = seedRef.current;
+    if (initial && initial.id === id && hasLiveMatchRevision(initial)) {
+      current.current = initial;
+      setMatch(initial);
+      setLoading(false);
+    }
     let active = true;
     let subscribed = false;
     let lastRead = Date.now();
@@ -82,7 +101,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
 
   const save = useCallback(async (patch: Partial<LiveMatch>) => {
     const base = current.current;
-    if (!base || !userId || busy.current || !(canEdit ?? base.scored_by === userId)) return;
+    if (!base || !userId || busy.current || !confirmedRef.current || !(canEdit ?? base.scored_by === userId)) return;
     if (base.revision !== match?.revision) {
       setSavingError('Le score vient de changer. Vérifiez-le avant de continuer.');
       return;
@@ -105,5 +124,5 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
       if (version === generation.current) { busy.current = false; setSaving(false); }
     }
   }, [clubId, userId, receive, reload, match, canEdit]);
-  return { match, loading, error, saving, savingError, save, reload };
+  return { match, loading, error, saving, savingError, save, reload, confirmed };
 }

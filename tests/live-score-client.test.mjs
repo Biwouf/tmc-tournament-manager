@@ -133,3 +133,59 @@ for (const prefix of ['', 'pwa/']) {
     }finally{await act(async()=>root.unmount());}
   });
 }
+
+test('pwa/ Live: cached list row shows at once, writes wait for the server confirmation', async () => {
+  const req=createRequire(new URL('../pwa/package.json',import.meta.url));
+  const React=req('react'); const {act,createElement:h}=React;
+  const {createRoot}=req('react-dom/client');
+  const src=resolve(new URL('../pwa/src',import.meta.url).pathname);
+  const server={id:'match-c',club_id:'club-a',revision:4,scored_by:'user-a',status:'live',set1_j1:3};
+  let read; let writes=0; let state;
+  const supabase={
+    from(){
+      let write=false;
+      return {
+        select(){return this;}, eq(){return this;}, abortSignal(){return this;},
+        update(){write=true;return this;},
+        single(){
+          if(write){writes++;return Promise.resolve({data:{...server,revision:5},error:null});}
+          return new Promise(resolve=>{read=()=>resolve({data:{...server},error:null});});
+        },
+      };
+    },
+    channel(){return {on(){return this;},subscribe(){return this;}};},
+    async removeChannel(){},
+  };
+  const modules=new Map();
+  function load(file){
+    if(file.endsWith('/lib/supabase.ts')) return {supabase};
+    if(modules.has(file)) return modules.get(file).exports;
+    const module={exports:{}};modules.set(file,module);
+    const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+    const require=name=>{
+      if(!name.startsWith('.'))return req(name);
+      const path=resolve(dirname(file),name);
+      return load([path,`${path}.ts`,`${path}.tsx`].find(existsSync));
+    };
+    vm.runInThisContext(`(function(require,module,exports){${code}\n})`,{filename:file})(require,module,module.exports);
+    return module.exports;
+  }
+  const {useLiveMatch}=load(resolve(src,'hooks/useLiveMatch.ts'));
+  // La liste a déjà la ligne, mais avec un point de retard sur le serveur.
+  const seed={...server,revision:3,set1_j1:2};
+  function Screen(){state=useLiveMatch('match-c','club-a','user-a',true,seed);return null;}
+  const root=createRoot(document.getElementById('root'));
+  try{
+    await act(async()=>root.render(h(Screen)));
+    assert.equal(state.loading,false,'no waiting on the network');
+    assert.equal(state.match.set1_j1,2,'cached score shown immediately');
+    assert.equal(state.confirmed,false);
+    await act(async()=>{await state.save({set1_j1:3});});
+    assert.equal(writes,0,'no write on an unconfirmed score');
+    await act(async()=>{read();await Promise.resolve();});
+    assert.equal(state.confirmed,true);
+    assert.equal(state.match.set1_j1,3,'server read replaces the cached row');
+    await act(async()=>{await state.save({set1_j1:4});});
+    assert.equal(writes,1,'writes allowed once confirmed');
+  }finally{await act(async()=>root.unmount());}
+});

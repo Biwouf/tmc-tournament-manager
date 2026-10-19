@@ -500,7 +500,7 @@ Déploiement : projet Vercel séparé, Root Directory = `web/`.
   UPDATE/DELETE conditionnés par `revision`, ligne retournée obligatoire, timeout 15 s.
   Consommés aussi par `src/pages/LiveScorePage.tsx` et `pwa/src/components/matches/MatchCard.tsx`.
 - `LiveMatch.revision` dans les deux types est alimenté exclusivement par le serveur.
-- PWA : `useLiveMatch(id, clubId, userId, canEdit?)` — depuis le live immersif, le droit d'écrire vient de `canEdit` (membre du club) et non plus de `scored_by` ; le BO garde son UI d'ownership.
+- PWA : `useLiveMatch(id, clubId, userId, canEdit?, seed?)` — `seed` (18/10/2026) : la ligne de la liste Live en cache, affichée sans attendre le réseau ; saisie bloquée jusqu'à la confirmation serveur (`confirmed`, libellé « Synchronisation… » de `LiveScoreboard`). Depuis le live immersif, le droit d'écrire vient de `canEdit` (membre du club) et non plus de `scored_by` ; le BO garde son UI d'ownership.
 - `supabase/migrations/20260907_live_match_consistency.sql` : versionnement et contrôle de
   propriétaire, reprise/démarrage limités aux champs de gestion, suppression et invariant club.
 - `tests/live-score-client.test.mjs` et `tests/live-score-sql.test.mjs` : `npm run test:live-score`.

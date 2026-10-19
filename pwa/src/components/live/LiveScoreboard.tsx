@@ -20,6 +20,7 @@ export default function LiveScoreboard({
   canAnimate,
   blocked,
   saving,
+  syncing = false,
   scoreError,
   canUndo,
   onOpenScore,
@@ -32,6 +33,8 @@ export default function LiveScoreboard({
   canAnimate: boolean;
   blocked: boolean;
   saving: boolean;
+  /** Score affiché depuis le cache, pas encore confirmé par le serveur. */
+  syncing?: boolean;
   scoreError: string | null;
   canUndo: boolean;
   onOpenScore: () => void;
@@ -185,7 +188,9 @@ export default function LiveScoreboard({
               ? 'Enregistrement…'
               : scoreError
                 ? 'Score à vérifier'
-                : 'Synchronisé'}
+                : syncing
+                  ? 'Synchronisation…'
+                  : 'Synchronisé'}
           </span>
           {canUndo && (
             <button className="undo-score" disabled={blocked} onClick={onUndo}>
