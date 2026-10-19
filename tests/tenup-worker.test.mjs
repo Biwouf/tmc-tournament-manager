@@ -5,10 +5,12 @@ import { JSDOM } from 'jsdom';
 import { extractTenupPage } from '../services/tenup-worker/parse-page.mjs';
 import { createHandler, validUrl } from '../services/tenup-worker/server.mjs';
 
-// Reduced rendering of the September 2026 Ten'Up DOM, with fictitious names.
-const row = (team, names, ranks, sets, css) => `<div class="${css}" type-resultat="S"><div>${names.map((name,i)=>`<div><p><span>${name}</span></p><span class="ring-tu-primary-dark">${ranks[i]}</span></div>`).join('')}<a href="/championnat/1/equipe/${team}">Club ${team}</a></div><div>${sets.map(n=>`<span>${n} <!----></span>`).join('')}</div></div>`;
-const match = (type, slot, setsA=[6,6],setsB=[2,3]) => `<div><div><div><span>${type} ${slot}</span></div></div><div>${row('A',type==='Double'?['Anne MARTIN','Zoé DURAND']:['Anne MARTIN'],type==='Double'?['12','13']:['30'],setsA,'rounded-t-md')}${row('B',type==='Double'?['Jeanne DUPONT','Marie PERRIN']:['Jeanne DUPONT'],type==='Double'?['10','13']:['15/4'],setsB,'rounded-b-md')}</div></div>`;
-const html = (matches=match('Simple',1)+match('Double',1)) => `<main><div capitaine><a href="/equipe/A">Club A</a></div><div capitaine><span>2</span></div><div capitaine><a href="/equipe/B">Club B</a></div><div capitaine><span>0</span></div><p>Date de la rencontre</p><p>27/09/2026</p><p>Équipe 1</p><p>Club A</p><p>Équipe 2</p><p>Club B</p>${matches}</main>`;
+// Reduced rendering of the October 2026 Ten'Up DOM, with fictitious names.
+const badge = value => `<span data-slot="badge">${value}</span>`;
+const row = (team, names, ranks, sets, css) => `<div class="${css}"><div><div>${names.map((name,i)=>`<div><span data-slot="avatar"><span data-slot="avatar-fallback">${name.split(' ').map(w=>w[0]).join('')}</span></span><div><span class="block truncate">${name}</span></div>${badge(ranks[i])}${badge('<svg></svg>')}</div>`).join('')}<p>Club ${team}</p></div></div><div>${sets.map(n=>`<span>${n}</span>`).join('')}</div></div>`;
+const match = (type, slot, setsA=[6,6],setsB=[2,3]) => `<div><div><svg></svg><div><span>${type} ${slot}</span></div></div><div class="relative">${row('A',type==='Double'?['Anne MARTIN','Zoé DURAND']:['Anne MARTIN'],type==='Double'?['12','13']:['30'],setsA,'rounded-t-md')}${row('B',type==='Double'?['Jeanne DUPONT','Marie PERRIN']:['Jeanne DUPONT'],type==='Double'?['10','13']:['15/4'],setsB,'rounded-b-md')}${badge('<svg></svg>')}</div></div>`;
+const team = (id, score) => `<div><div><div><div><a href="/championnat/1/equipe/${id}">Club ${id}</a><svg></svg></div></div></div><div><div><span>${score}</span></div></div></div>`;
+const html = (matches=match('Simple',1)+match('Double',1)) => `<main><h1>Rencontre Club A / Club B du 27/09/2026</h1><div>${team('A',2)}${team('B',0)}</div><div role="tabpanel">${matches}</div></main>`;
 const parse = text => extractTenupPage(new JSDOM(text).window.document);
 
 test('extracts actual DOM structure, separates doubles weights from rankings', () => {
@@ -23,13 +25,13 @@ test('extracts actual DOM structure, separates doubles weights from rankings', (
  assert.equal(ambiguous.lines[2].players_a[0].classement,'Non renseigné','same name in multiple singles is ambiguous');
 });
 test('rejects queue, missing scores, unknown result kinds, duplicate slots and mismatched teams', () => {
- for(const page of ['<main>Queue</main>',html().replace('6 <!---->','—'),html().replace('type-resultat="S"','type-resultat="WO"'),html(match('Simple',1)+match('Simple',1)),html().replace('>Club A</a></div><div><span>6','>Club C</a></div><div><span>6')]) {
+ for(const page of ['<main>Queue</main>',html().replace('<span>6</span>','<span>—</span>'),html().replace('<p>Club B</p>','<p>Club B</p>'+badge('WO')),html().replace('<p>Club B</p>','<p>Club B</p><span>Abandon</span>'),html(match('Simple',1)+match('Simple',1)),html().replace('<p>Club A</p>','<p>Club C</p>'),html().replace(' du 27/09/2026',''),html().replace('<span>0</span>','<span>—</span>')]) {
   assert.throws(()=>parse(page),/incomplète/);
  }
 });
 test('does not confuse tie-break annotations with games; reads a super tie-break as third set', () => {
  assert.deepEqual(parse(html(match('Simple',1,[6,4,2],[1,6,10]))).lines[0].sets,[{a:6,b:1},{a:4,b:6},{a:2,b:10}]);
- const source=html(match('Simple',1,[7,6],[6,3])).replace('7 <!---->','7 <sup>7</sup>').replace('6 <!----></span><span>3','6 <sup>5</sup></span><span>3');
+ const source=html(match('Simple',1,[7,6],[6,3])).replace('<span>7</span>','<span>7<sup>7</sup></span>').replace('<span>6</span><span>3</span>','<span>6<sup>5</sup></span><span>3</span>');
  assert.deepEqual(parse(source).lines[0].sets[0],{a:7,b:6,tb_a:7,tb_b:5});
 });
 test('worker authenticates, restricts URLs, caches and bounds concurrency', async () => {
