@@ -1,12 +1,11 @@
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  firstEmoji,
-  LIVE_REACTIONS,
-  type LivePost,
-} from '../../lib/liveActivity';
+import { LIVE_REACTIONS, type LivePost } from '../../lib/liveActivity';
 import LiveIcon from './LiveIcon';
 import LiveSheet from './LiveSheet';
+
+// Liste complète des emojis chargée à la première ouverture du sélecteur.
+const EmojiPicker = lazy(() => import('./EmojiPicker'));
 
 const LONG_PRESS_MS = 500;
 const labelOf = (emoji: string) =>
@@ -29,8 +28,7 @@ export default function PostReactions({
 }) {
   const [open, setOpen] = useState(false);
   const [who, setWho] = useState(false);
-  const [keyboard, setKeyboard] = useState(false);
-  const field = useRef<HTMLInputElement>(null);
+  const [picker, setPicker] = useState(false);
   const press = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const held = useRef(false);
   const navigate = useNavigate();
@@ -39,7 +37,7 @@ export default function PostReactions({
   const canSeeWho = signedIn && post.reactions.length > 0;
   function choose(emoji: string) {
     setOpen(false);
-    setKeyboard(false);
+    setPicker(false);
     if (!signedIn) navigate('/login', { state: { from: location.pathname } });
     else onReact(post.my_reaction === emoji ? null : emoji);
   }
@@ -90,10 +88,7 @@ export default function PostReactions({
         onClick={() => {
           if (!signedIn)
             navigate('/login', { state: { from: location.pathname } });
-          else {
-            setOpen(!open);
-            setKeyboard(false);
-          }
+          else setOpen(!open);
         }}
       >
         {open ? '×' : <LiveIcon kind="reaction" />}
@@ -113,36 +108,27 @@ export default function PostReactions({
           <button
             className="reaction-more"
             aria-label="Autre emoji"
-            aria-pressed={keyboard}
             onClick={() => {
-              setKeyboard(true);
-              // Focus synchrone, dans le geste : sinon iOS n'ouvre pas le clavier.
-              field.current?.focus();
+              setOpen(false);
+              setPicker(true);
             }}
           >
             +
           </button>
-          {/* Toujours monté pour être focusable dans le geste ; visible une fois demandé. */}
-          <input
-            ref={field}
-            className={
-              keyboard ? 'reaction-field' : 'reaction-field hidden-field'
-            }
-            aria-label="Emoji du clavier"
-            placeholder="Choisissez un emoji…"
-            enterKeyHint="done"
-            autoComplete="off"
-            onBlur={() => setKeyboard(false)}
-            onChange={(e) => {
-              const emoji = firstEmoji(e.target.value);
-              e.target.value = '';
-              if (emoji) {
-                e.target.blur();
-                choose(emoji);
-              }
-            }}
-          />
         </div>
+      )}
+      {picker && (
+        <LiveSheet title="Réagir" onClose={() => setPicker(false)}>
+          <Suspense
+            fallback={
+              <div className="emoji-picker">
+                <p className="emoji-empty">Chargement…</p>
+              </div>
+            }
+          >
+            <EmojiPicker selected={post.my_reaction} onPick={choose} />
+          </Suspense>
+        </LiveSheet>
       )}
       {who && (
         <LiveSheet title="Réactions" onClose={() => setWho(false)}>

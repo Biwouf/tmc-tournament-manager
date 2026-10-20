@@ -21,6 +21,9 @@ dom.window.HTMLDialogElement.prototype.close = function () {
   this.removeAttribute('open');
 };
 window.confirm = () => true;
+// Pas d'affichage dans jsdom : une image = une tâche (sélecteur d'emojis progressif).
+globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+globalThis.cancelAnimationFrame = clearTimeout;
 // Pas de canvas dans jsdom : la compression est simulée (4000×3000 → 1600×1200).
 globalThis.createImageBitmap = async () => ({
   width: 4000,
@@ -46,6 +49,8 @@ function loader(mocks) {
   const cache = new Map();
   function load(file) {
     if (file.endsWith('.css')) return {};
+    if (file.endsWith('.json'))
+      return { default: JSON.parse(readFileSync(file, 'utf8')) };
     for (const [suffix, value] of Object.entries(mocks))
       if (file.endsWith(suffix)) return value;
     if (cache.has(file)) return cache.get(file).exports;
@@ -493,13 +498,27 @@ test('Spectator: mutable unique vote, no text composer, one toggleable reaction 
     assert.ok(screen.button('Quel match ! : 1'));
     await screen.click('Réagir');
     await screen.click('Autre emoji');
-    assert.equal(document.activeElement.getAttribute('aria-label'), 'Emoji du clavier');
+    assert.ok(
+      document.querySelectorAll('.emoji-grid button').length > 1500,
+      'every emoji is one tap away, without the native keyboard',
+    );
+    assert.equal(document.querySelectorAll('.emoji-tabs button').length, 8);
     const calls = screen.calls.length;
-    await screen.type('.reaction-field', 'abc');
-    assert.equal(screen.calls.length, calls, 'text is not a reaction');
-    await screen.type('.reaction-field', '👍🏽');
-    assert.deepEqual(screen.calls.at(-1).p_data, { id: 'message-a', emoji: '👍🏽' });
-    assert.ok(screen.button('👍🏽 : 1'), 'any native emoji becomes a chip');
+    await screen.type('.emoji-search', 'Cœur  ENFLAMMÉ');
+    assert.deepEqual(
+      [...document.querySelectorAll('.emoji-grid button')].map((b) => b.textContent),
+      ['❤️‍🔥'],
+      'French search, case, accent and ligature insensitive',
+    );
+    assert.equal(screen.button('Catégories'), undefined);
+    await screen.type('.emoji-search', 'xylophage');
+    assert.match(document.querySelector('.emoji-picker').textContent, /Aucun emoji trouvé/);
+    await screen.type('.emoji-search', 'tennis');
+    assert.equal(screen.calls.length, calls, 'searching is not reacting');
+    await screen.click('tennis');
+    assert.deepEqual(screen.calls.at(-1).p_data, { id: 'message-a', emoji: '🎾' });
+    assert.equal(document.querySelector('.emoji-picker'), null, 'picking closes the sheet');
+    assert.ok(screen.button('🎾 : 1'), 'any picked emoji becomes a chip');
   } finally {
     await screen.dispose();
   }
