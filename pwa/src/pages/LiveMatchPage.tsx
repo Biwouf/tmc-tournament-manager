@@ -112,7 +112,12 @@ function LiveMatchScreen({
   const follow = useRef(true);
   const oldHeight = useRef<number | null>(null);
   const forceFollow = useRef(false);
-  const canWrite = canAnimate && match?.status === 'live' && !activity.isError;
+  // Commentaires et photos restent ouverts après la fin du match ; les sondages, non.
+  const canWrite =
+    canAnimate &&
+    (match?.status === 'live' || match?.status === 'finished') &&
+    !activity.isError;
+  const canPoll = canWrite && match?.status === 'live';
   const scoreError = savingError ?? live.error;
   const blocked = saving || !live.confirmed || !!scoreError || !canAnimate;
   const login = () =>
@@ -181,7 +186,7 @@ function LiveMatchScreen({
     return !!row;
   }
   async function publish(body: string, options?: string[]) {
-    if (!canWrite) return false;
+    if (!canWrite || (options && !canPoll)) return false;
     forceFollow.current = true;
     const success = await activity.run(options ? 'poll' : 'message', {
       body,
@@ -261,7 +266,8 @@ function LiveMatchScreen({
       </div>
     );
   const poll = activity.items.find((p) => p.id === pollId);
-  const showMemberDock = canAnimate && match.status === 'live';
+  const showMemberDock =
+    canAnimate && (match.status === 'live' || match.status === 'finished');
   return (
     <div
       className="live-view"
@@ -481,14 +487,16 @@ function LiveMatchScreen({
         <div className="member-dock">
           {menu && (
             <div className="dock-options">
-              <button
-                onClick={() => {
-                  setMenu(false);
-                  setSheet('poll');
-                }}
-              >
-                <LiveIcon kind="poll" /> Lancer un sondage
-              </button>
+              {canPoll && (
+                <button
+                  onClick={() => {
+                    setMenu(false);
+                    setSheet('poll');
+                  }}
+                >
+                  <LiveIcon kind="poll" /> Lancer un sondage
+                </button>
+              )}
               <button
                 disabled={photoBusy || activity.busy}
                 onClick={() => {
@@ -550,10 +558,10 @@ function LiveMatchScreen({
               ref={input}
               aria-label="Commentaire du live"
               placeholder={
-                match.status !== 'live'
-                  ? 'Le fil est en lecture seule'
-                  : photo
-                    ? 'Une légende (facultatif)…'
+                photo
+                  ? 'Une légende (facultatif)…'
+                  : match.status === 'finished'
+                    ? 'Un mot sur le match…'
                     : 'Un temps fort du match…'
               }
               rows={1}
@@ -725,7 +733,7 @@ function LiveMatchScreen({
           ))}
         </LiveSheet>
       )}
-      {sheet === 'poll' && canWrite && (
+      {sheet === 'poll' && canPoll && (
         <LiveSheet title="Lancer un sondage" onClose={() => setSheet(null)}>
           <PollForm
             busy={activity.busy}

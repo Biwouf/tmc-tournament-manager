@@ -35,6 +35,7 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
     await db.exec(await migration('2026101102_live_photos'));
     await db.exec(await migration('2026101104_live_reactions_throttle'));
     await db.exec(await migration('2026101501_live_post_reactions'));
+    await db.exec(await migration('2026102001_live_post_after_finish'));
     await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status,scored_by,set1_j1,set1_j2)
    VALUES('${id(20)}','${id(1)}','2026-09-30','Alex','A','Sam','B','live','${id(103)}',4,3),
    ('${id(21)}','${id(2)}','2026-09-30','Autre','Club','Autre','Club','live','${id(106)}',0,0),
@@ -349,8 +350,18 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
       '🎉',
       'reactions stay open after the match',
     );
+    await command('message', { id: randomUUID(), body: 'Bravo !' }, 104);
+    assert.equal(
+      (await page()).items.at(-1).body,
+      'Bravo !',
+      'comments stay open after the match',
+    );
     await assert.rejects(
-      command('message', { id: randomUUID(), body: 'Too late' }, 104),
+      command('message', { id: randomUUID(), body: 'Intrus' }, 109),
+      /membres/,
+    );
+    await assert.rejects(
+      command('poll', { id: randomUUID(), body: 'Trop tard ?', options: ['Oui', 'Non'] }, 104),
       /pas en cours/,
     );
     await command('delete', { id: poll2 }, 104);
@@ -385,10 +396,12 @@ test('Live photos: members upload in their live, object required, optional capti
     await db.exec(await migration('2026101102_live_photos'));
     await db.exec(await migration('2026101104_live_reactions_throttle'));
     await db.exec(await migration('2026101501_live_post_reactions'));
+    await db.exec(await migration('2026102001_live_post_after_finish'));
     await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status)
    VALUES('${id(20)}','${id(1)}','2026-10-11','Alex','A','Sam','B','live'),
    ('${id(21)}','${id(2)}','2026-10-11','Autre','Club','Autre','Club','live'),
-   ('${id(23)}','${id(1)}','2026-10-11','Fini','A','Fini','B','finished');`);
+   ('${id(23)}','${id(1)}','2026-10-11','Fini','A','Fini','B','finished'),
+   ('${id(24)}','${id(1)}','2026-10-11','Attente','A','Attente','B','pending');`);
     async function as(user, sql, args = []) {
       await db.exec(
         `BEGIN; SET LOCAL ROLE ${user === null ? 'anon' : 'authenticated'}; SELECT set_config('request.jwt.claim.sub','${user === null ? '' : id(user)}',true);`,
@@ -431,7 +444,7 @@ test('Live photos: members upload in their live, object required, optional capti
     for (const [user, name, why] of [
       [109, path, 'spectator'],
       [106, path, 'member of another club'],
-      [103, `${id(1)}/${id(23)}/${post}.jpg`, 'finished match'],
+      [103, `${id(1)}/${id(24)}/${post}.jpg`, 'pending match'],
       [103, `${id(1)}/${id(21)}/${post}.jpg`, 'match of another club'],
       [103, `${id(1)}/${id(20)}/${post}.png`, 'not the expected path'],
     ])
@@ -479,6 +492,14 @@ test('Live photos: members upload in their live, object required, optional capti
     assert.equal((await remove(106, path)).length, 0, 'other club cannot');
     assert.equal((await remove(103, path)).length, 1, 'freed after delete');
     assert.equal((await page()).items.length, 1);
+    const late = randomUUID();
+    await upload(103, `${id(1)}/${id(23)}/${late}.jpg`);
+    await command('photo', { id: late, body: 'Après la balle de match' }, 103, id(23));
+    assert.equal(
+      (await as(null, 'SELECT count(*)::int n FROM live_posts WHERE match_id=$1', [id(23)]))[0].n,
+      1,
+      'photos stay open after the match',
+    );
   } finally {
     await db.close();
   }
