@@ -749,7 +749,27 @@ test('Double: decisive super tie-break, automatic finish and undo of the winning
     await screen.click('+ point pour Alex A / Camille Long partner name');
     assert.equal(screen.match().status, 'finished');
     assert.equal(screen.match().set3_j1, 10);
-    assert.equal(document.querySelector('textarea'), null);
+    assert.equal(
+      document.querySelector('textarea').placeholder,
+      'Un mot sur le match…',
+      'comments stay open after the match',
+    );
+    await screen.click('Options de publication');
+    assert.deepEqual(
+      [...document.querySelectorAll('.dock-options button')].map((b) =>
+        b.textContent.trim(),
+      ),
+      ['Ajouter une photo'],
+      'no poll once the match is over',
+    );
+    await screen.click('Options de publication');
+    await screen.type('textarea', 'Bravo à tous les quatre !');
+    await screen.click('Publier le commentaire');
+    assert.deepEqual(
+      { ...screen.calls.at(-1).p_data, id: undefined },
+      { body: 'Bravo à tous les quatre !', id: undefined },
+    );
+    assert.equal(screen.calls.at(-1).p_action, 'message');
     await screen.click('↶ Annuler');
     assert.equal(screen.match().status, 'live');
     assert.equal(screen.match().set3_j1, 9);
