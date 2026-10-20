@@ -243,6 +243,19 @@ test('Live activity: shared members, private unique votes, permissions, tenant/s
       );
     for (const emoji of ['😡', '👍🏽', '🇫🇷', '👨‍👩‍👧', '1️⃣', '❤️', '🏴󠁧󠁢󠁳󠁣󠁴󠁿'])
       await command('react', { id: post, emoji }, 109);
+    // Chaque emoji du sélecteur de la PWA est accepté par le serveur.
+    const picker = JSON.parse(
+      await readFile(new URL('../pwa/src/lib/emojiData.json', import.meta.url), 'utf8'),
+    ).flatMap((t) => t.emojis.map(([emoji]) => emoji));
+    assert.deepEqual(
+      (
+        await db.query(
+          'SELECT e FROM unnest($1::text[]) e WHERE NOT live_is_emoji(e)',
+          [picker],
+        )
+      ).rows,
+      [],
+    );
     await command('react', { id: post, emoji: null }, 109);
     await assert.rejects(
       command('react', { id: poll, emoji: '🔥' }, 109),

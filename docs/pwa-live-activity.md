@@ -22,11 +22,20 @@ pour la confirmation d’un résultat d’équipe depuis la PWA.
 Réactions sur les publications (15/10/2026) : sous chaque commentaire et chaque
 photo (pas les sondages), des puces emoji avec leur compteur et un bouton neutre
 (smiley au trait avec « + », façon WhatsApp) qui ouvre la palette : six raccourcis
-👏 🔥 💪 ❤️ 😮 🎉 et un « + » qui ouvre le clavier du téléphone, pour choisir
-n’importe quel emoji (ton de peau, drapeau, séquences comprises). Seul le premier
-emoji saisi compte ; le texte est ignoré. Le champ est monté en permanence et reçoit
-le focus dans le geste, condition pour qu’iOS ouvre le clavier ; l’utilisateur bascule
-sur l’onglet emoji du clavier (aucune API web ne l’ouvre directement). Tout compte connecté, membre ou non, peut réagir :
+👏 🔥 💪 ❤️ 😮 🎉 et un « + » qui ouvre le sélecteur d’emojis intégré (20/10/2026,
+`EmojiPicker`, façon clavier WhatsApp) en feuille du bas : tous les emojis par
+catégorie, barre d’onglets pour sauter à une catégorie, recherche en français
+insensible à la casse, aux accents et aux ligatures (« coeur » trouve ❤️) — chaque
+mot saisi doit commencer un mot du libellé ou des mots-clés. Ni « Récents » ni choix
+du ton de peau (tons jaunes par défaut). La liste (`pwa/src/lib/emojiData.json`,
+~1 870 emojis jusqu’à Emoji 15.0 pour rester affichable sur iOS 16.4+ / Android 14+)
+est générée depuis emojibase-data par `pwa/scripts/build-emoji-data.mjs`, embarquée
+dans un chunk à part (~48 Ko gzip) chargé à la première ouverture et mis en cache par
+le service worker : aucun CDN, fonctionne hors ligne. À l’ouverture, seule la première
+catégorie est affichée, les autres suivent juste après la première image (minuteur de
+secours à 250 ms) ; les grilles sont mémoïsées, si bien que changer d’onglet actif en
+défilant ne recalcule pas les ~1 900 boutons. Le clavier natif du téléphone
+n’est plus utilisé. Tout compte connecté, membre ou non, peut réagir :
 une réaction par compte et par publication. Toucher sa propre puce la retire, choisir
 un autre emoji la remplace. Les réactions restent ouvertes après la fin du match.
 Un visiteur voit les compteurs ; toucher une puce ou le bouton l’invite à se connecter.
@@ -176,7 +185,8 @@ et Android ; visiteur non connecté ; réaction après la fin du match.
   exécutées dans PostgreSQL local (PGlite). Accès public et entre clubs, membres,
   sondages simultanés, vote unique/modifiable et privé, idempotence, pagination,
   réactions sur les publications (une par compte, retrait, noms masqués aux
-  visiteurs, après la fin du match), score rapide, annulations et conflits,
+  visiteurs, après la fin du match, sélecteur complet et sa recherche, chaque
+  emoji du sélecteur accepté par `live_is_emoji`), score rapide, annulations et conflits,
   ainsi que l’intégration des lives d’équipes, les liens indépendants des cartes
   et les scores provisoires pondérés accessibles aux spectateurs.
 - Régressions : `test:live-score`, `test:team-matches`, `test:pwa-network`,

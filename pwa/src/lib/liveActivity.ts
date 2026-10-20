@@ -33,13 +33,6 @@ export const LIVE_REACTIONS = [
   ['😮', 'Incroyable'],
   ['🎉', 'Célébrer'],
 ] as const;
-// Un emoji complet : drapeau, keycap, ou pictogramme avec ton de peau, ZWJ et tags.
-const EMOJI =
-  /\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?)*(?:[\u{E0020}-\u{E007E}]+\u{E007F})?/u;
-/** Premier emoji saisi au clavier, séquence complète, sinon null. */
-export function firstEmoji(text: string): string | null {
-  return EMOJI.exec(text)?.[0] ?? null;
-}
 export async function readActivity(
   match: string,
   club: string,

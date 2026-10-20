@@ -540,28 +540,72 @@ button.live-note {
   color: var(--quiet);
   background: #f3f0f3;
 }
-.reaction-field {
-  flex: 1 0 100%;
-  min-height: 40px;
-  margin: 4px 0 0;
-  padding: 0 12px;
-  border: 1px solid #eee9ef;
+.emoji-picker {
+  display: flex;
+  flex-direction: column;
+  height: min(440px, calc(var(--live-viewport-height, 100dvh) - 160px));
+  margin-top: 12px;
+}
+.live-sheet .emoji-search {
+  flex-shrink: 0;
+  padding: 10px 14px;
   border-radius: 20px;
   background: #f5f3f5;
-  /* 16 px : pas de zoom automatique d'iOS au focus. */
-  font-size: 16px;
 }
-/* Focusable (clavier natif ouvert dans le geste) mais invisible tant qu'il n'est pas demandé. */
-.reaction-field.hidden-field {
-  position: absolute;
-  flex: none;
-  width: 1px;
-  min-height: 0;
-  height: 1px;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  pointer-events: none;
+.emoji-scroll {
+  position: relative;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 8px -6px 0;
+  padding: 0 6px;
+}
+.emoji-scroll h3 {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--quiet, #665d6b);
+}
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+}
+.emoji-grid button {
+  min-height: 44px;
+  border-radius: 10px;
+  font-size: 28px;
+  line-height: 1;
+}
+.emoji-grid button[aria-pressed='true'] {
+  background: #f8eff4;
+}
+.emoji-empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 13px;
+  color: #665d6b;
+}
+.emoji-tabs {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid #eeedef;
+}
+.emoji-tabs button {
+  width: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  font-size: 20px;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+.emoji-tabs button[aria-current='true'] {
+  filter: none;
+  opacity: 1;
+  background: #f3f0f3;
 }
 .reaction-people {
   list-style: none;
