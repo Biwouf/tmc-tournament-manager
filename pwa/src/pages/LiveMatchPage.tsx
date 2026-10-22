@@ -100,6 +100,7 @@ function LiveMatchScreen({
   >([]);
   const undo = history[history.length - 1];
   const [height, setHeight] = useState<number>();
+  const [keyboard, setKeyboard] = useState(0);
   const latest = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -127,6 +128,17 @@ function LiveMatchScreen({
     const resize = () => {
       if (!viewport || viewport.scale === 1) {
         setHeight(viewport?.height ?? window.innerHeight);
+        // Les feuilles (<dialog>) sont ancrées au bas du viewport de mise en
+        // page, que le clavier ne réduit pas : sans ce décalage, le
+        // formulaire du sondage s'ouvre caché derrière le clavier.
+        setKeyboard(
+          viewport
+            ? Math.max(
+                0,
+                window.innerHeight - viewport.height - viewport.offsetTop,
+              )
+            : 0,
+        );
         // iOS fait défiler le document au focus du composer avant que la vue
         // ne soit réduite à la hauteur du clavier : elle se retrouve alors
         // hors écran jusqu'à la première frappe. La vue suit déjà le viewport
@@ -274,6 +286,7 @@ function LiveMatchScreen({
       style={
         {
           '--live-viewport-height': height ? `${height}px` : '100dvh',
+          '--live-keyboard-inset': `${keyboard}px`,
         } as CSSProperties
       }
     >
