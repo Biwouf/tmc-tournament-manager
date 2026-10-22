@@ -1,0 +1,9 @@
+---
+interface Props { href?: string; label?: string }
+const { href, label } = Astro.props;
+const Tag = href ? 'a' : 'span';
+---
+<Tag class="logo" href={href} aria-label={label}>
+  <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="0" y="34" width="38" height="30" rx="3" fill="var(--text)"></rect><rect x="26" y="0" width="38" height="30" rx="3" fill="var(--accent)"></rect></svg>
+  <span>feelike<span class="dot">.</span>pro</span>
+</Tag>

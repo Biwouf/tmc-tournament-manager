@@ -1,0 +1,17 @@
+---
+import TrackedLink from './TrackedLink.astro';
+import { callHref, trialCta } from '../config';
+
+const cta = trialCta('Essayer avec mon club');
+---
+<section id="cta" class="final">
+  <div class="container final__inner">
+    <div class="final__tags"><span>Tennis · disponible</span><span>Autres sports · en préparation</span></div>
+    <h2>Offrez-leur le <span>court central.</span></h2>
+    <p>30 jours pour voir votre club comme un tournoi. Vos joueurs restent amateurs ; le reste devient pro.</p>
+    <div class="btn-row">
+      <TrackedLink class="btn btn--accent" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
+      {cta.event === 'cta_trial_click' && callHref && <TrackedLink class="btn btn--ghost" href={callHref} event="cta_call_click">Réserver 20 min</TrackedLink>}
+    </div>
+  </div>
+</section>

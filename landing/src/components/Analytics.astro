@@ -1,0 +1,23 @@
+---
+import { analyticsDomain } from '../config';
+---
+{analyticsDomain && (
+  <script>
+    // Événements Plausible (sans cookie) : clics sur les CTA, section tarifs vue, question de FAQ ouverte.
+    const track = (event: string, props?: Record<string, string>) => window.plausible?.(event, props && { props });
+    document.addEventListener('click', event => {
+      const link = (event.target as Element).closest<HTMLElement>('[data-event]');
+      if (link?.dataset.event) track(link.dataset.event);
+    });
+    const pricing = document.getElementById('tarifs');
+    if (pricing) {
+      const observer = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) { track('pricing_view'); observer.disconnect(); }
+      }, { threshold: 0.3 });
+      observer.observe(pricing);
+    }
+    document.querySelectorAll('details').forEach(details => details.addEventListener('toggle', () => {
+      if (details.open) track('faq_open', { question: details.querySelector('h3')?.textContent ?? '' });
+    }));
+  </script>
+)}

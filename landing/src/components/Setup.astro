@@ -1,0 +1,26 @@
+---
+import TrackedLink from './TrackedLink.astro';
+import { steps } from '../data/content';
+import { trialCta } from '../config';
+
+const cta = trialCta('Essayer avec mon club');
+---
+<section id="setup" class="sec setup">
+  <div class="container setup__grid">
+    <div class="setup__intro">
+      <span class="eyebrow">Échauffement</span>
+      <h2 class="h2">Votre club en ligne avant la fin de l’échauffement.</h2>
+      <p class="lead">Un nom, un logo : vous voyez votre site, votre app et votre première affiche se construire sous vos yeux. Rien à coder, rien à installer, personne à appeler.</p>
+      <TrackedLink class="btn btn--accent" style="margin-top:8px" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
+    </div>
+    <ol class="steps">
+      {steps.map(step => (
+        <li class="step">
+          <span class="step__n">{step.n}</span>
+          <div><h3>{step.t}</h3><p>{step.d}</p></div>
+          <span class="step__time">{step.time}</span>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>

@@ -159,6 +159,14 @@ Site **public** du club, servi sur `<slug>.feelike.pro` (application séparée, 
 - Les mises à jour du BO sont reprises à chaque navigation ou rechargement, sans purge manuelle. Les photos originales sont conservées ; Vercel peut les servir à une taille adaptée à l’écran.
 - Les sections *Actualités* et *Prochains rendez-vous* de l'accueil, ainsi que l'**envoi** du formulaire de contact, arrivent dans une prochaine livraison : en attendant, le formulaire est affiché mais son bouton est inactif, et les blocs d'actualités ne s'affichent pas du tout.
 
+### Landing `www.feelike.pro`
+
+Site marketing de la plateforme (application séparée, dossier `landing/`) : présentation du produit, avant/après, tarifs (essai 30 jours sans carte, Saison 250 €/an), FAQ et appel à l'essai ou à un call de 20 minutes.
+
+- **Tant que l'inscription en ligne n'est pas ouverte**, les boutons d'essai affichent « Demander un accès » et mènent au call. Il suffit de renseigner `PUBLIC_SIGNUP_URL` dans Vercel pour les rebrancher.
+- Lien de réservation, mention TVA, e-mail de contact et mesure d'audience (Plausible, sans cookie ni bandeau) se règlent par variables d'environnement : voir `landing/README.md`.
+- Mentions légales et CGV : pages prêtes mais **contenu à fournir**, exclues de l'indexation d'ici là.
+
 ### Comptes sociaux
 Écran *Admin › Comptes sociaux* (`/admin/social`), réservé aux **administrateurs** du club.
 
@@ -434,6 +442,7 @@ Configuration et recette : [ACCOUNT_RECOVERY.md](docs/ACCOUNT_RECOVERY.md).
 
 Domaine racine confirmé : **feelike.pro**, enregistré chez OVHcloud.
 Vitrine : `<club>.feelike.pro` ; PWA : `app-<club>.feelike.pro` ; BO central avec sélection
-du club après connexion : `admin.feelike.pro`.
+du club après connexion : `admin.feelike.pro`. Landing marketing : `www.feelike.pro` (apex redirigé),
+projet Vercel séparé, cf. `landing/README.md`.
 Le code ne met pas les DNS en service : suivre [la procédure OVH/Vercel](docs/DOMAINS_DELIVERY.md)
 avant de clôturer la PR13. Le domaine propre de CAC est prévu en PR14.
