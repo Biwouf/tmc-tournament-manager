@@ -72,8 +72,10 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 
 - Back-office `/courses` : types de cours, séances avec quotas femmes / hommes, responsable, validation des demandes et inscriptions manuelles. Les membres demandent une place depuis l'onglet Cours de la PWA. Quand les deux quotas sont pleins, le bouton affiche « Complet » et n'est plus cliquable.
 - Une personne **sans compte** sur l'application (par exemple quelqu'un qui ne parvient pas à en créer un) peut être inscrite par un admin depuis la page d'inscriptions d'un cours : prénom, nom et sexe. Sa fiche est conservée pour les cours suivants ; l'inscription est confirmée directement, dans la limite du quota, sans notification.
+- **Notifications push** (PWA) : la personne qui encadre un cours est prévenue de chaque nouvelle demande, le membre de l'acceptation ou du refus de la sienne. L'activation est proposée juste après une demande et dans l'onglet Encadrement ; on peut l'activer ou la couper à tout moment depuis **Mon profil**. Sur iPhone, l'application doit être ajoutée à l'écran d'accueil. Les emails continuent d'être envoyés en parallèle.
 
 ### PWA — navigation
+- En haut à droite de chaque onglet : le **bouton profil** (prénom, nom, sexe, classement, notifications, déconnexion), ou « Connexion » si l'on n'est pas connecté
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
 - **Actu** : Actualités et Événements fusionnés, basculables via des sous-onglets soulignés (l'URL conserve `?tab=…`, pull-to-refresh sur les deux flux)
 - **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Une rencontre commencée affiche son **score provisoire** (« En cours » pendant un live, sinon « Provisoire ») ; cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Les membres saisissent les matchs depuis la rencontre : un **live terminé valide automatiquement le résultat du match**, une saisie directe aussi, et le score de la rencontre suit ; la vérification se fait une fois, à la **confirmation de la rencontre**

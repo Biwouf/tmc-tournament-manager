@@ -1,10 +1,8 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
-import { useHeaderAction } from '../components/layout/HeaderActionContext';
-import { supabase } from '../lib/supabase';
 import {
   courseDay,
   courseError,
@@ -22,8 +20,7 @@ import CourseInteraction, {
   type SheetMode,
 } from '../components/courses/CourseInteraction';
 import CourseSheet from '../components/courses/CourseSheet';
-import CoursePushSettings from '../components/courses/CoursePushSettings';
-import { disableCoursePush } from '../lib/coursePush';
+import { CoursePushPrompt } from '../components/courses/CoursePushSettings';
 import '../components/courses/courses.css';
 
 export default function CoursesPage() {
@@ -59,22 +56,8 @@ export default function CoursesPage() {
     refetchInterval: 60000,
   });
   const now = useCourseNow(selected && detail.data ? detail.data : page.data);
-  useHeaderAction({
-    kind: 'text',
-    label: user ? 'Déconnexion' : 'Connexion',
-    onClick: () => {
-      if (user) {
-        void (async () => {
-          try {
-            if (clubId) await disableCoursePush(clubId);
-            await supabase.auth.signOut();
-          } catch (error) {
-            setToast(error instanceof Error ? error.message : 'Déconnexion impossible. Réessayez.');
-          }
-        })();
-      } else navigate('/login', { state: { from: `/cours${window.location.search}` } });
-    },
-  });
+  const [pushPrompt, setPushPrompt] = useState(false);
+  const closePushPrompt = useCallback(() => setPushPrompt(false), []);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 7000);
@@ -138,8 +121,8 @@ export default function CoursesPage() {
         Tous les cours sont gratuits. Une demande ne réserve pas de place : le
         club la valide.
       </p>
-      {user && clubId && context.data?.is_member && (
-        <CoursePushSettings clubId={clubId} userId={user.id} />
+      {view === 'manage' && user && clubId && context.data?.can_manage && (
+        <CoursePushPrompt clubId={clubId} userId={user.id} reason="manage" />
       )}
       {user &&
         context.data?.is_member &&
@@ -263,9 +246,10 @@ export default function CoursesPage() {
             mode={mode}
             setMode={setMode}
             onClose={close}
-            onSuccess={(message) => {
+            onSuccess={(message, requested) => {
               close();
               setToast(message);
+              if (requested) setPushPrompt(true);
             }}
           />
         ) : (
@@ -285,6 +269,9 @@ export default function CoursesPage() {
             </button>
           </CourseSheet>
         ))}
+      {pushPrompt && user && clubId && (
+        <CoursePushPrompt clubId={clubId} userId={user.id} reason="request" onClose={closePushPrompt} />
+      )}
       {toast && (
         <div className="booking-toast" role="status">
           {toast}

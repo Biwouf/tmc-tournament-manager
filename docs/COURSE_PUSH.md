@@ -11,12 +11,12 @@ Les événements sont produits par `course_registration_events`, après réussit
 
 1. Appliquer `2026092402_course_web_push.sql`.
 2. Générer une paire VAPID dédiée au projet, par exemple avec `npx web-push generate-vapid-keys --json`. Garder la clé privée hors du dépôt.
-3. Configurer `VITE_VAPID_PUBLIC_KEY` dans le build de la PWA. Dans les secrets de la fonction Edge, configurer la **même** clé publique comme `VAPID_PUBLIC_KEY`, la clé privée comme `VAPID_PRIVATE_KEY`, et `VAPID_SUBJECT` comme `mailto:adresse-de-contact-du-club`.
+3. Configurer `VITE_VAPID_PUBLIC_KEY` dans le build de la PWA. Dans les secrets de la fonction Edge, configurer la **même** clé publique comme `VAPID_PUBLIC_KEY`, la clé privée comme `VAPID_PRIVATE_KEY`, et `VAPID_SUBJECT` comme `mailto:` + l'adresse de contact **de la plateforme** (pas d'un club : c'est l'expéditeur technique des push, commun à tous les clubs du projet).
 4. Générer un secret aléatoire dédié (au moins 32 caractères) et configurer `COURSE_PUSH_CRON_SECRET` dans les secrets Edge et la même valeur sous `course_push_cron_secret` dans Vault. Déployer `course-push-dispatch` avec la vérification JWT activée (valeur par défaut). Configurer dans Supabase Vault `course_push_project_url` (URL du projet) et `course_push_service_role_key` (JWT `service_role` historique). Ne mettre aucune de ces valeurs dans le dépôt ou dans une variable `VITE_`.
 5. Exécuter `supabase/scripts/course-push-cron.sql` dans le SQL Editor. Vérifier dans les logs Cron et Edge Function que les appels s'exécutent chaque minute.
 6. Tester sur un appareil réel : activer les notifications depuis la page Cours, déposer une demande avec un membre, puis l'approuver ou la refuser avec l'encadrant. Sur iPhone, installer d'abord la PWA sur l'écran d'accueil et autoriser les notifications dans iOS.
 
-Le bouton d'activation apparaît seulement pour un membre connecté. La déconnexion depuis la PWA désabonne l'appareil. Les clubs suspendus et les membres retirés ne reçoivent plus de nouvelles livraisons. Le navigateur garde la permission système, même après désactivation dans l'application.
+L'activation est proposée en contexte à un membre connecté : juste après l'envoi d'une demande de cours, et dans l'onglet Encadrement pour l'encadrant. « Plus tard » est mémorisé par compte sur l'appareil ; rien n'est proposé si l'appareil ne gère pas les push, si les notifications sont déjà actives ou si la permission système a été refusée. L'interrupteur permanent est dans **Mon profil** (bouton profil en haut à droite). La déconnexion depuis la PWA désabonne l'appareil. Les clubs suspendus et les membres retirés ne reçoivent plus de nouvelles livraisons. Le navigateur garde la permission système, même après désactivation dans l'application.
 
 ## Fiabilité et coexistence avec les emails
 
@@ -43,14 +43,20 @@ npm --prefix pwa run build
 ECE_KEYLOG=0 npx deno test --allow-env --no-config --no-lock --node-modules-dir=none supabase/functions/course-push-dispatch/crypto_test.ts
 ```
 
-### Recette restant à effectuer sur appareil
+### Recette sur appareil
 
 Déployer le frontend DEV avec la clé VAPID publique correspondante, puis utiliser deux comptes de test et des adresses email de test :
 
-- activer les notifications du gestionnaire et du membre depuis Cours ;
+- activer les notifications : après une demande (membre), depuis Encadrement (encadrant) ou depuis Mon profil ;
 - envoyer une demande : vérifier le push et l'email du gestionnaire ;
 - accepter une demande puis en refuser une autre : vérifier les push et emails du membre ;
 - répéter avec la PWA fermée et l'écran verrouillé, puis ouvrir le cours en touchant la notification ;
 - désactiver les notifications et vérifier leur absence ; se déconnecter puis changer de compte pour vérifier l'isolation.
 
 La réception réelle sur appareil reste à valider. La session Vercel CLI locale est déconnectée : le frontend n'a pas été publié pendant cette intervention. Les configurations locales de DEV et les clés privées sont ignorées par Git.
+
+Avec un seul téléphone : lancer le BO en local sur DEV, créer le cours en désignant **le compte du téléphone comme encadrant**. Ce compte reçoit alors la nouvelle demande (encadrant) puis la décision prise dans le BO (demandeur). Recette DEV validée ainsi le 22/10/2026.
+
+## Mise en service en production — 22/10/2026
+
+Clés VAPID et secret cron dédiés à la prod, secrets Edge et Vault posés, fonction déployée, cron actif (réponses 200), `VITE_VAPID_PUBLIC_KEY` en Production sur Vercel. La migration `2026092402` figurait au journal de prod sans que ses objets existent : elle a été exécutée à la main dans le SQL Editor. Dans un worktree, la CLI est liée à DEV : toujours passer `--project-ref` pour la prod.

@@ -15,7 +15,7 @@ const ROUTES: Array<[string, HeaderConfig]> = [
   ['/inscription', { mode: 'sub', title: 'Créer un compte', backTo: '/login', backLabel: 'Connexion' }],
   ['/inscription/confirmee', { mode: 'sub', title: 'Mon inscription', backTo: '/login', backLabel: 'Connexion' }],
   ['/cours', { mode: 'root', title: 'Cours' }],
-  ['/profil', { mode: 'sub', title: 'Mon profil', backTo: '/cours', backLabel: 'Cours' }],
+  ['/profil', { mode: 'sub', title: 'Mon profil', backTo: '/actu', backLabel: 'Retour' }],
   ['/actu',               { mode: 'root', title: 'Actualités' }],
   ['/actus/:id',          { mode: 'sub',  title: 'Actualité',
                             backTo: '/actu?tab=actus',  backLabel: 'Actualités' }],
@@ -37,4 +37,10 @@ export function resolveHeader(pathname: string): HeaderConfig {
     if (matchPath(pattern, pathname)) return cfg;
   }
   return { mode: 'root', title: 'CAC Tennis' };
+}
+
+// Internal page to come back to after login or the profile; never the page itself or another origin.
+export function returnPath(value: string | null | undefined): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null;
+  return /^\/(?:login|profil)(?:[/?#]|$)/.test(value) ? null : value;
 }

@@ -3,6 +3,8 @@ import { resolveHeader, type HeaderAction } from './headerConfig';
 import { useHeaderActionState } from './HeaderActionContext';
 import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
+import { useAuth } from '../../hooks/useAuth';
+import { returnPath } from './headerConfig';
 
 const isIOS = () =>
   typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -54,6 +56,33 @@ function ActionButton({ action }: { action: HeaderAction }) {
   );
 }
 
+// Default action of the root pages: the profile when signed in, otherwise sign-in.
+function AccountButton() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  if (loading) return null;
+  const here = `${location.pathname}${location.search}`;
+  if (!user) {
+    return <ActionButton action={{ kind: 'text', label: 'Connexion',
+      onClick: () => navigate('/login', { state: { from: here } }) }} />;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(`/profil?returnTo=${encodeURIComponent(here)}`)}
+      aria-label="Mon profil"
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary active:opacity-70"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </svg>
+    </button>
+  );
+}
+
 export default function AppHeader() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -66,8 +95,8 @@ export default function AppHeader() {
   const handleBack = () => {
     const from = (location.state as { from?: string } | null)?.from;
     const profileReturn = new URLSearchParams(location.search).get('returnTo');
-    if (location.pathname === '/login' && from?.startsWith('/cours')) navigate(from);
-    else if (location.pathname === '/profil' && profileReturn && /^\/cours(?:\?|$)/.test(profileReturn)) navigate(profileReturn);
+    if (location.pathname === '/login' && returnPath(from)) navigate(returnPath(from)!);
+    else if (location.pathname === '/profil' && returnPath(profileReturn)) navigate(returnPath(profileReturn)!);
     else if (cfg.backTo) navigate(cfg.backTo);
     else navigate(-1);
   };
@@ -127,7 +156,7 @@ export default function AppHeader() {
         </>
       )}
 
-      {action && <ActionButton action={action} />}
+      {action ? <ActionButton action={action} /> : cfg.mode === 'root' && <AccountButton />}
     </header>
   );
 }
