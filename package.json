@@ -24,7 +24,8 @@
     "test:tenup": "node --test tests/tenup-worker.test.mjs tests/tenup-sql.test.mjs tests/tenup-client.test.mjs tests/tenup-edge.test.mjs",
     "test:live-activity": "node --test tests/live-activity-sql.test.mjs tests/live-activity-head.test.mjs tests/live-activity-client.test.mjs",
     "test:team-calendar": "node --test tests/tenup-pool-loading.test.mjs tests/tenup-pool-worker.test.mjs tests/tenup-pool-sql.test.mjs tests/tenup-pool-edge.test.mjs tests/tenup-pool-client.test.mjs",
-    "test:competitions": "node --test tests/competition-admin-sql.test.mjs tests/competition-tenup-worker.test.mjs tests/competition-tenup-edge.test.mjs tests/competition-admin-client.test.mjs"
+    "test:competitions": "node --test tests/competition-admin-sql.test.mjs tests/competition-tenup-worker.test.mjs tests/competition-tenup-edge.test.mjs tests/competition-admin-client.test.mjs",
+    "test:course-push": "node --test tests/course-push-sql.test.mjs tests/course-push-client.test.mjs tests/course-push-dispatch.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

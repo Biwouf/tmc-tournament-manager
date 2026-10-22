@@ -56,6 +56,9 @@ depuis la PWA. Un administrateur du club examine les demandes dans le BO.
 | D10 | Notifications | Aucun email/push lié aux cours. Les emails d'invitation existants restent distincts. |
 | D11 | Image | Image facultative attachée au type de cours. |
 
+Évolution du 16 septembre 2026 : D10 est remplacée, pour les nouvelles demandes et les
+décisions, par le flux Web Push décrit dans [`../COURSE_PUSH.md`](../COURSE_PUSH.md).
+
 ### 2.2 Choix complémentaires de conception
 
 Ces règles donnent un comportement déterministe aux cas non détaillés dans les réponses.

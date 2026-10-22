@@ -27,7 +27,7 @@ dom.window.HTMLDialogElement.prototype.close = function () {
   this.removeAttribute('open');
 };
 const src = resolve(new URL('../pwa/src', import.meta.url).pathname);
-function loader(api, user = { id: 'me' }) {
+function loader(api, user = { id: 'me' }, push = null) {
   const cache = new Map();
   function load(file) {
     if (file.endsWith('.css')) return {};
@@ -36,12 +36,13 @@ function loader(api, user = { id: 'me' }) {
       return { useAuth: () => ({ user, loading: false }) };
     if (file.endsWith('/contexts/ClubContext.tsx'))
       return { useClub: () => ({ clubId: 'club-a' }) };
+    if (push && file.endsWith('/lib/coursePush.ts')) return push;
     if (file.endsWith('/components/layout/HeaderActionContext.tsx'))
       return { useHeaderAction: () => {} };
     if (cache.has(file)) return cache.get(file).exports;
     const module = { exports: {} };
     cache.set(file, module);
-    const code = ts.transpileModule(readFileSync(file, 'utf8'), {
+    const code = ts.transpileModule(readFileSync(file, 'utf8').replace(/import\.meta\.env\.VITE_VAPID_PUBLIC_KEY/g, 'undefined'), {
       compilerOptions: {
         target: ts.ScriptTarget.ES2022,
         module: ts.ModuleKind.CommonJS,
@@ -483,5 +484,60 @@ test('PWA client: failed profile read offers retry instead of indefinite loading
     );
   } finally {
     await screen.close();
+  }
+});
+
+function pushMock() {
+  const calls = [];
+  return {
+    calls,
+    coursePushSupported: () => true,
+    syncCoursePush: async () => false,
+    enableCoursePush: async (...args) => { calls.push(args); },
+    disableCoursePush: async () => {},
+  };
+}
+
+test('PWA client: notifications are proposed right after a request, then confirmed', async () => {
+  globalThis.localStorage = dom.window.localStorage;
+  localStorage.clear();
+  const api = mock();
+  const push = pushMock();
+  const screen = await mount(loader(api.api, { id: 'me' }, push));
+  try {
+    assert.doesNotMatch(document.body.textContent, /Être prévenu/, 'no prompt before a request');
+    await click('Demander une place');
+    await click('Envoyer ma demande');
+    await flush();
+    assert.match(document.body.textContent, /Demande envoyée/);
+    assert.match(document.querySelector('dialog')?.textContent ?? '', /Être prévenu de la réponse/);
+    await click('Activer');
+    assert.deepEqual(push.calls, [['club-a', 'me']]);
+    assert.match(document.body.textContent, /Notifications activées/);
+    await click('Fermer');
+    assert.equal(document.querySelector('dialog'), null);
+  } finally {
+    await screen.close();
+    localStorage.clear();
+  }
+});
+
+test('PWA client: « Plus tard » is remembered and the request prompt is not shown again', async () => {
+  globalThis.localStorage = dom.window.localStorage;
+  localStorage.clear();
+  const api = mock();
+  const push = pushMock();
+  const screen = await mount(loader(api.api, { id: 'me' }, push));
+  try {
+    await click('Demander une place');
+    await click('Envoyer ma demande');
+    await flush();
+    await click('Plus tard');
+    assert.equal(document.querySelector('dialog'), null);
+    assert.equal(localStorage.getItem('course-push-prompt:request:me'), '1');
+    assert.deepEqual(push.calls, []);
+  } finally {
+    await screen.close();
+    localStorage.clear();
   }
 });

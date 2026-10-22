@@ -9,6 +9,10 @@ répondu aux arbitrages ci-dessous. Ce document remplace les règles corresponda
 V1 ; les autres invariants de `COURSES.md` restent applicables. Le code est accompagné de tests SQL et React/DOM ; les étapes de migration et la recette
 restante sont décrites dans `../COURSES_PWA_DELIVERY.md`. Aucun déploiement distant effectué.
 
+**Évolution du 16 septembre 2026 :** l'arbitrage « Notifications » ci-dessous a été
+remplacé par le premier flux Web Push décrit dans [`../COURSE_PUSH.md`](../COURSE_PUSH.md) :
+nouvelle demande vers le responsable, décision vers le membre, après activation volontaire.
+
 ## 1. Arbitrages du commanditaire
 
 | Sujet | Règle retenue |

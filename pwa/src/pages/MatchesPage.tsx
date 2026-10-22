@@ -11,7 +11,6 @@ import MatchCard from '../components/matches/MatchCard';
 import { useAuth } from '../hooks/useAuth';
 import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
 import { LIVE_SAFETY_POLL } from '../lib/liveChannel';
-import { useHeaderAction } from '../components/layout/HeaderActionContext';
 
 async function fetchMatches(clubId: string | null): Promise<LiveMatch[]> {
   const { data, error } = await supabase
@@ -86,19 +85,6 @@ export default function MatchesPage() {
       return () => clearTimeout(t);
     }
   }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  useHeaderAction({
-    kind: 'text',
-    label: user ? 'Déconnexion' : 'Connexion',
-    onClick: () => {
-      if (user) void handleLogout();
-      else navigate('/login', { state: { from: '/matches' } });
-    },
-  });
 
   if (isError) {
     return <div className="p-6 text-center text-muted-foreground">Impossible de charger les matchs.</div>;
