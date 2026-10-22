@@ -222,3 +222,31 @@ export function getMatchWinner(m: LiveMatch): LiveMatchWinner | null {
       : getNormalSetWinner(getSet3Normal(m));
   return w3;
 }
+
+/* ---------- Service ---------- */
+
+// Côté au service, déduit du premier serveur et du score : le service change à chaque
+// jeu, un tie-break compte pour un jeu, et dans un tie-break le serveur change après
+// le 1er point puis tous les 2 points. En double, on indique l'équipe.
+export function getServer(m: LiveMatch): Player | null {
+  if (m.status !== 'live' || !m.first_server) return null;
+  const other: Player = m.first_server === 'j1' ? 'j2' : 'j1';
+  const at = (games: number): Player => (games % 2 === 0 ? m.first_server! : other);
+  const inTiebreak = (games: number, points: number): Player => {
+    const first = at(games);
+    return Math.floor((points + 1) / 2) % 2 === 0 ? first : first === 'j1' ? 'j2' : 'j1';
+  };
+  let games = 0;
+  for (const s of [getSet(m, 1), getSet(m, 2)]) {
+    if (getNormalSetWinner(s)) { games += s.j1 + s.j2; continue; }
+    if (isNormalSetInTiebreak(s)) return inTiebreak(games + 12, s.tb_j1! + s.tb_j2!);
+    return at(games + s.j1 + s.j2);
+  }
+  if (m.set3_format === 'super_tiebreak') {
+    const s = getSet3SuperTb(m);
+    return inTiebreak(games, s.j1 + s.j2);
+  }
+  const s = getSet3Normal(m);
+  if (isNormalSetInTiebreak(s)) return inTiebreak(games + 12, s.tb_j1! + s.tb_j2!);
+  return at(games + s.j1 + s.j2);
+}

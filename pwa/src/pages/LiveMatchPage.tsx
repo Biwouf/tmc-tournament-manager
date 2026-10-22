@@ -24,6 +24,7 @@ import LiveIcon from '../components/live/LiveIcon';
 import LiveScoreboard from '../components/live/LiveScoreboard';
 import LiveSheet from '../components/live/LiveSheet';
 import PostReactions from '../components/live/PostReactions';
+import FirstServerPicker from '../components/live/FirstServerPicker';
 import { PollAnswers, PollForm } from '../components/live/LivePoll';
 import {
   compressPhoto,
@@ -318,10 +319,11 @@ function LiveMatchScreen({
         onOpenScore={() => setSheet('score')}
         onReload={() => void live.reload()}
         onScore={(patch) => void patchScore(patch)}
-        onStart={() =>
+        onStart={(firstServer) =>
           void patchScore(
             {
               status: 'live',
+              first_server: firstServer,
               started_at: new Date().toISOString(),
               scored_by: userId,
             },
@@ -667,6 +669,15 @@ function LiveMatchScreen({
           <p className="sheet-intro">
             Les changements sont enregistrés immédiatement.
           </p>
+          {match.status === 'live' && (
+            <FirstServerPicker
+              match={match}
+              title="Qui a servi en premier ?"
+              disabled={blocked}
+              showCurrent
+              onPick={(side) => void save({ first_server: side })}
+            />
+          )}
           <LiveScoreEntry
             match={match}
             onPatch={(patch) => void patchScore(patch)}

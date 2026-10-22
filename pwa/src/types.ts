@@ -72,6 +72,7 @@ export interface LiveMatch {
   set3_tb_j2: number | null;
   winner: LiveMatchWinner | null;
   retired_player: LiveMatchWinner | null;
+  first_server: LiveMatchWinner | null; // Côté au service au 1er jeu — null si inconnu ; le serveur courant est déduit du score (getServer)
   started_at: string | null;
   finished_at: string | null;
   set1_ended_at: string | null;

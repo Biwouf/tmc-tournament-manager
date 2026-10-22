@@ -10,6 +10,8 @@ import { deleteLiveMatch } from '../../lib/liveMatchWrites';
 import { useClub } from '../../contexts/ClubContext';
 import type { LiveMatch, LiveMatchWinner } from '../../types';
 import LiveBadge from './LiveBadge';
+import { getServer } from '../../liveScoreRules';
+import TennisBall from '../TennisBall';
 
 interface Props {
   match: LiveMatch;
@@ -124,11 +126,13 @@ function PlayerRow({
   name,
   classement,
   isWinner,
+  isServing,
   cells,
 }: {
   name: string;
   classement: string | null;
   isWinner: boolean;
+  isServing: boolean;
   cells: SetCell[];
 }) {
   return (
@@ -139,6 +143,9 @@ function PlayerRow({
         >
           {name}
         </span>
+        {isServing && (
+          <TennisBall className="h-3 w-3 shrink-0 self-center" label="Au service" />
+        )}
         {classement && (
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             ({classement})
@@ -171,6 +178,7 @@ export default function MatchCard({
   const isPending = match.status === 'pending';
   const isFinished = match.status === 'finished';
   const sets = buildSets(match);
+  const server = getServer(match);
   const showClassement = match.match_type === 'simple';
 
   const refresh = () =>
@@ -271,12 +279,14 @@ export default function MatchCard({
           name={playerLabel(match, 'j1')}
           classement={showClassement ? match.j1_classement : null}
           isWinner={match.winner === 'j1'}
+          isServing={server === 'j1'}
           cells={cellsForSide(sets, 'j1')}
         />
         <PlayerRow
           name={playerLabel(match, 'j2')}
           classement={showClassement ? match.j2_classement : null}
           isWinner={match.winner === 'j2'}
+          isServing={server === 'j2'}
           cells={cellsForSide(sets, 'j2')}
         />
       </div>

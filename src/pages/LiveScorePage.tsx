@@ -5,7 +5,8 @@ import { liveMatchVisibilityFilter } from '../lib/liveMatchVisibility';
 import { supabase } from '../lib/supabase';
 import { clubTopic, LIVE_SAFETY_POLL, listenLiveTopic } from '../lib/liveChannel';
 import { useClub } from '../contexts/ClubContext';
-import type { LiveMatch, Profile } from '../types';
+import type { LiveMatch, LiveMatchWinner, Profile } from '../types';
+import { getTeamLabel } from '../liveScoreRules';
 import LiveMatchCard from '../components/LiveMatchCard';
 import LivePulse from '../components/LivePulse';
 
@@ -22,7 +23,7 @@ export default function LiveScorePage() {
   const { clubId } = useClub();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [courtDialog, setCourtDialog] = useState<{ matchId: string; value: string } | null>(null);
+  const [courtDialog, setCourtDialog] = useState<{ matchId: string; value: string; firstServer: LiveMatchWinner | null } | null>(null);
   const [takeoverDialog, setTakeoverDialog] = useState<{ matchId: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
@@ -101,13 +102,13 @@ export default function LiveScorePage() {
 
   const confirmStart = async () => {
     if (!courtDialog) return;
-    const { matchId, value } = courtDialog;
+    const { matchId, value, firstServer } = courtDialog;
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData.session?.user.id ?? null;
     const target = matches.find(m => m.id === matchId);
     if (!target || !uid) return;
     const { error } = await writeLiveMatch(target, clubId, {
-      status: 'live', scored_by: uid, court: value.trim() || null, started_at: new Date().toISOString(),
+      status: 'live', scored_by: uid, court: value.trim() || null, first_server: firstServer, started_at: new Date().toISOString(),
     }).then(() => ({ error: null }), (error: Error) => ({ error }));
     if (error) {
       alert(`Erreur : ${error.message}`);
@@ -120,7 +121,7 @@ export default function LiveScorePage() {
 
   const handlePrimary = (m: LiveMatch) => {
     if (m.status === 'pending') {
-      setCourtDialog({ matchId: m.id, value: '' });
+      setCourtDialog({ matchId: m.id, value: '', firstServer: null });
       return;
     }
     if (m.status === 'live' && m.scored_by && m.scored_by !== currentUserId) {
@@ -327,6 +328,23 @@ export default function LiveScorePage() {
                 className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary"
               />
             </label>
+            {(() => {
+              const m = matches.find((x) => x.id === courtDialog.matchId);
+              return m && (
+                <label className="mt-4 block text-sm font-medium text-card-foreground">
+                  Qui sert en premier ?
+                  <select
+                    value={courtDialog.firstServer ?? ''}
+                    onChange={(e) => setCourtDialog({ ...courtDialog, firstServer: (e.target.value || null) as LiveMatchWinner | null })}
+                    className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary"
+                  >
+                    <option value="">Je ne sais pas</option>
+                    <option value="j1">{getTeamLabel(m, 1)}</option>
+                    <option value="j2">{getTeamLabel(m, 2)}</option>
+                  </select>
+                </label>
+              );
+            })()}
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setCourtDialog(null)}

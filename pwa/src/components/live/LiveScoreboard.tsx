@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { LiveMatch } from '../../types';
+import type { LiveMatch, LiveMatchWinner } from '../../types';
 import {
+  getServer,
   getTeamLabel,
   getNormalSetWinner,
   getSet,
@@ -15,6 +16,8 @@ import {
   quickScoreLabel,
 } from '../../lib/liveScoreActions';
 import { formatDuration, liveDurations } from '../../lib/liveDurations';
+import FirstServerPicker from './FirstServerPicker';
+import TennisBall from '../TennisBall';
 export default function LiveScoreboard({
   match,
   canAnimate,
@@ -40,7 +43,7 @@ export default function LiveScoreboard({
   onOpenScore: () => void;
   onReload: () => void;
   onUndo: () => void;
-  onStart: () => void;
+  onStart: (firstServer: LiveMatchWinner | null) => void;
   onScore: (patch: Partial<LiveMatch>) => void;
 }) {
   const currentSet = activeSet(match);
@@ -53,6 +56,7 @@ export default function LiveScoreboard({
     return () => clearInterval(timer);
   }, [match.status]);
   const durations = liveDurations(match, now);
+  const server = getServer(match);
   return (
     <section className="live-score" aria-label="Score du match">
       <div className="score-meta">
@@ -108,6 +112,9 @@ export default function LiveScoreboard({
                   title={getTeamLabel(match, i === 0 ? 1 : 2)}
                 >
                   {getTeamLabel(match, i === 0 ? 1 : 2)}
+                  {server === side && (
+                    <TennisBall className="serve-ball" label="Au service" />
+                  )}
                   {match.winner === side && ' 🏆'}
                 </span>
               </th>
@@ -212,10 +219,23 @@ export default function LiveScoreboard({
           Terminer le match
         </button>
       )}
+      {match.status === 'live' &&
+        canAnimate &&
+        !match.first_server &&
+        !match.set1_j1 &&
+        !match.set1_j2 && (
+          <button className="live-note" onClick={() => onOpenScore()}>
+            Indiquer qui sert en premier →
+          </button>
+        )}
       {match.status === 'pending' && canAnimate && (
-        <button className="start-live" disabled={blocked} onClick={onStart}>
-          Démarrer le live
-        </button>
+        <FirstServerPicker
+          match={match}
+          title="Démarrer le live · qui sert en premier ?"
+          disabled={blocked}
+          showCurrent={false}
+          onPick={onStart}
+        />
       )}
       {match.team_rencontre_id &&
         match.status === 'finished' &&
