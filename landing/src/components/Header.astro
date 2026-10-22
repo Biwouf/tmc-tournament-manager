@@ -1,0 +1,50 @@
+---
+import Logo from './Logo.astro';
+import TrackedLink from './TrackedLink.astro';
+import { loginUrl, trialCta } from '../config';
+
+// Hors de l'accueil, les ancres renvoient vers les sections de l'accueil.
+const base = /^\/(index(\.html)?)?$/.test(Astro.url.pathname) ? '' : '/';
+const links = [
+  { href: `${base}#avant-apres`, label: 'Avant / après' },
+  { href: `${base}#positionnement`, label: 'Pourquoi nous' },
+  { href: `${base}#tarifs`, label: 'Tarifs' },
+  { href: `${base}#faq`, label: 'FAQ' },
+];
+const cta = trialCta('Essai gratuit');
+---
+<header class="site-header">
+  <div class="site-header__bar">
+    <Logo href="/" label="feelike.pro, accueil" />
+    <nav class="nav" aria-label="Navigation principale">
+      {links.map(link => <a class="nav__link" href={link.href}>{link.label}</a>)}
+      <a class="nav__link nav__login" href={loginUrl}>Connexion</a>
+      <TrackedLink class="nav__cta" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
+      <button type="button" class="menu-btn" aria-expanded="false" aria-controls="menu-mobile" aria-label="Ouvrir le menu" data-menu-toggle>
+        <svg class="icon-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18"></path></svg>
+        <svg class="icon-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"></path></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+<nav id="menu-mobile" class="mobile-menu" aria-label="Menu mobile" hidden>
+  {links.map(link => <a href={link.href} data-menu-close>{link.label}</a>)}
+  <a class="mobile-menu__login" href={loginUrl}>Connexion</a>
+</nav>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const menu = document.getElementById('menu-mobile');
+  if (button && menu) {
+    const setOpen = (open: boolean) => {
+      menu.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+      button.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+      document.body.style.overflow = open ? 'hidden' : '';
+    };
+    button.addEventListener('click', () => setOpen(menu.hidden));
+    menu.querySelectorAll('[data-menu-close]').forEach(link => link.addEventListener('click', () => setOpen(false)));
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { setOpen(false); button.focus(); } });
+    matchMedia('(min-width: 721px)').addEventListener('change', event => { if (event.matches) setOpen(false); });
+  }
+</script>

@@ -1,0 +1,119 @@
+---
+import TrackedLink from './TrackedLink.astro';
+import { signupUrl, trialCta } from '../config';
+
+const cta = trialCta('Essayer avec mon club');
+// État initial du score, identique à celui de la maquette (et repris par le script).
+const players = [
+  { name: 'C. Durand', rank: '30/2', cells: [{ v: 6, won: true }, { v: 5, won: true }], pt: '30', serving: true },
+  { name: 'T. Moreau', rank: '15/4', cells: [{ v: 3, won: false }, { v: 5, won: true }], pt: '15', serving: false },
+];
+---
+<section id="top" class="hero">
+  <div class="court-wrap" aria-hidden="true">
+    <div class="court">
+      <i class="h" style="top:12.5%"></i><i class="h" style="top:87.5%"></i>
+      <i class="v" style="left:23.1%"></i><i class="v" style="left:76.9%"></i>
+      <i class="h" style="top:50%;left:23.1%;right:23.1%"></i>
+      <i class="net"></i>
+      <i class="ball"></i>
+    </div>
+  </div>
+
+  <div class="hero__inner">
+    <div class="hero__meta">
+      <span><span class="pulse" aria-hidden="true"></span>La plateforme des clubs</span>
+      <span>Tennis · d’autres sports bientôt</span>
+    </div>
+    <p class="hero__kicker"><span>Ils jouent en</span> <span class="strike">amateurs.</span></p>
+    <h1>Faites-les se sentir comme des <span class="accent">pros.</span></h1>
+    <div class="hero__row">
+      <p class="hero__lead">Site, app et affiches façon circuit pro, alimentés tout seuls par TEN’UP. Vos outils de gestion font tourner le club ; feelike.pro le met en scène.</p>
+      <div class="hero__ctas">
+        <div class="btn-row">
+          <TrackedLink class="btn btn--accent" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
+          <a class="btn btn--ghost" href="#avant-apres">Voir l’avant / après</a>
+        </div>
+        <span class="hero__note">30 jours gratuits · sans carte bancaire{signupUrl && ' · en ligne en 2 minutes'}</span>
+      </div>
+    </div>
+
+    <div class="sb-wrap">
+      <div class="sb" data-scoreboard>
+        <div class="sb__tag"><span class="live">Live</span><span class="ctx">Court 2 · TMC de la Pentecôte · Finale</span></div>
+        <div class="sb__board">
+          <div class="sb__row sb__head" aria-hidden="true">
+            <span style="flex:1"></span>
+            <span class="sb__cells" data-set-labels><span class="sb__cell">Set 1</span><span class="sb__cell">Set 2</span><span class="sb__pt">Pts</span></span>
+          </div>
+          {players.map((player, index) => (
+            <button type="button" class="sb__row" data-player={index} data-serving={String(player.serving)} aria-label={`Marquer le point pour ${player.name}`}>
+              <span class="sb__srv"><span></span></span>
+              <span class="sb__player"><span class="sb__name">{player.name}</span><span class="sb__rank">{player.rank}</span></span>
+              <span class="sb__cells">
+                <span data-cells>{player.cells.map(cell => <span class:list={['sb__cell', { 'is-dim': !cell.won }]}>{cell.v}</span>)}</span>
+                <span class="sb__pt" data-pt>{player.pt}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <p class="sb__hint">Touchez un joueur pour marquer le point — la même saisie qu’au bord du court.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Score animé de la maquette : même règle de jeu (avantage, sets à 6 jeux, 7-5 ou 7-6).
+  const root = document.querySelector<HTMLElement>('[data-scoreboard]');
+  if (root) {
+    const POINTS = ['0', '15', '30', '40', 'AD'];
+    let state = { done: [[6, 3]], cur: [5, 5], pts: [2, 1], srv: 0 };
+    const rows = [...root.querySelectorAll<HTMLButtonElement>('[data-player]')];
+    const labels = root.querySelector<HTMLElement>('[data-set-labels]')!;
+
+    const point = (w: number) => {
+      const l = 1 - w;
+      const pts = [...state.pts];
+      let game = false;
+      if (pts[w] === 4 || (pts[w] === 3 && pts[l] < 3)) game = true;
+      else if (pts[w] === 3 && pts[l] === 3) pts[w] = 4;
+      else if (pts[l] === 4) pts[l] = 3;
+      else pts[w]++;
+      if (!game) { state = { ...state, pts }; return render(); }
+      let cur = [...state.cur];
+      cur[w]++;
+      let done = state.done;
+      if ((cur[w] >= 6 && cur[w] - cur[l] >= 2) || cur[w] === 7) {
+        done = [...done, cur];
+        if (done.filter(g => g[w] > g[1 - w]).length === 2) { state = { done: [[6, 3]], cur: [0, 0], pts: [0, 0], srv: 0 }; return render(); }
+        cur = [0, 0];
+      }
+      state = { done, cur, pts: [0, 0], srv: 1 - state.srv };
+      render();
+    };
+
+    const cell = (value: number, dim: boolean) => `<span class="sb__cell${dim ? ' is-dim' : ''}">${value}</span>`;
+    function render() {
+      const sets = [...state.done, state.cur];
+      labels.innerHTML = sets.map((_, i) => `<span class="sb__cell">Set ${i + 1}</span>`).join('') + '<span class="sb__pt">Pts</span>';
+      rows.forEach((row, i) => {
+        row.dataset.serving = String(state.srv === i);
+        row.querySelector('[data-cells]')!.innerHTML =
+          state.done.map(g => cell(g[i], g[i] < g[1 - i])).join('') + cell(state.cur[i], false);
+        row.querySelector('[data-pt]')!.textContent = POINTS[state.pts[i]];
+      });
+    }
+
+    rows.forEach((row, i) => row.addEventListener('click', () => point(i)));
+
+    // Lecture automatique, sauf si l'utilisateur demande moins d'animations ou si le score est hors écran.
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      let timer: number | undefined;
+      new IntersectionObserver(([entry]) => {
+        clearInterval(timer);
+        if (entry.isIntersecting) timer = window.setInterval(() => point(Math.random() < 0.52 ? 0 : 1), 2400);
+      }).observe(root);
+    }
+  }
+</script>

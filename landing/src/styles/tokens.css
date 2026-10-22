@@ -1,0 +1,94 @@
+/* Tokens du design system de la landing (design_handoff_saas_onboarding/tokens/),
+   palette « Terre battue » uniquement. Les polices sont auto-hébergées (Base.astro). */
+:root{
+  /* Base — Terre battue */
+  --fl-clay:#cf6a3e;
+  --fl-clay-deep:#a24d28;
+  --fl-night:#13120f;
+  --fl-night-2:#1c1a16;
+  --fl-chalk:#f3f1eb;
+  --fl-chalk-2:#e8e5dc;
+  --fl-stone-300:#d6d2c8;
+  --fl-stone-400:#a8a398;
+  --fl-stone-500:#8a857a;
+  --fl-stone-700:#5d5950;
+  --fl-stone-800:#3a3731;
+
+  /* Semantic — dark surfaces (default) */
+  --bg:var(--fl-night);
+  --surface-card:var(--fl-night-2);
+  --text:var(--fl-chalk);
+  --text-muted:var(--fl-stone-400);
+  --text-dim:var(--fl-stone-500);
+  --accent:var(--fl-clay);
+  --on-accent:var(--fl-night);
+  --line:rgba(255,255,255,0.12);
+  --line-strong:rgba(255,255,255,0.3);
+
+  /* Semantic — paper surfaces (light sections) */
+  --paper:var(--fl-chalk);
+  --paper-text:var(--fl-night);
+  --paper-muted:var(--fl-stone-700);
+  --paper-accent:var(--fl-clay-deep);
+  --paper-line:rgba(0,0,0,0.12);
+
+  /* Match states */
+  --state-win:var(--accent);
+  --state-loss:var(--text-dim);
+  --state-live:var(--accent);
+}
+:root{
+  --sp-2xs:8px;
+  --sp-xs:12px;
+  --sp-s:18px;
+  --sp-m:28px;
+  --sp-l:40px;
+  --sp-xl:56px;
+  --sp-2xl:72px;
+  --sp-3xl:112px;
+
+  --container:1320px;
+  --gutter:28px;
+
+  --radius-0:0;
+  --radius-pill:999px;
+  --radius-app-icon:22%;
+
+  --shadow-float:0 40px 100px rgba(0,0,0,0.55);
+  --shadow-cta:0 10px 40px color-mix(in oklab,var(--accent) 40%,transparent);
+  --glow-accent:0 0 60px color-mix(in oklab,var(--accent) 45%,transparent);
+
+  --ease-out:cubic-bezier(.2,.7,.2,1);
+  --ease-strike:cubic-bezier(.7,0,.2,1);
+  --dur-fast:150ms;
+  --dur-base:400ms;
+}
+:root{
+  --font-display:'Big Shoulders Display',Impact,sans-serif;
+  --font-body:'Instrument Sans',system-ui,sans-serif;
+  --font-brand:'Instrument Sans',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  --fs-hero:clamp(56px,11.5vw,210px);
+  --fs-h1:clamp(44px,6.4vw,104px);
+  --fs-h2:clamp(28px,3.2vw,46px);
+  --fs-h3:32px;
+  --fs-score:clamp(26px,3.6vw,38px);
+  --fs-body-lg:20px;
+  --fs-body:17px;
+  --fs-small:15px;
+  --fs-label:12px;
+
+  --fw-display:800;
+  --fw-display-max:900;
+  --fw-body:400;
+  --fw-brand:500;
+
+  --lh-display:0.84;
+  --lh-heading:0.9;
+  --lh-body:1.55;
+
+  --ls-label:0.12em;
+  --ls-button:0.08em;
+  --ls-brand:-0.035em;
+}

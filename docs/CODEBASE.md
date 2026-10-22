@@ -564,6 +564,30 @@ club), `course_registrations.guest_id` exclusif de `user_id`, commande `save_gue
 - `src/pages/ContactMessagesPage.tsx` : réception `/admin/messages`, lecture réservée aux administrateurs par RLS.
 - Déploiement et configuration : `docs/CONTACT_DELIVERY.md`.
 
+## Landing marketing — `landing/`
+
+Site **statique** de la plateforme sur `www.feelike.pro` (brief SaaS S1, octobre 2026), 4ᵉ projet
+Vercel (Root `landing/`, preset Astro, Node 22). **Astro 7**, aucune dépendance au code du BO, de
+la PWA ou de la vitrine, aucun accès Supabase. Direction visuelle propre à feelike.pro
+(« Terre battue » : Big Shoulders Display / Instrument Sans / IBM Plex Mono auto-hébergées via
+`@fontsource`), à ne pas mélanger avec le style du produit.
+
+| Fichier | Rôle |
+|---|---|
+| `src/pages/index.astro` | Accueil : sections + JSON-LD `Organization` / `WebSite` / `SoftwareApplication` (offres 0 € et 250 €/an) / `FAQPage` |
+| `src/pages/mentions-legales.astro`, `cgv.astro` | Contenu juridique **à fournir** : `noindex`, hors sitemap |
+| `src/pages/404.astro`, `sitemap.xml.ts` | Vraie 404 ; sitemap limité aux pages indexables |
+| `src/layouts/Base.astro` | Métadonnées, canonical (sans `.html`), Open Graph, polices (titres en `font-display: block` préchargées, sinon CLS), Plausible si configuré |
+| `src/config.ts` | Variables `PUBLIC_*` ; `trialCta()` bascule les CTA d'essai en « Demander un accès » tant que `PUBLIC_SIGNUP_URL` est absente |
+| `src/data/content.ts` | Textes des listes, repris de la maquette `Main.dc.html` |
+| `src/components/` | Une section = un composant ; `Hero` (score animé, même règle de jeu que la maquette), `BeforeAfter` (curseur clavier + pointeur), `Header` (menu mobile plein écran hors du header flouté), `Analytics` (événements Plausible) |
+| `src/assets/affiche-resultat.png` | Rendu réel de `renderResultPoster()` (BO) avec des données fictives — un aperçu ne promet jamais un rendu que le produit ne sait pas produire |
+| `src/assets/captures/` | Captures site / app / BO facultatives ; absentes → emplacement hachuré |
+| `vercel.json` | Apex → `www` en 301, `X-Robots-Tag: noindex` hors `www.feelike.pro`, cache long de `/_astro/` |
+| `tests/build.test.mjs` | `npm run build && npm test` : texte dans le HTML, un seul H1, JSON-LD, aucune ressource tierce, robots/sitemap |
+
+Déploiement, variables et opérations DNS : `landing/README.md`.
+
 ## Code partagé — `shared/`
 
 - **Ten'Up** (29/09–01/10/2026), importés par le BO **et** la PWA via des chemins relatifs `../../shared/…` : `TenupSync.tsx` (composant d'import des résultats : lien de la feuille, aperçu, choix explicite de l'équipe du club, aperçu des matchs « à importer » / « à remplacer » — Ten'Up fait foi depuis le 11/10/2026 —, avertissement non bloquant si la date diffère, application), `tenupClient.ts` (adaptateur structurel `preview`/`apply` → `tenup-sync` + `team_tenup_apply`, indépendant de la version de Supabase JS de chaque app), `tenupCompetitionClient.ts` (`previewTenupCompetition`), `tenupCompetitionUrl.mjs` (`normalizeTenupCompetitionUrl`), `tenupPool.mjs` (`normalizeTenupPoolUrl`, `validateTenupPool` — refuse un calendrier partiel —, `teamCalendar`), `tenupPoolClient.ts` (`previewTenupPool`, `suggestedTeamIds`). Les `.d.mts` typent les modules `.mjs`, aussi utilisés par les tests et le worker.
@@ -575,7 +599,7 @@ Worker Node 22 + Playwright/Chromium qui lit le **DOM public** de Ten'Up (aucun 
 
 ## Tests
 
-`tests/*.test.mjs` (Node, PGlite pour le SQL, Edge Functions Deno avec API simulées — aucun service externe) : `npm run test:security`, `test:live-score`, `test:courses` (+ `test:courses:concurrency`, opt-in sur PostgreSQL réel), `test:password-recovery`, `test:signup`, `test:emails`, `test:domains`, `test:team-matches`, `test:team-compo`, `test:result-poster`, `test:tenup`, `test:team-calendar`, `test:competitions`, `test:live-activity`, `test:pwa-updates`, `test:pwa-network`. Vitrine : `web/tests/seo.test.mjs`.
+`tests/*.test.mjs` (Node, PGlite pour le SQL, Edge Functions Deno avec API simulées — aucun service externe) : `npm run test:security`, `test:live-score`, `test:courses` (+ `test:courses:concurrency`, opt-in sur PostgreSQL réel), `test:password-recovery`, `test:signup`, `test:emails`, `test:domains`, `test:team-matches`, `test:team-compo`, `test:result-poster`, `test:tenup`, `test:team-calendar`, `test:competitions`, `test:live-activity`, `test:pwa-updates`, `test:pwa-network`. Vitrine : `web/tests/seo.test.mjs`. Landing : `landing/tests/build.test.mjs`.
 
 ## PR13 — entrée par domaine
 

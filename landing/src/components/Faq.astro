@@ -1,0 +1,19 @@
+---
+import { faq } from '../data/content';
+---
+<section id="faq" class="sec">
+  <div class="container faq__grid">
+    <div class="stack">
+      <span class="eyebrow">Questions du bureau</span>
+      <h2 class="h2">Avant de signer.</h2>
+    </div>
+    <div class="faq__list">
+      {faq.map(item => (
+        <details>
+          <summary><h3>{item.q}</h3><span class="faq__plus" aria-hidden="true">+</span></summary>
+          <p>{item.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
