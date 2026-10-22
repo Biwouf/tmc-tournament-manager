@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:live-score": "node --test tests/live-score-sql.test.mjs tests/live-set-times-sql.test.mjs tests/live-broadcast-sql.test.mjs tests/live-score-client.test.mjs",
+    "test:live-score": "node --experimental-strip-types --test tests/live-score-sql.test.mjs tests/live-set-times-sql.test.mjs tests/live-broadcast-sql.test.mjs tests/live-score-client.test.mjs tests/live-serve.test.mjs",
     "test:pwa-updates": "node --test tests/pwa-updates.test.mjs",
     "test:pwa-network": "node --test tests/pwa-network.test.mjs",
     "test:courses:concurrency": "node --test tests/courses-concurrency.test.mjs",

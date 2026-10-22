@@ -839,3 +839,44 @@ button.live-note {
     transform: translateY(7px);
   }
 }
+/* Service : balle après le nom du joueur ou de l'équipe au service. */
+.serve-ball {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-left: 6px;
+  vertical-align: -1px;
+}
+.serve-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0;
+}
+.serve-picker p {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  font-weight: 700;
+}
+.serve-picker button {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 10px;
+  background: hsl(var(--primary) / 0.07);
+  color: hsl(var(--primary));
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.serve-picker button:last-child {
+  grid-column: 1 / -1;
+  color: var(--quiet);
+  background: transparent;
+  border-color: var(--line);
+}
+.serve-picker button[aria-pressed='true'] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}

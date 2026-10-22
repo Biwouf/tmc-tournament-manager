@@ -101,6 +101,7 @@ export interface LiveMatch {
 
   winner: LiveMatchWinner | null;
   retired_player: LiveMatchWinner | null; // 'j1' | 'j2' si le match s'est terminé par un abandon — sinon null
+  first_server: LiveMatchWinner | null;   // Côté au service au 1er jeu — null = « Je ne sais pas »
 
   started_at: string | null;           // ISO 8601 — renseigné au passage en `live` (sert au tri "En live" — plus récent d'abord)
   finished_at: string | null;          // ISO 8601 — renseigné à la fin du match (pour la règle des 2 jours)
@@ -126,6 +127,17 @@ export interface LiveMatch {
 - `supabase/migrations/2026052301_live_matches_started_at.sql` — ajoute la colonne `started_at TIMESTAMPTZ` (nullable, sans défaut).
 - `supabase/migrations/2026101301_live_set_times.sql` — ajoute `set1_ended_at` / `set2_ended_at` (cf. « Durée du match et des sets »).
 - `supabase/migrations/2026052302_live_matches_retired_player.sql` — ajoute la colonne `retired_player live_match_winner` (nullable). Renseignée lors d'un abandon ; le vainqueur (`winner`) reste défini comme pour une fin de match normale.
+- `supabase/migrations/2026102202_live_matches_first_server.sql` — ajoute la colonne `first_server live_match_winner` (nullable). Cf. « Indicateur de service ».
+
+### Indicateur de service
+
+- Seul le **premier serveur** est stocké (`first_server`) ; le côté au service est **déduit du score** par `getServer(match)` (`liveScoreRules.ts`, BO + PWA). Une correction de score (−, annulation) recale donc l'indicateur sans écriture supplémentaire.
+- Règles : le service change à chaque jeu ; un tie-break compte pour un jeu (celui qui l'a commencé reçoit au 1er jeu du set suivant) ; dans un tie-break ou un super tie-break, le serveur sert le 1er point puis le service change tous les 2 points (`tb_j1 + tb_j2`, ou `set3_j1 + set3_j2` en super tie-break).
+- En double, l'indicateur désigne l'**équipe** (l'ordre de service des joueurs n'est pas suivi).
+- `first_server = null` (« Je ne sais pas ») ou match non `live` → aucun indicateur.
+- **Saisie** : au démarrage (BO : select *Qui sert en premier ?* du dialog *Démarrer le live* ; PWA : trois boutons joueur 1 / joueur 2 / *Je ne sais pas* qui remplacent « Démarrer le live »). Modifiable tant que le match est `live` : select *Premier serveur* sous la saisie BO, sélecteur en tête de la feuille *Ajuster le score* PWA. Les lives de rencontre, démarrés par `team_match_command('start_live')`, partent à `null` : à 0-0 dans le 1er set, le tableau PWA propose *Indiquer qui sert en premier →*.
+- Non modifiable sur un match terminé : pour un live de rencontre, toute écriture d'un match terminé re-déclenche la validation du résultat (`guard_team_live`).
+- **Affichage** : balle de tennis (`TennisBall`, SVG copié BO/PWA) après le nom du côté au service — tableau du live immersif PWA (`LiveScoreboard`), cartes PWA (`MatchCard`), cartes TV BO (`LiveMatchCard`, à la place du trophée).
 
 ---
 

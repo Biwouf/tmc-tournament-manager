@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { LiveMatch, LiveMatchWinner } from '../types';
 import LivePulse from './LivePulse';
+import { getServer } from '../liveScoreRules';
+import TennisBall from './TennisBall';
 
 interface Props {
   match: LiveMatch;
@@ -166,16 +168,24 @@ function PlayerLine({ member, isWinner }: { member: TeamMember; isWinner: boolea
 function TeamBlock({
   members,
   isWinner,
+  isServing,
   cells,
 }: {
   members: TeamMember[];
   isWinner: boolean;
+  isServing: boolean;
   cells: SetCell[];
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        {isWinner ? <TrophyIcon /> : <span className="w-5 h-5 shrink-0" />}
+        {isWinner ? (
+          <TrophyIcon />
+        ) : isServing ? (
+          <TennisBall className="w-5 h-5 shrink-0" label="Au service" />
+        ) : (
+          <span className="w-5 h-5 shrink-0" />
+        )}
         <div className="flex flex-col gap-1 min-w-0">
           {members.map((m, i) => (
             <PlayerLine key={i} member={m} isWinner={isWinner} />
@@ -258,6 +268,7 @@ export default function LiveMatchCard({ match, isOwnLive, onPrimary, onDelete }:
   const sets = buildSets(match);
   const cellsJ1 = cellsForSide(sets, 'j1');
   const cellsJ2 = cellsForSide(sets, 'j2');
+  const server = getServer(match);
 
   const cardClass = isLive
     ? 'border-red-200 shadow-[0_0_0_1px_rgba(229,24,40,0.12),0_8px_30px_rgba(229,24,40,0.08)]'
@@ -330,11 +341,13 @@ export default function LiveMatchCard({ match, isOwnLive, onPrimary, onDelete }:
         <TeamBlock
           members={teamMembers(match, 'j1')}
           isWinner={match.winner === 'j1'}
+          isServing={server === 'j1'}
           cells={cellsJ1}
         />
         <TeamBlock
           members={teamMembers(match, 'j2')}
           isWinner={match.winner === 'j2'}
+          isServing={server === 'j2'}
           cells={cellsJ2}
         />
       </div>
