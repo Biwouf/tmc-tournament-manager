@@ -787,7 +787,7 @@ button.live-note {
 }
 @media (max-width: 760px) {
   .live-sheet {
-    margin: auto auto 0;
+    margin: auto auto var(--live-keyboard-inset, 0);
     width: 100%;
     max-height: calc(var(--live-viewport-height, 100dvh) - 16px);
     border-radius: 22px 22px 0 0;
