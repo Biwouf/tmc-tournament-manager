@@ -719,9 +719,10 @@ function LiveMatchScreen({
               title="Qui sert maintenant ?"
               disabled={blocked}
               current={getServer(match)}
-              onPick={(side) =>
-                void save({ first_server: firstServerFor(match, side) })
-              }
+              onPick={async (side) => {
+                if (await save({ first_server: firstServerFor(match, side) }))
+                  setSheet(null);
+              }}
               extraLabel="Effacer"
               extraDisabled={!match.first_server}
               onExtra={() => void save({ first_server: null })}
