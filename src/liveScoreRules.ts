@@ -250,3 +250,9 @@ export function getServer(m: LiveMatch): Player | null {
   if (isNormalSetInTiebreak(s)) return inTiebreak(games + 12, s.tb_j1! + s.tb_j2!);
   return at(games + s.j1 + s.j2);
 }
+
+// Premier serveur à enregistrer pour que `getServer` désigne `current` au score actuel :
+// permet de saisir « qui sert maintenant » quand on arrive en cours de match.
+export function firstServerFor(m: LiveMatch, current: Player): Player {
+  return getServer({ ...m, status: 'live', first_server: 'j1' }) === current ? 'j1' : 'j2';
+}

@@ -332,13 +332,13 @@ export default function LiveScorePage() {
               const m = matches.find((x) => x.id === courtDialog.matchId);
               return m && (
                 <label className="mt-4 block text-sm font-medium text-card-foreground">
-                  Qui sert en premier ?
+                  Qui sert ?
                   <select
                     value={courtDialog.firstServer ?? ''}
                     onChange={(e) => setCourtDialog({ ...courtDialog, firstServer: (e.target.value || null) as LiveMatchWinner | null })}
                     className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary"
                   >
-                    <option value="">Je ne sais pas</option>
+                    <option value="">Déjà commencé — à indiquer plus tard</option>
                     <option value="j1">{getTeamLabel(m, 1)}</option>
                     <option value="j2">{getTeamLabel(m, 2)}</option>
                   </select>

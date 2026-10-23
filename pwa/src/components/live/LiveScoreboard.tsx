@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { LiveMatch, LiveMatchWinner } from '../../types';
 import {
+  firstServerFor,
   getServer,
   getTeamLabel,
   getNormalSetWinner,
@@ -43,6 +44,7 @@ export default function LiveScoreboard({
   onOpenScore: () => void;
   onReload: () => void;
   onUndo: () => void;
+  /** null = match déjà commencé : la page ouvre la saisie du score. */
   onStart: (firstServer: LiveMatchWinner | null) => void;
   onScore: (patch: Partial<LiveMatch>) => void;
 }) {
@@ -221,20 +223,19 @@ export default function LiveScoreboard({
       )}
       {match.status === 'live' &&
         canAnimate &&
-        !match.first_server &&
-        !match.set1_j1 &&
-        !match.set1_j2 && (
+        !match.first_server && (
           <button className="live-note" onClick={() => onOpenScore()}>
-            Indiquer qui sert en premier →
+            Indiquer qui sert →
           </button>
         )}
       {match.status === 'pending' && canAnimate && (
         <FirstServerPicker
           match={match}
-          title="Démarrer le live · qui sert en premier ?"
+          title="Démarrer le live · qui sert ?"
           disabled={blocked}
-          showCurrent={false}
-          onPick={onStart}
+          onPick={(side) => onStart(firstServerFor(match, side))}
+          extraLabel="Déjà commencé"
+          onExtra={() => onStart(null)}
         />
       )}
       {match.team_rencontre_id &&
