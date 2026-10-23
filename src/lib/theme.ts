@@ -132,6 +132,20 @@ const tint = (hue: number, saturation: number, lightness: number, cap: number): 
 });
 
 /**
+ * Une teinte du club en `hsl()` CSS, pour les rendus qui ne lisent pas les tokens (affiche de
+ * `/programmation-image`, exportée en JPEG). Même dérivation que les neutres ci-dessous :
+ * teinte de la principale, saturation plafonnée par la sienne, luminosité fixe. Sans
+ * `saturation` / `lightness`, c'est la principale elle-même. `null` si l'hex est illisible.
+ */
+export function clubTint(primary: string, saturation?: number, lightness?: number, alpha = 1): string | null {
+  const base = hexToHsl(primary);
+  if (!base) return null;
+  const { h, s, l } = tint(base.h, saturation ?? base.s, lightness ?? base.l, base.s);
+  const r = (v: number) => Math.round(v * 10) / 10;
+  return `hsl(${r(h)} ${r(s)}% ${r(l)}%${alpha < 1 ? ` / ${alpha}` : ''})`;
+}
+
+/**
  * Les trois couleurs saisies → la table complète des tokens. Objet VIDE si la couleur
  * principale est absente ou illisible : sans elle, il n'y a pas de teinte d'où dériver le
  * reste, et la feuille de style garde ses valeurs.
