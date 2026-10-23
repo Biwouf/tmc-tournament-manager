@@ -22,7 +22,7 @@
     "test:team-matches": "node --test tests/team-scoring-rules.test.mjs tests/team-match-commands.test.mjs tests/team-live-auto-result.test.mjs tests/team-match-client.test.mjs",
     "test:team-compo": "node --experimental-strip-types --test tests/team-compo.test.mjs tests/team-compo-sql.test.mjs tests/team-compo-client.test.mjs tests/compo-scan-edge.test.mjs",
     "test:tenup": "node --test tests/tenup-worker.test.mjs tests/tenup-sql.test.mjs tests/tenup-client.test.mjs tests/tenup-edge.test.mjs",
-    "test:live-activity": "node --test tests/live-activity-sql.test.mjs tests/live-activity-head.test.mjs tests/live-activity-client.test.mjs",
+    "test:live-activity": "node --test tests/live-activity-sql.test.mjs tests/live-recap-sql.test.mjs tests/live-activity-head.test.mjs tests/live-activity-client.test.mjs",
     "test:team-calendar": "node --test tests/tenup-pool-loading.test.mjs tests/tenup-pool-worker.test.mjs tests/tenup-pool-sql.test.mjs tests/tenup-pool-edge.test.mjs tests/tenup-pool-client.test.mjs",
     "test:competitions": "node --test tests/competition-admin-sql.test.mjs tests/competition-tenup-worker.test.mjs tests/competition-tenup-edge.test.mjs tests/competition-admin-client.test.mjs"
   },

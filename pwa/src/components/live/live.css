@@ -375,6 +375,345 @@ button.live-note {
   text-align: center;
   font-size: 12px;
 }
+/* Récap d'un live terminé : accroche sombre en fin de fil, puis story plein écran. */
+.live-recap {
+  margin: 20px 0 0;
+  padding: 18px;
+  border-radius: 18px;
+  background: #121317;
+  color: white;
+}
+.live-recap h3 {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 6px 0 10px;
+  overflow-wrap: anywhere;
+}
+.recap-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.recap-score sup,
+.replay-score sup {
+  font-size: 0.45em;
+  margin-left: 1px;
+}
+.recap-stats {
+  margin: 6px 0 16px;
+  color: #ffffffa6;
+  font-size: 13px;
+}
+.replay-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: hsl(var(--primary));
+}
+.replay-cta {
+  min-height: 48px;
+  width: 100%;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 15px;
+  font-weight: 800;
+}
+.replay-secondary {
+  min-height: 48px;
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid #ffffff59;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+}
+.replay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #0b0b0e;
+  color: white;
+  overflow: hidden;
+}
+.replay::backdrop {
+  background: #0b0b0e;
+}
+.replay button {
+  cursor: pointer;
+}
+.replay :focus-visible {
+  outline: 3px solid white;
+  outline-offset: -3px;
+}
+.replay-bars {
+  position: absolute;
+  z-index: 3;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+}
+.replay-bars span {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: #ffffff40;
+  overflow: hidden;
+}
+.replay-bars i {
+  display: block;
+  height: 100%;
+  background: white;
+}
+.replay-tools {
+  position: absolute;
+  z-index: 3;
+  top: calc(env(safe-area-inset-top) + 18px);
+  right: 6px;
+  display: flex;
+}
+.replay-tools button {
+  min-width: 44px;
+  min-height: 44px;
+  color: white;
+  font-size: 20px;
+}
+.replay-zone {
+  position: absolute;
+  z-index: 1;
+  top: calc(env(safe-area-inset-top) + 70px);
+  bottom: 0;
+  left: 0;
+  width: 33%;
+}
+.replay-zone.next {
+  left: 33%;
+  right: 0;
+  width: auto;
+}
+.replay-scene {
+  position: absolute;
+  inset: 0;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 76px) 24px
+    calc(env(safe-area-inset-bottom) + 32px);
+  display: flex;
+  flex-direction: column;
+}
+.replay-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+.replay-big {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.replay-big small {
+  display: block;
+  margin: 6px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffffa6;
+}
+.replay-muted {
+  color: #ffffffa6;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.replay-live {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.replay-clock {
+  margin: 6px 0 18px;
+  color: #ffffffa6;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.replay-board {
+  position: relative;
+  display: grid;
+  gap: 2px;
+}
+.replay-board > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid #ffffff1f;
+  font-size: 16px;
+  font-weight: 700;
+}
+.replay-board > div > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.replay-board b {
+  width: 34px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.replay-board b.won {
+  color: hsl(var(--primary));
+}
+.replay-break {
+  position: absolute;
+  right: 0;
+  bottom: -34px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.replay-feed {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.replay-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #ffffff1a;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.replay-bubble img {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.replay-bubble small,
+.replay-photo small {
+  display: block;
+  margin-top: 2px;
+  color: #ffffffa6;
+  font-size: 12px;
+}
+.replay-photo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.replay-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.replay-photo p {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 60px 24px calc(env(safe-area-inset-bottom) + 32px);
+  background: linear-gradient(transparent, #000000d9);
+  font-size: 16px;
+  font-weight: 700;
+}
+.replay-stats {
+  display: flex;
+  gap: 24px;
+  color: #ffffffa6;
+  font-size: 14px;
+}
+.replay-stats strong {
+  display: block;
+  color: white;
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.replay-emojis {
+  display: flex;
+  gap: 14px;
+}
+.replay-crowd {
+  position: relative;
+}
+.replay-float {
+  position: absolute;
+  bottom: 0;
+  font-size: 28px;
+  opacity: 0;
+  pointer-events: none;
+}
+.replay-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 40px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.replay-games {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.replay-games li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.replay-games i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.replay-games .team-1 {
+  background: hsl(var(--primary));
+}
+.replay-games .team-2 {
+  background: white;
+}
+.replay-games .unknown {
+  opacity: 0.35;
+}
+.replay-end {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 28px);
+  width: min(calc(100% - 48px), 512px);
+  transform: translateX(-50%);
+  display: grid;
+  gap: 10px;
+}
 .member-dock {
   position: relative;
   flex-shrink: 0;
@@ -826,6 +1165,52 @@ button.live-note {
   }
   .new-feed-item {
     animation: message-arrival 0.28s ease-out;
+  }
+  .replay-scene {
+    animation: replay-in 0.45s ease-out;
+  }
+  .replay-board b {
+    animation: replay-pop 0.35s ease-out;
+  }
+  .replay-break,
+  .replay-bubble {
+    animation: message-arrival 0.35s ease-out;
+  }
+  .replay-photo img {
+    animation: replay-zoom 2.8s ease-out forwards;
+  }
+  .replay-float {
+    animation: replay-rise 2.4s ease-out forwards;
+  }
+  .replay-games i {
+    animation: replay-pop 0.3s ease-out backwards;
+  }
+}
+@keyframes replay-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes replay-pop {
+  from {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@keyframes replay-zoom {
+  to {
+    transform: scale(1.12);
+  }
+}
+@keyframes replay-rise {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60vh);
   }
 }
 @keyframes score-flash {

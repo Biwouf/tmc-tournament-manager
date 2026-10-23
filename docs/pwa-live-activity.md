@@ -19,6 +19,12 @@ texte, sondage, clôture et suppression des publications. `scored_by` attribue
 la dernière saisie et ne confère aucune exclusivité. Ce changement vaut aussi
 pour la confirmation d’un résultat d’équipe depuis la PWA.
 
+Récap du match (22-23/10/2026) : un live terminé se clôt sur une accroche
+« Revivre le match » qui ouvre une story plein écran publique : intro, match en
+accéléré avec breaks et publications les plus réagies à leur heure, moment fort,
+diaporama photos, tribune (spectateurs uniques au-delà de 10), vainqueur. Détail des règles dans
+`docs/specs/LIVE_SCORE.md`, section « Récap du live terminé ».
+
 Réactions sur les publications (15/10/2026) : sous chaque commentaire et chaque
 photo (pas les sondages), des puces emoji avec leur compteur et un bouton neutre
 (smiley au trait avec « + », façon WhatsApp) qui ouvre la palette : six raccourcis
@@ -178,6 +184,18 @@ qui les modifie doit repartir de cette version. Aucune configuration Realtime :
 la table supprimée quitte d’elle-même la publication `supabase_realtime`.
 Recette : réagir, changer, retirer depuis deux comptes ; appui long sur iOS
 et Android ; visiteur non connecté ; réaction après la fin du match.
+
+### Lot récap du match (22/10/2026)
+
+Appliquer `2026102203_live_recap.sql` puis `2026102301_live_recap_replay.sql` en
+production **avant** de fusionner la PR : le client appelle `live_match_view` et
+`live_match_recap` (sinon le compteur échoue en silence et le récap n'apparaît pas, et
+sans la seconde la story n'a ni heures ni publications). La seconde redéfinit
+entièrement `live_match_recap` : toute autre branche qui la modifie doit repartir de
+cette version. Seuls les lives joués après son application ont un déroulé du score et des
+spectateurs. Recette : live complet avec premier serveur, correction et tie-break,
+ouverture depuis plusieurs appareils (masqué jusqu'à 10), photos réagies, story sur
+téléphone 320/390 px (encoche, retour arrière Android), réglage « réduire les animations ».
 
 ## Validation
 
