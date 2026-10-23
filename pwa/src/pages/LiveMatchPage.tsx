@@ -15,7 +15,12 @@ import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import { useLiveMatch } from '../hooks/useLiveMatch';
 import { useLiveActivity } from '../hooks/useLiveActivity';
-import { firstServerFor, getServer, getTeamLabel } from '../liveScoreRules';
+import {
+  firstServerFor,
+  getServer,
+  getTeamLabel,
+  isSet3Needed,
+} from '../liveScoreRules';
 import {
   canFinish,
   finalScorePatch,
@@ -84,7 +89,7 @@ function LiveMatchScreen({
   const { match, saving, savingError, save } = live;
   const canAnimate = !authLoading && activity.canAnimate;
   const [sheet, setSheet] = useState<
-    'score' | 'info' | 'poll' | 'retire' | null
+    'score' | 'set3' | 'info' | 'poll' | 'retire' | null
   >(null);
   const [pollId, setPollId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -350,8 +355,20 @@ function LiveMatchScreen({
         scoreError={scoreError}
         canUndo={!!undo && undo.revision === match.revision}
         onOpenScore={() => setSheet('score')}
+        // Match par équipes historique : la règle se fixe dans la rencontre.
+        onChooseSet3={() =>
+          setSheet(match.team_match_line_id ? 'score' : 'set3')
+        }
         onReload={() => void live.reload()}
-        onScore={(patch) => void patchScore(patch)}
+        onScore={async (patch) => {
+          // Un set partout : on propose aussitôt le format du set décisif.
+          const tied =
+            !match.set3_format &&
+            !match.team_match_line_id &&
+            !isSet3Needed(match) &&
+            isSet3Needed({ ...match, ...patch });
+          if ((await patchScore(patch)) && tied) setSheet('set3');
+        }}
         onStart={async (firstServer) => {
           const started = await patchScore(
             {
@@ -773,6 +790,41 @@ function LiveMatchScreen({
               </button>
             </p>
           )}
+        </LiveSheet>
+      )}
+      {sheet === 'set3' && canAnimate && (
+        <LiveSheet
+          title="Format du set décisif"
+          onClose={() => setSheet(null)}
+        >
+          {(
+            [
+              ['normal', 'Set normal'],
+              ['super_tiebreak', 'Super tiebreak'],
+            ] as const
+          ).map(([format, label]) => (
+            <button
+              key={format}
+              className="primary-button"
+              disabled={blocked}
+              onClick={async () => {
+                if (
+                  await patchScore(
+                    format === 'super_tiebreak'
+                      ? {
+                          set3_format: format,
+                          set3_tb_j1: null,
+                          set3_tb_j2: null,
+                        }
+                      : { set3_format: format },
+                  )
+                )
+                  setSheet(null);
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </LiveSheet>
       )}
       {sheet === 'retire' && canAnimate && (

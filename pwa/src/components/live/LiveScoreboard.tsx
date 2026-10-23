@@ -28,6 +28,7 @@ export default function LiveScoreboard({
   scoreError,
   canUndo,
   onOpenScore,
+  onChooseSet3,
   onReload,
   onUndo,
   onStart,
@@ -42,6 +43,7 @@ export default function LiveScoreboard({
   scoreError: string | null;
   canUndo: boolean;
   onOpenScore: () => void;
+  onChooseSet3: () => void;
   onReload: () => void;
   onUndo: () => void;
   /** null = match déjà commencé : la page ouvre la saisie du score. */
@@ -212,7 +214,7 @@ export default function LiveScoreboard({
         canAnimate &&
         currentSet === 3 &&
         !match.set3_format && (
-          <button className="live-note" onClick={() => onOpenScore()}>
+          <button className="live-note" onClick={() => onChooseSet3()}>
             Choisir le format du set décisif →
           </button>
         )}

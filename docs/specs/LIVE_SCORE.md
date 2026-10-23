@@ -324,6 +324,7 @@ Set 2 :  [−] [0] [+]           [−] [0] [+]
 
 - Le set 3 n'apparaît qu'une fois que le set 2 est terminé et que chaque joueur a gagné 1 set.
 - Au démarrage du 3e set : l'opérateur choisit le format via un bouton radio visible : **"Set normal"** / **"Super tiebreak"**. Ce choix est enregistré immédiatement dans `set3_format`.
+  - PWA (page live) : quand le bouton « + jeu / + point » du tableau de score conclut le 2e set sur un set partout et qu'aucun format n'est encore choisi, une feuille dédiée « Format du set décisif » (deux boutons, rien d'autre) s'ouvre automatiquement. Le lien « Choisir le format du set décisif → » ouvre la même feuille si l'opérateur l'a fermée (match par équipes historique sans règle : il ouvre « Ajuster le score », qui renvoie vers la rencontre).
 - Le tiebreak (score interne) apparaît automatiquement quand le score d'un set normal atteint 6/6. En super tiebreak, les boutons +/- remplacent directement le score du set (pas de notion de jeux).
 
 **Sauvegarde :** chaque action +/- déclenche un `update` Supabase immédiat. Pas de bouton "Enregistrer".
