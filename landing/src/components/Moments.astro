@@ -1,0 +1,22 @@
+---
+import { moments } from '../data/content';
+---
+<section id="joueurs" class="sec sec--paper">
+  <div class="container">
+    <div class="stack" style="padding-bottom:var(--sp-xl)">
+      <span class="eyebrow">Ce que vivent vos joueurs</span>
+      <h2 class="h2">Chaque match, traité comme une finale.</h2>
+    </div>
+    <div class="moments">
+      {moments.map(moment => (
+        <div class="moment">
+          <span class="moment__score" aria-hidden="true">{moment.score}</span>
+          <div class="stack" style="gap:14px">
+            <h3>{moment.title}</h3>
+            <p>{moment.text}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

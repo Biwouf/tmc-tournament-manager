@@ -1,0 +1,9 @@
+---
+import { tickerItems } from '../data/content';
+---
+<div class="ticker">
+  <div class="ticker__track">
+    <ul>{tickerItems.map(item => <li>{item}</li>)}</ul>
+    <ul aria-hidden="true">{tickerItems.map(item => <li>{item}</li>)}</ul>
+  </div>
+</div>

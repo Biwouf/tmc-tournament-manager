@@ -4,6 +4,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { useCourseAction, useCourseContext } from '../hooks/useCourses';
 import { courseError, type Profile, type Sex } from '../lib/courses';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
+import { disableCoursePush } from '../lib/coursePush';
+import { returnPath } from '../components/layout/headerConfig';
+import CoursePushSettings from '../components/courses/CoursePushSettings';
 import '../components/courses/courses.css';
 
 function ProfileForm({
@@ -109,10 +114,25 @@ export default function ProfilePage() {
   const context = useCourseContext();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [saved, setSaved] = useState(false);
-  const requested = params.get('returnTo');
-  const returnTo =
-    requested && /^\/cours(?:\?|$)/.test(requested) ? requested : '/cours';
+  const [logoutError, setLogoutError] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
+  const returnTo = returnPath(params.get('returnTo')) ?? '/actu';
+  const backLabel = returnTo.startsWith('/cours') ? 'Revenir aux cours' : 'Retour';
+  async function logout() {
+    setLoggingOut(true);
+    setLogoutError('');
+    try {
+      if (clubId) await disableCoursePush(clubId);
+      // Leave the protected page first, otherwise RequireAuth redirects to /login.
+      navigate(returnTo, { replace: true });
+      await supabase.auth.signOut();
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : 'Déconnexion impossible. Réessayez.');
+      setLoggingOut(false);
+    }
+  }
   return (
     <div className="booking-page">
       <h1 className="booking-profile-title">Mon profil</h1>
@@ -123,7 +143,7 @@ export default function ProfilePage() {
             className="booking-button primary booking-wide"
             onClick={() => navigate(returnTo)}
           >
-            Revenir aux cours
+            {backLabel}
           </button>
         </div>
       ) : context.isError ? (
@@ -152,11 +172,26 @@ export default function ProfilePage() {
           />
         )
       )}
+      {user && clubId && context.data?.is_member && (
+        <section aria-labelledby="profile-notifications">
+          <h2 id="profile-notifications" className="booking-profile-title">Notifications</h2>
+          <CoursePushSettings clubId={clubId} userId={user.id} />
+        </section>
+      )}
       <button
         className="booking-button secondary booking-wide"
         onClick={() => navigate(returnTo)}
       >
-        Retour aux cours
+        {backLabel}
+      </button>
+      {logoutError && <p className="booking-error" role="alert">{logoutError}</p>}
+      <button
+        type="button"
+        className="booking-button secondary booking-wide"
+        disabled={loggingOut}
+        onClick={() => void logout()}
+      >
+        {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
       </button>
     </div>
   );

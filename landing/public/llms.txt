@@ -1,0 +1,22 @@
+# feelike.pro
+
+> feelike.pro crée le site, l’app des adhérents et les affiches d’un club de tennis, alimentés automatiquement par TEN’UP. Il ne remplace pas les logiciels de gestion du club (adhésions, comptabilité, réservation des courts) : il met le club en scène.
+
+## Ce que fait le produit
+
+- Site vitrine du club sur votreclub.feelike.pro : accueil, le club, infrastructures, tarifs, contact, référencement automatique.
+- App des adhérents installable (iOS et Android) : actus, matchs par équipe, live score en temps réel.
+- Back-office : contenu du club, rôles (administrateur, gestionnaire, membre), planning TMC, affiches, interclubs, actus publiées sur Facebook.
+- Synchronisation TEN’UP : rencontres, compositions et scores importés sans ressaisie.
+
+## Tarifs
+
+- Essai gratuit : 30 jours, tout le produit, sans carte bancaire.
+- Saison : 250 € par an pour tout le club (tarif de lancement, garanti tant que l’abonnement est actif). Membres, bénévoles et enseignants illimités, pas de tarif par adhérent.
+- Fin d’essai sans abonnement : rien n’est supprimé, le back-office passe en lecture seule.
+
+## Liens
+
+- [Accueil](https://www.feelike.pro/)
+- [Tarifs](https://www.feelike.pro/#tarifs)
+- [Questions fréquentes](https://www.feelike.pro/#faq)

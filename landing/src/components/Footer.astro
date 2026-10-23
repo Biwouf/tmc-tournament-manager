@@ -1,0 +1,25 @@
+---
+import Logo from './Logo.astro';
+import { contactEmail } from '../config';
+
+const base = /^\/(index(\.html)?)?$/.test(Astro.url.pathname) ? '' : '/';
+// Les pages fonctionnalités et guides de la maquette sont au backlog : pas de lien mort.
+const links = [
+  { href: `${base}#tarifs`, label: 'Tarifs' },
+  { href: `${base}#faq`, label: 'FAQ' },
+  { href: '/mentions-legales', label: 'Mentions légales' },
+  { href: '/cgv', label: 'CGV' },
+  ...(contactEmail ? [{ href: `mailto:${contactEmail}`, label: 'Contact' }] : []),
+];
+---
+<footer class="site-footer">
+  <div class="container site-footer__inner">
+    <div class="stack" style="gap:14px">
+      <Logo />
+      <span class="site-footer__copy">© {new Date().getFullYear()} feelike.pro</span>
+    </div>
+    <nav class="foot-nav" aria-label="Pied de page">
+      {links.map(link => <a href={link.href}>{link.label}</a>)}
+    </nav>
+  </div>
+</footer>

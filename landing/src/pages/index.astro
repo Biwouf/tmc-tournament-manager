@@ -1,0 +1,93 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.astro';
+import Ticker from '../components/Ticker.astro';
+import BeforeAfter from '../components/BeforeAfter.astro';
+import Surfaces from '../components/Surfaces.astro';
+import Positioning from '../components/Positioning.astro';
+import Moments from '../components/Moments.astro';
+import Setup from '../components/Setup.astro';
+import Pricing from '../components/Pricing.astro';
+import Faq from '../components/Faq.astro';
+import FinalCta from '../components/FinalCta.astro';
+import { faq, siteDescription } from '../data/content';
+
+const site = Astro.site!.href.replace(/\/$/, '');
+const organization = {
+  '@type': 'Organization',
+  '@id': `${site}/#organization`,
+  name: 'feelike.pro',
+  url: `${site}/`,
+  logo: `${site}/logo.png`,
+};
+const jsonLd = [{
+  '@context': 'https://schema.org',
+  '@graph': [
+    organization,
+    {
+      '@type': 'WebSite',
+      '@id': `${site}/#website`,
+      url: `${site}/`,
+      name: 'feelike.pro',
+      inLanguage: 'fr-FR',
+      publisher: { '@id': organization['@id'] },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${site}/#software`,
+      name: 'feelike.pro',
+      url: `${site}/`,
+      description: siteDescription,
+      applicationCategory: 'BusinessApplication',
+      applicationSubCategory: 'Logiciel pour clubs de tennis',
+      operatingSystem: 'Web, iOS, Android',
+      inLanguage: 'fr-FR',
+      publisher: { '@id': organization['@id'] },
+      offers: [
+        {
+          '@type': 'Offer',
+          name: 'Essai gratuit',
+          description: 'Tout le produit pendant 30 jours, sans carte bancaire.',
+          price: '0',
+          priceCurrency: 'EUR',
+          url: `${site}/#tarifs`,
+        },
+        {
+          '@type': 'Offer',
+          name: 'Saison',
+          description: 'Site vitrine, app des adhérents et back-office pour tout le club, abonnement annuel.',
+          price: '250',
+          priceCurrency: 'EUR',
+          priceSpecification: { '@type': 'UnitPriceSpecification', price: '250', priceCurrency: 'EUR', unitCode: 'ANN', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'ANN' } },
+          url: `${site}/#tarifs`,
+        },
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${site}/#faq`,
+      mainEntity: faq.map(item => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    },
+  ],
+}];
+---
+<Base
+  title="feelike.pro — Site, app et affiches pour votre club de tennis"
+  description={siteDescription}
+  jsonLd={jsonLd}
+>
+  <Hero />
+  <Ticker />
+  <BeforeAfter />
+  <Surfaces />
+  <Positioning />
+  <Moments />
+  <Setup />
+  <Pricing />
+  <Faq />
+  <FinalCta />
+</Base>

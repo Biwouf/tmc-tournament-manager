@@ -35,7 +35,7 @@ export default function CourseInteraction({
   mode: SheetMode;
   setMode: (mode: SheetMode) => void;
   onClose: () => void;
-  onSuccess: (message: string) => void;
+  onSuccess: (message: string, requested?: boolean) => void;
 }) {
   const action = useCourseAction();
   const from = `/cours?course=${encodeURIComponent(c.id)}`;
@@ -54,6 +54,7 @@ export default function CourseInteraction({
         operation === 'request'
           ? 'Demande envoyée. Votre place sera confirmée après validation par le club.'
           : 'Votre inscription est annulée.',
+        operation === 'request',
       );
   }
   return (

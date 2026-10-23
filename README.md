@@ -74,8 +74,10 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 
 - Back-office `/courses` : types de cours, séances avec quotas femmes / hommes, responsable, validation des demandes et inscriptions manuelles. Les membres demandent une place depuis l'onglet Cours de la PWA. Quand les deux quotas sont pleins, le bouton affiche « Complet » et n'est plus cliquable.
 - Une personne **sans compte** sur l'application (par exemple quelqu'un qui ne parvient pas à en créer un) peut être inscrite par un admin depuis la page d'inscriptions d'un cours : prénom, nom et sexe. Sa fiche est conservée pour les cours suivants ; l'inscription est confirmée directement, dans la limite du quota, sans notification.
+- **Notifications push** (PWA) : la personne qui encadre un cours est prévenue de chaque nouvelle demande, le membre de l'acceptation ou du refus de la sienne. L'activation est proposée juste après une demande et dans l'onglet Encadrement ; on peut l'activer ou la couper à tout moment depuis **Mon profil**. Sur iPhone, l'application doit être ajoutée à l'écran d'accueil. Les emails continuent d'être envoyés en parallèle.
 
 ### PWA — navigation
+- En haut à droite de chaque onglet : le **bouton profil** (prénom, nom, sexe, classement, notifications, déconnexion), ou « Connexion » si l'on n'est pas connecté
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
 - **Actu** : Actualités et Événements fusionnés, basculables via des sous-onglets soulignés (l'URL conserve `?tab=…`, pull-to-refresh sur les deux flux)
 - **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Une rencontre commencée affiche son **score provisoire** (« En cours » pendant un live, sinon « Provisoire ») ; cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Les membres saisissent les matchs depuis la rencontre : un **live terminé valide automatiquement le résultat du match**, une saisie directe aussi, et le score de la rencontre suit ; la vérification se fait une fois, à la **confirmation de la rencontre**
@@ -159,6 +161,14 @@ Site **public** du club, servi sur `<slug>.feelike.pro` (application séparée, 
 - **Pendant la préparation**, le site reste exclu de l’indexation. L’ouverture automatique exige un domaine de production, une page Tarifs avec saison et prix renseignés, et un Contact avec adresse complète et téléphone ou email. Le panneau *Affichage des sections* permet de suspendre le référencement. Les previews restent toujours exclues ; les textes et coordonnées doivent être relus avant publication.
 - Les mises à jour du BO sont reprises à chaque navigation ou rechargement, sans purge manuelle. Les photos originales sont conservées ; Vercel peut les servir à une taille adaptée à l’écran.
 - Les sections *Actualités* et *Prochains rendez-vous* de l'accueil, ainsi que l'**envoi** du formulaire de contact, arrivent dans une prochaine livraison : en attendant, le formulaire est affiché mais son bouton est inactif, et les blocs d'actualités ne s'affichent pas du tout.
+
+### Landing `www.feelike.pro`
+
+Site marketing de la plateforme (application séparée, dossier `landing/`) : présentation du produit, avant/après, tarifs (essai 30 jours sans carte, Saison 250 €/an), FAQ et appel à l'essai ou à un call de 20 minutes.
+
+- **Tant que l'inscription en ligne n'est pas ouverte**, les boutons d'essai affichent « Demander un accès » et mènent au call. Il suffit de renseigner `PUBLIC_SIGNUP_URL` dans Vercel pour les rebrancher.
+- Lien de réservation, mention TVA, e-mail de contact et mesure d'audience (Plausible, sans cookie ni bandeau) se règlent par variables d'environnement : voir `landing/README.md`.
+- Mentions légales et CGV : pages prêtes mais **contenu à fournir**, exclues de l'indexation d'ici là.
 
 ### Comptes sociaux
 Écran *Admin › Comptes sociaux* (`/admin/social`), réservé aux **administrateurs** du club.
@@ -435,6 +445,7 @@ Configuration et recette : [ACCOUNT_RECOVERY.md](docs/ACCOUNT_RECOVERY.md).
 
 Domaine racine confirmé : **feelike.pro**, enregistré chez OVHcloud.
 Vitrine : `<club>.feelike.pro` ; PWA : `app-<club>.feelike.pro` ; BO central avec sélection
-du club après connexion : `admin.feelike.pro`.
+du club après connexion : `admin.feelike.pro`. Landing marketing : `www.feelike.pro` (apex redirigé),
+projet Vercel séparé, cf. `landing/README.md`.
 Le code ne met pas les DNS en service : suivre [la procédure OVH/Vercel](docs/DOMAINS_DELIVERY.md)
 avant de clôturer la PR13. Le domaine propre de CAC est prévu en PR14.

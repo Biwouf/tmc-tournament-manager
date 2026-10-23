@@ -1,0 +1,39 @@
+---
+import { compare, promises } from '../data/content';
+---
+<section id="positionnement" class="sec">
+  <div class="container stack" style="gap:56px">
+    <div class="sec-head pos__head">
+      <div class="stack">
+        <span class="eyebrow">Ce qu’on vend</span>
+        <h2 class="h2">Les autres gèrent votre club. Nous, on le met en scène.</h2>
+      </div>
+      <p class="lead">Gardez votre logiciel de gestion, votre réservation de courts et TEN’UP. feelike.pro ne remplace rien : il se branche à côté et rend visible ce que vos joueurs font sur le court.</p>
+    </div>
+
+    <div class="cmp" role="table" aria-label="Outils de gestion comparés à feelike.pro">
+      <div class="cmp__row cmp__row--head" role="row">
+        <span role="columnheader"><span class="sr-only">Critère</span></span>
+        <span role="columnheader" class="a">Les coulisses · logiciels de gestion</span>
+        <span role="columnheader" class="b">La tribune · feelike.pro</span>
+      </div>
+      {compare.map(row => (
+        <div class="cmp__row" role="row">
+          <span class="cmp__k" role="rowheader">{row.k}</span>
+          <span class="cmp__a" role="cell" data-label="Logiciels de gestion">{row.a}</span>
+          <span class="cmp__b" role="cell" data-label="feelike.pro">{row.b}</span>
+        </div>
+      ))}
+    </div>
+
+    <div class="promises">
+      {promises.map(item => (
+        <div class="promise">
+          <span class="n" aria-hidden="true">{item.n}</span>
+          <h3>{item.title}</h3>
+          <p>{item.text}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
