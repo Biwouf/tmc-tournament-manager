@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getServer } from '../pwa/src/liveScoreRules.ts';
+import { firstServerFor, getServer } from '../pwa/src/liveScoreRules.ts';
 
 const base = {
   status: 'live', first_server: 'j1', set3_format: null,
@@ -45,4 +45,20 @@ test('Deciding set, classic or super tie-break', () => {
   assert.equal(at({ ...split, set3_format: 'super_tiebreak', set3_j1: 0, set3_j2: 0 }), 'j2');
   assert.equal(at({ ...split, set3_format: 'super_tiebreak', set3_j1: 1, set3_j2: 0 }), 'j1');
   assert.equal(at({ ...split, set3_format: 'super_tiebreak', set3_j1: 4, set3_j2: 3 }), 'j2');
+});
+
+test('First server deduced from who serves now', () => {
+  const now = (patch, current) => {
+    const first = firstServerFor({ ...base, ...patch, first_server: null }, current);
+    assert.equal(at({ ...patch, first_server: first }), current);
+    return first;
+  };
+  assert.equal(now({}, 'j2'), 'j2');
+  assert.equal(now({ set1_j1: 3, set1_j2: 2 }, 'j2'), 'j1');
+  assert.equal(now({ set1_j1: 6, set1_j2: 3, set2_j1: 2, set2_j2: 2 }, 'j1'), 'j2');
+  assert.equal(now({ set1_j1: 6, set1_j2: 6, set1_tb_j1: 2, set1_tb_j2: 1 }, 'j2'), 'j2');
+  const split = { set1_j1: 6, set1_j2: 4, set2_j1: 3, set2_j2: 6 };
+  assert.equal(now({ ...split, set3_format: 'super_tiebreak', set3_j1: 4, set3_j2: 3 }, 'j1'), 'j2');
+  // Calculé même avant le passage en live (démarrage avec score existant).
+  assert.equal(firstServerFor({ ...base, status: 'pending', set1_j1: 1, set1_j2: 0 }, 'j1'), 'j2');
 });

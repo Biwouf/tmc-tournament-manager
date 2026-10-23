@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch, LiveMatchWinner } from '../types';
 import { useLiveMatch } from '../hooks/useLiveMatch';
-import { getMatchWinner, getTeamLabel } from '../liveScoreRules';
+import { firstServerFor, getMatchWinner, getServer, getTeamLabel, type Player } from '../liveScoreRules';
 import LiveScoreEntry from '../components/LiveScoreEntry';
 
 function formatDate(iso: string): string {
@@ -222,16 +222,16 @@ export default function LiveMatchPage() {
               <LiveScoreEntry match={match} onPatch={applyPatch} forceDisabled={hasLostControl || saving || !!savingError} />
               {match.status === 'live' && !hasLostControl && (
                 <label className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                  Premier serveur
+                  Qui sert ?
                   <select
-                    value={match.first_server ?? ''}
+                    value={getServer(match) ?? ''}
                     disabled={saving || !!savingError}
-                    onChange={(e) => void save({ first_server: (e.target.value || null) as LiveMatchWinner | null })}
+                    onChange={(e) => void save({ first_server: e.target.value ? firstServerFor(match, e.target.value as Player) : null })}
                     className="rounded-lg border border-border bg-background px-2 py-1 text-sm text-foreground"
                   >
                     <option value="j1">{getTeamLabel(match, 1)}</option>
                     <option value="j2">{getTeamLabel(match, 2)}</option>
-                    <option value="">Je ne sais pas</option>
+                    <option value="">Inconnu</option>
                   </select>
                 </label>
               )}

@@ -1,39 +1,49 @@
-import type { LiveMatch, LiveMatchWinner } from '../../types';
-import { getTeamLabel } from '../../liveScoreRules';
+import type { LiveMatch } from '../../types';
+import { getTeamLabel, type Player } from '../../liveScoreRules';
 
-// Choix du premier serveur : « Je ne sais pas » enregistre null (pas d'indicateur).
+// Choix du côté au service : un bouton par joueur/équipe, puis une action secondaire
+// (« Déjà commencé » au démarrage, « Effacer » en cours de match).
 export default function FirstServerPicker({
   match,
   title,
   disabled,
-  showCurrent,
+  current,
   onPick,
+  extraLabel,
+  extraDisabled = false,
+  onExtra,
 }: {
   match: LiveMatch;
   title: string;
   disabled: boolean;
-  showCurrent: boolean;
-  onPick: (side: LiveMatchWinner | null) => void;
+  /** Côté au service affiché comme sélectionné ; undefined = pas d'état. */
+  current?: Player | null;
+  onPick: (side: Player) => void;
+  extraLabel: string;
+  extraDisabled?: boolean;
+  onExtra: () => void;
 }) {
-  const options: [LiveMatchWinner | null, string][] = [
+  const sides: [Player, string][] = [
     ['j1', getTeamLabel(match, 1)],
     ['j2', getTeamLabel(match, 2)],
-    [null, 'Je ne sais pas'],
   ];
   return (
     <div className="serve-picker" role="group" aria-label={title}>
       <p>{title}</p>
-      {options.map(([side, label]) => (
+      {sides.map(([side, label]) => (
         <button
-          key={side ?? 'unknown'}
+          key={side}
           type="button"
           disabled={disabled}
-          aria-pressed={showCurrent ? match.first_server === side : undefined}
+          aria-pressed={current === undefined ? undefined : current === side}
           onClick={() => onPick(side)}
         >
           {label}
         </button>
       ))}
+      <button type="button" disabled={disabled || extraDisabled} onClick={onExtra}>
+        {extraLabel}
+      </button>
     </div>
   );
 }

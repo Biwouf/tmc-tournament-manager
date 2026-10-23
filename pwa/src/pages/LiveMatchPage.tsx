@@ -15,7 +15,7 @@ import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import { useLiveMatch } from '../hooks/useLiveMatch';
 import { useLiveActivity } from '../hooks/useLiveActivity';
-import { getTeamLabel } from '../liveScoreRules';
+import { firstServerFor, getServer, getTeamLabel } from '../liveScoreRules';
 import {
   canFinish,
   finalScorePatch,
@@ -352,8 +352,8 @@ function LiveMatchScreen({
         onOpenScore={() => setSheet('score')}
         onReload={() => void live.reload()}
         onScore={(patch) => void patchScore(patch)}
-        onStart={(firstServer) =>
-          void patchScore(
+        onStart={async (firstServer) => {
+          const started = await patchScore(
             {
               status: 'live',
               first_server: firstServer,
@@ -361,8 +361,9 @@ function LiveMatchScreen({
               scored_by: userId,
             },
             false,
-          )
-        }
+          );
+          if (started && !firstServer) setSheet('score');
+        }}
         onUndo={async () => {
           if (!undo) return;
           const row = await save(undo.before);
@@ -707,20 +708,25 @@ function LiveMatchScreen({
           <p className="sheet-intro">
             Les changements sont enregistrés immédiatement.
           </p>
-          {match.status === 'live' && (
-            <FirstServerPicker
-              match={match}
-              title="Qui a servi en premier ?"
-              disabled={blocked}
-              showCurrent
-              onPick={(side) => void save({ first_server: side })}
-            />
-          )}
           <LiveScoreEntry
             match={match}
             onPatch={(patch) => void patchScore(patch)}
             forceDisabled={blocked}
           />
+          {match.status === 'live' && (
+            <FirstServerPicker
+              match={match}
+              title="Qui sert maintenant ?"
+              disabled={blocked}
+              current={getServer(match)}
+              onPick={(side) =>
+                void save({ first_server: firstServerFor(match, side) })
+              }
+              extraLabel="Effacer"
+              extraDisabled={!match.first_server}
+              onExtra={() => void save({ first_server: null })}
+            />
+          )}
           {match.status === 'finished' && (
             <button
               className="primary-button"
