@@ -129,6 +129,9 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
   const uploads = [];
   const removed = [];
   const scoreWrites = [];
+  const views = [];
+  const recapReads = [];
+  let recap = null;
   const channels = new Set();
   let failAccepted = false;
   const supabase = {
@@ -201,9 +204,17 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
       };
     },
     rpc(name, params) {
+      if (name === 'live_match_view') {
+        views.push(params);
+        return Promise.resolve({ data: null, error: null });
+      }
       return {
         abortSignal() {
           return Promise.resolve().then(() => {
+            if (name === 'live_match_recap') {
+              recapReads.push(params);
+              return { data: match.status === 'finished' ? recap : null, error: null };
+            }
             if (name === 'live_activity_page')
               return {
                 data: {
@@ -406,6 +417,11 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
       failAccepted = true;
     },
     loginFrom: () => loginFrom,
+    views,
+    recapReads,
+    setRecap: (value) => {
+      recap = value;
+    },
   };
 }
 
@@ -906,4 +922,165 @@ test('Live cards: native full-card link and independent encounter footer, withou
     await act(async () => root.unmount());
     client.clear();
   }
+});
+
+test('Recap: unique viewer counted once while live, story replay of the finished live, viewers hidden up to 10', async () => {
+  // Stockage de l'appareil : celui de jsdom, conservé d'un montage à l'autre.
+  globalThis.localStorage = window.localStorage;
+  window.localStorage.clear();
+  const live = setup(null, false);
+  try {
+    await live.mount();
+    assert.equal(live.views.length, 1, 'counted while live');
+    assert.match(live.views[0].p_viewer, /^[0-9a-f-]{36}$/);
+    assert.equal(live.recapReads.length, 0, 'no recap read while live');
+    assert.equal(document.querySelector('.live-recap'), null);
+  } finally {
+    await live.dispose();
+  }
+  const again = setup('spectator', false);
+  try {
+    await again.mount();
+    assert.equal(again.views.length, 0, 'same device, same match: not counted twice');
+  } finally {
+    await again.dispose();
+  }
+  const final = {
+    set1_j1: 6, set1_j2: 4, set2_j1: 7, set2_j2: 6, set2_tb_j1: 7, set2_tb_j2: 5,
+    winner: 'j1', finished_at: new Date().toISOString(),
+  };
+  const ended = setup(null, false, true, final);
+  try {
+    const at = (min) => `2026-10-22T14:${String(min).padStart(2, '0')}:00Z`;
+    ended.setRecap({
+      messages: 3, photos: 1, polls: 1, reactions: 9,
+      top_reactions: [{ emoji: '🔥', count: 6 }, { emoji: '👏', count: 3 }],
+      viewers: null,
+      score: [
+        { set1_j1: 0, set1_j2: 0, at: at(0) },
+        { set1_j1: 1, set1_j2: 0, at: at(4) },
+        { set1_j1: 6, set1_j2: 4, set2_j1: 0, set2_j2: 0, at: at(40) },
+      ],
+      moments: [
+        { id: 'm1', kind: 'message', body: 'Quel revers !', image_path: null, author_name: 'Camille',
+          created_at: at(5), score: {}, reactions: 4, emoji: '🔥' },
+      ],
+      photos_top: [
+        { id: 'p1', kind: 'photo', body: 'Balle de match', image_path: 'club-a/match-a/p1.jpg', author_name: 'Léo',
+          created_at: at(50), score: {}, reactions: 2, emoji: '👏' },
+      ],
+    });
+    await ended.mount();
+    assert.equal(ended.views.length, 0, 'not counted once finished');
+    const card = document.querySelector('.live-recap');
+    assert.ok(card, 'recap shown at the end of the feed');
+    assert.match(card.textContent, /Victoire de Alex A/);
+    assert.deepEqual(
+      [...card.querySelectorAll('.recap-set-score')].map((s) => s.textContent),
+      ['6–4', '7–65'],
+      'tie-break loser points in superscript',
+    );
+    assert.equal(card.querySelector('.recap-stats').textContent, '5 publications · 9 réactions', 'no viewers at 10 or fewer');
+    await ended.click('▶ Revivre le match');
+    const story = () => document.querySelector('dialog.replay[open]');
+    assert.ok(story(), 'full screen story opens');
+    assert.match(story().textContent, /REVIVEZ LE MATCH/);
+    await ended.click('Scène suivante');
+    assert.match(story().textContent, /LE MATCH EN ACCÉLÉRÉ/);
+    assert.equal(story().querySelectorAll('.replay-board > div').length, 2);
+    await ended.click('Scène suivante');
+    assert.match(story().textContent, /Un set arraché au tie-break/);
+    await ended.click('Scène suivante');
+    assert.match(story().querySelector('.replay-photo img').src, /club-a\/match-a\/p1\.jpg/);
+    assert.match(story().textContent, /Balle de match/);
+    await ended.click('Scène précédente');
+    assert.match(story().textContent, /LE MOMENT FORT/, 'tap left goes back');
+    await ended.click('Scène suivante');
+    await ended.click('Scène suivante');
+    assert.match(story().textContent, /EN TRIBUNE/);
+    assert.doesNotMatch(story().textContent, /spectateurs/);
+    await ended.click('Mettre en pause');
+    assert.ok(ended.button('Reprendre'));
+    await ended.click('Scène suivante');
+    assert.match(story().textContent, /VAINQUEUR/);
+    assert.match(story().textContent, /Alex A/);
+    await ended.click('Scène suivante');
+    assert.ok(ended.button('↻ Revoir'), 'end screen');
+    await ended.click('Retour au live');
+    assert.equal(document.querySelector('dialog.replay'), null, 'story closed');
+  } finally {
+    await ended.dispose();
+  }
+  const crowd = setup(null, false, true, final);
+  try {
+    crowd.setRecap({ messages: 0, photos: 0, polls: 0, reactions: 0, top_reactions: [], viewers: 24, score: [], moments: [], photos_top: [] });
+    await crowd.mount();
+    assert.match(document.querySelector('.recap-stats').textContent, /24 spectateurs/);
+    await crowd.click('▶ Revivre le match');
+    assert.match(document.querySelector('dialog.replay').textContent, /REVIVEZ/);
+    await crowd.click('Scène suivante');
+    assert.match(document.querySelector('dialog.replay').textContent, /Un set arraché au tie-break/, 'no history: no replay scene');
+    await crowd.click('Scène suivante');
+    assert.match(document.querySelector('dialog.replay').textContent, /24\s*spectateurs ont suivi le live/);
+  } finally {
+    await crowd.dispose();
+  }
+});
+
+test('Recap: game by game flow keeps corrections out and flags unknown order', () => {
+  const { recapSets } = loader({ '/lib/supabase.ts': { supabase: {} } })(
+    resolve(src, 'lib/liveRecap.ts'),
+  );
+  const match = {
+    set1_j1: 6, set1_j2: 3, set1_tb_j1: null, set1_tb_j2: null,
+    set2_j1: 4, set2_j2: 6, set2_tb_j1: null, set2_tb_j2: null,
+    set3_j1: 10, set3_j2: 8, set3_tb_j1: null, set3_tb_j2: null, set3_format: 'super_tiebreak',
+  };
+  const flow = (games) => games.map((g) => (g.known ? g.side : `${g.side}?`)).join(' ');
+  const [set1, set2, set3] = recapSets(match, [
+    { set1_j1: 2, set1_j2: 0 },
+    { set1_j1: 2, set1_j2: 1 },
+    { set1_j1: 3, set1_j2: 1 },
+    { set1_j1: 3, set1_j2: 2 }, // jeu attribué par erreur…
+    { set1_j1: 3, set1_j2: 1 }, // …puis annulé
+    { set1_j1: 4, set1_j2: 2 }, // deux jeux en une saisie : ordre inconnu
+    { set1_j1: 6, set1_j2: 3, set2_j1: 0, set2_j2: 1 },
+  ]);
+  assert.equal(flow(set1.games), 'j1? j1? j2 j1 j1? j2? j1? j1? j2?');
+  assert.equal(set2.games.length, 10, 'set 2 completed from the final score');
+  assert.deepEqual([set3.superTiebreak, set3.games, set3.score], [true, null, [10, 8]]);
+  assert.deepEqual(recapSets(match, []).map((s) => s.games), [null, null, null]);
+});
+
+test('Recap: replay frames drop corrections and find breaks, highlight picks the comeback', () => {
+  const { replayFrames, recapSets, matchHighlight } = loader({ '/lib/supabase.ts': { supabase: {} } })(
+    resolve(src, 'lib/liveRecap.ts'),
+  );
+  const base = {
+    set1_tb_j1: null, set1_tb_j2: null, set2_j1: null, set2_j2: null, set2_tb_j1: null, set2_tb_j2: null,
+    set3_j1: null, set3_j2: null, set3_tb_j1: null, set3_tb_j2: null, set3_format: null,
+    retired_player: null, finished_at: '2026-10-22T15:00:00Z',
+  };
+  const snap = (a, b) => ({ set1_j1: a, set1_j2: b, at: `2026-10-22T14:${String(a + b).padStart(2, '0')}:00Z` });
+  const frames = replayFrames({ ...base, set1_j1: 2, set1_j2: 2, first_server: 'j1', winner: null }, [
+    snap(0, 0), snap(1, 0), snap(1, 1), snap(1, 2), snap(2, 2), snap(1, 2), snap(2, 2),
+  ]);
+  assert.deepEqual(frames.map((f) => f.sets[0].join('-')), ['0-0', '1-0', '1-1', '1-2', '2-2']);
+  assert.deepEqual(
+    frames.map((f) => f.game && `${f.game.side}${f.game.isBreak ? ' break' : ''}`),
+    [null, 'j1', 'j2', 'j2 break', 'j1 break'],
+  );
+  assert.equal(replayFrames({ ...base, set1_j1: 1, set1_j2: 0, first_server: null, winner: null }, [snap(0, 0)])[1].game.isBreak, null, 'unknown server');
+  // Mené 2–5, Alex remporte 5 jeux de suite : 7–5.
+  const path = [[0, 0], [1, 0], [1, 1], [1, 2], [2, 2], [2, 3], [2, 4], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5]];
+  const match = { ...base, set1_j1: 7, set1_j2: 5, winner: 'j1', first_server: null };
+  const sets = recapSets(match, path.map(([a, b]) => snap(a, b)));
+  const name = (side) => (side === 'j1' ? 'A. Martin' : 'S. Bernard');
+  assert.deepEqual(matchHighlight(match, sets, name), {
+    title: 'Mené 2–5, A. Martin retourne la situation',
+    detail: 'Set 1 remporté 7–5',
+  });
+  const run = recapSets({ ...match, set1_j1: 6, set1_j2: 1 }, [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1]].map(([a, b]) => snap(a, b)));
+  assert.equal(matchHighlight({ ...match, set1_j1: 6, set1_j2: 1 }, run, name).title, '6 jeux de suite pour A. Martin');
+  assert.equal(matchHighlight({ ...match, set1_j1: 6, set1_j2: 4 }, recapSets({ ...match, set1_j1: 6, set1_j2: 4 }, []), name), null);
 });

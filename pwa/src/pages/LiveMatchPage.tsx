@@ -6,7 +6,11 @@ import {
   type CSSProperties,
 } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import { useLiveMatch } from '../hooks/useLiveMatch';
@@ -25,6 +29,7 @@ import LiveScoreboard from '../components/live/LiveScoreboard';
 import LiveSheet from '../components/live/LiveSheet';
 import PostReactions from '../components/live/PostReactions';
 import FirstServerPicker from '../components/live/FirstServerPicker';
+import LiveRecap from '../components/live/LiveRecap';
 import { PollAnswers, PollForm } from '../components/live/LivePoll';
 import {
   compressPhoto,
@@ -33,6 +38,7 @@ import {
   removeLivePhoto,
   uploadLivePhoto,
 } from '../lib/liveActivity';
+import { countLiveView, readRecap } from '../lib/liveRecap';
 import '../components/live/live.css';
 
 export default function LiveMatchPage() {
@@ -161,7 +167,24 @@ function LiveMatchScreen({
   useEffect(() => {
     if (match?.status) void refetchActivity();
   }, [match?.status, refetchActivity]);
+  // Spectateurs uniques du récap : comptés une fois par appareil, pendant le live.
+  useEffect(() => {
+    if (id && match?.status === 'live') countLiveView(id);
+  }, [id, match?.status]);
   const signature = activity.items.map((p) => p.id).join(',');
+  // Relu quand le fil change (publication ou réaction ajoutée après la fin du match).
+  const feedVersion = activity.items
+    .map((p) => `${p.id}:${p.reactions.reduce((n, r) => n + r.count, 0)}`)
+    .join(',');
+  const recap = useQuery({
+    queryKey: ['live-recap', clubId, id, feedVersion],
+    enabled: !!id && !!clubId && match?.status === 'finished',
+    queryFn: () => readRecap(id!, clubId!),
+    placeholderData: keepPreviousData,
+  });
+  const recapData = match?.status === 'finished' ? recap.data : null;
+  const recapShown = useRef(false);
+  const recapCard = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = feed.current;
     if (!el) return;
@@ -175,6 +198,16 @@ function LiveMatchScreen({
     } else if (latest.current) latest.current.hidden = false;
     forceFollow.current = false;
   }, [signature, live.loading]);
+  // Le fil s'ouvre en bas : à sa première apparition, le récap est montré depuis son début.
+  useLayoutEffect(() => {
+    const el = feed.current;
+    const card = recapCard.current;
+    if (!recapData || recapShown.current || !el || !card) return;
+    recapShown.current = true;
+    if (follow.current)
+      el.scrollTop +=
+        card.getBoundingClientRect().top - el.getBoundingClientRect().top - 12;
+  }, [recapData]);
   const jumpToLatest = () => {
     const el = feed.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -482,6 +515,11 @@ function LiveMatchScreen({
                 />
               </article>
             ),
+          )}
+          {recapData && (
+            <div ref={recapCard}>
+              <LiveRecap match={match} recap={recapData} />
+            </div>
           )}
           {match.status === 'finished' && (
             <p className="feed-end">

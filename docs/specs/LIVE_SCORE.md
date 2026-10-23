@@ -650,6 +650,64 @@ toutes les 30 s. Le BO n'affiche rien.
 Calcul : `pwa/src/lib/liveDurations.ts`. Test : `tests/live-set-times-sql.test.mjs`
 (`npm run test:live-score`).
 
+### Récap du live terminé — PWA (22/10/2026)
+
+Un live terminé affiche à la fin de son fil une accroche sombre **« Récap du match »**
+(`pwa/src/components/live/LiveRecap.tsx`), visible de tous, visiteurs compris : vainqueur, score
+des sets (points du perdant du tie-break en exposant), publications, réactions, spectateurs, et le
+bouton **« Revivre le match »**. Il ouvre une story plein écran façon retransmission
+(`LiveReplay.tsx`, `<dialog>` modal, fond noir et couleur du club) qui s'enchaîne seule, barres de
+progression en haut ; toucher à gauche recule, à droite avance, pause et fermeture en haut à droite,
+Échap ferme. Écran de fin : « Revoir » ou « Retour au live ». Scènes, les absentes étant sautées :
+
+1. **Intro** — joueurs ou paires, tournoi, court, date.
+2. **Le match en accéléré** (5 à 14 s, ~0,45 s par étape) — tableau de score qui se remplit avec
+   l'heure réelle de chaque jeu, badge **BREAK** quand le premier serveur est connu, et les 5
+   commentaires ou photos les plus réagis qui apparaissent à leur heure. Sautée sans historique.
+3. **Le moment fort** — calculé par `matchHighlight` : remontée d'au moins 2 jeux dans un set gagné
+   (« Mené 2–5, A. Martin retourne la situation »), sinon victoire après la perte du premier set,
+   sinon série d'au moins 4 jeux, sinon tie-break ou super tie-break. Seuls les jeux d'ordre connu
+   comptent ; pas de remontée ni de premier set perdu sur abandon. Sautée si rien de remarquable.
+4. **Photos** — diaporama des 6 photos les plus réagies, 2,6 s chacune, zoom lent, légende, auteur.
+5. **En tribune** — spectateurs (au-delà de 10), publications, réactions, top 3 des emojis qui
+   s'envolent.
+6. **Vainqueur** — score final, jeux de chaque set en cases (couleur du club / blanc), durée.
+
+`prefers-reduced-motion` coupe les transitions, le zoom, les emojis et le défilement des
+compteurs ; les scènes avancent toujours seules. Les compteurs animés exposent leur valeur exacte
+aux lecteurs d'écran.
+
+- **Déroulé du score** : le trigger `live_matches_score_events` (AFTER UPDATE) insère dans
+  `live_score_events` un instantané du score (mêmes clés que `live_posts.score`) au démarrage
+  (`pending` → `live`) et à chaque changement des jeux d'un set ou du super tie-break, tant que
+  le match est `live` (y compris l'écriture qui le termine). Les points d'un tie-break de set
+  normal, le court et les écritures hors live (Ten'Up, import) n'écrivent rien.
+  `recapSets` (`pwa/src/lib/liveRecap.ts`) reconstruit l'ordre des jeux : une correction retire
+  le jeu annulé au lieu de l'attribuer à l'adversaire ; les jeux déjà marqués au démarrage ou
+  ajoutés des deux côtés dans une même saisie ont un ordre inconnu (case pâle). Le score final
+  de la ligne fait foi. Pas de case pour le super tie-break (score affiché seul), pas de break :
+  le serveur n'est pas connu. Un match terminé avant la migration n'a que son score final.
+- **Replay et breaks** : `replayFrames` rejoue les instantanés (une correction efface les étapes
+  qu'elle annule, le score final de la ligne fait foi). Le break se déduit de `first_server` avec la
+  même règle que `getServer` (service alterné à chaque jeu, un tie-break compte pour un jeu) ; sans
+  premier serveur, ou quand une saisie ajoute plusieurs jeux d'un coup, aucun break n'est affiché.
+- **Spectateurs uniques** : à l'ouverture d'un live **en cours**, la PWA appelle une fois par
+  appareil et par match `live_match_view(match, viewer)` ; `viewer` est un UUID aléatoire gardé
+  en `localStorage` (`live_viewer`, matchs déjà comptés dans `live_viewed`), aucune donnée
+  personnelle. Insertion `ON CONFLICT DO NOTHING` dans `live_match_viewers`, sans effet hors
+  live. Le chiffre n'est publié que **au-delà de 10** (`viewers` null sinon, décidé côté
+  serveur). Un client peut gonfler le compteur avec des UUID inventés : statistique indicative.
+- **Lecture** : `live_match_recap(match, club)`, publique (club actif), `null` tant que le
+  match n'est pas terminé. Depuis `2026102301_live_recap_replay.sql` elle renvoie aussi l'heure
+  de chaque instantané (`score[].at`), les 5 publications les plus réagies (`moments`, commentaires
+  et photos, avec leur emoji dominant) et les 6 photos les plus réagies (`photos_top`). Publications et réactions supprimées exclues, publications ajoutées
+  après la fin comptées. La PWA la relit quand son fil change (nouvelle publication ou réaction).
+- Charge : une insertion par jeu marqué, une par appareil et par match, aucun verrou sur
+  `live_matches`, aucun canal Realtime ni battement de présence.
+
+Migrations : `2026102203_live_recap.sql`, `2026102301_live_recap_replay.sql`. Tests : `tests/live-recap-sql.test.mjs` et
+`tests/live-activity-client.test.mjs` (`npm run test:live-activity`).
+
 ---
 
 ## Temps réel par Broadcast — octobre 2026
