@@ -25,7 +25,7 @@ async function setup() {
     GRANT SELECT,INSERT,UPDATE,DELETE ON live_matches TO authenticated;`);
   for (const name of ['20260907_live_match_consistency', '2026093001_live_activity', '2026101102_live_photos',
     '2026101104_live_reactions_throttle', '2026101501_live_post_reactions', '2026102001_live_post_after_finish',
-    '2026101301_live_set_times', '2026102401_live_web_push', '2026102402_live_push_start_text']) await db.exec(await migration(name));
+    '2026101301_live_set_times', '2026102401_live_web_push', '2026102402_live_push_start_text', '2026102403_live_push_result_text']) await db.exec(await migration(name));
   await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status,court)
     VALUES('${id(20)}','${id(1)}','2026-10-24','Alex','Dupont','Sam','Martin','pending','2'),
     ('${id(21)}','${id(2)}','2026-10-24','Autre','Club','Autre','Club','pending',null);`);
@@ -93,7 +93,7 @@ test('live push: preferences, start announcement, follows, sets, finish and feed
     rows = await jobs(`d.dedupe_key='set1'`);
     assert.deepEqual(rows.map((r) => r.user_id).sort(), [id(102), id(104)]);
     assert.equal(rows[0].title, 'Fin du 1er set');
-    assert.equal(rows[0].body, 'Dupont 6-4 Martin');
+    assert.equal(rows[0].body, 'Alex Dupont remporte le 1er set 6 / 4 contre Sam Martin');
     await score(103, 'set1_j1=5,set1_j2=4');
     await score(103, 'set1_j1=6,set1_j2=4');
     assert.equal((await jobs(`d.dedupe_key='set1'`)).length, 2);
@@ -114,7 +114,7 @@ test('live push: preferences, start announcement, follows, sets, finish and feed
     assert.equal((await jobs(`d.dedupe_key='set2'`)).length, 0);
     rows = await jobs(`d.dedupe_key='finish'`);
     assert.deepEqual(rows.map((r) => r.user_id), [id(102)]);
-    assert.equal(rows[0].body, 'Victoire de Dupont face à Martin : 6-4 7-5');
+    assert.equal(rows[0].body, 'Alex Dupont remporte le match 6 / 4, 7 / 5 contre Sam Martin');
     await score(103, `status='live',winner=NULL,finished_at=NULL`);
     await score(103, `status='finished',winner='j1',finished_at=now()`);
     assert.equal((await jobs(`d.dedupe_key='finish'`)).length, 1);
@@ -163,8 +163,13 @@ test('live push: a failing wake-up call never breaks a score write', async () =>
     assert.equal(calls[0].url, 'https://example.supabase.co/functions/v1/course-push-dispatch');
     assert.equal(calls[0].headers['x-course-push-secret'], 's');
     await db.exec(`INSERT INTO net.calls VALUES('fail', null)`);
-    assert.equal((await score(103, 'set2_j1=6,set2_j2=0'))[0].status, 'live');
-    assert.equal((await jobs(`d.dedupe_key='set2'`)).length, 1);
+    assert.equal((await score(103, 'set2_j1=3,set2_j2=6'))[0].status, 'live');
+    const set2 = await jobs(`d.dedupe_key='set2'`);
+    assert.equal(set2.length, 1);
+    assert.equal(set2[0].body, 'Sam Martin remporte le 2e set 6 / 3 contre Alex Dupont', 'winner first, score from the winner');
+    await score(103, `set3_j1=1,set3_j2=3,status='finished',winner='j2',retired_player='j1',finished_at=now()`);
+    assert.equal((await jobs(`d.dedupe_key='finish'`))[0].body,
+      'Sam Martin remporte le match 0 / 6, 6 / 3, 3 / 1 contre Alex Dupont (abandon)');
   } finally {
     await db.close();
   }

@@ -1,14 +1,14 @@
 # Notifications Web Push du Live
 
-Extension de l'infra Web Push des cours (`docs/COURSE_PUSH.md`) : même abonnement d'appareil, même fonction `course-push-dispatch`, même cron, mêmes secrets Vault et clés VAPID. Migrations : `supabase/migrations/2026102401_live_web_push.sql`, puis `2026102402_live_push_start_text.sql` (texte de l'alerte de début).
+Extension de l'infra Web Push des cours (`docs/COURSE_PUSH.md`) : même abonnement d'appareil, même fonction `course-push-dispatch`, même cron, mêmes secrets Vault et clés VAPID. Migrations : `supabase/migrations/2026102401_live_web_push.sql`, puis `2026102402_live_push_start_text.sql` (texte de l'alerte de début) et `2026102403_live_push_result_text.sql` (textes de fin de set et de match).
 
 ## Règles
 
 | Alerte | Déclencheur | Destinataires |
 |---|---|---|
 | **Match en direct** — « Alex Dupont - Sam Martin - Le match commence ! » (prénom et nom, « A / B » en double, sans le court). iOS et Android ajoutent d'eux-mêmes le nom de l'app (celui de l'icône sur l'écran d'accueil) : il ne fait pas partie du titre envoyé. | Case « Prévenir les abonnés du club » (cochée par défaut) au démarrage : PWA (choix du serveur), BO (dialog *Démarrer le live*), rencontres d'équipe PWA et BO. Le client appelle `live_push_announce_start` juste après le démarrage. | Appareils du club dont la préférence **Live** est active, sauf la personne qui démarre. |
-| **Fin du 1er / 2e set** — « Dupont 6-4 Martin » | Trigger `live_push_match` : `set1_ended_at` / `set2_ended_at` passe à non nul (posé par `stamp_live_set_times`). | Membres qui **suivent** le match (cloche), sur tous leurs appareils abonnés au club. |
-| **Match terminé** — « Victoire de Dupont face à Martin : 6-4 7-5 (abandon) » | Passage à `finished`. Un set qui termine le match ne produit que cette alerte. | Suiveurs. |
+| **Fin du 1er / 2e set** — « Alex Dupont remporte le 1er set 6 / 4 contre Sam Martin » (vainqueur du set d'abord, score de son point de vue) | Trigger `live_push_match` : `set1_ended_at` / `set2_ended_at` passe à non nul (posé par `stamp_live_set_times`). | Membres qui **suivent** le match (cloche), sur tous leurs appareils abonnés au club. |
+| **Match terminé** — « Alex Dupont remporte le match 6 / 4, 7 / 5 contre Sam Martin » (+ « (abandon) ») | Passage à `finished`. Un set qui termine le match ne produit que cette alerte. | Suiveurs. |
 | **Fil** — « Prénom Nom : message », « Nouveau sondage : … », « … a publié une photo » | Trigger `live_push_post` sur `live_posts`. | Suiveurs, sauf l'auteur. Tant qu'une alerte de fil attend son envoi, les suivantes la regroupent (« 3 nouvelles publications dans le fil »). Sur l'appareil, le tag `live-post-<match>` remplace l'alerte précédente du même match. |
 
 - Une seule alerte `start`, `set1`, `set2`, `finish` par appareil et par match (`dedupe_key`), même après une correction de score ou « Rouvrir pour corriger ».
@@ -51,7 +51,7 @@ Prérequis : l'infra Web Push des cours est en service sur le projet (clés VAPI
 ### DEV — `hnhsmefrcihpnkxbrxmr`
 
 1. Vérifier que `2026102401` n'est pas déjà pris : `npx -y supabase@2.98.2 migration list` (worktree lié à DEV).
-2. Appliquer `2026102401_live_web_push.sql` puis `2026102402_live_push_start_text.sql` (`npx -y supabase@2.98.2 db push` ou SQL Editor).
+2. Appliquer `2026102401_live_web_push.sql` puis `2026102402_live_push_start_text.sql` et `2026102403_live_push_result_text.sql` (`npx -y supabase@2.98.2 db push` ou SQL Editor).
 3. Vérifier `pg_net` : `SELECT extname FROM pg_extension WHERE extname='pg_net';` (installée par le script cron des cours).
 4. Déployer la fonction : `npx -y supabase@2.98.2 functions deploy course-push-dispatch --project-ref hnhsmefrcihpnkxbrxmr` (vérification JWT conservée).
 5. Exposer la PWA DEV au téléphone sans toucher à Vercel : `npm run pwa:phone` (`scripts/pwa-phone-tunnel.sh`, prérequis `brew install cloudflared`). Le script builde la PWA avec `pwa/.env.local`, **refuse de démarrer s'il vise la prod**, accepte l'hôte du tunnel comme alias (`VITE_ALLOWED_HOSTS`) et affiche une URL `https://….trycloudflare.com` valable tant qu'il tourne (Ctrl+C pour arrêter). L'URL change à chaque lancement : sur iPhone, réinstaller l'app sur l'écran d'accueil à chaque fois. Les previews Vercel visent la base de prod : ne pas s'en servir pour cette recette. Le BO peut tourner en local (`npm run dev`, `.env.local` sur DEV) pour démarrer les matchs.
@@ -67,7 +67,7 @@ Prérequis : l'infra Web Push des cours est en service sur le projet (clés VAPI
 ### Production — `ettausmxxxyfgmxxhvvx`
 
 1. Avant le merge : contrôler le journal de prod `npx -y supabase@2.98.2 migration list --project-ref ettausmxxxyfgmxxhvvx` (la `2026092402` y figurait sans ses objets en octobre : vérifier aussi que `course_push_subscriptions` existe).
-2. Appliquer `2026102401_live_web_push.sql` puis `2026102402_live_push_start_text.sql` **avant** le déploiement de la fonction et du front (la fonction répond 500 tant que `live_push_claim` manque, sans bloquer les cours).
+2. Appliquer `2026102401_live_web_push.sql` puis `2026102402_live_push_start_text.sql` et `2026102403_live_push_result_text.sql` **avant** le déploiement de la fonction et du front (la fonction répond 500 tant que `live_push_claim` manque, sans bloquer les cours).
 3. Vérifier `pg_net` et les secrets Vault `course_push_project_url`, `course_push_service_role_key`, `course_push_cron_secret` (`SELECT name FROM vault.secrets;`).
 4. `npx -y supabase@2.98.2 functions deploy course-push-dispatch --project-ref ettausmxxxyfgmxxhvvx`.
 5. Merger : Vercel déploie BO et PWA.
