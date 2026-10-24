@@ -67,7 +67,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
 - **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
-- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond se choisit parmi les fonds du club, ajoutés dans *Admin › Configuration du site › Affiches* ; **sans aucun fond configuré, la génération est impossible**
+- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond se choisit parmi les fonds du club, ajoutés dans *Admin › Configuration du site › Affiches* ; **sans aucun fond configuré, la génération est impossible**. L'affiche reprend la **couleur principale du club** (dates, pastille d'heure, case « Au club », fond), avec des nuances dérivées pour le fond et le séparateur de la date ; rouge `#c8102e` par défaut
 
 ### Cours
 
@@ -142,7 +142,7 @@ Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office 
 - La couleur du texte posé sur la principale et la secondaire (blanc ou foncé) est **choisie automatiquement** selon le contraste — une couleur claire ne donne pas du blanc sur blanc.
 - Les couleurs de **sens** ne changent jamais : rouge d'erreur et bouton *Supprimer*, vert/rouge/jaune des résultats gagné / perdu / nul.
 - L'effet est **immédiat** sur cet écran après enregistrement ; les autres écrans le prennent au prochain chargement.
-- ⚠️ Les **affiches générées** (Programmation Image, Matches par équipe) gardent pour l'instant le rouge du CAC : elles ne suivent pas encore ces couleurs.
+- Les **affiches générées** (Programmation Image, rencontres à venir et résultats des Matches par équipe) suivent la **couleur principale** ; sans couleur principale lisible, elles retombent sur le rouge historique de l'affiche.
 
 ### Site vitrine
 
