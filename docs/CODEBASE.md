@@ -596,7 +596,7 @@ la PWA ou de la vitrine, aucun accès Supabase. Direction visuelle propre à fee
 | `src/data/content.ts` | Textes des listes, repris de la maquette `Main.dc.html` |
 | `src/components/` | Une section = un composant ; `Hero` (score animé, même règle de jeu que la maquette), `BeforeAfter` (curseur clavier + pointeur), `Header` (menu mobile plein écran hors du header flouté), `Analytics` (événements Plausible) |
 | `src/assets/affiche-resultat.png` | Rendu réel de `renderResultPoster()` (BO) avec des données fictives — un aperçu ne promet jamais un rendu que le produit ne sait pas produire |
-| `src/assets/captures/` | Captures site / app / BO facultatives ; absentes → emplacement hachuré |
+| `src/assets/captures/` | Captures site / app / BO (une capture portrait est affichée entière, sans recadrage) ; absentes → emplacement hachuré |
 | `vercel.json` | Apex → `www` en 301, `X-Robots-Tag: noindex` hors `www.feelike.pro`, cache long de `/_astro/` |
 | `tests/build.test.mjs` | `npm run build && npm test` : texte dans le HTML, un seul H1, JSON-LD, aucune ressource tierce, robots/sitemap |
 

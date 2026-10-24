@@ -20,7 +20,7 @@ const capture = (key: string) => Object.entries(files).find(([path]) => path.spl
         return (
           <article class="surface">
             <span class="surface__url">{surface.url}</span>
-            <div class="surface__shot">
+            <div class={`surface__shot${image && image.height > image.width ? ' surface__shot--portrait' : ''}`}>
               {image
                 ? <Picture src={image} formats={['avif', 'webp']} widths={[400, 800]} sizes="(max-width: 720px) 90vw, 400px" alt={`Capture d’écran : ${surface.title.toLowerCase()}`} loading="lazy" decoding="async" />
                 : <span aria-hidden="true">{surface.cap}</span>}
