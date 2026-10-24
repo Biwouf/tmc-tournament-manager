@@ -117,6 +117,19 @@ test('list cards show the bell alone, with an accessible name and tooltip', asyn
   } finally { await screen.close(); }
 });
 
+test('follow bell reports each successful change (live page toast)', async () => {
+  const { live } = harness();
+  const changes = [];
+  const screen = await mount(h(live.LiveFollowButton, {
+    clubId: 'club', userId: 'me', matchId: 'm1', iconOnly: true, onChange: (on) => changes.push(on),
+  }));
+  try {
+    await act(async () => buttons()[0].click()); await flush();
+    await act(async () => buttons()[0].click()); await flush();
+    assert.deepEqual(changes, [true, false]);
+  } finally { await screen.close(); }
+});
+
 test('follow bell is hidden where push is unsupported', async () => {
   const { live } = harness({ supported: false });
   const screen = await mount(h(live.LiveFollowButton, { clubId: 'club', userId: 'me', matchId: 'm1' }));

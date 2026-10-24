@@ -95,6 +95,12 @@ function LiveMatchScreen({
   >(null);
   const [pollId, setPollId] = useState<string | null>(null);
   const [startNotice, setStartNotice] = useState('');
+  const [followToast, setFollowToast] = useState('');
+  useEffect(() => {
+    if (!followToast) return;
+    const timer = setTimeout(() => setFollowToast(''), 3000);
+    return () => clearTimeout(timer);
+  }, [followToast]);
   const [draft, setDraft] = useState('');
   const [photo, setPhoto] = useState<{
     id: string;
@@ -350,7 +356,15 @@ function LiveMatchScreen({
           <LiveIcon kind="info" />
         </button>
         {canFollow && (
-          <LiveFollowButton clubId={clubId!} userId={userId!} matchId={match.id} iconOnly />
+          <LiveFollowButton
+            clubId={clubId!}
+            userId={userId!}
+            matchId={match.id}
+            iconOnly
+            onChange={(following) => setFollowToast(following
+              ? 'Alertes activées pour ce match'
+              : 'Alertes désactivées pour ce match')}
+          />
         )}
       </header>
       <LiveScoreboard
@@ -406,6 +420,7 @@ function LiveMatchScreen({
         }}
       />
       {startNotice && <p role="status" className="live-note">{startNotice}</p>}
+      {followToast && <p role="status" className="live-toast">{followToast}</p>}
       <div
         className="live-scroll"
         ref={feed}

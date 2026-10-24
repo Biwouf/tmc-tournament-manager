@@ -96,13 +96,14 @@ function Bell({ on, size = 'h-4 w-4' }: { on: boolean; size?: string }) {
 }
 
 // Cloche « Alertes » d'un match : fins de set, fin du match et publications du fil.
-// iconOnly : cloche seule (cartes de la liste), la zone tactile reste de 44 px.
-export function LiveFollowButton({ clubId, userId, matchId, className = '', iconOnly = false }: {
+// iconOnly : cloche seule, la zone tactile reste de 44 px. onChange : après un changement réussi.
+export function LiveFollowButton({ clubId, userId, matchId, className = '', iconOnly = false, onChange }: {
   clubId: string;
   userId: string;
   matchId: string;
   className?: string;
   iconOnly?: boolean;
+  onChange?: (following: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const push = usePush(clubId, userId);
@@ -122,6 +123,7 @@ export function LiveFollowButton({ clubId, userId, matchId, className = '', icon
       const next = await setLiveFollow(clubId, matchId, !on);
       queryClient.setQueryData<string[]>(['live-follows', clubId, userId], (ids = []) =>
         next ? [...new Set([...ids, matchId])] : ids.filter((id) => id !== matchId));
+      onChange?.(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de modifier les alertes.');
     } finally {
