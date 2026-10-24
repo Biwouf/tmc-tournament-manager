@@ -1,14 +1,22 @@
 import type { TeamMatch } from '../types';
 import { formatCategorie, GENRE_LABELS } from './teamMatches/teamMatchLabels';
 import { clubTint, hexToHsl } from '../lib/theme';
+import PosterPartnersBand from './PosterPartnersBand';
 
 const POSTER_W = 1414;
 const POSTER_H = 2000;
 const CONTENT_TOP = 245;
-// Le bandeau partenaires commence à 1760 px sur le fond A4.
+// Le bandeau partenaires (ajouté par l'app, cf. PARTNERS_*) occupe le bas à partir de 1760 px.
 // Garder 40 px de marge, dont les 10 px de l’ombre des cartes.
 const CONTENT_BOTTOM = 1720;
 const CONTENT_PAD_X = 60;
+// Bandeau partenaires (`PosterPartnersBand`) : mêmes proportions que sur l'affiche de
+// programmation (794 px de large), mises à l'échelle ×1,78. Deux rangées tiennent dans
+// y ≈ 1800 → 1975, sous la limite de 1760 laissée libre par les cartes.
+const PARTNERS_BOTTOM = 25;
+const PARTNER_ROW_H = 78;
+const PARTNER_ROW_GAP = 18;
+const PARTNER_PAD_X = 21;
 
 const JOURS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
 const MOIS  = ['janvier','février','mars','avril','mai','juin',
@@ -225,9 +233,11 @@ interface TeamMatchImagePreviewProps {
   background?: string;
   /** `config.brand.color` du club, lu par `PosterPanel` pour la même raison que le fond. */
   color?: string;
+  /** Logos déjà tirés (`drawPosterPartners`), lus par `PosterPanel`. Vide = pas de bandeau. */
+  partnerLogos?: string[];
 }
 
-export default function TeamMatchImagePreview({ matches, background, color = '' }: TeamMatchImagePreviewProps) {
+export default function TeamMatchImagePreview({ matches, background, color = '', partnerLogos = [] }: TeamMatchImagePreviewProps) {
   const size = sizeClassFor(matches.length);
   const gap = size === 'hero' ? 0 : size === 'compact' ? 22 : 32;
   const justify =
@@ -261,6 +271,10 @@ export default function TeamMatchImagePreview({ matches, background, color = '' 
           ? <div className="va-empty">Ajoutez une rencontre…</div>
           : matches.map(m => <MatchCell key={m.id} match={m} size={size} />)}
       </div>
+      {partnerLogos.length > 0 && (
+        <PosterPartnersBand logos={partnerLogos} left={CONTENT_PAD_X} right={CONTENT_PAD_X} bottom={PARTNERS_BOTTOM}
+                            rowHeight={PARTNER_ROW_H} rowGap={PARTNER_ROW_GAP} padX={PARTNER_PAD_X} />
+      )}
     </div>
   );
 }

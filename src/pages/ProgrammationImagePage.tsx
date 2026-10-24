@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
 import { clubTint, hexToHsl } from '../lib/theme';
+import PosterPartnersBand from '../components/PosterPartnersBand';
 import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../components/PosterBackgroundPicker';
 import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../lib/posterPartners';
 import type { ClubEvent } from '../types';
@@ -335,40 +336,9 @@ const BANNER_GAP = 14;
 // Bandeau partenaires dynamique (`config.partners`), posé dans le bas du fond (y ≈ 1000 → 1123),
 // sous la grille (pire cas mesuré : y = 982). Le fond ne doit donc plus porter de logos.
 // 2 rangées de 5 au plus : au-delà de 10, tirage aléatoire (`drawPosterPartners`).
-const PARTNERS_PER_ROW = 5;
 const PARTNERS_BOTTOM = 14;
 const PARTNER_ROW_H = 44;
 const PARTNER_ROW_GAP = 10;
-
-function PartnersBand({ logos }: { logos: string[] }) {
-  // 6 logos → 3 + 3 plutôt que 5 + 1.
-  const perRow = logos.length <= PARTNERS_PER_ROW ? logos.length : Math.ceil(logos.length / 2);
-  const rows = [logos.slice(0, perRow), logos.slice(perRow)].filter((row) => row.length > 0);
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: GRID_LEFT,
-        right: GRID_RIGHT,
-        bottom: PARTNERS_BOTTOM,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: PARTNER_ROW_GAP,
-      }}
-    >
-      {rows.map((row, r) => (
-        <div key={r} style={{ display: 'flex', justifyContent: 'center', height: PARTNER_ROW_H }}>
-          {row.map((logo, i) => (
-            <div key={i} style={{ width: `${100 / PARTNERS_PER_ROW}%`, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {/* `crossOrigin` : même raison que le fond — logo servi par le Storage. */}
-              <img src={logo} alt="" crossOrigin="anonymous" style={{ maxWidth: '100%', maxHeight: PARTNER_ROW_H, objectFit: 'contain' }} />
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // Couleurs de l'affiche, dérivées de `brand.color` (repli `#c8102e`, le rouge historique de
 // l'affiche, si la couleur est vide ou illisible). Bordeaux et fond rosé suivent la dérivation
@@ -642,7 +612,10 @@ function PosterPage({ matches, date, highlightedClub, background, mode, partnerL
         ))}
       </div>
 
-      {partnerLogos.length > 0 && <PartnersBand logos={partnerLogos} />}
+      {partnerLogos.length > 0 && (
+        <PosterPartnersBand logos={partnerLogos} left={GRID_LEFT} right={GRID_RIGHT} bottom={PARTNERS_BOTTOM}
+                            rowHeight={PARTNER_ROW_H} rowGap={PARTNER_ROW_GAP} padX={12} />
+      )}
     </div>
   );
 }
