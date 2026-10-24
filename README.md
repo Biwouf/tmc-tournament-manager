@@ -21,7 +21,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Mise en page A4 avec 8 matches par page (2 colonnes × 4 lignes)
 - **Affiche des résultats** : depuis un PDF Ten'Up, bascule Programmation / Résultats — les matchs terminés (score + vainqueur lus dans la feuille) forment une affiche « Résultats du … », vainqueur à gauche, score au centre ; WO exclus
 - Charte graphique CAC Tennis intégrée
-- **Partenaires en bas de l'affiche** : les logos configurés dans *Admin › Configuration du site › Partenaires* sont ajoutés automatiquement (10 max, 2 rangées de 5 ; au-delà de 10, tirage au hasard avec un bouton « Autre tirage », règle identique sur le visuel du résultat par équipe) ; case à cocher pour les retirer, cochée par défaut
+- **Partenaires en bas de l'affiche** : les logos configurés dans *Admin › Configuration du site › Partenaires* sont ajoutés automatiquement (10 max, 2 rangées de 5 ; au-delà de 10, tirage au hasard avec un bouton « Autre tirage », règle identique sur l'affiche des rencontres à venir et le visuel du résultat par équipe) ; case à cocher pour les retirer, cochée par défaut
 - **Couleurs du club** : l'affiche reprend la couleur principale du club (*Admin › Configuration du site › Identité du club › Couleur principale*), avec des nuances dérivées pour le cartouche et le fond des joueurs du club ; rouge `#c8102e` par défaut
 - **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
 
@@ -67,7 +67,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
 - **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
-- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond se choisit parmi les fonds du club, ajoutés dans *Admin › Configuration du site › Affiches* ; **sans aucun fond configuré, la génération est impossible**
+- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond se choisit parmi les fonds du club, ajoutés dans *Admin › Configuration du site › Affiches* ; **sans aucun fond configuré, la génération est impossible**. Les **partenaires** sont ajoutés en bas de l'affiche (mêmes règles que l'affiche de programmation : 10 max, tirage au-delà, case pour les retirer) — le fond ne doit donc plus les contenir. L'affiche reprend la **couleur principale du club** (dates, pastille d'heure, case « Au club », fond), avec des nuances dérivées pour le fond et le séparateur de la date ; rouge `#c8102e` par défaut
 
 ### Cours
 
@@ -123,7 +123,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Le panneau **Affiches** — le dernier, et le seul qui ne concerne pas le site vitrine — porte les **fonds des affiches générées par le back-office** : celles de la programmation TMC et celles des rencontres par équipes.
   - **Plusieurs fonds par affiche.** Chacun porte un **nom** (« Tournoi de la Pentecôte », « Été 2026 ») et une **image** : au moment de générer, vous choisissez lequel appliquer parmi des vignettes. Les fonds s'ajoutent, se réordonnent et **se suppriment** ; retirer un fond efface aussi son image du stockage.
   - **Format attendu : A4 portrait** (ratio 0,71) — *794 × 1123 px minimum* pour la programmation TMC, *1414 × 2000 px minimum* pour les rencontres. **Plus grand est accepté** : un 2480 × 3508 (A4 à 300 dpi) convient pour les deux, et la même image peut servir aux deux affiches.
-  - Le fond n'est pas un décor mais un cadre : les textes s'écrivent par-dessus, à des emplacements fixes que le champ indique (haut de l'affiche et grille des matchs d'un côté, bande centrale de l'autre) — **laissez ces zones libres**.
+  - Le fond n'est pas un décor mais un cadre : les textes s'écrivent par-dessus, à des emplacements fixes que le champ indique (haut de l'affiche et grille des matchs d'un côté, bande centrale de l'autre), et les **logos des partenaires sont ajoutés en bas** des deux affiches — **laissez ces zones libres et ne dessinez pas les partenaires dans le fond**.
   - Une image aux mauvaises proportions est **refusée au choix du fichier**, en annonçant le ratio attendu et celui reçu ; rien n'est envoyé. Une image trop petite est refusée aussi : elle sortirait floue à l'export.
   - ⚠️ **Sans aucun fond configuré, l'affiche ne peut pas être générée** — le bouton est désactivé et un message renvoie vers cet écran. Un fond au minimum par affiche est donc à prévoir avant d'utiliser les deux modules.
 - Les images sont envoyées **à l'enregistrement du panneau**, pas au choix du fichier ; remplacer ou retirer une image supprime l'ancienne.
@@ -142,7 +142,7 @@ Le **logo principal** sert aussi d'**icône d'onglet** (favicon) au back-office 
 - La couleur du texte posé sur la principale et la secondaire (blanc ou foncé) est **choisie automatiquement** selon le contraste — une couleur claire ne donne pas du blanc sur blanc.
 - Les couleurs de **sens** ne changent jamais : rouge d'erreur et bouton *Supprimer*, vert/rouge/jaune des résultats gagné / perdu / nul.
 - L'effet est **immédiat** sur cet écran après enregistrement ; les autres écrans le prennent au prochain chargement.
-- ⚠️ Les **affiches générées** (Programmation Image, Matches par équipe) gardent pour l'instant le rouge du CAC : elles ne suivent pas encore ces couleurs.
+- Les **affiches générées** (Programmation Image, rencontres à venir et résultats des Matches par équipe) suivent la **couleur principale** ; sans couleur principale lisible, elles retombent sur le rouge historique de l'affiche.
 
 ### Site vitrine
 

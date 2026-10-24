@@ -188,7 +188,7 @@ graphisme. Zones à laisser libres :
 ### Bandeau partenaires
 
 Les logos de **`config.partners`** (*Admin › Configuration du site › Partenaires*) sont posés
-dans le bas de l'affiche par le composant `PartnersBand` : **le fond ne doit plus dessiner les
+dans le bas de l'affiche par le composant partagé `PosterPartnersBand` (`src/components/`, aussi utilisé par l'affiche des rencontres à venir) : **le fond ne doit plus dessiner les
 partenaires**, sans quoi ils seraient en double. Une case **« Afficher les partenaires en bas de
 l'affiche »** sous le sélecteur de fond, **cochée par défaut**, non enregistrée (comme le choix du
 fond), vaut pour les deux modes (Programmation et Résultats). Elle n'apparaît pas si aucun

@@ -631,10 +631,31 @@ Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localeme
   écran (aperçu + nœud d'export), et il reste un composant de présentation. Gabarit contrôlé avant
   l'upload : **proportions A4 (ratio ≈ 0,707) à 2 % près** et **1414 × 2000 px au minimum** —
   pas une définition au pixel près, un 2480 × 3508 convient. Le contenu s'écrit de `y = 245` à
-  `y = 1780` avec 60 px de marge, et l'`<img>` est en `width/height: 100%` **sans
+  `y = 1720` avec 60 px de marge, et l'`<img>` est en `width/height: 100%` **sans
   `object-fit`** : une image aux mauvaises proportions y serait **étirée en silence**. ⚠️ L'`<img>` porte **`crossOrigin="anonymous"`** :
   le fond vient du Storage, donc d'une autre origine, et sans cet attribut le **JPEG exporté**
   sortirait sans fond alors que l'aperçu resterait parfait.
+- **Couleur de l'affiche** : `config.brand.color`, lue par `PosterPanel` et passée en prop
+  **`color`** pour la même raison que le fond. Elle peint le fond uni, le jour, l'heure (texte +
+  bordure de la pastille), « Équipe n » et son tiret, et la case « Au club » ; la case
+  « Déplacement » reste noire. Le fond de la colonne date et son séparateur pointillé sont
+  dérivés par `clubTint` (`lib/theme.ts`), comme l'affiche de `/programmation-image` :
+  `clubTint(brand, 100, 98)` et `clubTint(brand, 69, 87)`. Repli **`#c8102e`** si la couleur est
+  vide ou illisible ; ces nuances redonnent alors `#fef6f7` / `#f5c7ce` (au lieu de `#fff5f6` /
+  `#f5c8cf`, écart d'un point). Les couleurs sont posées en **variables CSS** (`--poster-brand`,
+  `--poster-soft`, `--poster-dash`) sur la racine `.tmc-poster` : `POSTER_STYLES` reste une
+  feuille statique, et `html-to-image` les résout à l'export.
+- **Partenaires** : les logos de `config.partners` sont posés sous les cartes par
+  `PosterPartnersBand` (composant partagé avec `/programmation-image`, cf. `GEN_PROG.md`
+  § Bandeau partenaires) : **le fond ne doit plus dessiner les partenaires**, sinon ils sortent
+  en double. Même règle que les deux autres affiches : **10 au plus** (`drawPosterPartners`),
+  2 rangées de 5 (6 → 3 + 3), tirage au hasard au-delà avec « Autre tirage », case
+  **« Afficher les partenaires en bas de l'affiche »** cochée par défaut et non enregistrée,
+  absente si aucun partenaire n'a de logo. C'est `PosterPanel` qui tire et passe les logos en
+  prop `partnerLogos`, pour que l'aperçu et le nœud d'export soient identiques ; un nouveau
+  tirage ou la case **invalident le JPEG déjà généré**. Géométrie : rangées de 78 px, 18 px
+  d'écart, 25 px du bas (l'affiche de programmation ×1,78), soit y ≈ 1800 → 1975, sous la
+  limite de 1760 px laissée libre par les cartes (qui s'arrêtent à 1720).
 - **Téléchargement** : `<a download="affiche-rencontres-YYYY-MM-DD.jpg">`, où la date est
   celle du **samedi** du week-end concerné.
 - **États du bouton** : `idle` → « Générer l'affiche » / `loading` → « Génération… » +

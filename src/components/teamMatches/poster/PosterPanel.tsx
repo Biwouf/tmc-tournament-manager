@@ -4,6 +4,8 @@ import { useClubConfig } from '../../../hooks/useClubConfig';
 import type { TeamMatch } from '../../../types';
 import TeamMatchImagePreview from '../../TeamMatchImagePreview';
 import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../../PosterBackgroundPicker';
+import { Link } from 'react-router-dom';
+import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../../../lib/posterPartners';
 import type { RencontreEntry } from '../gridTypes';
 import {
   currentWeekendRange,
@@ -71,6 +73,15 @@ export default function PosterPanel({
   /** Choix propre à la génération en cours, non enregistré ; le premier fond par défaut. */
   const [backgroundIndex, setBackgroundIndex] = useState(0);
   const background = backgrounds[backgroundIndex] ?? backgrounds[0];
+  // Partenaires : même règle que l'affiche de programmation (case cochée par défaut, 10 au
+  // plus, tirage en state pour que l'aperçu soit l'export).
+  const partnerLogos = useMemo(() => config.partners.map((p) => p.logo).filter(Boolean), [config.partners]);
+  const [showPartners, setShowPartners] = useState(true);
+  const [partnerSeed, setPartnerSeed] = useState(newPartnerSeed);
+  const posterPartnerLogos = useMemo(
+    () => (showPartners ? drawPosterPartners(partnerLogos, partnerSeed) : []),
+    [showPartners, partnerLogos, partnerSeed]
+  );
   const now = useMemo(() => new Date(), []);
   const groupes = useMemo(() => groupByWeekend(entries, now), [entries, now]);
   const weekend = useMemo(() => currentWeekendRange(now), [now]);
@@ -88,12 +99,12 @@ export default function PosterPanel({
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const posterRef = useRef<HTMLDivElement>(null);
 
-  // Toute nouvelle sélection — de rencontres comme de fond — invalide l'affiche déjà générée :
-  // sans quoi le bouton « Télécharger » servirait le JPEG de l'ancien fond.
+  // Toute nouvelle sélection — de rencontres, de fond ou de partenaires — invalide l'affiche
+  // déjà générée : sans quoi le bouton « Télécharger » servirait le JPEG de l'ancien fond.
   useEffect(() => {
     setGenStatus('idle');
     setDataUrl(null);
-  }, [selectedIds, backgroundIndex]);
+  }, [selectedIds, backgroundIndex, posterPartnerLogos]);
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const atMax = selectedIds.length >= MAX_POSTER_MATCHES;
@@ -249,6 +260,24 @@ export default function PosterPanel({
         )
       )}
 
+      {partnerLogos.length > 0 && (
+        <div className="mt-3 space-y-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={showPartners} onChange={(e) => setShowPartners(e.target.checked)} />
+            Afficher les partenaires en bas de l’affiche
+          </label>
+          {showPartners && partnerLogos.length > MAX_POSTER_PARTNERS && (
+            <p className="text-xs text-muted-foreground">
+              {partnerLogos.length} partenaires configurés : {MAX_POSTER_PARTNERS} sont tirés au hasard (affichés dans l’ordre de la{' '}
+              <Link to="/admin/site" className="underline">configuration du site</Link>).{' '}
+              <button type="button" className="underline" onClick={() => setPartnerSeed(newPartnerSeed())}>
+                Autre tirage
+              </button>
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Aperçu A4 (le rendu exporté est le nœud hors viewport plus bas) */}
       {selectedMatches.length > 0 && (
         <div className="mt-3 overflow-hidden rounded-xl border border-border">
@@ -257,7 +286,7 @@ export default function PosterPanel({
               style={{ width: 1414, transform: 'scale(0.234)', transformOrigin: 'top left' }}
               aria-label="Aperçu de l'affiche"
             >
-              <TeamMatchImagePreview matches={selectedMatches} background={background?.image} />
+              <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={config.brand.color} partnerLogos={posterPartnerLogos} />
             </div>
           </div>
         </div>
@@ -296,7 +325,7 @@ export default function PosterPanel({
       {/* Affiche hors viewport — requise pour html-to-image */}
       <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>
         <div ref={posterRef}>
-          <TeamMatchImagePreview matches={selectedMatches} background={background?.image} />
+          <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={config.brand.color} partnerLogos={posterPartnerLogos} />
         </div>
       </div>
     </div>
