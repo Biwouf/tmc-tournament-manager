@@ -25,7 +25,7 @@ async function setup() {
     GRANT SELECT,INSERT,UPDATE,DELETE ON live_matches TO authenticated;`);
   for (const name of ['20260907_live_match_consistency', '2026093001_live_activity', '2026101102_live_photos',
     '2026101104_live_reactions_throttle', '2026101501_live_post_reactions', '2026102001_live_post_after_finish',
-    '2026101301_live_set_times', '2026102401_live_web_push']) await db.exec(await migration(name));
+    '2026101301_live_set_times', '2026102401_live_web_push', '2026102402_live_push_start_text']) await db.exec(await migration(name));
   await db.exec(`INSERT INTO live_matches(id,club_id,match_date,j1_prenom,j1_nom,j2_prenom,j2_nom,status,court)
     VALUES('${id(20)}','${id(1)}','2026-10-24','Alex','Dupont','Sam','Martin','pending','2'),
     ('${id(21)}','${id(2)}','2026-10-24','Autre','Club','Autre','Club','pending',null);`);
@@ -83,7 +83,7 @@ test('live push: preferences, start announcement, follows, sets, finish and feed
     let rows = await jobs(`d.dedupe_key='start'`);
     assert.deepEqual(rows.map((r) => r.user_id), [id(101)]);
     assert.equal(rows[0].title, 'Match en direct');
-    assert.equal(rows[0].body, 'Dupont – Martin : le match a commencé (court 2).');
+    assert.equal(rows[0].body, 'Alex Dupont - Sam Martin - Le match commence !', 'full names, no court');
     assert.equal(rows[0].url, `/matches/${id(20)}`);
 
     // Ordinary points notify nobody; a won set notifies followers once, even after a correction.
