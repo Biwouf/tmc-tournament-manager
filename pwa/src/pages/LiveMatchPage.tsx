@@ -36,7 +36,7 @@ import PostReactions from '../components/live/PostReactions';
 import FirstServerPicker from '../components/live/FirstServerPicker';
 import LiveRecap from '../components/live/LiveRecap';
 import { LiveFollowButton } from '../components/live/LivePush';
-import { announceLiveStart } from '../lib/liveFollows';
+import { announceLiveStart, followToastText } from '../lib/liveFollows';
 import { PollAnswers, PollForm } from '../components/live/LivePoll';
 import {
   compressPhoto,
@@ -361,9 +361,7 @@ function LiveMatchScreen({
             userId={userId!}
             matchId={match.id}
             iconOnly
-            onChange={(following) => setFollowToast(following
-              ? 'Alertes activées pour ce match'
-              : 'Alertes désactivées pour ce match')}
+            onChange={(following) => setFollowToast(followToastText(following))}
           />
         )}
       </header>

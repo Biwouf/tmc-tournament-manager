@@ -23,8 +23,9 @@ export default function PushSwitchRow({ title, description, checked, disabled, o
           onClick={onToggle}
           className="flex min-h-11 min-w-11 shrink-0 items-center justify-end disabled:opacity-50"
         >
-          <span className={`relative h-7 w-12 rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
-            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+          {/* Rond à gauche quand c'est coupé, à droite quand c'est activé, toujours dans la piste. */}
+          <span className={`relative block h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
+            <span className={`absolute left-0.5 top-0.5 block h-6 w-6 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
           </span>
         </button>
       </div>

@@ -8,6 +8,11 @@ export async function fetchLiveFollows(clubId: string): Promise<string[]> {
     typeof row === 'string' ? row : (row as { live_my_follows: string }).live_my_follows);
 }
 
+// Confirmation affichée après un clic réussi sur la cloche (liste et page du live).
+export function followToastText(following: boolean): string {
+  return following ? 'Alertes activées pour ce match' : 'Alertes désactivées pour ce match';
+}
+
 export async function setLiveFollow(clubId: string, matchId: string, on: boolean): Promise<boolean> {
   const { data, error } = await supabase.rpc('live_follow', { p_club: clubId, p_match: matchId, p_on: on });
   if (error) {
