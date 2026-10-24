@@ -617,6 +617,8 @@ Worker Node 22 + Playwright/Chromium qui lit le **DOM public** de Ten'Up (aucun 
 
 ## Tests
 
+- Test sur téléphone (HTTPS requis pour l'installation et le Web Push) : `npm run pwa:phone` → `scripts/pwa-phone-tunnel.sh`, tunnel Cloudflare temporaire vers la PWA buildée avec `pwa/.env.local`, refus si ce fichier vise la prod. Cf. `docs/LIVE_PUSH.md`.
+
 `tests/*.test.mjs` (Node, PGlite pour le SQL, Edge Functions Deno avec API simulées — aucun service externe) : `npm run test:security`, `test:live-score`, `test:courses` (+ `test:courses:concurrency`, opt-in sur PostgreSQL réel), `test:password-recovery`, `test:signup`, `test:emails`, `test:domains`, `test:team-matches`, `test:team-compo`, `test:result-poster`, `test:tenup`, `test:team-calendar`, `test:competitions`, `test:live-activity`, `test:pwa-updates`, `test:pwa-network`. Vitrine : `web/tests/seo.test.mjs`. Landing : `landing/tests/build.test.mjs`.
 
 ## PR13 — entrée par domaine

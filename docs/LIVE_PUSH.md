@@ -54,7 +54,7 @@ Prérequis : l'infra Web Push des cours est en service sur le projet (clés VAPI
 2. Appliquer `2026102401_live_web_push.sql` (`npx -y supabase@2.98.2 db push` ou SQL Editor).
 3. Vérifier `pg_net` : `SELECT extname FROM pg_extension WHERE extname='pg_net';` (installée par le script cron des cours).
 4. Déployer la fonction : `npx -y supabase@2.98.2 functions deploy course-push-dispatch --project-ref hnhsmefrcihpnkxbrxmr` (vérification JWT conservée).
-5. Déployer la PWA et le BO de DEV.
+5. Exposer la PWA DEV au téléphone sans toucher à Vercel : `npm run pwa:phone` (`scripts/pwa-phone-tunnel.sh`, prérequis `brew install cloudflared`). Le script builde la PWA avec `pwa/.env.local`, **refuse de démarrer s'il vise la prod**, accepte l'hôte du tunnel comme alias (`VITE_ALLOWED_HOSTS`) et affiche une URL `https://….trycloudflare.com` valable tant qu'il tourne (Ctrl+C pour arrêter). L'URL change à chaque lancement : sur iPhone, réinstaller l'app sur l'écran d'accueil à chaque fois. Les previews Vercel visent la base de prod : ne pas s'en servir pour cette recette. Le BO peut tourner en local (`npm run dev`, `.env.local` sur DEV) pour démarrer les matchs.
 6. Recette sur appareil (PWA installée, notifications autorisées) — avec deux comptes membres A (téléphone) et B :
    - accueil des live : bandeau → « Activer » ; dans Mon profil, l'interrupteur Live est activé et celui des Cours inchangé ;
    - B démarre un match en laissant la case cochée → A reçoit « Match en direct » ; démarrer un autre match case décochée → rien ;
