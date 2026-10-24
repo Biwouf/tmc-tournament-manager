@@ -23,7 +23,7 @@ export default function LiveScorePage() {
   const { clubId } = useClub();
   const [matches, setMatches] = useState<LiveMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [courtDialog, setCourtDialog] = useState<{ matchId: string; value: string; firstServer: LiveMatchWinner | null } | null>(null);
+  const [courtDialog, setCourtDialog] = useState<{ matchId: string; value: string; firstServer: LiveMatchWinner | null; notify: boolean } | null>(null);
   const [takeoverDialog, setTakeoverDialog] = useState<{ matchId: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
@@ -102,7 +102,7 @@ export default function LiveScorePage() {
 
   const confirmStart = async () => {
     if (!courtDialog) return;
-    const { matchId, value, firstServer } = courtDialog;
+    const { matchId, value, firstServer, notify } = courtDialog;
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData.session?.user.id ?? null;
     const target = matches.find(m => m.id === matchId);
@@ -115,13 +115,15 @@ export default function LiveScorePage() {
       void fetchMatches();
       return;
     }
+    // L'alerte de début ne bloque jamais le démarrage (au pire, pas d'alerte).
+    if (notify) await supabase.rpc('live_push_announce_start', { p_club: clubId, p_match: matchId });
     setCourtDialog(null);
     navigate(`/live-score/${matchId}`);
   };
 
   const handlePrimary = (m: LiveMatch) => {
     if (m.status === 'pending') {
-      setCourtDialog({ matchId: m.id, value: '', firstServer: null });
+      setCourtDialog({ matchId: m.id, value: '', firstServer: null, notify: true });
       return;
     }
     if (m.status === 'live' && m.scored_by && m.scored_by !== currentUserId) {
@@ -345,6 +347,14 @@ export default function LiveScorePage() {
                 </label>
               );
             })()}
+            <label className="mt-4 flex items-center gap-2 text-sm text-card-foreground">
+              <input
+                type="checkbox"
+                checked={courtDialog.notify}
+                onChange={(e) => setCourtDialog({ ...courtDialog, notify: e.target.checked })}
+              />
+              Prévenir les abonnés du club
+            </label>
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setCourtDialog(null)}

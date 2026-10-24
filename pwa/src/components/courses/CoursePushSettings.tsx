@@ -1,65 +1,20 @@
 import { useEffect, useState } from 'react';
-import { coursePushSupported, disableCoursePush, enableCoursePush, syncCoursePush } from '../../lib/coursePush';
+import { usePush } from '../../hooks/usePush';
 import CourseSheet from './CourseSheet';
+import PushSwitchRow from '../PushSwitchRow';
 
 function useCoursePush(clubId: string, userId: string) {
-  const [enabled, setEnabled] = useState(false);
-  const [busy, setBusy] = useState(true);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState('');
-  const supported = coursePushSupported();
-
-  useEffect(() => {
-    let active = true;
-    setBusy(supported);
-    setReady(false);
-    setEnabled(false);
-    setError('');
-    if (supported) {
-      void syncCoursePush(clubId, userId).then((value) => {
-        if (active) setEnabled(value);
-      }).catch(() => {
-        if (active) setError('Impossible de synchroniser les notifications. Réessayez.');
-      }).finally(() => { if (active) { setBusy(false); setReady(true); } });
-    }
-    return () => { active = false; };
-  }, [clubId, userId, supported]);
-
-  async function toggle(): Promise<boolean> {
-    setBusy(true);
-    setError('');
-    try {
-      if (enabled) await disableCoursePush(clubId);
-      else await enableCoursePush(clubId, userId);
-      setEnabled(!enabled);
-      return true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Impossible de modifier les notifications.');
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return { supported, enabled, busy, ready, error, toggle };
+  const push = usePush(clubId, userId);
+  const enabled = Boolean(push.prefs?.courses);
+  return { ...push, enabled, toggle: () => push.set('courses', !enabled) };
 }
 
+// Ligne « Cours » de la liste Notifications de Mon profil.
 export default function CoursePushSettings({ clubId, userId }: { clubId: string; userId: string }) {
   const { supported, enabled, busy, error, toggle } = useCoursePush(clubId, userId);
   return (
-    <div className="booking-info">
-      <strong>Cours</strong>
-      <p>Recevez les réponses à vos demandes et, si vous encadrez un cours, les nouvelles demandes.</p>
-      {supported ? (
-        <button type="button" className="booking-button secondary" disabled={busy}
-          onClick={() => void toggle()}>
-          {busy ? 'En cours…' : enabled ? 'Désactiver les notifications' : 'Activer les notifications'}
-        </button>
-      ) : (
-        <p>Notifications indisponibles ici. Sur iPhone ou iPad, ajoutez l’application à l’écran d’accueil.</p>
-      )}
-      {error && <p className="booking-error" role="alert">{error}</p>}
-    </div>
+    <PushSwitchRow title="Cours" description="Réponses à vos demandes et nouvelles demandes."
+      checked={enabled} disabled={!supported || busy} onToggle={() => void toggle()} error={error} />
   );
 }
 

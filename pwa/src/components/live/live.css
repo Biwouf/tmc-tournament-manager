@@ -1238,6 +1238,19 @@ button.live-note {
   gap: 8px;
   margin: 10px 0;
 }
+.start-notify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--quiet);
+}
+.start-notify input {
+  width: 18px;
+  height: 18px;
+  accent-color: hsl(var(--primary));
+}
 .serve-picker p {
   grid-column: 1 / -1;
   font-size: 13px;

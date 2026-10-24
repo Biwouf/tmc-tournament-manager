@@ -12,6 +12,7 @@ import type { LiveMatch, LiveMatchWinner } from '../../types';
 import LiveBadge from './LiveBadge';
 import { getServer } from '../../liveScoreRules';
 import TennisBall from '../TennisBall';
+import { LiveFollowButton } from '../live/LivePush';
 
 interface Props {
   match: LiveMatch;
@@ -295,6 +296,9 @@ export default function MatchCard({
         <span aria-hidden="true" className="text-xs font-semibold text-primary">
           {actionLabel} →
         </span>
+        {!isFinished && canManage && userId && clubId && (
+          <LiveFollowButton clubId={clubId} userId={userId} matchId={match.id} iconOnly />
+        )}
         {isFinished && canManage && (
           <button
             type="button"

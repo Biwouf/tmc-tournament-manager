@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch } from '../types';
 import MatchCard from '../components/matches/MatchCard';
+import { LivePushBanner } from '../components/live/LivePush';
 import { useAuth } from '../hooks/useAuth';
 import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
 import { LIVE_SAFETY_POLL } from '../lib/liveChannel';
@@ -115,6 +116,12 @@ export default function MatchesPage() {
           {flash}
         </div>
       )}
+
+      <LivePushBanner
+        clubId={clubId}
+        userId={user?.id ?? null}
+        isMember={!!(membership.data?.is_member || membership.data?.can_manage)}
+      />
 
       {isLoading && (
         <div className="flex flex-col gap-4">
