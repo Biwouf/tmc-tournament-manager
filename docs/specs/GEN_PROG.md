@@ -188,7 +188,7 @@ graphisme. Zones à laisser libres :
 ### Bandeau partenaires
 
 Les logos de **`config.partners`** (*Admin › Configuration du site › Partenaires*) sont posés
-dans le bas de l'affiche par le composant `PartnersBand` : **le fond ne doit plus dessiner les
+dans le bas de l'affiche par le composant partagé `PosterPartnersBand` (`src/components/`, aussi utilisé par l'affiche des rencontres à venir) : **le fond ne doit plus dessiner les
 partenaires**, sans quoi ils seraient en double. Une case **« Afficher les partenaires en bas de
 l'affiche »** sous le sélecteur de fond, **cochée par défaut**, non enregistrée (comme le choix du
 fond), vaut pour les deux modes (Programmation et Résultats). Elle n'apparaît pas si aucun
@@ -294,16 +294,39 @@ Les matchs hors club sélectionné restent strictement inchangés.
 > Remplace (oct. 2026) l'ancienne couronne de 12 étoiles, le ruban diagonal « CLUB » et le bandeau « ★ DERBY ★ » en pied de cellule, jugés trop chargés.
 
 - **Passe-partout blanc** (`anyHome`) : `outline: 2px solid white` + `outline-offset: 5px` sur la cellule. Le contour suit l'arrondi de la cellule et se détache sur le fond rouge de l'affiche sans rien ajouter dans la cellule. Il tient dans le `GRID_GAP` (20 px).
-- **Cartouche en pied** (`anyHome`, composant `ClubBanner`) : bande pleine largeur de 16 px (`BANNER_H`) en `position: absolute` au bas de la cellule, fond bordeaux `#8E0B20`, texte blanc 9 px gras, espacement 2 px, ellipse si trop long (nom de club long en derby). Le padding bas de la cellule passe de 16 à `BANNER_H + BANNER_GAP` = 30 px : **+14 px par rangée**, ce qui laisse ~10 px d'air entre le cartouche et le fond rosé (collés à +4 px, c'était laid). Libellé :
+- **Cartouche en pied** (`anyHome`, composant `ClubBanner`) : bande pleine largeur de 16 px (`BANNER_H`) en `position: absolute` au bas de la cellule, fond bordeaux (`palette.dark`, `#8E0B20` avec le rouge de repli), texte blanc 9 px gras, espacement 2 px, ellipse si trop long (nom de club long en derby). Le padding bas de la cellule passe de 16 à `BANNER_H + BANNER_GAP` = 30 px : **+14 px par rangée**, ce qui laisse ~10 px d'air entre le cartouche et le fond rosé (collés à +4 px, c'était laid). Libellé :
   - derby (`bothHome`) → `DERBY · <highlightedClub>` ;
   - sinon → `JOUEUSE DU CLUB` si le tournoi est féminin, `JOUEUR DU CLUB` sinon.
 - ⚠️ **Budget de hauteur** : sur les fonds du club, le bandeau partenaires commence vers y ≈ 1000 ; la grille standard (4 rangées de 152 px) finissait à 973 avec `GRID_TOP = 305` — il ne restait que ~25 px pour 4 rangées. Depuis `GRID_TOP = 255`, elle finit à 923. Le premier cartouche, **en tête** (24 px + fond rosé paddé, +31 px par rangée), poussait la grille à y ≈ 1096, en plein sur les partenaires. En pied, pire cas mesuré (4 rangées concernées) : y = 982. Tout ajout vertical dans une cellule doit être mesuré contre cette limite. Les cellules d'une même rangée ont la même hauteur (étirement de la grille) : le cartouche reste au ras du bas, sans réservation chez la voisine.
 - **Genre du tournoi** : `FEMININE_RE` testé sur `type_tournoi` — `SD` / `DD` (PDF FFT : « SD Senior »…) ou `Dames` / `Femmes` / `Féminin…` (libellés libres du CSV). Le double mixte et tout le reste retombent sur le masculin.
-- **Fond rosé** : le bloc du joueur du club (`j1Home` / `j2Home`) reçoit un fond `#FCEBEB`, `border-radius: 10`, pour désigner *quel* joueur est du club. Son padding vertical (4 px) est annulé par une marge négative : le fond déborde sans agrandir la cellule.
-- **`ClubLabel`** accepte une prop `home?: boolean` : rouge `#C8102E`, `font-weight: 700`, `font-size: 9.5` quand `home`, sinon gris `#6b6b6b`.
-- **Box-shadow** : constant (`5px 6px 0px rgba(200, 16, 46, 0.3)`). Une bordure rouge avait été envisagée mais se fond dans le fond rouge de l'affiche → écartée.
+- **Fond rosé** : le bloc du joueur du club (`j1Home` / `j2Home`) reçoit un fond rosé (`palette.soft`, `#FCEBEB` avec le rouge de repli), `border-radius: 10`, pour désigner *quel* joueur est du club. Son padding vertical (4 px) est annulé par une marge négative : le fond déborde sans agrandir la cellule.
+- **`ClubLabel`** accepte une prop `home?: boolean` : couleur du club (`palette.brand`), `font-weight: 700`, `font-size: 9.5` quand `home`, sinon gris `#6b6b6b`.
+- **Box-shadow** : constant (`5px 6px 0px`, `palette.shadow` = couleur du club à 30 %). Une bordure rouge avait été envisagée mais se fond dans le fond rouge de l'affiche → écartée.
 
 Tous les effets sont du CSS / SVG pur → exportables par `html-to-image`.
+
+#### Couleurs du club
+
+L'affiche suit **`brand.color`** (lu par `useClubConfig()`), plus aucun rouge en dur. Tout ce
+qui est « rouge » dans cette spec (fond de l'affiche, badge d'heure, type de tournoi,
+classements, score, VS, `ClubLabel` local) prend cette couleur. `posterPalette(color)`
+construit les cinq teintes passées de `PosterPage` à `MatchCell` (prop `palette`) :
+
+| Clé | Usage | Dérivation |
+|---|---|---|
+| `brand` | fond, badge, textes, VS | `brand.color` ; repli `#c8102e` (l'ancien rouge de l'affiche) si vide ou illisible |
+| `dark` | cartouche `ClubBanner` | `clubTint(brand, 86, 30)` |
+| `soft` | fond du joueur du club | `clubTint(brand, 74, 95.5)` |
+| `rule` | filets du VS | `brand` à 25 % |
+| `shadow` | ombre des cellules | `brand` à 30 % |
+
+`clubTint` (`lib/theme.ts`) applique la règle des tokens du thème : on garde la teinte de la
+couleur principale, la saturation est plafonnée par la sienne et la luminosité est fixe. Avec
+le repli `#c8102e`, on retrouve `#8E0B20` et `#FCEBEB` à 1 ou 3 unités près sur le bleu.
+⚠️ CAC a `brand.color = #e51828`, comme le thème BO/PWA : son affiche passe donc de
+`#C8102E` à `#E51828` (choix validé le 16/10/2026). Limite : la luminosité de `dark` est
+fixée à 30 %. Pour une couleur de club plus foncée que ça, le cartouche est donc un peu
+**plus clair** que la couleur principale.
 
 ### Pagination
 
