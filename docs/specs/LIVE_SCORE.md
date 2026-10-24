@@ -780,3 +780,13 @@ diffuse le message aux canaux du topic, sans polling du WAL ni RLS par abonné.
 
 Tests : `tests/live-broadcast-sql.test.mjs` (`npm run test:live-score`, `realtime.send` simulé),
 `tests/live-activity-head.test.mjs` (`npm run test:live-activity`), `tests/pwa-network.test.mjs`.
+
+## Notifications Web Push — octobre 2026
+
+Détail, mise en service et recette : `docs/LIVE_PUSH.md` (migration `2026102401_live_web_push.sql`).
+
+- **Début de match** : au démarrage (PWA : sous le choix du serveur ; BO : dialog *Démarrer le live* ; rencontres d'équipe PWA et BO), une case « Prévenir les abonnés du club », cochée par défaut. Si elle est cochée, le client appelle `live_push_announce_start(club, match)` juste après le passage en `live` : alerte aux appareils du club dont la préférence Live est active, sauf la personne qui démarre. Un échec de l'alerte ne bloque jamais le démarrage (PWA : message sous le tableau).
+- **Suivre un match** : cloche seule (`LiveFollowButton iconOnly`, sans bordure) sur les cartes des matchs en attente / en live et en haut à droite du live (le bouton « i » passe à sa gauche) ; pleine et à la couleur du club quand les alertes sont actives, au trait sinon. Chaque changement est confirmé par un toast en bas (« Alertes activées / désactivées pour ce match », 3 s, texte `followToastText`) : sur la page du live au-dessus de la barre de saisie, sur la liste au-dessus de la barre d'onglets et du bouton « Créer un match », réservée aux membres du club. Le suiveur reçoit les fins de set 1 et 2, la fin du match (une seule fois même après « Rouvrir pour corriger ») et les publications du fil des autres membres, regroupées en rafale.
+- **Accueil des live** : bandeau d'activation des alertes Live (membre) ou d'invitation à se connecter (visiteur), « Plus tard » mémorisé. Interrupteur permanent dans **Mon profil**.
+- Aucune colonne ajoutée à `live_matches` : les fins de set/match sont détectées par le trigger `live_push_match` (sur `set1_ended_at` / `set2_ended_at` / `status`), sans coût sur les écritures de point ordinaires (clause `WHEN`).
+

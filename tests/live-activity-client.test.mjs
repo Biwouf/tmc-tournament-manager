@@ -56,7 +56,7 @@ function loader(mocks) {
     if (cache.has(file)) return cache.get(file).exports;
     const module = { exports: {} };
     cache.set(file, module);
-    const code = ts.transpileModule(readFileSync(file, 'utf8'), {
+    const code = ts.transpileModule(readFileSync(file, 'utf8').replace(/import\.meta\.env\.VITE_VAPID_PUBLIC_KEY/g, 'undefined'), {
       compilerOptions: {
         target: ts.ScriptTarget.ES2022,
         module: ts.ModuleKind.CommonJS,
@@ -812,6 +812,7 @@ test('Double: decisive super tie-break, automatic finish and undo of the winning
 test('Live cards: native full-card link and independent encounter footer, without nested links', async () => {
   const load = loader({
     '/contexts/ClubContext.tsx': { useClub: () => ({ clubId: 'club-a' }) },
+    '/lib/supabase.ts': { supabase: { rpc: async () => ({ data: [], error: null }) } },
     '/lib/liveMatchWrites.ts': {
       deleteLiveMatch: async () => {
         throw new Error('Test suppression');

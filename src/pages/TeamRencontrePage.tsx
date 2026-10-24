@@ -51,6 +51,7 @@ export default function TeamRencontrePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const liveRequest = useRef({ id: '', key: '', busy: false });
+  const [notifyStart, setNotifyStart] = useState(true);
   const { clubId, club } = useClub();
 
   const [rencontre, setRencontre] = useState<TeamRencontre | null>(null);
@@ -193,6 +194,10 @@ export default function TeamRencontrePage() {
         p_data: { id: line.id, revision: line.revision }, p_request_id: liveRequest.current.key,
       });
       if (error) { setActionError(error.message); return; }
+      // L'alerte de début ne bloque jamais l'ouverture du live (au pire, pas d'alerte).
+      if (data?.live_match_id && notifyStart) {
+        await supabase.rpc('live_push_announce_start', { p_club: clubId, p_match: data.live_match_id });
+      }
       if (data?.live_match_id) navigate(`/live-score/${data.live_match_id}`);
     } finally { liveRequest.current.busy = false; }
   };
@@ -417,6 +422,13 @@ export default function TeamRencontrePage() {
               Aucun match saisi.
             </p>
           ) : (
+            <>
+            {lines.some((line) => !line.live_match_id) && (
+              <label className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={notifyStart} onChange={(e) => setNotifyStart(e.target.checked)} />
+                Prévenir les abonnés du club au lancement d'un live
+              </label>
+            )}
             <ul className="divide-y divide-border">
               {lines.map((line) => (
                 <MatchLineRow
@@ -432,6 +444,7 @@ export default function TeamRencontrePage() {
                 />
               ))}
             </ul>
+            </>
           )}
         </section>
 

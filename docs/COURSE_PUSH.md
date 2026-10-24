@@ -1,5 +1,7 @@
 # Notifications de cours dans la PWA
 
+> Depuis le 24/10/2026, l'abonnement d'un appareil sert aussi au Live, avec une préférence par catégorie (`notify_courses`, `notify_live`) : voir `docs/LIVE_PUSH.md`. Mon profil présente une liste d'interrupteurs (Cours, Live). Couper « Cours » ne désabonne plus l'appareil s'il sert au Live ; seule la déconnexion le révoque entièrement.
+
 Le flux couvre deux événements :
 
 - demande nouvelle ou renouvelée (`pending`) → encadrant désigné du cours (`owner_id`) ;

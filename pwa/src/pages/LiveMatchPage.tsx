@@ -35,6 +35,8 @@ import LiveSheet from '../components/live/LiveSheet';
 import PostReactions from '../components/live/PostReactions';
 import FirstServerPicker from '../components/live/FirstServerPicker';
 import LiveRecap from '../components/live/LiveRecap';
+import { LiveFollowButton } from '../components/live/LivePush';
+import { announceLiveStart, followToastText } from '../lib/liveFollows';
 import { PollAnswers, PollForm } from '../components/live/LivePoll';
 import {
   compressPhoto,
@@ -92,6 +94,13 @@ function LiveMatchScreen({
     'score' | 'set3' | 'info' | 'poll' | 'retire' | null
   >(null);
   const [pollId, setPollId] = useState<string | null>(null);
+  const [startNotice, setStartNotice] = useState('');
+  const [followToast, setFollowToast] = useState('');
+  useEffect(() => {
+    if (!followToast) return;
+    const timer = setTimeout(() => setFollowToast(''), 3000);
+    return () => clearTimeout(timer);
+  }, [followToast]);
   const [draft, setDraft] = useState('');
   const [photo, setPhoto] = useState<{
     id: string;
@@ -319,6 +328,7 @@ function LiveMatchScreen({
   const poll = activity.items.find((p) => p.id === pollId);
   const showMemberDock =
     canAnimate && (match.status === 'live' || match.status === 'finished');
+  const canFollow = canAnimate && !!userId && !!clubId && match.status !== 'finished';
   return (
     <div
       className="live-view"
@@ -345,6 +355,15 @@ function LiveMatchScreen({
         >
           <LiveIcon kind="info" />
         </button>
+        {canFollow && (
+          <LiveFollowButton
+            clubId={clubId!}
+            userId={userId!}
+            matchId={match.id}
+            iconOnly
+            onChange={(following) => setFollowToast(followToastText(following))}
+          />
+        )}
       </header>
       <LiveScoreboard
         match={match}
@@ -369,7 +388,7 @@ function LiveMatchScreen({
             isSet3Needed({ ...match, ...patch });
           if ((await patchScore(patch)) && tied) setSheet('set3');
         }}
-        onStart={async (firstServer) => {
+        onStart={async (firstServer, notify) => {
           const started = await patchScore(
             {
               status: 'live',
@@ -379,6 +398,8 @@ function LiveMatchScreen({
             },
             false,
           );
+          if (started && notify && clubId && !(await announceLiveStart(clubId, match.id)))
+            setStartNotice('Le live a démarré, mais l’alerte n’a pas pu être envoyée.');
           if (started && !firstServer) setSheet('score');
         }}
         onUndo={async () => {
@@ -396,6 +417,8 @@ function LiveMatchScreen({
             );
         }}
       />
+      {startNotice && <p role="status" className="live-note">{startNotice}</p>}
+      {followToast && <p role="status" className="live-toast">{followToast}</p>}
       <div
         className="live-scroll"
         ref={feed}

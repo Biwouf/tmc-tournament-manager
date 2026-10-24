@@ -18,6 +18,7 @@ import type { LiveMatch } from '../types';
 import CreateTeamMatch from '../components/teamMatches/CreateTeamMatch';
 import TeamCompoSheet from '../components/teamMatches/TeamCompoSheet';
 import TeamSheet from '../components/teamMatches/TeamSheet';
+import { announceLiveStart } from '../lib/liveFollows';
 import TeamResultSheet from '../components/teamMatches/TeamResultSheet';
 
 type Selection = { line: TeamLine; live?: LiveMatch; mode: 'actions' | 'result' };
@@ -30,6 +31,7 @@ export default function TeamRencontrePage() {
   const [creating, setCreating] = useState(false);
   const [composing, setComposing] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
+  const [notifyStart, setNotifyStart] = useState(true);
   const [recap, setRecap] = useState<{ revision: number; lines: TeamLine[] } | null>(null);
   const action = useTeamAction(clubId, id);
   const queryClient = useQueryClient();
@@ -75,10 +77,13 @@ export default function TeamRencontrePage() {
     const live = fresh ? fresh.lives.find(m => m.id === line.live_match_id) : selection.live;
     return { id: line.id, revision: line.revision, live_revision: live?.revision };
   };
+  const startsLive = !selection?.live || selection.live.status === 'pending';
   const start = async () => {
     const base = await revisions();
     if (!base) return;
     const result = await action.run('start_live', base);
+    // L'alerte de début ne bloque jamais l'ouverture du live (au pire, pas d'alerte).
+    if (result?.live_match_id && startsLive && notifyStart && clubId) await announceLiveStart(clubId, result.live_match_id);
     if (result?.live_match_id) navigate(`/matches/${result.live_match_id}/score`);
   };
   const chooseRule = async (rule: 'normal' | 'super_tiebreak') => {
@@ -130,6 +135,7 @@ export default function TeamRencontrePage() {
       {selection.line.set3_format ? <div className="space-y-3">
         <p className="text-sm text-muted-foreground">3e set : {selection.line.set3_format === 'super_tiebreak' ? 'super tie-break' : 'set classique'} · règle conservée pour ce match</p>
         <button disabled={action.busy || selection.line.result_kind === 'wo'} onClick={() => void start()} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground disabled:opacity-40">{selection.live ? 'Gérer dans l’onglet Live →' : 'Suivre en live'}</button>
+        {startsLive && <label className="flex min-h-11 items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" className="h-5 w-5 accent-primary" checked={notifyStart} disabled={action.busy} onChange={e => setNotifyStart(e.target.checked)} />Prévenir les abonnés du club</label>}
         <button disabled={action.busy} onClick={() => setSelection({ ...selection, mode: 'result' })} className="min-h-12 w-full rounded-xl border border-border p-3 font-semibold">{selection.line.confirmed_at ? 'Modifier le résultat' : selection.live?.status === 'finished' ? 'Valider le résultat' : 'Saisir le résultat'}</button>
       </div> : <div className="space-y-3">
         <p className="text-sm">La règle de ce match historique n’est pas connue. Précisez-la avant de le suivre ou de vérifier son résultat.</p>

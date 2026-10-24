@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch } from '../types';
 import MatchCard from '../components/matches/MatchCard';
+import { LivePushBanner } from '../components/live/LivePush';
+import { followToastText } from '../lib/liveFollows';
 import { useAuth } from '../hooks/useAuth';
 import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
 import { LIVE_SAFETY_POLL } from '../lib/liveChannel';
@@ -33,6 +35,7 @@ export default function MatchesPage() {
   const membership = useCourseContext();
   const { clubId } = useClub();
   const [flash, setFlash] = useState<string | null>(null);
+  const [followToast, setFollowToast] = useState('');
   // Canal Broadcast abonné : le polling n'est plus qu'un filet de sécurité.
   const [subscribed, setSubscribed] = useState(false);
 
@@ -63,6 +66,7 @@ export default function MatchesPage() {
       encounter={m.team_rencontre_id ? encounterScores.get(m.team_rencontre_id) : undefined}
       encounterLoading={encounters.isPending}
       encounterError={encounters.isError}
+      onFollowChange={(following) => setFollowToast(followToastText(following))}
     />
   );
 
@@ -74,6 +78,12 @@ export default function MatchesPage() {
       setSubscribed(false);
     };
   }, [queryClient, clubId]);
+
+  useEffect(() => {
+    if (!followToast) return;
+    const timer = setTimeout(() => setFollowToast(''), 3000);
+    return () => clearTimeout(timer);
+  }, [followToast]);
 
   // Lecture du flash venant d'une redirection (ex: /matches/:id/score → /matches)
   useEffect(() => {
@@ -116,6 +126,12 @@ export default function MatchesPage() {
         </div>
       )}
 
+      <LivePushBanner
+        clubId={clubId}
+        userId={user?.id ?? null}
+        isMember={!!(membership.data?.is_member || membership.data?.can_manage)}
+      />
+
       {isLoading && (
         <div className="flex flex-col gap-4">
           {[...Array(3)].map((_, i) => (
@@ -147,6 +163,17 @@ export default function MatchesPage() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Terminés</h2>
           {finishedMatches.map(card)}
         </section>
+      )}
+
+      {followToast && (
+        // Au-dessus de la barre d'onglets et du bouton « Créer un match ».
+        <p
+          role="status"
+          className="fixed inset-x-4 z-50 mx-auto max-w-md rounded-xl bg-[#302735] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg"
+          style={{ bottom: 'calc(56px + 16px + 56px + 12px + env(safe-area-inset-bottom))' }}
+        >
+          {followToast}
+        </p>
       )}
 
       {user && (membership.data?.is_member || membership.data?.can_manage) && (

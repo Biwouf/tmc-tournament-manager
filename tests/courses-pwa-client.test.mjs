@@ -492,8 +492,10 @@ function pushMock() {
   return {
     calls,
     coursePushSupported: () => true,
-    syncCoursePush: async () => false,
-    enableCoursePush: async (...args) => { calls.push(args); },
+    syncPush: async () => null,
+    enablePush: async (...args) => { calls.push(args.slice(0, 2)); return { courses: true, live: false }; },
+    disablePushCategory: async () => ({ courses: false, live: false }),
+    onPushPreferences: () => () => {},
     disableCoursePush: async () => {},
   };
 }

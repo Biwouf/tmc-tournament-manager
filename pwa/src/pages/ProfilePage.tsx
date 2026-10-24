@@ -6,9 +6,10 @@ import { useCourseAction, useCourseContext } from '../hooks/useCourses';
 import { courseError, type Profile, type Sex } from '../lib/courses';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-import { disableCoursePush } from '../lib/coursePush';
+import { coursePushSupported, disableCoursePush } from '../lib/coursePush';
 import { returnPath } from '../components/layout/headerConfig';
 import CoursePushSettings from '../components/courses/CoursePushSettings';
+import { LivePushSettings } from '../components/live/LivePush';
 import '../components/courses/courses.css';
 
 function ProfileForm({
@@ -175,7 +176,13 @@ export default function ProfilePage() {
       {user && clubId && context.data?.is_member && (
         <section aria-labelledby="profile-notifications">
           <h2 id="profile-notifications" className="booking-profile-title">Notifications</h2>
-          <CoursePushSettings clubId={clubId} userId={user.id} />
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            <CoursePushSettings clubId={clubId} userId={user.id} />
+            <LivePushSettings clubId={clubId} userId={user.id} />
+          </ul>
+          {!coursePushSupported() && (
+            <p className="booking-note">Indisponible ici. Sur iPhone ou iPad, ajoutez l’application à l’écran d’accueil.</p>
+          )}
         </section>
       )}
       <button

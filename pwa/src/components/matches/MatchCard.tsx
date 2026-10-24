@@ -12,6 +12,7 @@ import type { LiveMatch, LiveMatchWinner } from '../../types';
 import LiveBadge from './LiveBadge';
 import { getServer } from '../../liveScoreRules';
 import TennisBall from '../TennisBall';
+import { LiveFollowButton } from '../live/LivePush';
 
 interface Props {
   match: LiveMatch;
@@ -20,6 +21,8 @@ interface Props {
   encounter?: LiveEncounterScore;
   encounterLoading?: boolean;
   encounterError?: boolean;
+  /** Après un clic réussi sur la cloche (toast de la liste). */
+  onFollowChange?: (following: boolean) => void;
 }
 
 interface SetState {
@@ -168,6 +171,7 @@ export default function MatchCard({
   encounter,
   encounterLoading,
   encounterError,
+  onFollowChange,
 }: Props) {
   const queryClient = useQueryClient();
   const { clubId } = useClub();
@@ -295,6 +299,9 @@ export default function MatchCard({
         <span aria-hidden="true" className="text-xs font-semibold text-primary">
           {actionLabel} →
         </span>
+        {!isFinished && canManage && userId && clubId && (
+          <LiveFollowButton clubId={clubId} userId={userId} matchId={match.id} iconOnly onChange={onFollowChange} />
+        )}
         {isFinished && canManage && (
           <button
             type="button"

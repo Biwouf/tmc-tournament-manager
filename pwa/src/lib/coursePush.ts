@@ -54,13 +54,28 @@ async function clearNotifications() {
   const registration = await navigator.serviceWorker.getRegistration('/');
   for (const notification of await registration?.getNotifications() || []) notification.close();
 }
-async function saveSubscription(clubId: string, userId: string, subscription: PushSubscription) {
+export type PushPreferences = { courses: boolean; live: boolean };
+type PreferencePatch = { courses?: boolean; live?: boolean };
+
+// Shared by every push control on the page (profile, prompts, follow buttons).
+const listeners = new Set<(prefs: PushPreferences | null) => void>();
+export function onPushPreferences(listener: (prefs: PushPreferences | null) => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+function publish(prefs: PushPreferences | null) {
+  for (const listener of listeners) listener(prefs);
+}
+
+async function saveSubscription(clubId: string, userId: string, subscription: PushSubscription,
+  patch: PreferencePatch = {}): Promise<PushPreferences> {
   const { data } = await supabase.auth.getSession();
   if (data.session?.user.id !== userId) throw new Error('Votre session a changé. Reconnectez-vous.');
   const { endpoint, keys } = subscription.toJSON();
   if (!endpoint || !keys?.p256dh || !keys.auth) throw new Error('Abonnement push incomplet.');
-  const { error } = await supabase.rpc('course_push_subscribe', {
+  const { data: rows, error } = await supabase.rpc('push_subscribe', {
     p_club: clubId, p_endpoint: endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth,
+    p_courses: patch.courses ?? null, p_live: patch.live ?? null,
   });
   if (error) throw new Error('Impossible d’enregistrer les notifications. Réessayez.');
   const current = await supabase.auth.getSession();
@@ -69,10 +84,16 @@ async function saveSubscription(clubId: string, userId: string, subscription: Pu
     throw new Error('Votre session a changé. Reconnectez-vous.');
   }
   localStorage.setItem(bindingKey, JSON.stringify({ clubId, userId, endpoint }));
+  const row = (Array.isArray(rows) ? rows[0] : rows) as { notify_courses?: boolean; notify_live?: boolean } | null;
+  const prefs = { courses: Boolean(row?.notify_courses), live: Boolean(row?.notify_live) };
+  publish(prefs);
+  return prefs;
 }
 
+// Subscribes this device (if needed) and applies the preference patch. An empty patch only makes
+// sure the device can receive the alerts of followed matches.
 // Permission request starts directly in the click handler, before any queued work.
-export function enableCoursePush(clubId: string, userId: string): Promise<void> {
+export function enablePush(clubId: string, userId: string, patch: PreferencePatch): Promise<PushPreferences> {
   if (!coursePushSupported()) return Promise.reject(new Error('Notifications indisponibles sur cet appareil.'));
   const permission = Notification.requestPermission();
   return exclusive(async () => {
@@ -82,28 +103,48 @@ export function enableCoursePush(clubId: string, userId: string): Promise<void> 
     const subscription = existing || await registration.pushManager.subscribe({
       userVisibleOnly: true, applicationServerKey: applicationServerKey(),
     });
-    try { await saveSubscription(clubId, userId, subscription); }
+    try { return await saveSubscription(clubId, userId, subscription, patch); }
     catch (error) {
-      await subscription.unsubscribe().catch(() => {});
-      localStorage.removeItem(bindingKey);
+      // Never revoke a device subscription that other categories still rely on.
+      if (!existing || binding()?.userId !== userId) {
+        await subscription.unsubscribe().catch(() => {});
+        localStorage.removeItem(bindingKey);
+        publish(null);
+      }
       throw error;
     }
   });
 }
+export function enableCoursePush(clubId: string, userId: string): Promise<void> {
+  return enablePush(clubId, userId, { courses: true }).then(() => {});
+}
 
-export function syncCoursePush(clubId: string, userId: string): Promise<boolean> {
+// Turns one category off while keeping the device subscribed (other category, followed matches).
+export function disablePushCategory(clubId: string, userId: string, patch: PreferencePatch): Promise<PushPreferences | null> {
   return exclusive(async () => {
-    const saved = binding();
-    // A system permission alone is not consent for a new account.
-    if (!coursePushSupported() || Notification.permission !== 'granted' ||
-      saved?.userId !== userId || saved.clubId !== clubId) return false;
     const subscription = await existingSubscription();
-    if (!subscription || subscription.endpoint !== saved.endpoint) return false;
-    await saveSubscription(clubId, userId, subscription);
-    return true;
+    if (!subscription || binding()?.userId !== userId || binding()?.clubId !== clubId) return null;
+    return saveSubscription(clubId, userId, subscription, patch);
   });
 }
 
+// Device preferences, or null when this device is not subscribed for this account and club.
+export function syncPush(clubId: string, userId: string): Promise<PushPreferences | null> {
+  return exclusive(async () => {
+    const current = binding();
+    // A system permission alone is not consent for a new account.
+    if (!coursePushSupported() || Notification.permission !== 'granted' ||
+      current?.userId !== userId || current.clubId !== clubId) return null;
+    const subscription = await existingSubscription();
+    if (!subscription || subscription.endpoint !== current.endpoint) return null;
+    return saveSubscription(clubId, userId, subscription);
+  });
+}
+export function syncCoursePush(clubId: string, userId: string): Promise<boolean> {
+  return syncPush(clubId, userId).then((prefs) => Boolean(prefs?.courses));
+}
+
+// Full revocation of this device (logout).
 export function disableCoursePush(clubId: string): Promise<void> {
   return exclusive(async () => {
     const subscription = await existingSubscription();
@@ -128,6 +169,7 @@ export function disableCoursePush(clubId: string): Promise<void> {
       throw new Error('Impossible de désactiver les notifications. Vérifiez votre connexion et réessayez.');
     }
     localStorage.removeItem(bindingKey);
+    publish(null);
     if (platformSupported()) await clearNotifications().catch(() => {});
   });
 }
@@ -143,6 +185,7 @@ export function reconcileCoursePush(userId: string | null): Promise<void> {
       if (await existingSubscription()) throw new Error('Push subscription still active');
     }
     localStorage.removeItem(bindingKey);
+    publish(null);
     if (platformSupported()) await clearNotifications();
   });
 }

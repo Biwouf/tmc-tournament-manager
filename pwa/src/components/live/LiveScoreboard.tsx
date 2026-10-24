@@ -47,12 +47,14 @@ export default function LiveScoreboard({
   onReload: () => void;
   onUndo: () => void;
   /** null = match déjà commencé : la page ouvre la saisie du score. */
-  onStart: (firstServer: LiveMatchWinner | null) => void;
+  /** notify : la personne qui démarre envoie l'alerte de début aux abonnés Live du club. */
+  onStart: (firstServer: LiveMatchWinner | null, notify: boolean) => void;
   onScore: (patch: Partial<LiveMatch>) => void;
 }) {
   const currentSet = activeSet(match);
   const quickAvailable = !!quickScore(match, 'j1');
   const [now, setNow] = useState(() => new Date().toISOString());
+  const [notifyStart, setNotifyStart] = useState(true);
   useEffect(() => {
     if (match.status !== 'live') return;
     setNow(new Date().toISOString());
@@ -231,14 +233,25 @@ export default function LiveScoreboard({
           </button>
         )}
       {match.status === 'pending' && canAnimate && (
-        <FirstServerPicker
-          match={match}
-          title="Démarrer le live · qui sert ?"
-          disabled={blocked}
-          onPick={(side) => onStart(firstServerFor(match, side))}
-          extraLabel="Déjà commencé"
-          onExtra={() => onStart(null)}
-        />
+        <>
+          <FirstServerPicker
+            match={match}
+            title="Démarrer le live · qui sert ?"
+            disabled={blocked}
+            onPick={(side) => onStart(firstServerFor(match, side), notifyStart)}
+            extraLabel="Déjà commencé"
+            onExtra={() => onStart(null, notifyStart)}
+          />
+          <label className="start-notify">
+            <input
+              type="checkbox"
+              checked={notifyStart}
+              disabled={blocked}
+              onChange={(e) => setNotifyStart(e.target.checked)}
+            />
+            Prévenir les abonnés du club
+          </label>
+        </>
       )}
       {match.team_rencontre_id &&
         match.status === 'finished' &&
