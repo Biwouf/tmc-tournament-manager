@@ -1,5 +1,6 @@
 import type { TeamMatch } from '../types';
 import { formatCategorie, GENRE_LABELS } from './teamMatches/teamMatchLabels';
+import { clubTint, hexToHsl } from '../lib/theme';
 
 const POSTER_W = 1414;
 const POSTER_H = 2000;
@@ -26,6 +27,22 @@ function formatMatchTime(t: string): string {
   return m === '00' ? `${parseInt(h, 10)}h` : `${parseInt(h, 10)}h${m}`;
 }
 
+// Couleurs de l'affiche, dérivées de `brand.color` (repli `#c8102e`, le rouge historique de
+// l'affiche, si la couleur est vide ou illisible) avec la dérivation de `lib/theme.ts`, comme
+// l'affiche de `/programmation-image`. Avec `#c8102e`, fond de date et pointillés redonnent
+// à un point près `#fff5f6` et `#f5c8cf`. Posées en variables CSS sur la racine : la feuille
+// `POSTER_STYLES` reste statique.
+const POSTER_FALLBACK_COLOR = '#c8102e';
+
+function posterColorVars(color: string): React.CSSProperties {
+  const brand = hexToHsl(color) ? color : POSTER_FALLBACK_COLOR;
+  return {
+    '--poster-brand': brand,
+    '--poster-soft': clubTint(brand, 100, 98)!,
+    '--poster-dash': clubTint(brand, 69, 87)!,
+  } as React.CSSProperties;
+}
+
 type SizeClass = 'hero' | 'normal' | 'compact';
 
 function sizeClassFor(count: number): SizeClass {
@@ -50,22 +67,22 @@ const POSTER_STYLES = `
 
 /* Date */
 .tmc-poster .va-date {
-  background: #fff5f6;
-  border-right: 2px dashed #f5c8cf;
+  background: var(--poster-soft);
+  border-right: 2px dashed var(--poster-dash);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   padding: 28px 22px;
   text-align: center;
   gap: 8px;
 }
-.tmc-poster .va-date .day   { font-size: 38px; font-weight: 800; color: #c8102e; line-height: 1;
+.tmc-poster .va-date .day   { font-size: 38px; font-weight: 800; color: var(--poster-brand); line-height: 1;
                   letter-spacing: -0.5px; text-transform: uppercase; }
 .tmc-poster .va-date .num   { font-family: 'Anton', 'Arial Black', sans-serif;
                   font-size: 86px; line-height: 0.95; color: #1a1416; letter-spacing: -1px; }
 .tmc-poster .va-date .month { font-size: 26px; font-weight: 700; color: #1a1416;
                   text-transform: uppercase; letter-spacing: 1px; line-height: 1; }
-.tmc-poster .va-date .time  { margin-top: 10px; font-size: 24px; font-weight: 700; color: #c8102e;
-                  background: #fff; border: 2px solid #c8102e;
+.tmc-poster .va-date .time  { margin-top: 10px; font-size: 24px; font-weight: 700; color: var(--poster-brand);
+                  background: #fff; border: 2px solid var(--poster-brand);
                   padding: 4px 14px; border-radius: 999px; letter-spacing: 0.5px; }
 
 /* Corps */
@@ -80,12 +97,12 @@ const POSTER_STYLES = `
 }
 .tmc-poster .va-body .team-no {
   display: inline-flex; align-items: center; gap: 10px;
-  font-size: 18px; font-weight: 700; color: #c8102e;
+  font-size: 18px; font-weight: 700; color: var(--poster-brand);
   letter-spacing: 2.5px; text-transform: uppercase;
 }
 .tmc-poster .va-body .team-no::before {
   content: ''; width: 28px; height: 3px;
-  background: #c8102e; border-radius: 2px;
+  background: var(--poster-brand); border-radius: 2px;
 }
 .tmc-poster .va-body .vs-line {
   display: flex; align-items: baseline; gap: 20px;
@@ -108,7 +125,7 @@ const POSTER_STYLES = `
   align-items: center; justify-content: center;
   padding: 18px; color: #fff; text-align: center; gap: 14px;
 }
-.tmc-poster .va-loc.home { background: #c8102e; }
+.tmc-poster .va-loc.home { background: var(--poster-brand); }
 .tmc-poster .va-loc.away { background: #1a1416; }
 .tmc-poster .va-loc .icon  { font-size: 90px; line-height: 1; }
 /* Keep the longest label (DÉPLACEMENT) inside each fixed-width location column. */
@@ -206,9 +223,11 @@ interface TeamMatchImagePreviewProps {
    *  composant DEUX fois sur le même écran (aperçu + nœud d'export). Absent = aucun fond,
    *  l'aplat uni suffit et l'affiche se génère. */
   background?: string;
+  /** `config.brand.color` du club, lu par `PosterPanel` pour la même raison que le fond. */
+  color?: string;
 }
 
-export default function TeamMatchImagePreview({ matches, background }: TeamMatchImagePreviewProps) {
+export default function TeamMatchImagePreview({ matches, background, color = '' }: TeamMatchImagePreviewProps) {
   const size = sizeClassFor(matches.length);
   const gap = size === 'hero' ? 0 : size === 'compact' ? 22 : 32;
   const justify =
@@ -219,7 +238,8 @@ export default function TeamMatchImagePreview({ matches, background }: TeamMatch
     <div className="tmc-poster" style={{
       position: 'relative',
       width: POSTER_W, height: POSTER_H,
-      background: '#c8102e', overflow: 'hidden',
+      ...posterColorVars(color),
+      background: 'var(--poster-brand)', overflow: 'hidden',
       fontFamily: "'Prompt', sans-serif",
     }}>
       <style>{POSTER_STYLES}</style>

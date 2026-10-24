@@ -635,6 +635,16 @@ Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localeme
   `object-fit`** : une image aux mauvaises proportions y serait **étirée en silence**. ⚠️ L'`<img>` porte **`crossOrigin="anonymous"`** :
   le fond vient du Storage, donc d'une autre origine, et sans cet attribut le **JPEG exporté**
   sortirait sans fond alors que l'aperçu resterait parfait.
+- **Couleur de l'affiche** : `config.brand.color`, lue par `PosterPanel` et passée en prop
+  **`color`** pour la même raison que le fond. Elle peint le fond uni, le jour, l'heure (texte +
+  bordure de la pastille), « Équipe n » et son tiret, et la case « Au club » ; la case
+  « Déplacement » reste noire. Le fond de la colonne date et son séparateur pointillé sont
+  dérivés par `clubTint` (`lib/theme.ts`), comme l'affiche de `/programmation-image` :
+  `clubTint(brand, 100, 98)` et `clubTint(brand, 69, 87)`. Repli **`#c8102e`** si la couleur est
+  vide ou illisible ; ces nuances redonnent alors `#fef6f7` / `#f5c7ce` (au lieu de `#fff5f6` /
+  `#f5c8cf`, écart d'un point). Les couleurs sont posées en **variables CSS** (`--poster-brand`,
+  `--poster-soft`, `--poster-dash`) sur la racine `.tmc-poster` : `POSTER_STYLES` reste une
+  feuille statique, et `html-to-image` les résout à l'export.
 - **Téléchargement** : `<a download="affiche-rencontres-YYYY-MM-DD.jpg">`, où la date est
   celle du **samedi** du week-end concerné.
 - **États du bouton** : `idle` → « Générer l'affiche » / `loading` → « Génération… » +

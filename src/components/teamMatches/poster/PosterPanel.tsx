@@ -257,7 +257,7 @@ export default function PosterPanel({
               style={{ width: 1414, transform: 'scale(0.234)', transformOrigin: 'top left' }}
               aria-label="Aperçu de l'affiche"
             >
-              <TeamMatchImagePreview matches={selectedMatches} background={background?.image} />
+              <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={config.brand.color} />
             </div>
           </div>
         </div>
@@ -296,7 +296,7 @@ export default function PosterPanel({
       {/* Affiche hors viewport — requise pour html-to-image */}
       <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>
         <div ref={posterRef}>
-          <TeamMatchImagePreview matches={selectedMatches} background={background?.image} />
+          <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={config.brand.color} />
         </div>
       </div>
     </div>
