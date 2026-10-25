@@ -1,5 +1,3 @@
-import TenupSync from '../../../shared/TenupSync';
-import { tenupClient } from '../../../shared/tenupClient';
 import { supabase } from '../lib/supabase';
 import PerformanceBadge from '../components/teamMatches/PerformanceBadge';
 import { isClubPerformance } from '../lib/teamPerformance';
@@ -22,6 +20,11 @@ import { announceLiveStart } from '../lib/liveFollows';
 import TeamResultSheet from '../components/teamMatches/TeamResultSheet';
 
 type Selection = { line: TeamLine; live?: LiveMatch; mode: 'actions' | 'result' };
+const toLocalInput = (iso: string) => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 export default function TeamRencontrePage() {
   const { id = '' } = useParams();
   const { clubId, club } = useClub();
@@ -33,6 +36,9 @@ export default function TeamRencontrePage() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [notifyStart, setNotifyStart] = useState(true);
   const [recap, setRecap] = useState<{ revision: number; lines: TeamLine[] } | null>(null);
+  const [dateDraft, setDateDraft] = useState<string | null>(null);
+  const [dateSaving, setDateSaving] = useState(false);
+  const [dateError, setDateError] = useState('');
   const action = useTeamAction(clubId, id);
   const queryClient = useQueryClient();
   // Broadcast `live:club:<id>` : cette rencontre, ses matches ou un live lié ont changé.
@@ -54,6 +60,25 @@ export default function TeamRencontrePage() {
   });
   const close = () => { setSelection(null); setCreating(false); setComposing(false); setRecap(null); action.clearError(); void query.refetch(); };
   const canEdit = !!user && !!(membership.data?.is_member || membership.data?.can_manage);
+  // Même droit que la RLS d'écriture de team_rencontres (admin/manager du club).
+  const admin = useQuery({
+    queryKey: ['club-admin', clubId, user?.id], enabled: !!clubId && !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('can_manage_club_content', { target_club: clubId });
+      if (error) throw error;
+      return data === true;
+    },
+  });
+  const saveDate = async () => {
+    if (!dateDraft || !clubId) return;
+    setDateSaving(true);
+    setDateError('');
+    const { error } = await supabase.from('team_rencontres').update({ date_heure: new Date(dateDraft).toISOString() }).eq('id', id).eq('club_id', clubId);
+    setDateSaving(false);
+    if (error) { setDateError('Impossible de modifier la date. Réessayez.'); return; }
+    setDateDraft(null);
+    void query.refetch();
+  };
   if (query.isPending) return <p className="p-6" role="status">Chargement de la rencontre…</p>;
   if (!query.data) return <div className="p-6"><p role="alert">Impossible de charger la rencontre.</p><button className="min-h-11 underline" onClick={() => void query.refetch()}>Réessayer</button></div>;
   const detail = query.data;
@@ -96,14 +121,12 @@ export default function TeamRencontrePage() {
       <p className="text-xs font-semibold uppercase text-primary">{competition.nom} · Équipe {equipe.numero}</p>
       <h1 className="mt-2 text-2xl font-bold">{club?.name ?? 'Notre club'} – {rencontre.club_adverse}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{new Date(rencontre.date_heure).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} · {rencontre.domicile ? 'Au club' : 'À l’extérieur'}</p>
+      {admin.data && <button onClick={() => { setDateError(''); setDateDraft(toLocalInput(rencontre.date_heure)); }} className="mt-3 min-h-12 w-full rounded-xl border border-primary p-3 font-semibold text-primary">Changer la date</button>}
       <div className="my-4 text-center text-4xl font-bold tabular-nums">{rencontre.wo ? 'WO' : lines.length ? `${total.club} – ${total.adverse}` : `${rencontre.score_club ?? '–'} – ${rencontre.score_adverse ?? '–'}`}</div>
       <p className="text-center text-sm font-semibold">{rencontre.confirmed_at ? 'Rencontre confirmée' : 'Résultat provisoire'}</p>
       <p className="mt-3 text-xs text-muted-foreground">{spec.simples} simples · {spec.doubles} double{spec.doubles > 1 ? 's' : ''}{spec.doublePoints > 1 ? ' · double à 2 points' : ''}</p>
       <p className="mt-1 text-xs text-muted-foreground">3e set des simples : {competition.singles_set3_format === 'super_tiebreak' ? 'super tie-break' : competition.singles_set3_format === 'normal' ? 'set classique' : 'à configurer'} · doubles : super tie-break</p>
     </section>
-    {canEdit && !rencontre.wo && clubId && <TenupSync key={rencontre.id} sourceUrl={rencontre.tenup_url} sourceSide={rencontre.tenup_side} syncedAt={rencontre.tenup_synced_at}
-      clubName={club?.name ?? 'Notre club'} opponent={rencontre.club_adverse} date={rencontre.date_heure} lines={lines}
-      {...tenupClient(supabase, clubId, rencontre.id)} onSynced={() => void query.refetch()} />}
     {query.isError && <p role="alert" className="text-sm text-amber-800">Actualisation impossible. Les données affichées peuvent avoir changé. <button onClick={() => void query.refetch()} className="underline">Réessayer</button></p>}
     {!user && <Link to="/login" state={{ from: `/matches-equipes/${id}` }} className="block rounded-xl border border-border p-3 text-center text-primary">Se connecter pour gérer les matchs</Link>}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}
@@ -145,6 +168,14 @@ export default function TeamRencontrePage() {
       {action.error && <p role="alert" className="mt-3 text-sm text-red-700">{action.error}</p>}
     </TeamSheet>}
     {selection?.mode === 'result' && clubId && user && <TeamResultSheet line={selection.line} live={selection.live} clubId={clubId} onClose={close} />}
+    {dateDraft !== null && <TeamSheet title="Changer la date" onClose={() => setDateDraft(null)} busy={dateSaving}>
+      <label className="block text-sm font-medium">Date et heure
+        <input type="datetime-local" required value={dateDraft} disabled={dateSaving} onChange={e => setDateDraft(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background p-2" />
+      </label>
+      {rencontre.confirmed_at && <p className="mt-3 text-sm text-muted-foreground">La rencontre devra être confirmée à nouveau.</p>}
+      {dateError && <p role="alert" className="mt-3 text-sm text-red-700">{dateError}</p>}
+      <button disabled={dateSaving || !dateDraft} onClick={() => void saveDate()} className="mt-4 min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground disabled:opacity-40">{dateSaving ? 'Enregistrement…' : 'Enregistrer'}</button>
+    </TeamSheet>}
     {recap && <TeamSheet title="Confirmer la rencontre" onClose={close} busy={action.busy}>
       <div className="space-y-3">{recap.lines.map(line => <div key={line.id} className="flex justify-between gap-3 border-b border-border pb-2 text-sm"><span>{lineLabel(line)} · {line.gagnant === 'club' ? 'Gagné' : 'Perdu'}</span><strong>{line.score}</strong></div>)}</div>
       <p className="my-4 text-sm">Les résultats de tous les matchs ont été vérifiés.</p>
