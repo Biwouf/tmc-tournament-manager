@@ -10,6 +10,10 @@ et les permissions d'écriture restent applicables.
 Les places dépendent du format de compétition, doubles inclus. Création guidée :
 place, joueur(s) du club, adversaire(s). Membres recherchables et texte libre,
 classement du jour conservé, NC par défaut. Grille : 3e, 2e puis 4e série.
+Double (25/10/2026) : en tête de chaque étape joueurs, les joueurs déjà alignés en simple
+dans la rencontre (de chaque côté) se cochent d'un tap, jusqu'à deux (nom, classement et
+membre repris ; un second tap les retire). Une place remplie ainsi tient sur une ligne ;
+seules les places restantes affichent la saisie libre et la grille des classements.
 
 Deux actions : suivre en live ou saisir le résultat. Un match créé sans résultat
 reste en attente ; aucune action « Ne pas suivre ». Les modes peuvent changer,
@@ -177,6 +181,8 @@ Recette avec deux membres du même club :
 2. Ajouter un simple ; le lancer en live. Après deux sets partagés, vérifier que le
    super tie-break s'affiche directement, sans sélecteur. Refaire avec un set classique.
 3. Ajouter un double : deux joueurs de chaque côté et super tie-break automatique.
+   Les joueurs des simples déjà créés sont proposés en tête, des deux côtés : deux taps
+   suffisent sans défiler ; un joueur sans simple se saisit à la main sur la place libre.
 4. Depuis le second compte, reprendre explicitement le live ; le premier marqueur
    passe en lecture seule. Ouvrir un formulaire avant une modification de score :
    sa validation doit signaler le conflit, pas écraser le nouvel état.

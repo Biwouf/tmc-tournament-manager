@@ -11,6 +11,8 @@ const ranks = [
 ];
 const empty = (): TeamPlayer => ({ prenom: '', nom: '', classement: 'NC' });
 const validPlayers = (players: TeamPlayer[]) => players.every(p => `${p.prenom} ${p.nom}`.trim().length > 0);
+// Même joueur : même membre, sinon même nom affiché.
+const playerKey = (p: TeamPlayer) => p.member_id ?? `${p.prenom} ${p.nom ?? ''}`.trim().toLowerCase();
 
 function PlayerFields({ value, onChange, clubId, index }: {
   value: TeamPlayer; onChange: (p: TeamPlayer) => void; clubId?: string; index: number;
@@ -57,12 +59,15 @@ export default function CreateTeamMatch({ detail, clubId, onClose }: { detail: T
   const [place, setPlace] = useState<{ type: 'simple' | 'double'; slot: number } | null>(null);
   const [club, setClub] = useState<TeamPlayer[]>([empty()]);
   const [adverse, setAdverse] = useState<TeamPlayer[]>([empty()]);
+  // Places remplies d'un tap parmi les joueurs des simples (`<étape>-<place>`).
+  const [fromSingles, setFromSingles] = useState<string[]>([]);
   const action = useTeamAction(clubId, detail.rencontre.id);
   const spec = TEAM_FORMATS[detail.competition.format];
   const choose = (type: 'simple' | 'double', slot: number) => {
     if (place?.type !== type) {
       setClub(previous => type === 'double' ? [previous[0], empty()] : previous.slice(0, 1));
       setAdverse(previous => type === 'double' ? [previous[0], empty()] : previous.slice(0, 1));
+      setFromSingles([]);
     }
     setPlace({ type, slot });
   };
@@ -70,6 +75,26 @@ export default function CreateTeamMatch({ detail, clubId, onClose }: { detail: T
     if (!place || !validPlayers(club) || !validPlayers(adverse)) return;
     if (await action.run('create', { match_type: place.type, slot: place.slot, joueurs_club: club, joueurs_adverse: adverse })) onClose();
   };
+  // Double : les joueurs alignés en simple dans cette rencontre se choisissent d'un tap.
+  const players = step === 1 ? club : adverse;
+  const setPlayers = step === 1 ? setClub : setAdverse;
+  const picks = place?.type !== 'double' ? [] : detail.lines
+    .filter(l => l.match_type === 'simple').flatMap(l => step === 1 ? l.joueurs_club : l.joueurs_adverse)
+    .filter((p, i, all) => all.findIndex(o => playerKey(o) === playerKey(p)) === i);
+  const picked = (index: number) => fromSingles.includes(`${step}-${index}`);
+  const pickedSlot = (pick: TeamPlayer) => players.findIndex((p, i) => picked(i) && playerKey(p) === playerKey(pick));
+  // Un tap retire le joueur s'il est choisi, sinon le place à la première place libre
+  // (vide d'abord, puis saisie libre en cours).
+  const togglePick = (pick: TeamPlayer) => {
+    const chosen = pickedSlot(pick);
+    const blank = players.findIndex((p, i) => !picked(i) && !`${p.prenom} ${p.nom}`.trim());
+    const target = chosen >= 0 ? chosen : blank >= 0 ? blank : players.findIndex((_, i) => !picked(i));
+    if (target < 0) return;
+    const slot = `${step}-${target}`;
+    setPlayers(previous => previous.map((p, i) => i !== target ? p : chosen >= 0 ? empty() : { ...pick, nom: pick.nom ?? '' }));
+    setFromSingles(previous => chosen >= 0 ? previous.filter(k => k !== slot) : [...previous, slot]);
+  };
+  const full = players.every((_, i) => picked(i));
   const canContinue = step === 0 ? !!place : step === 1 ? validPlayers(club) : validPlayers(adverse);
   return <TeamSheet title="Ajouter un match" onClose={onClose} busy={action.busy}>
     <p className="mb-4 text-sm text-muted-foreground">Étape {step + 1}/3 · {['Place dans la rencontre', 'Joueurs du club', 'Adversaires'][step]}</p>
@@ -83,8 +108,25 @@ export default function CreateTeamMatch({ detail, clubId, onClose }: { detail: T
         </button>;
       }))}
       {!detail.competition.singles_set3_format && <p className="text-sm text-amber-800">Le troisième set des simples doit être renseigné dans l’administration de la compétition.</p>}
-    </div> : <div className="space-y-4">{(step === 1 ? club : adverse).map((p, index) => <PlayerFields key={`${step}-${index}`} index={index} value={p} clubId={step === 1 ? clubId : undefined}
-      onChange={value => (step === 1 ? setClub : setAdverse)(previous => previous.map((old, i) => i === index ? value : old))} />)}</div>}
+    </div> : <div className="space-y-4">
+      {picks.length > 0 && <div>
+        <p className="mb-2 text-sm font-medium">Ont joué un simple</p>
+        <div className="flex flex-wrap gap-2">{picks.map(pick => {
+          const slot = pickedSlot(pick);
+          return <button type="button" key={playerKey(pick)} aria-pressed={slot >= 0} disabled={slot < 0 && full} onClick={() => togglePick(pick)}
+            className={`min-h-11 rounded-full border px-3 text-sm disabled:opacity-40 ${slot >= 0 ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background'}`}>
+            {slot >= 0 && <span className="mr-1 font-semibold">{slot + 1}.</span>}{`${pick.prenom} ${pick.nom ?? ''}`.trim()} · {pick.classement}
+          </button>;
+        })}</div>
+      </div>}
+      {players.map((p, index) => picked(index)
+        ? <div key={`${step}-${index}`} className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-border px-3 text-sm">
+          <span><span className="font-semibold">Joueur {index + 1}</span> · {`${p.prenom} ${p.nom ?? ''}`.trim()} · {p.classement}</span>
+          <button type="button" onClick={() => togglePick(p)} className="min-h-11 px-2 text-primary">Retirer</button>
+        </div>
+        : <PlayerFields key={`${step}-${index}`} index={index} value={p} clubId={step === 1 ? clubId : undefined}
+          onChange={value => setPlayers(previous => previous.map((old, i) => i === index ? value : old))} />)}
+    </div>}
     {action.error && <p role="alert" className="mt-3 text-sm text-red-700">{action.error}</p>}
     <div className="mt-5 flex gap-3">
       {step > 0 && <button disabled={action.busy} onClick={() => setStep(step - 1)} className="min-h-11 rounded-lg border border-border px-4">Retour</button>}
