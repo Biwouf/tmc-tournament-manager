@@ -106,6 +106,10 @@ La consultation des scores est publique pour les clubs actifs. Les écritures di
 sur les autres données de compétition restent réservées aux responsables ; les membres
 utilisent les commandes dédiées sans obtenir de droits d'administration supplémentaires.
 
+Depuis le 25/10/2026, la synchronisation Ten'Up n'est plus proposée dans la PWA (BO uniquement).
+Les admins et gestionnaires du club (`can_manage_club_content`) peuvent changer la date et l'heure
+d'une rencontre depuis sa fiche ; comme au BO, la rencontre repasse alors à confirmer si elle l'était.
+
 Le lot 4 (hors connexion transversal) reste à développer. Les nouvelles commandes sont
 rejouables, mais aucune file locale durable ni synchronisation automatique n'est encore
 livrée. Une erreur réseau ne doit pas être présentée comme une sauvegarde réussie.
