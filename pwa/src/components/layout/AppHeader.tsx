@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { resolveHeader, type HeaderAction } from './headerConfig';
-import { useHeaderActionState } from './HeaderActionContext';
+import { useHeaderActionState, useHeaderSlot } from './HeaderActionContext';
 import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
 import { useAuth } from '../../hooks/useAuth';
@@ -88,6 +88,7 @@ export default function AppHeader() {
   const navigate = useNavigate();
   const cfg = resolveHeader(location.pathname);
   const action = useHeaderActionState();
+  const { setSlot } = useHeaderSlot();
   const { club } = useClub();
   const { config } = useClubConfig();
   const clubName = club?.name ?? cfg.title;
@@ -156,6 +157,7 @@ export default function AppHeader() {
         </>
       )}
 
+      {cfg.mode === 'root' && <div ref={setSlot} className="contents" />}
       {action ? <ActionButton action={action} /> : cfg.mode === 'root' && <AccountButton />}
     </header>
   );

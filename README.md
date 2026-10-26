@@ -58,7 +58,8 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 ### Matches par équipe
 - Gestion des **rencontres interclubs** du club (back-office), indépendamment des événements
 - **Vue « grille de saison »** : lignes = équipes groupées par compétition, colonnes = journées de poule puis tours de phase finale. Chaque cellule est une rencontre colorée par état (victoire, défaite, nul, score à saisir, à venir, WO, à programmer) et cliquable — **saisir un score prend 2 clics**
-- Deux vues alternatives sur les mêmes données : **Agenda** (à saisir / ce week-end / week-end suivant / déjà jouées) et **Liste** (une ligne par équipe, avancement, bilan, état)
+- Deux vues alternatives sur les mêmes données : **Agenda** (à saisir / ce week-end / toutes les rencontres à venir semaine par semaine / déjà jouées) et **Liste** (une ligne par équipe, avancement, bilan, état)
+- **Export du calendrier** en image PNG : une grille date × équipe de toutes les rencontres à venir (à domicile / à l'extérieur), aussi disponible dans la PWA pour tout membre connecté
 - **Panneau latéral** : détail de la rencontre sélectionnée (score, matches individuels, raccourcis Live Score / Photos / Actu / WO) ou générateur d'affiche
 - Un compteur d'en-tête remonte les **scores à saisir** — les rencontres jouées sans score ne se découvrent plus par hasard
 - **Référentiel** (carte « Saisons & équipes » sur l'accueil) : saisons (une seule active à la fois), compétitions (nom, type adultes/jeunes, genre, catégorie d'âge libre — ex. « +70 ans », suggestions proposées et déduite du nom au préremplissage Ten'Up —, format) et équipes (création/suppression)
@@ -81,6 +82,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 ### PWA — navigation
 - En haut à droite de chaque onglet : le **bouton profil** (prénom, nom, sexe, classement, notifications, déconnexion), ou « Connexion » si l'on n'est pas connecté
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
+- Sur **Match équipes**, un membre connecté dispose d'un **bouton calendrier** (à gauche du profil) qui génère une image de toutes les rencontres à venir de la saison, à partager ou enregistrer
 - **Actu** : Actualités et Événements fusionnés, basculables via des sous-onglets soulignés (l'URL conserve `?tab=…`, pull-to-refresh sur les deux flux)
 - **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Une rencontre commencée affiche son **score provisoire** (« En cours » pendant un live, sinon « Provisoire ») ; cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Les membres saisissent les matchs depuis la rencontre : un **live terminé valide automatiquement le résultat du match**, une saisie directe aussi, et le score de la rencontre suit ; la vérification se fait une fois, à la **confirmation de la rencontre**
   - Fiche d'une rencontre : un membre connecté peut **prendre en photo la compo** des deux équipes : les feuilles sont lues automatiquement (IA), vérifiées puis tous les simples sont créés en une fois (sinon « Ajouter match manuellement »), joueurs du club reconnus parmi les membres, classement de la feuille repris (et mis à jour sur la fiche du membre si on le souhaite)
