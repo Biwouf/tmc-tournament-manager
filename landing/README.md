@@ -1,7 +1,7 @@
 # Landing `www.feelike.pro`
 
 Site marketing **statique** de la plateforme (brief S1). Astro 7, aucun JavaScript de framework :
-trois petits scripts en ligne (score animé, curseur avant/après, menu mobile) et, si configuré,
+trois petits scripts en ligne (score animé, récit d’un match au défilement, menu mobile) et, si configuré,
 Plausible. Tout le texte est dans le HTML généré.
 
 Maquette de référence : `docs/briefs/design_handoff_saas_onboarding/Main.dc.html` (non versionnée).

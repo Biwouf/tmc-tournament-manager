@@ -1,0 +1,155 @@
+---
+import { Picture } from 'astro:assets';
+import poster from '../assets/affiche-resultat.png';
+import { matchStory } from '../data/content';
+---
+<section id="un-match" class="sec">
+  <div class="container stack" style="gap:48px">
+    <div class="sec-head">
+      <div class="stack">
+        <span class="eyebrow">Un dimanche d’interclubs</span>
+        <h2 class="h2 story__h2">Une photo le matin. Une affiche le soir.</h2>
+      </div>
+      <p class="lead">Entre les deux, les matchs se créent, le score se suit en direct et tout le club est prévenu, set après set. Personne ne ressaisit rien.</p>
+    </div>
+
+    <div class="story" data-story>
+      <ol class="story__chapters">
+        {matchStory.map((chapter, i) => (
+          <li class="story__ch" data-story-ch={i}>
+            <div class="story__text">
+              <span class="story__time">{chapter.time} · {chapter.who}</span>
+              <h3>{chapter.title}</h3>
+              <p>{chapter.text}</p>
+              {chapter.notif && <span class="story__notif-tag"><span class="pulse" aria-hidden="true"></span>Notification</span>}
+            </div>
+            <div class="story__screen">
+              <div class={`phone${chapter.screen === 'lock' ? ' phone--lock' : ''}${chapter.screen === 'story' || chapter.screen === 'poster' ? ' phone--dark' : ''}`}>
+                {chapter.screen === 'compo' && (
+                  <div class="app">
+                    <p class="app__bar">Prendre en photo la compo</p>
+                    <ol class="app__steps"><li>Notre compo</li><li>Adversaires</li><li class="is-on">Vérification</li></ol>
+                    {[['Simple 1', 'Claire VIDAL', '15/4', 'Anne MARCHAND', '30'], ['Simple 2', 'Sophie LAGARDE', '30/1', 'Julie BERTIN', '30/1'], ['Simple 3', 'Hélène FAURE', '30/2', 'Marion ROCHE', '30/1']].map(([slot, ours, r1, them, r2]) => (
+                      <div class="app__card">
+                        <span class="app__label">{slot}</span>
+                        <span><b>{ours}</b> {r1} <span class="app__ok">membre reconnu</span></span>
+                        <span class="app__muted">{them} {r2}</span>
+                      </div>
+                    ))}
+                    <span class="app__btn">Valider la compo</span>
+                  </div>
+                )}
+                {chapter.screen === 'matches' && (
+                  <div class="app">
+                    <p class="app__bar">Interclubs femmes +35 · J1</p>
+                    {[['Simple 1', 'Claire Vidal – Anne Marchand'], ['Simple 2', 'Sophie Lagarde – Julie Bertin'], ['Simple 3', 'Hélène Faure – Marion Roche']].map(([slot, players]) => (
+                      <div class="app__card">
+                        <span class="app__label">{slot} · à jouer</span>
+                        <span>{players}</span>
+                      </div>
+                    ))}
+                    <div class="app__sheet">
+                      <b>Démarrer le live</b>
+                      <span class="app__muted">Simple 1 · court 2</span>
+                      <span class="app__check"><span class="app__box" aria-hidden="true">✓</span>Prévenir les abonnés du club</span>
+                      <span class="app__btn">Démarrer</span>
+                    </div>
+                  </div>
+                )}
+                {chapter.screen === 'live' && (
+                  <div class="app">
+                    <p class="app__bar"><span class="app__live">Live</span> Simple 1 · court 2</p>
+                    <div class="app__score">
+                      <span>Claire Vidal</span><span class="app__set">1</span><span class="app__set is-on">2</span>
+                      <span>Anne Marchand</span><span class="app__set">6</span><span class="app__set is-on">1</span>
+                    </div>
+                    <div class="app__post"><b>Hélène F.</b> Le premier set est passé, elle revient fort !<span class="app__reacts">👏 6 · 🔥 3</span></div>
+                    <div class="app__post"><b>Sophie L.</b> a publié une photo<span class="app__photo" aria-hidden="true"></span><span class="app__reacts">❤️ 12</span></div>
+                    <div class="app__post"><b>Sondage</b> Qui gagne le 2ᵉ set ?<span class="app__poll"><span style="--v:78%">Claire 78 %</span><span style="--v:22%">Anne 22 %</span></span></div>
+                  </div>
+                )}
+                {chapter.screen === 'lock' && (
+                  <div class="lock">
+                    <span class="lock__time">{chapter.time}</span>
+                    <span class="lock__date">dimanche 27 septembre</span>
+                    {chapter.notifs?.map(n => (
+                      <div class="nt">
+                        <span class="nt__head"><span>TC Saint-Aubin</span><span>{n.at}</span></span>
+                        <b>{n.title}</b>
+                        <span>{n.body}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {chapter.screen === 'story' && (
+                  <div class="replay">
+                    <span class="replay__bars" aria-hidden="true"><i class="is-on"></i><i class="is-on"></i><i></i><i></i><i></i></span>
+                    <div class="nt nt--drop">
+                      <span class="nt__head"><span>TC Saint-Aubin</span><span>11:20</span></span>
+                      <b>Match terminé</b>
+                      <span>Claire Vidal remporte le match 1/6, 6/4, 10/2 contre Anne Marchand</span>
+                    </div>
+                    <span class="replay__kicker">Le moment fort</span>
+                    <span class="replay__big">De 1/6 à 10/2</span>
+                    <span class="replay__sub">Claire Vidal renverse le match au super tie-break</span>
+                    <span class="replay__stats">14 publications · 63 réactions · 41 spectateurs</span>
+                  </div>
+                )}
+                {chapter.screen === 'poster' && (
+                  <div class="poster">
+                    <Picture
+                      src={poster}
+                      formats={['avif', 'webp']}
+                      widths={[320, 640]}
+                      sizes="300px"
+                      alt="Affiche de résultat générée par feelike.pro : Interclubs Femmes +35, TC Saint-Aubin bat AS Montvallon 1 trois à un, avec le détail des simples et du double."
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span class="poster__caption">Affiche du résultat · prête à publier</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div class="story__stage" aria-hidden="true" data-story-stage></div>
+    </div>
+    <p class="story__caption">Rencontre et joueuses fictives. Textes des notifications et affiche tels que le produit les produit.</p>
+  </div>
+</section>
+
+<script>
+  // Un seul téléphone fixe, dont l'écran suit le chapitre lu : à droite sur grand écran, sous l'en-tête
+  // sur mobile. Sans JS, chaque chapitre garde son propre téléphone.
+  const story = document.querySelector<HTMLElement>('[data-story]');
+  const stage = story?.querySelector<HTMLElement>('[data-story-stage]');
+  if (story && stage) {
+    const chapters = [...story.querySelectorAll<HTMLElement>('[data-story-ch]')];
+    const phones = chapters.map(chapter => {
+      const phone = chapter.querySelector('.phone')!.cloneNode(true) as HTMLElement;
+      phone.querySelectorAll('img').forEach(img => { img.loading = 'eager'; });
+      stage.append(phone);
+      return phone;
+    });
+    const show = (index: number) => {
+      chapters.forEach((chapter, i) => chapter.classList.toggle('is-active', i === index));
+      phones.forEach((phone, i) => phone.classList.toggle('is-active', i === index));
+    };
+    show(0);
+    story.classList.add('is-enhanced');
+    // Bande de lecture : le milieu de l'écran sur grand écran, le bas sur mobile (le haut est au téléphone).
+    const mobile = matchMedia('(max-width: 960px)');
+    let observer: IntersectionObserver | undefined;
+    const observe = () => {
+      observer?.disconnect();
+      observer = new IntersectionObserver(entries => {
+        for (const entry of entries) if (entry.isIntersecting) show(chapters.indexOf(entry.target as HTMLElement));
+      }, { rootMargin: mobile.matches ? '-72% 0px -24% 0px' : '-45% 0px -45% 0px' });
+      chapters.forEach(chapter => observer!.observe(chapter));
+    };
+    observe();
+    mobile.addEventListener('change', observe);
+  }
+</script>

@@ -599,7 +599,7 @@ la PWA ou de la vitrine, aucun accès Supabase. Direction visuelle propre à fee
 | `src/layouts/Base.astro` | Métadonnées, canonical (sans `.html`), Open Graph, polices (titres en `font-display: block` préchargées, sinon CLS), Plausible si configuré |
 | `src/config.ts` | Variables `PUBLIC_*` ; `trialCta()` bascule les CTA d'essai en « Demander un accès » tant que `PUBLIC_SIGNUP_URL` est absente |
 | `src/data/content.ts` | Textes des listes, repris de la maquette `Main.dc.html` |
-| `src/components/` | Une section = un composant ; `Hero` (score animé, même règle de jeu que la maquette), `BeforeAfter` (curseur clavier + pointeur), `Header` (menu mobile plein écran hors du header flouté), `Analytics` (événements Plausible) |
+| `src/components/` | Une section = un composant ; `Hero` (score animé, même règle de jeu que la maquette), `MatchStory` (récit d'un match en 7 chapitres, textes dans `matchStory` de `data/content.ts` : avec JS, un téléphone fixe change d'écran selon le chapitre lu — `IntersectionObserver` : à droite et chapitre au centre sur grand écran, réduit sous l'en-tête et chapitre en bas d'écran sur mobile — ; sans JS, chaque chapitre garde son téléphone ; textes des notifications repris de `docs/LIVE_PUSH.md`), `Header` (menu mobile plein écran hors du header flouté), `Analytics` (événements Plausible) |
 | `src/assets/affiche-resultat.png` | Rendu réel de `renderResultPoster()` (BO) avec des données fictives — un aperçu ne promet jamais un rendu que le produit ne sait pas produire |
 | `src/assets/captures/` | Captures site / app / BO facultatives ; absentes → emplacement hachuré |
 | `vercel.json` | Apex → `www` en 301, `X-Robots-Tag: noindex` hors `www.feelike.pro`, cache long de `/_astro/` |
