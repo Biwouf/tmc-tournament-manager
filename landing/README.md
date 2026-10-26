@@ -62,4 +62,4 @@ Rien de ceci n'est exécuté par le code.
    `www.feelike.pro` (previews, `*.vercel.app`). Après mise en ligne : Search Console et Bing
    Webmaster Tools, soumettre `https://www.feelike.pro/sitemap.xml`.
 5. **Avant l'ouverture publique** : contenu des mentions légales et des CGV (obligation légale),
-   lien de réservation, mention TVA, et les trois captures.
+   lien de réservation, mention TVA.

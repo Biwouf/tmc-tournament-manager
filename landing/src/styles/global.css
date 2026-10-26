@@ -272,7 +272,10 @@ button.sb__row:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .surface:last-child { border-right: 0; }
 .surface__url { font-family: var(--font-mono); font-size: 12px; letter-spacing: var(--ls-button); color: var(--paper-muted); }
 .surface__shot { aspect-ratio: 4 / 3; background: rgba(0, 0, 0, 0.05); background-image: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 11px); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; color: var(--paper-muted); overflow: hidden; }
-.surface__shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.surface__shot picture { display: flex; width: 100%; height: 100%; }
+.surface__shot img { width: 100%; height: 100%; object-fit: cover; object-position: left top; }
+.surface__shot--portrait { background-image: none; padding-top: 12px; }
+.surface__shot--portrait img { object-fit: contain; object-position: center top; }
 .surface h3, .card h3 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 40px; text-transform: uppercase; line-height: 0.95; }
 
 /* --- Positionnement ----------------------------------------------------- */
