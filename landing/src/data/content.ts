@@ -11,6 +11,27 @@ export const tickerItems = [
   'App installable',
 ];
 
+// Section « Un match » : un chapitre = un écran du téléphone. Les textes des notifications sont
+// ceux que le produit envoie (docs/LIVE_PUSH.md), avec la rencontre fictive de l'affiche.
+type StoryNotif = { at: string; title: string; body: string };
+type StoryChapter = { time: string; who: string; title: string; text: string; screen: 'compo' | 'matches' | 'lock' | 'live' | 'story' | 'poster'; notif?: boolean; notifs?: StoryNotif[] };
+
+export const matchStory: StoryChapter[] = [
+  { time: '09:02', who: 'la capitaine', screen: 'compo', title: 'La compo, en une photo', text: 'La capitaine photographie la feuille de composition, puis celle de l’adversaire. Joueuses, classements et adversaires sont lus et rapprochés des membres du club.' },
+  { time: '09:06', who: 'la capitaine', screen: 'matches', title: 'Les matchs se créent d’un coup', text: 'Tous les simples sont créés en un geste, pour les deux équipes. Au moment de lancer le live, une case suffit pour prévenir le club.' },
+  { time: '09:15', who: 'tout le club', screen: 'lock', notif: true, title: 'Le club est prévenu', text: 'Dès le premier service, les membres qui ont activé les alertes Live reçoivent une notification. Une cloche, et ils suivent ce match jusqu’au bout.', notifs: [
+    { at: 'maintenant', title: 'Match en direct', body: 'Claire Vidal - Anne Marchand - Le match commence !' },
+  ] },
+  { time: '09:48', who: 'au bord du court', screen: 'live', title: 'Le score, point par point', text: 'N’importe quel membre saisit le score depuis le bord du court. Messages, photos et sondages font vivre le fil, et chacun réagit.' },
+  { time: '10:58', who: 'dans la poche des supporters', screen: 'lock', notif: true, title: 'Chaque set, en temps réel', text: 'Fins de set, nouvelles publications : ceux qui suivent le match sont prévenus sans ouvrir l’app. Les publications rapprochées tiennent en une seule alerte.', notifs: [
+    { at: '10:58', title: 'Fin du 2e set', body: 'Claire Vidal remporte le 2e set 6/4 contre Anne Marchand' },
+    { at: '10:31', title: 'Claire Vidal – Anne Marchand', body: '3 nouvelles publications dans le fil' },
+    { at: '10:02', title: 'Fin du 1er set', body: 'Anne Marchand remporte le 1er set 6/1 contre Claire Vidal' },
+  ] },
+  { time: '11:20', who: 'après la balle de match', screen: 'story', notif: true, title: 'Le match se revit en story', text: 'L’alerte « Match terminé » ouvre le récap : le match en accéléré, le moment fort, les photos les plus aimées, la tribune et la gagnante.' },
+  { time: '19:07', who: 'pour les réseaux', screen: 'poster', title: 'L’affiche est déjà prête', text: 'Résultat, détail des simples et du double, aux couleurs du club : l’affiche de la rencontre se génère, prête à publier.' },
+];
+
 export const compare = [
   { k: 'Ce qu’ils font', a: 'Adhésions, cotisations, comptabilité, réservation des courts.', b: 'Affiches, live score, site et app aux couleurs du club.' },
   { k: 'Pour qui', a: 'Le trésorier et le secrétaire.', b: 'Les joueurs, leurs familles, vos partenaires.' },

@@ -13,7 +13,10 @@ test('accueil : tout le texte est dans le HTML servi', () => {
   const body = text(read('index.html'));
   for (const fragment of [
     'Faites-les se sentir comme des pros.',
-    'Même victoire. Pas le même dimanche soir.',
+    'Une photo le matin. Une affiche le soir.',
+    'Match en direct',
+    'Claire Vidal remporte le 2e set 6/4 contre Anne Marchand',
+    'Match terminé',
     'Votre club, trois courts couverts.',
     'Les autres gèrent votre club. Nous, on le met en scène.',
     'Chaque match, traité comme une finale.',

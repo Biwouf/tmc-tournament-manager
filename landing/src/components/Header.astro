@@ -6,7 +6,7 @@ import { loginUrl, trialCta } from '../config';
 // Hors de l'accueil, les ancres renvoient vers les sections de l'accueil.
 const base = /^\/(index(\.html)?)?$/.test(Astro.url.pathname) ? '' : '/';
 const links = [
-  { href: `${base}#avant-apres`, label: 'Avant / après' },
+  { href: `${base}#un-match`, label: 'Un match' },
   { href: `${base}#positionnement`, label: 'Pourquoi nous' },
   { href: `${base}#tarifs`, label: 'Tarifs' },
   { href: `${base}#faq`, label: 'FAQ' },

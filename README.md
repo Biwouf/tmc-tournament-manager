@@ -167,7 +167,7 @@ Site **public** du club, servi sur `<slug>.feelike.pro` (application séparée, 
 
 ### Landing `www.feelike.pro`
 
-Site marketing de la plateforme (application séparée, dossier `landing/`) : présentation du produit, avant/après, tarifs (essai 30 jours sans carte, Saison 250 €/an), FAQ et appel à l'essai ou à un call de 20 minutes.
+Site marketing de la plateforme (application séparée, dossier `landing/`) : présentation du produit, récit d’un match (photo de la compo, matchs créés, live, notifications, story, affiche), tarifs (essai 30 jours sans carte, Saison 250 €/an), FAQ et appel à l'essai ou à un call de 20 minutes.
 
 - **Tant que l'inscription en ligne n'est pas ouverte**, les boutons d'essai affichent « Demander un accès » et mènent au call. Il suffit de renseigner `PUBLIC_SIGNUP_URL` dans Vercel pour les rebrancher.
 - Lien de réservation, mention TVA, e-mail de contact et mesure d'audience (Plausible, sans cookie ni bandeau) se règlent par variables d'environnement : voir `landing/README.md`.
