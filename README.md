@@ -158,6 +158,7 @@ Site **public** du club, servi sur `<slug>.feelike.pro` (application séparée, 
 
 - **Cinq pages** : Accueil, Le Club, Infrastructures, Tarifs, Contact — plus un panneau de contact accessible depuis n'importe quelle page.
 - **Tout le contenu vient de l'écran *Configuration du site*** : textes, images, tarifs, horaires, partenaires, mentions légales, et la **couleur** du club, qui colore boutons, badges et liens du site.
+- **Toute couleur reste lisible** : le texte des boutons et pastilles passe en blanc ou en foncé selon le contraste, et la couleur est automatiquement foncée là où elle sert de texte ou de fond trop moyen (contraste WCAG AA 4,5:1). Une couleur claire ne donne donc jamais du blanc sur jaune.
 - **Ce qui n'est pas renseigné ne s'affiche pas.** Un club qui vient d'être créé a un site vide mais propre : pas de bloc à moitié rempli, pas de cadre d'image cassé, aucun texte d'exemple emprunté à un autre club. Remplir un panneau au back-office fait apparaître la section correspondante au rechargement.
 - **Référencement automatique** : contenu et métadonnées sont présents dans le HTML initial. Les titres, descriptions, URL canoniques et données structurées viennent des informations publiées. Aucun champ SEO obligatoire.
 - **Affichage initial** : les styles sont chargés avant l’affichage du contenu, y compris en développement, sans attendre le JavaScript.

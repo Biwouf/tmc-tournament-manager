@@ -42,8 +42,8 @@ export default function Header() {
                 to={item.path}
                 end={item.path === '/'}
                 className={({ isActive }) =>
-                  `rounded-full px-4 py-2 text-[14.5px] font-semibold transition-colors hover:bg-brand-soft hover:text-brand ${
-                    isActive ? 'text-brand' : 'text-text'
+                  `rounded-full px-4 py-2 text-[14.5px] font-semibold transition-colors hover:bg-brand-soft hover:text-brand-text ${
+                    isActive ? 'text-brand-text' : 'text-text'
                   }`
                 }
               >
@@ -61,7 +61,7 @@ export default function Header() {
             aria-label="Ouvrir le menu"
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
-            className="ml-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-xl text-white lg:hidden"
+            className="ml-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand-fill text-xl text-brand-foreground lg:hidden"
           >
             ≡
           </button>
@@ -90,7 +90,7 @@ export default function Header() {
                 end={item.path === '/'}
                 onClick={() => setMenuOpen(false)}
                 className={`rounded-soft px-3 py-4 text-lg font-bold ${
-                  pathname === item.path ? 'text-brand' : 'text-text'
+                  pathname === item.path ? 'text-brand-text' : 'text-text'
                 }`}
               >
                 {item.label}

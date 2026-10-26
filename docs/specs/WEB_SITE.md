@@ -215,7 +215,7 @@ Trois propriétés à connaître avant de toucher à cette migration :
 | `lib/clubConfig.ts` | **Copie** de `src/lib/clubConfig.ts`, synchronisée manuellement. Ne rien y diverger. |
 | `lib/configImage.ts` | Valeur de config → URL affichable. Accepte une URL publique complète (ce qu'écrit le BO) **ou** une clé Storage nue (ce que tolère le contrat). Vide → `null`, et `null` masque le bloc. |
 | `lib/focalPoint.ts` | `focalPointStyle(fp)` → `{ objectPosition: 'x% y%' }`, repli `50% 50%`. **3ᵉ copie** de `pwa/src/utils/focalPoint.ts`, synchronisée manuellement comme `lib/clubConfig.ts` — corps identique, seul le type importé diffère (`ClubConfigFocalPoint` ici, `ActuFocalPoint` là-bas). |
-| `lib/tokens.ts` | Dérive `--brand` / `--brand-dark` / `--brand-soft` de `brand.color`. Fallback `#e51828` (brief §4) — seule couleur en dur tolérée. |
+| `lib/tokens.ts` | Dérive `--brand` / `--brand-fill` / `--brand-foreground` / `--brand-text` / `--brand-dark` / `--brand-soft` de `brand.color` (contraste WCAG, cf. §7). Fallback `#e51828` (brief §4) — seule couleur en dur tolérée. |
 | `lib/price.ts` | Montant du contrat (nombre) → texte. La **période** n'est pas de son ressort : « / an » est ajouté en dur par les composants de tarifs (§7). |
 | `contexts/SiteContext.tsx` | Provider du snapshot serveur ; `useSite()` rend `{ club, config, clubName, origin, optimizeImages }`. |
 | `contexts/ContactDrawerContext.tsx` | Ouverture/fermeture du drawer, appelée depuis le header, le menu mobile, le hero, les bannières CTA et le bouton flottant. |
@@ -239,12 +239,27 @@ Posés en custom properties sur `:root` (`index.css`), exposés à Tailwind via 
 
 | Token | Source |
 |---|---|
-| `--brand` | `config.brand.color`, **fallback `#e51828`** |
-| `--brand-dark` | dérivé : luminosité × 0,84 (−16 % **relatifs** — retrancher 16 points écraserait une couleur déjà sombre) |
+| `--brand` | `config.brand.color`, **fallback `#e51828`** — usages **décoratifs** sans texte (filets, halos, icônes, bordures) |
+| `--brand-fill` | fond des éléments qui **portent du texte** (boutons `.btn-primary`, pastille du hero, bloc école, bouton menu, banderole 404) : `--brand` si le blanc ou l'encre y atteint 4,5:1, sinon `--brand` assombri d'un point de luminosité à la fois jusqu'à ce que le blanc passe |
+| `--brand-foreground` | texte posé sur `--brand-fill` : blanc ou encre `--text`, celui qui contraste le mieux (même règle que `readableOn` du BO) |
+| `--brand-text` | la couleur du club écrite **comme texte** sur `--bg` / `--card` (`text-brand-text`, `.eyebrow`, `.btn-light`, liens des actus) : `--brand` assombri point par point jusqu'à 4,5:1 sur `--bg` |
+| `--brand-dark` | hover de `--brand-fill` : luminosité × 0,84 (−16 % **relatifs** — retrancher 16 points écraserait une couleur déjà sombre) |
 | `--brand-soft` | dérivé : même teinte à 10 % d'opacité |
 | `--bg` `#f7f2ec` · `--bg2` `#efe6db` · `--card` `#ffffff` · `--text` `#2a201f` · `--muted` `#8a7d77` · `--line` `#e8ddd0` | fixes |
 | `--radius` `20px` · `--radius-sm` `13px` · `--shadow` `0 16px 44px rgba(70,35,20,.10)` | fixes |
 
+- **Contraste garanti (S0)** : tout texte posé sur la couleur du club ou écrit avec elle
+  atteint **4,5:1** (WCAG AA texte normal), quelle que soit la couleur saisie. Aucun
+  `text-white` / `#fff` en dur sur un fond de marque, aucun `text-brand` pour du texte : on
+  utilise `bg-brand-fill` + `text-brand-foreground`, et `text-brand-text`. Le calcul
+  (luminance relative WCAG) est **recopié** de `src/lib/theme.ts` plutôt qu'extrait dans
+  `shared/` : quelques lignes, et l'extraction aurait obligé à toucher le BO et la PWA.
+  Les nouveaux tokens suivent le même chemin SSR que `--brand` (`<style>html:root{…}</style>`
+  dans le head, vérifié par `check:build`) : pas de flash au chargement.
+- **CAC (`#e51828`)** : `--brand`, `--brand-dark`, `--brand-soft` inchangés ; le blanc passe
+  sur le rouge (4,67:1) donc `--brand-fill` = `--brand`, boutons identiques. Seul
+  `--brand-text` s'assombrit de 2 points (49,6 % → 47,6 %) : le rouge pur ne fait que
+  4,20:1 sur `--bg`.
 - Boutons pleinement arrondis (`999px`), pastilles rondes, badges « pill ».
 - La direction « premium » de la maquette **n'est pas retenue** — ni implémentée, ni derrière un
   flag.

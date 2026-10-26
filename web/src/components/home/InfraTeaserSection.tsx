@@ -15,7 +15,7 @@ export default function InfraTeaserSection() {
     <section className="shell section [--sec-top:84px]">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h2 className="title">Les infrastructures</h2>
-        {isPublished(config, PAGES[2]) && <Link reloadDocument to="/infrastructures" className="text-[15px] font-bold text-brand">
+        {isPublished(config, PAGES[2]) && <Link reloadDocument to="/infrastructures" className="text-[15px] font-bold text-brand-text">
           Tout voir →
         </Link>}
       </div>

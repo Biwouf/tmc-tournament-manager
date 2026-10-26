@@ -52,7 +52,7 @@ function ItemList({ title, items }: { title: string; items: readonly string[] })
       <div className="mt-3 flex flex-col gap-2">
         {items.map((item, index) => (
           <div key={index} className="text-[15px]">
-            <span className="mr-2 font-bold text-brand">›</span>
+            <span className="mr-2 font-bold text-brand-text">›</span>
             {item}
           </div>
         ))}
