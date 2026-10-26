@@ -571,11 +571,27 @@ compétition peut être finie pour le club alors qu'une phase finale reste progr
 
 #### Vue Agenda
 
-Quatre sections, bornes issues du helper partagé, section vide masquée :
-**À saisir** (rencontres jouées sans score) · **Ce week-end** · **Week-end suivant** ·
-**Déjà jouées** (dernier week-end écoulé, avec le score). Une ligne = pastille date/heure ·
+Sections, bornes issues du helper partagé, section vide masquée :
+**À saisir** (rencontres jouées sans score) · **Cette semaine** (rencontres à venir de la
+semaine en cours, avant le vendredi soir) · **Ce week-end** · **À venir · 2 – 8 novembre**
+(une section par semaine lundi → dimanche, pour **toutes** les rencontres à venir) ·
+**Déjà jouées** (dernier week-end écoulé, avec le score).
+
+Avant le 26/10/2026, la vue s'arrêtait au week-end suivant et ne retenait que les créneaux
+vendredi 18h → dimanche : les rencontres plus lointaines, ou jouées en semaine (11 novembre),
+n'apparaissaient nulle part. Une ligne = pastille date/heure ·
 chaîne `Compétition · Catégorie · Éq. n · Jn` + club adverse · `Au club` / `Déplacement` ·
 tag d'état à droite. Le clic sélectionne la rencontre dans le panneau sans changer de vue.
+
+#### Export du calendrier
+
+Bouton « Exporter le calendrier » de l'en-tête (et bouton calendrier du header de la PWA, à
+gauche du profil, pour tout membre connecté) : PNG d'une grille **date × équipe** des rencontres
+du jour et à venir, hors WO (compétitions non terminées côté BO ; toutes les équipes de la
+saison affichée côté PWA, quel que soit le filtre). Colonnes = équipes (compétition, genre,
+catégorie, numéro), lignes = jours portant au moins une rencontre, groupés par mois. Une
+cellule = club adverse + heure ; à domicile en aplat de la couleur du club, à l'extérieur en
+contour. Logique et rendu dans `shared/teamCalendar.ts` / `shared/TeamCalendarImage.tsx`.
 
 #### Vue Liste
 
