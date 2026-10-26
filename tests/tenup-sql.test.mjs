@@ -54,6 +54,7 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existi
   await db.exec(await migration('2026093002_team_live_shared_scoring'));
   await db.exec(await migration('2026100401_no_retry_errcodes'));
   await db.exec(await migration('2026101106_tenup_overwrite'));
+  await db.exec(await migration('2026102604_tenup_retired'));
   await db.exec(`UPDATE team_competitions SET format='3S1D' WHERE id='${id(11)}'`);
   const url='https://tenup.fft.fr/championnat/1/division/2/phase/3/poule/4/rencontre/5';
   const begin=(source=url,user=103,club=id(1))=>as(user,'SELECT team_tenup_begin($1,$2,$3) AS value',[club,id(14),source]).then(r=>r[0].value.id);
@@ -141,6 +142,24 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existi
   await resetRate();pid=await begin();await attach(pid);
   await apply(pid);
   r=(await db.query('SELECT * FROM team_rencontres')).rows[0];assert.equal(r.score_club,4);assert.equal(r.score_adverse,0);
+  // Abandonment: the retiring side loses; the last set may be unfinished.
+  const retiredSheet=(retired,sets,scores)=>{const s=structuredClone(sheet);s.scores=scores;s.lines[2]={...s.lines[2],retired,sets};return s;};
+  const simple3=async()=>(await db.query("SELECT * FROM team_match_lines WHERE match_type='simple' AND slot=3")).rows[0];
+  await resetRate();pid=await begin();await attach(pid,retiredSheet('a',[{a:2,b:6}],[3,1]));
+  await apply(pid);
+  let l3=await simple3();
+  assert.equal(l3.score,'2-6 AB.');assert.equal(l3.gagnant,'adverse');assert.equal(l3.result_kind,'retired');
+  r=(await db.query('SELECT * FROM team_rencontres')).rows[0];assert.equal(r.score_club,3);assert.equal(r.score_adverse,1);assert.ok(r.confirmed_at);
+  await resetRate();pid=await begin();await attach(pid,retiredSheet('b',[{a:6,b:4},{a:3,b:2}],[4,0]));
+  await apply(pid);
+  l3=await simple3();assert.equal(l3.score,'6-4 3-2 AB.');assert.equal(l3.gagnant,'club');
+  await resetRate();pid=await begin();
+  await attach(pid,retiredSheet('b',[{a:6,b:2},{a:6,b:3}],[4,0]));
+  await assert.rejects(apply(pid),/score Ten’Up/,'a match already won in two sets is not an abandonment');
+  await attach(pid,retiredSheet('b',[{a:6,b:4},{a:3,b:2}],[3,1]));
+  await assert.rejects(apply(pid),/total Ten’Up/,'the retiring side cannot win the match');
+  await attach(pid,retiredSheet('x',[{a:6,b:4},{a:3,b:2}],[4,0]));
+  await assert.rejects(apply(pid),/pas reconnu/);
   await db.exec(`UPDATE team_rencontres SET tenup_url='${url}',tenup_side=1 WHERE id='${id(14)}'`);
   // A duplicate association within one club is refused.
   await db.exec(`INSERT INTO team_etapes(id,equipe_id,phase,numero_journee) VALUES('${id(16)}','${id(12)}','poule',2); INSERT INTO team_rencontres(id,etape_id,club_adverse,date_heure,domicile) VALUES('${id(15)}','${id(16)}','X','2026-09-23',true)`);
