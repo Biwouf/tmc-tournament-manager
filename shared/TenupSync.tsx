@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 
 type Player = { prenom: string; nom: string | null; classement: string };
-type SourceLine = { match_type: 'simple' | 'double'; slot: number; players_a: Player[]; players_b: Player[]; sets: { a: number; b: number }[] };
+type SourceLine = { match_type: 'simple' | 'double'; slot: number; players_a: Player[]; players_b: Player[]; sets: { a: number; b: number }[]; retired?: 'a' | 'b' };
 type Preview = { id: string; url: string; date: string; teams: string[]; scores: number[]; lines: SourceLine[] };
 type ExistingLine = { sets?: unknown[]; match_type: string; slot: number; score: string | null; gagnant: string | null; live_match_id: string | null; confirmed_at: string | null; joueurs_club: Player[]; joueurs_adverse: Player[] };
 type Result = { imported: number; preserved: number; confirmed: boolean };
@@ -32,7 +32,8 @@ export default function TenupSync(props: TenupSyncProps) {
     const club = side === 1 ? line.players_b : line.players_a;
     const adverse = side === 1 ? line.players_a : line.players_b;
     const compositionConflict = !!existing && (identity(existing.joueurs_club) !== identity(club) || identity(existing.joueurs_adverse) !== identity(adverse));
-    const score = line.sets.map(s => side === 1 ? `${s.b}-${s.a}` : `${s.a}-${s.b}`).join(' ');
+    // Même libellé que le score enregistré (« AB. » après un abandon).
+    const score = [...line.sets.map(s => side === 1 ? `${s.b}-${s.a}` : `${s.a}-${s.b}`), ...(line.retired ? ['AB.'] : [])].join(' ');
     // Ten'Up fait foi : tout ce qui diffère est remplacé.
     const replace = !!existing && (compositionConflict || !!existing.live_match_id || (existing.score !== null && existing.score !== score));
     return { line, club, adverse, replace, existing, score, compositionConflict };

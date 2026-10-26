@@ -30,13 +30,16 @@ export function extractTenupPage(document) {
       // Icon badges are empty; the text badges are rankings (or doubles weights).
       const rankings = [...row.querySelectorAll('[data-slot="badge"]')].map(text).filter(Boolean);
       const cells = [...(row.lastElementChild?.children ?? [])];
-      // Unknown result markers (WO, abandonment, disqualification) are rejected,
-      // never converted into an ordinary completed match: the row may contain
+      // Unknown result markers (WO, disqualification) are rejected, never
+      // converted into an ordinary completed match: the row may contain
       // nothing but names, rankings, team, set cells and avatar initials (wide screens).
       const avatars = [...row.querySelectorAll('[data-slot="avatar"]')].map(text);
       const rest = [...names, ...team, ...rankings, ...avatars, ...cells.map(text)].reduce((r, piece) => r.replace(piece, ''), text(row));
       if (rest.trim()) return fail();
-      const sets = cells.map(cell => {
+      // Abandonment (observed October 2026): the retiring side ends with a lone
+      // "A" marker after the games both sides share; the winner has no marker.
+      const retired = cells.length > 0 && text(cells.at(-1)) === 'A' && !cells.at(-1).children.length;
+      const sets = (retired ? cells.slice(0, -1) : cells).map(cell => {
         const value = [...cell.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
         if (!/^\d+$/.test(value)) return fail();
         // A tie-break annotation is separate from games; don't merge 7 and 5 into 75.
@@ -45,18 +48,20 @@ export function extractTenupPage(document) {
         if (leftover || (annotation && !/^\d+$/.test(annotation))) return fail();
         return { games: Number(value), tb: annotation ? Number(annotation) : null };
       });
-      if (names.length !== (match[1] === 'Double' ? 2 : 1) || rankings.length !== names.length || sets.length < 2 || sets.length > 3) return fail();
+      if (names.length !== (match[1] === 'Double' ? 2 : 1) || rankings.length !== names.length || sets.length > 3) return fail();
       const players = names.map((name, i) => {
         // FFT renders given names followed by uppercase surnames. Retain the
         // full display name when the split is ambiguous.
         const split = /^(.*?)\s+([\p{Lu}\p{M}'’ -]+)$/u.exec(name);
         return { prenom: split?.[1] || name, nom: split?.[2] || '', classement: rankings[i] };
       });
-      return { players, sets };
+      return { players, sets, retired };
     });
-    if (sides[0].sets.length !== sides[1].sets.length) return fail();
+    const retired = sides[0].retired ? 'a' : sides[1].retired ? 'b' : null;
+    if (sides[0].sets.length !== sides[1].sets.length || (sides[0].retired && sides[1].retired) || (!retired && sides[0].sets.length < 2)) return fail();
     return { match_type: match[1].toLowerCase(), slot: Number(match[2]),
       players_a: sides[0].players, players_b: sides[1].players,
+      ...(retired ? { retired } : {}),
       sets: sides[0].sets.map((s, i) => ({ a: s.games, b: sides[1].sets[i].games,
         ...(s.tb !== null && sides[1].sets[i].tb !== null ? { tb_a: s.tb, tb_b: sides[1].sets[i].tb } : {}) })) };
   });
