@@ -104,8 +104,9 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Accès au back-office **sur invitation** : tout se passe sur l'écran *Admin › Membres* (`/admin/members`), réservé aux administrateurs du club. L'ancienne adresse `/admin/invite` y redirige.
 - **Inviter** : par email, ou en générant un lien à copier (utile en cas de blocage SMTP). L'invitation porte un **rôle**, choisi à l'envoi (défaut : Membre, le moins privilégié) :
   - **Administrateur** — tous les modules + gestion des membres
-  - **Gestionnaire** — contenus et outils du club (actus, événements, matches par équipe, affiche, planning), sans gestion des membres
   - **Membre** — Live Score uniquement (profil adhérent PWA)
+  - Le rôle **Gestionnaire** n'est plus proposé depuis le 26/10/2026 (les gestionnaires existants passent Membre) ; il est remplacé par les **capitaines d'équipe**
+- **Capitaines d'équipe** : sur la fiche d'une équipe (*Matches par équipe*), un administrateur déclare un ou plusieurs capitaines parmi les membres du club. Un capitaine garde les droits d'un membre et peut en plus **changer la date et l'heure** des rencontres de son équipe depuis la PWA (la rencontre repasse alors à confirmer). Une équipe étant liée à une saison, les capitaines se redéclarent à chaque saison
 - Le rôle définit ce que la personne **voit** dans le back-office : le dashboard n'affiche que les modules autorisés
 - **Gérer les membres** depuis le même écran : liste (nom, email, rôle, statut), changement de rôle, retrait du club, et relance de l'invitation pour quelqu'un qui n'a jamais activé son compte
   - Une invitation non activée apparaît dans la liste avec le badge *Invitation en attente* — c'est l'email qui identifie la personne tant qu'elle n'a pas rempli son profil

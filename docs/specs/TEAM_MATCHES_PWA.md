@@ -111,8 +111,22 @@ sur les autres données de compétition restent réservées aux responsables ; l
 utilisent les commandes dédiées sans obtenir de droits d'administration supplémentaires.
 
 Depuis le 25/10/2026, la synchronisation Ten'Up n'est plus proposée dans la PWA (BO uniquement).
-Les admins et gestionnaires du club (`can_manage_club_content`) peuvent changer la date et l'heure
-d'une rencontre depuis sa fiche ; comme au BO, la rencontre repasse alors à confirmer si elle l'était.
+Les admins du club et les **capitaines de l'équipe** peuvent changer la date et l'heure d'une
+rencontre depuis sa fiche ; comme au BO, la rencontre repasse alors à confirmer si elle l'était.
+
+### Capitaines — 26 octobre 2026
+- Table `team_equipe_captains (club_id, equipe_id, user_id)` : plusieurs capitaines par équipe,
+  déclarés par un admin depuis la fiche équipe du BO (section *Capitaines*), parmi les membres
+  du club. Lecture réservée aux membres du club ; écriture `can_manage_club_content`.
+- Une équipe appartient à une compétition, donc à une saison : les capitaines se redéclarent à
+  chaque saison. Un capitaine retiré du club perd le droit, même si sa ligne subsiste
+  (affichée « Ancien membre du club » au BO).
+- `team_can_reschedule(club, rencontre)` : admin, ou capitaine de l'équipe de la rencontre.
+  La PWA s'en sert pour afficher « Changer la date ».
+- `team_rencontre_set_date(club, rencontre, date)` (SECURITY DEFINER) : seul chemin d'écriture
+  de la date côté PWA. Il remet lui-même `confirmed_at`/`confirmed_by` à `NULL`, car
+  `guard_team_encounter` ne le fait pas quand l'écriture vient du propriétaire de la fonction.
+- Prochaine étape : ajout de photos depuis la PWA par les capitaines.
 
 Le lot 4 (hors connexion transversal) reste à développer. Les nouvelles commandes sont
 rejouables, mais aucune file locale durable ni synchronisation automatique n'est encore

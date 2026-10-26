@@ -11,6 +11,7 @@ import type {
   TeamStadeFinale,
 } from '../types';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
+import TeamCaptainsSection from '../components/teamMatches/TeamCaptainsSection';
 import {
   STADES_FINALE,
   STADE_LABELS,
@@ -290,6 +291,8 @@ export default function TeamEquipePage() {
             )}
           </div>
         </div>
+
+        {clubId && <TeamCaptainsSection clubId={clubId} equipeId={equipe.id} />}
 
         {/* Phase de poule */}
         <section>
