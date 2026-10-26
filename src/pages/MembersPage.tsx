@@ -27,9 +27,11 @@ import { supabase } from '../lib/supabase';
 // Les rôles métier sont appliqués côté base ; la présentation reflète ces droits.
 const ROLE_OPTIONS: { value: ClubRole; label: string }[] = [
   { value: 'member', label: 'Membre — cours et Live Score' },
-  { value: 'manager', label: 'Gestionnaire — contenus et outils du club' },
   { value: 'admin', label: 'Administrateur — tout, y compris les membres' },
 ];
+
+// Retiré le 26/10/2026 (capitaines d'équipe) : affiché seulement pour un membre qui l'a encore.
+const LEGACY_MANAGER_OPTION = { value: 'manager' as ClubRole, label: 'Gestionnaire (ancien rôle)' };
 
 const ROLE_SHORT: Record<ClubRole, string> = {
   admin: 'Administrateur',
@@ -228,7 +230,7 @@ export default function MembersPage() {
                           }
                           className="rounded-lg border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                         >
-                          {ROLE_OPTIONS.map((option) => (
+                          {(m.role === 'manager' ? [...ROLE_OPTIONS, LEGACY_MANAGER_OPTION] : ROLE_OPTIONS).map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>

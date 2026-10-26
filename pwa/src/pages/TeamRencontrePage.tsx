@@ -60,11 +60,11 @@ export default function TeamRencontrePage() {
   });
   const close = () => { setSelection(null); setCreating(false); setComposing(false); setRecap(null); action.clearError(); void query.refetch(); };
   const canEdit = !!user && !!(membership.data?.is_member || membership.data?.can_manage);
-  // Même droit que la RLS d'écriture de team_rencontres (admin/manager du club).
-  const admin = useQuery({
-    queryKey: ['club-admin', clubId, user?.id], enabled: !!clubId && !!user,
+  // Admin du club ou capitaine de l'équipe : même contrôle que team_rencontre_set_date.
+  const canReschedule = useQuery({
+    queryKey: ['team-can-reschedule', clubId, id, user?.id], enabled: !!clubId && !!id && !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('can_manage_club_content', { target_club: clubId });
+      const { data, error } = await supabase.rpc('team_can_reschedule', { p_club: clubId, p_rencontre: id });
       if (error) throw error;
       return data === true;
     },
@@ -73,7 +73,7 @@ export default function TeamRencontrePage() {
     if (!dateDraft || !clubId) return;
     setDateSaving(true);
     setDateError('');
-    const { error } = await supabase.from('team_rencontres').update({ date_heure: new Date(dateDraft).toISOString() }).eq('id', id).eq('club_id', clubId);
+    const { error } = await supabase.rpc('team_rencontre_set_date', { p_club: clubId, p_rencontre: id, p_date: new Date(dateDraft).toISOString() });
     setDateSaving(false);
     if (error) { setDateError('Impossible de modifier la date. Réessayez.'); return; }
     setDateDraft(null);
@@ -121,7 +121,7 @@ export default function TeamRencontrePage() {
       <p className="text-xs font-semibold uppercase text-primary">{competition.nom} · Équipe {equipe.numero}</p>
       <h1 className="mt-2 text-2xl font-bold">{club?.name ?? 'Notre club'} – {rencontre.club_adverse}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{new Date(rencontre.date_heure).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} · {rencontre.domicile ? 'Au club' : 'À l’extérieur'}</p>
-      {admin.data && <button onClick={() => { setDateError(''); setDateDraft(toLocalInput(rencontre.date_heure)); }} className="mt-3 min-h-12 w-full rounded-xl border border-primary p-3 font-semibold text-primary">Changer la date</button>}
+      {canReschedule.data && <button onClick={() => { setDateError(''); setDateDraft(toLocalInput(rencontre.date_heure)); }} className="mt-3 min-h-12 w-full rounded-xl border border-primary p-3 font-semibold text-primary">Changer la date</button>}
       <div className="my-4 text-center text-4xl font-bold tabular-nums">{rencontre.wo ? 'WO' : lines.length ? `${total.club} – ${total.adverse}` : `${rencontre.score_club ?? '–'} – ${rencontre.score_adverse ?? '–'}`}</div>
       <p className="text-center text-sm font-semibold">{rencontre.confirmed_at ? 'Rencontre confirmée' : 'Résultat provisoire'}</p>
       <p className="mt-3 text-xs text-muted-foreground">{spec.simples} simples · {spec.doubles} double{spec.doubles > 1 ? 's' : ''}{spec.doublePoints > 1 ? ' · double à 2 points' : ''}</p>
