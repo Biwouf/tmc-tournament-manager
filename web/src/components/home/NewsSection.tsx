@@ -10,7 +10,7 @@ export default function NewsSection() {
   if (!config.settings.show_news || !feeds?.news.length) return null;
   return (
     <section className="shell section [--sec-top:84px]" aria-labelledby="news-title">
-      <p className="text-[13px] font-bold tracking-[0.14em] text-brand uppercase">La vie du club</p>
+      <p className="text-[13px] font-bold tracking-[0.14em] text-brand-text uppercase">La vie du club</p>
       <h2 id="news-title" className="mt-2 mb-8 text-[clamp(28px,4vw,42px)] font-extrabold">Dernières actualités</h2>
       <div className="grid auto-rows-fr items-stretch gap-6 md:grid-cols-2">
         {feeds.news.map(item => (
@@ -24,7 +24,7 @@ export default function NewsSection() {
                   aria-haspopup="dialog" className="cursor-pointer text-left after:absolute after:inset-0 focus-visible:outline-none">{item.titre}</button>
               </h3>
               {item.excerpt && <p className="truncate text-[15px] leading-relaxed text-muted">{item.excerpt}</p>}
-              <span className="mt-auto inline-block pt-4 text-sm font-bold text-brand">Lire la suite <span aria-hidden="true">→</span></span>
+              <span className="mt-auto inline-block pt-4 text-sm font-bold text-brand-text">Lire la suite <span aria-hidden="true">→</span></span>
             </div>
           </article>
         ))}

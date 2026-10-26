@@ -19,7 +19,7 @@ export default function CourtsSection() {
               {image && <ConfigImage loading="lazy" decoding="async" src={image} alt={court.label} className="aspect-[16/10] w-full object-cover" style={focalPointStyle(court.image_focal)} />}
               <div className="p-6">
                 {court.count && (
-                  <div className="text-[32px] leading-none font-extrabold text-brand">
+                  <div className="text-[32px] leading-none font-extrabold text-brand-text">
                     {court.count}
                   </div>
                 )}

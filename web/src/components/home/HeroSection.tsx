@@ -27,7 +27,7 @@ export default function HeroSection() {
       )}
       <div className="shell relative flex min-h-[62vh] flex-col justify-end py-16 sm:py-24">
         {home.hero_eyebrow && (
-          <span className="mb-5 inline-flex w-fit items-center rounded-full bg-brand px-4 py-2 text-[13px] font-bold tracking-[0.14em] text-white uppercase">
+          <span className="mb-5 inline-flex w-fit items-center rounded-full bg-brand-fill px-4 py-2 text-[13px] font-bold tracking-[0.14em] text-brand-foreground uppercase">
             {home.hero_eyebrow}
           </span>
         )}

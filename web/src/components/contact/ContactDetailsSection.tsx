@@ -38,7 +38,7 @@ export default function ContactDetailsSection() {
             href={contact.maps_url}
             target="_blank"
             rel="noreferrer noopener"
-            className="font-bold text-brand"
+            className="font-bold text-brand-text"
           >
             Voir sur la carte →
           </a>

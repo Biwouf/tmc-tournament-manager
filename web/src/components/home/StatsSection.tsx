@@ -11,7 +11,7 @@ export default function StatsSection() {
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] gap-px overflow-hidden rounded-card border border-line bg-line shadow-soft">
         {stats.map((stat, index) => (
           <div key={index} className="bg-card px-5 py-8 text-center">
-            <div className="text-[32px] font-extrabold tracking-tight text-brand">{stat.value}</div>
+            <div className="text-[32px] font-extrabold tracking-tight text-brand-text">{stat.value}</div>
             <div className="mt-1 text-[13.5px] font-semibold text-muted">{stat.label}</div>
           </div>
         ))}

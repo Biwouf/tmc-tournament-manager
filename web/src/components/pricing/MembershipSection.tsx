@@ -24,7 +24,7 @@ export default function MembershipSection() {
                   carte ne tiendrait pas dans une ligne. */}
               {price && (
                 <div className="flex items-baseline gap-1 whitespace-nowrap">
-                  <span className="text-[30px] font-extrabold text-brand">{price}</span>
+                  <span className="text-[30px] font-extrabold text-brand-text">{price}</span>
                   <span className="text-[14px] font-semibold text-muted">/ an</span>
                 </div>
               )}
