@@ -679,30 +679,108 @@ button.live-note {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
-.replay-games {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 6px;
+.replay-final {
+  /* Place des boutons « Revoir » / « Retour au live » de l'écran de fin, plus une marge. */
+  padding-bottom: 150px;
 }
-.replay-games li {
+.replay-final .replay-muted {
+  margin-top: -8px;
+}
+.replay-curve {
+  margin: 4px 0 0;
+  --team-1: hsl(var(--primary));
+  --team-2: white;
+}
+.replay-curve figcaption {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px 16px;
+  font-size: 13px;
+  font-weight: 700;
 }
-.replay-games i {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
+.replay-curve .team-1,
+.replay-caption.team-1 {
+  color: var(--team-1);
 }
-.replay-games .team-1 {
-  background: hsl(var(--primary));
+.replay-curve .team-2 {
+  color: var(--team-2);
 }
-.replay-games .team-2 {
-  background: white;
+.replay-curve svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 30vh;
+  margin: 4px 0;
+  overflow: visible;
 }
-.replay-games .unknown {
-  opacity: 0.35;
+.replay-axis {
+  stroke: #ffffff40;
+  stroke-dasharray: 2 4;
+}
+.replay-set {
+  fill: #ffffffa6;
+  font-size: 11px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+.replay-set.team-1,
+.replay-set.team-2 {
+  fill: currentColor;
+}
+.replay-count {
+  fill: currentColor;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.replay-line,
+.replay-streak {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.replay-line {
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+.replay-line.unknown {
+  stroke-dasharray: 3 4;
+  opacity: 0.5;
+}
+.replay-streak {
+  stroke: currentColor;
+  stroke-width: 4.5;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.replay-head,
+.replay-finish .core {
+  fill: currentColor;
+  stroke: #0b0b0e;
+  stroke-width: 2;
+}
+.replay-spark,
+.replay-finish .ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  opacity: 0;
+}
+.replay-finish .ray {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0;
+}
+.replay-spark,
+.replay-finish circle,
+.replay-set {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.replay-caption {
+  min-height: 22px;
+  font-size: 16px;
+  font-weight: 800;
 }
 .replay-end {
   position: absolute;
@@ -1210,8 +1288,26 @@ button.live-note {
   .replay-float {
     animation: replay-rise 2.4s ease-out forwards;
   }
-  .replay-games i {
-    animation: replay-pop 0.3s ease-out backwards;
+  .replay-set {
+    animation: replay-pop 0.35s ease-out;
+  }
+  .replay-spark {
+    animation: replay-ripple 0.9s ease-out;
+  }
+  .replay-finish .ring {
+    animation: replay-ripple 1.2s ease-out 2;
+  }
+  .replay-finish .ring.late {
+    animation-delay: 0.3s;
+  }
+  .replay-finish .core {
+    animation: replay-pop 0.4s cubic-bezier(0.3, 1.6, 0.6, 1);
+  }
+  .replay-finish .ray {
+    animation: replay-burst 0.8s ease-out;
+  }
+  .replay-caption {
+    animation: message-arrival 0.35s ease-out;
   }
 }
 @keyframes replay-in {
@@ -1224,6 +1320,26 @@ button.live-note {
   from {
     opacity: 0;
     transform: scale(1.5);
+  }
+}
+@keyframes replay-ripple {
+  from {
+    opacity: 0.9;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+@keyframes replay-burst {
+  from {
+    opacity: 1;
+    transform: rotate(var(--a)) translateX(6px);
+  }
+  to {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(26px);
   }
 }
 @keyframes replay-zoom {

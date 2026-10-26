@@ -1007,6 +1007,8 @@ test('Recap: unique viewer counted once while live, story replay of the finished
     assert.match(story().textContent, /Alex A/);
     await ended.click('Scène suivante');
     assert.ok(ended.button('↻ Revoir'), 'end screen');
+    assert.ok(story().querySelector('.replay-curve svg'), 'score curve instead of game squares');
+    assert.match(story().querySelector('.replay-caption').textContent, /Jeu, set et match/, 'skipping to the end draws the whole curve');
     await ended.click('Retour au live');
     assert.equal(document.querySelector('dialog.replay'), null, 'story closed');
   } finally {
@@ -1084,4 +1086,33 @@ test('Recap: replay frames drop corrections and find breaks, highlight picks the
   const run = recapSets({ ...match, set1_j1: 6, set1_j2: 1 }, [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1]].map(([a, b]) => snap(a, b)));
   assert.equal(matchHighlight({ ...match, set1_j1: 6, set1_j2: 1 }, run, name).title, '6 jeux de suite pour A. Martin');
   assert.equal(matchHighlight({ ...match, set1_j1: 6, set1_j2: 4 }, recapSets({ ...match, set1_j1: 6, set1_j2: 4 }, []), name), null);
+});
+
+test('Recap: progression climbs set by set, merges unknown order, flags streaks and set ends', () => {
+  const { progression, winnerFirst } = loader({ '/lib/supabase.ts': { supabase: {} } })(
+    resolve(src, 'lib/liveRecap.ts'),
+  );
+  const games = (flow) => flow.split(' ').map((g) => ({ side: g.slice(0, 2), known: !g.endsWith('?') }));
+  const { sets, total, events } = progression([
+    { set: 1, score: [6, 4], tiebreak: null, superTiebreak: false, games: games('j2 j2 j2 j1 j1 j1 j1 j1 j2 j1') },
+    { set: 2, score: [2, 1], tiebreak: null, superTiebreak: false, games: games('j1? j2? j1') },
+    { set: 3, score: [10, 7], tiebreak: null, superTiebreak: true, games: null },
+  ]);
+  const flow = (p) => p.points.map((q) => `${q.x}:${q.games.join('-')}${q.known ? '' : '?'}`).join(' ');
+  assert.equal(flow(sets[0]), '0:0-0 1:0-1 2:0-2 3:0-3 4:1-3 5:2-3 6:3-3 7:4-3 8:5-3 9:5-4 10:6-4');
+  assert.equal(flow(sets[1]), '10:0-0 12:1-1? 13:2-1', 'each set starts again from 0');
+  assert.equal(flow(sets[2]), '13:0-0 17:10-7?', 'super tie-break: one dashed stretch');
+  assert.equal(total, 17);
+  assert.deepEqual(
+    events.map((e) => (e.kind === 'streak' ? `streak ${e.side} ${e.from}-${e.to} @${e.x}` : `set${e.set.set} ${e.side} @${e.x}`)),
+    ['streak j1 3-8 @7', 'set1 j1 @10', 'set2 j1 @13', 'set3 j1 @17'],
+    'three straight games are not a streak; the curve shows it once the fourth is drawn',
+  );
+  assert.deepEqual(
+    [[6, 4], [3, 6], [6, 10]].map((score) => winnerFirst(score, 'j2').join('–')),
+    ['4–6', '6–3', '10–6'],
+    'match winner always first',
+  );
+  assert.deepEqual(winnerFirst([6, 4], null), [6, 4]);
+  assert.equal(flow(progression([{ set: 1, score: [3, 6], tiebreak: null, superTiebreak: false, games: null }]).sets[0]), '0:0-0 9:3-6?');
 });
