@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-
-interface RosterMember {
-  id: string;
-  prenom: string;
-  nom: string;
-}
+import { addCaptain, loadCaptains, removeCaptain, type RosterMember } from '../../lib/teamCaptains';
 
 interface Props {
   clubId: string;
@@ -22,14 +16,9 @@ export default function TeamCaptainsSection({ clubId, equipeId }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const [captains, members] = await Promise.all([
-        supabase.from('team_equipe_captains').select('user_id').eq('club_id', clubId).eq('equipe_id', equipeId),
-        supabase.rpc('team_member_roster', { p_club: clubId }),
-      ]);
-      if (captains.error) throw captains.error;
-      if (members.error) throw members.error;
-      setCaptainIds((captains.data ?? []).map((row) => row.user_id as string));
-      setRoster((members.data ?? []) as RosterMember[]);
+      const { byEquipe, roster: members } = await loadCaptains(clubId, [equipeId]);
+      setCaptainIds(byEquipe[equipeId] ?? []);
+      setRoster(members);
     } catch {
       setError('Impossible de charger les capitaines.');
     }
@@ -46,33 +35,28 @@ export default function TeamCaptainsSection({ clubId, equipeId }: Props) {
     if (!selected) return;
     setBusy(true);
     setError('');
-    const { error: err } = await supabase
-      .from('team_equipe_captains')
-      .insert({ club_id: clubId, equipe_id: equipeId, user_id: selected });
-    setBusy(false);
-    if (err) {
+    try {
+      await addCaptain(clubId, equipeId, selected);
+      setSelected('');
+      load();
+    } catch {
       setError('Impossible d’ajouter ce capitaine.');
-      return;
+    } finally {
+      setBusy(false);
     }
-    setSelected('');
-    void load();
   };
 
   const remove = async (userId: string) => {
     setBusy(true);
     setError('');
-    const { error: err } = await supabase
-      .from('team_equipe_captains')
-      .delete()
-      .eq('club_id', clubId)
-      .eq('equipe_id', equipeId)
-      .eq('user_id', userId);
-    setBusy(false);
-    if (err) {
+    try {
+      await removeCaptain(clubId, equipeId, userId);
+      load();
+    } catch {
       setError('Impossible de retirer ce capitaine.');
-      return;
+    } finally {
+      setBusy(false);
     }
-    void load();
   };
 
   return (
