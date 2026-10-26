@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { sharedRequire } from './helpers/shared-modules.mjs';
 
 // Execute the actual Deno handler with local API doubles. No network or publication.
 async function handler(name, options = {}) {
@@ -76,7 +77,7 @@ async function handler(name, options = {}) {
   for (const module of ['email-template', 'auth-email']) {
     const source = await readFile(new URL(`../supabase/functions/_shared/${module}.ts`, import.meta.url), 'utf8');
     const exports = {};
-    vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports, URL });
+    vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports, URL, require: sharedRequire });
     shared[`../_shared/${module}.ts`] = exports;
   }
   let serve;

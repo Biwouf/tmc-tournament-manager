@@ -18,12 +18,18 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let user = { id: 'u1' }, pathname = '/', listeners = new Set(), fail = false;
 const alpha = { id: 'a', slug: 'alpha', name: 'Alpha Tennis', sport: 'tennis', status: 'active' };
 const beta = { ...alpha, id: 'b', slug: 'beta', name: 'Beta Tennis' };
-let rows = {}, calls = [];
+let rows = {}, calls = [], rpcFail = false;
 const supabase = {
   auth: {
     getSession: async () => ({ data: { session: user ? { user } : null } }),
     onAuthStateChange: cb => { listeners.add(cb); return { data: { subscription: { unsubscribe: () => listeners.delete(cb) } } }; },
     signOut: async () => { user = null; for (const cb of listeners) cb('SIGNED_OUT', null); },
+  },
+  // SaaS S2 : l'activation self-serve rend actifs les clubs pending de l'appelant.
+  async rpc(name) {
+    calls.push(`rpc:${name}`);
+    for (const club of rows.clubs || []) if (club.status === 'pending' && club.activatable) club.status = 'active';
+    return { data: [], error: rpcFail ? new Error('missing function') : null };
   },
   from(table) {
     let filters = [];
@@ -62,7 +68,10 @@ function load(relative, env = {}) {
 }
 const { resolveClubSlug } = load('src/lib/clubHost.ts');
 test('hostname resolution isolates surfaces and never falls back on arbitrary hosts', () => {
-  assert.equal(readFileSync('src/lib/clubHost.ts', 'utf8'), readFileSync('pwa/src/lib/clubHost.ts', 'utf8'));
+  // Seule la profondeur de l'import partagé diffère entre les deux copies.
+  const shared = (file) => readFileSync(file, 'utf8').replace(/'(\.\.\/)+shared\//, "'shared/");
+  assert.equal(shared('src/lib/clubHost.ts'), shared('pwa/src/lib/clubHost.ts'));
+  assert.equal(resolveClubSlug('app-mail.feelike.pro', 'pwa', {}), null);
   assert.equal(resolveClubSlug('app-alpha.feelike.pro', 'pwa', {}), 'alpha');
   assert.equal(resolveClubSlug('APP-BETA.FEELIKE.PRO.', 'pwa', {}), 'beta');
   for (const host of ['alpha.feelike.pro', 'admin.feelike.pro', 'app-admin.feelike.pro', 'app-app-alpha.feelike.pro', 'app--alpha.feelike.pro', 'evil.example', 'unknown.vercel.app', 'app-alpha.feelike.app']) {
@@ -95,7 +104,7 @@ async function click(text) {
   assert.ok(button, text); await act(async () => button.click());
 }
 function reset() {
-  localStorage.clear(); sessionStorage.clear(); pathname = '/'; user = { id: 'u1' }; fail = false; calls = [];
+  localStorage.clear(); sessionStorage.clear(); pathname = '/'; user = { id: 'u1' }; fail = false; rpcFail = false; calls = [];
   rows = { club_members: [{ user_id: 'u1', club_id: 'a' }, { user_id: 'u1', club_id: 'b' }], profiles: [{ id: 'u1', is_super_admin: false }], clubs: [alpha, beta] };
 }
 test('central BO: choose, change, forged choice, signout and account isolation', async () => {
@@ -109,6 +118,20 @@ test('central BO: choose, change, forged choice, signout and account isolation',
   await click('Se déconnecter'); assert.match(document.body.textContent, /LoginPage/);
   await act(async () => { user = { id: 'u2' }; for (const cb of listeners) cb('SIGNED_IN', { user }); });
   assert.match(document.body.textContent, /Aucun club actif/); assert.doesNotMatch(document.body.textContent, /CONTENU/);
+  await act(async () => root.unmount());
+});
+test('central BO: self-serve activation runs before the club list, and its failure does not lock the BO', async () => {
+  reset(); rows.club_members.push({ user_id: 'u1', club_id: 'c' });
+  rows.clubs.push({ ...alpha, id: 'c', slug: 'gamma', name: 'Gamma Tennis', status: 'pending', activatable: true });
+  const Admin = load('src/components/AdminEntry.tsx').default;
+  let root = await mount(Admin, club => h('p', null, 'CONTENU ' + club.id));
+  assert.equal(calls[0], 'rpc:club_self_serve_activate');
+  assert.match(document.body.textContent, /Gamma Tennis/);
+  await act(async () => root.unmount());
+  reset(); rpcFail = true; rows.clubs.push({ ...alpha, id: 'c', name: 'Gamma Tennis', status: 'pending' });
+  const error = console.error; console.error = () => {};
+  try { root = await mount(Admin, club => h('p', null, 'CONTENU ' + club.id)); } finally { console.error = error; }
+  assert.match(document.body.textContent, /Alpha Tennis/); assert.doesNotMatch(document.body.textContent, /Gamma Tennis/);
   await act(async () => root.unmount());
 });
 test('central BO: suspended memberships hidden, support restricted to superadmin', async () => {

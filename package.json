@@ -27,7 +27,8 @@
     "test:competitions": "node --test tests/competition-admin-sql.test.mjs tests/competition-tenup-worker.test.mjs tests/competition-tenup-edge.test.mjs tests/competition-admin-client.test.mjs",
     "test:course-push": "node --test tests/course-push-sql.test.mjs tests/course-push-client.test.mjs tests/course-push-dispatch.test.mjs",
     "pwa:phone": "bash scripts/pwa-phone-tunnel.sh",
-    "test:live-push": "node --test tests/live-push-sql.test.mjs tests/live-push-client.test.mjs tests/course-push-dispatch.test.mjs"
+    "test:live-push": "node --test tests/live-push-sql.test.mjs tests/live-push-client.test.mjs tests/course-push-dispatch.test.mjs",
+    "test:club-signup": "node --test tests/club-signup-sql.test.mjs tests/club-signup-edge.test.mjs tests/domains.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

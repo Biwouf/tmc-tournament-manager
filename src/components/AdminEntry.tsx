@@ -36,6 +36,11 @@ function CentralAdmin({ children }: { children: (club?: Club, support?: boolean)
     if (!userId) return;
     let active = true;
     async function load() {
+      // SaaS S2 : premier passage par le lien magique → les clubs self-serve en attente de
+      // ce compte passent actifs (essai de 30 jours) AVANT d'être listés. Idempotent et
+      // sans effet sinon ; un échec ne doit pas fermer l'accès aux clubs déjà actifs.
+      const activation = await supabase.rpc('club_self_serve_activate');
+      if (activation.error) console.error('[AdminEntry] activation self-serve indisponible');
       const [members, profile] = await Promise.all([
         supabase.from('club_members').select('club_id').eq('user_id', userId!),
         supabase.from('profiles').select('is_super_admin').eq('id', userId!).maybeSingle(),

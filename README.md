@@ -188,6 +188,7 @@ Réservée au **super-admin** de la plateforme, sur `/super-admin` (carte *Plate
 
 - **Créer un club** : nom, slug et sport. Le slug est le sous-domaine du club (`<slug>.feelike.pro`) : minuscules, chiffres et tirets, 2 à 32 caractères, ni préfixe `app-` (réservé à la PWA) ni slug réservé par la plateforme. Sa ligne de configuration est créée automatiquement.
 - **Lister** les clubs avec leur statut, leur date de création, leur nombre de membres et un marqueur **« aucun admin »** — l'état d'un club fraîchement créé, dont l'action suivante est l'invitation.
+- Les clubs créés par l'**inscription en ligne** apparaissent **« En attente de confirmation »** tant que leur créateur n'a pas cliqué le lien reçu par email : ils ne sont ni suspendables ni réactivables, et sont supprimés automatiquement au bout de 7 jours sans confirmation. Une fois confirmés, ils affichent la date de **fin de leur essai** (30 jours).
 - **Inviter le premier administrateur** d'un club, par email ou en générant un lien à copier.
 - **Suspendre / réactiver** un club. Un club suspendu n'est plus accessible à ses membres (back-office et PWA). Suspendre le club dans lequel on se trouve est refusé.
 - **Entrer dans un club en support** : le back-office bascule sur ce club (même suspendu, pour diagnostic), avec un bandeau permanent rappelant où l'on se trouve et un bouton *Quitter*. Ça ne donne aucun droit supplémentaire : le club affiché change, pas les permissions.

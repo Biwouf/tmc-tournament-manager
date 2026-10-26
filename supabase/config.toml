@@ -10,3 +10,7 @@ enable_confirmations = false
 [functions.send-auth-email]
 # Signature Standard Webhooks vérifiée dans la fonction ; pas de JWT utilisateur.
 verify_jwt = false
+
+[functions.club-signup]
+# Inscription publique d'un club : Turnstile et limite de débit dans la fonction, pas de session.
+verify_jwt = false

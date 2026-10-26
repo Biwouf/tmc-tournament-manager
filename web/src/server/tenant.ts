@@ -1,4 +1,5 @@
 import { publicConfig, type Club, type Site } from '../lib/site';
+import { isReservedSlug } from '../../../shared/clubSlug.mjs';
 
 export type Runtime = {
   appEnv: string; deploymentEnv?: string; devSlug?: string; previewHosts: string[];
@@ -8,7 +9,7 @@ export class SiteError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const reserved = (slug: string) => ['admin', 'www', 'api', 'app'].includes(slug) || slug.startsWith('app-');
+const reserved = isReservedSlug;
 
 export function hostname(authority: string): string {
   if (!/^[a-z0-9.\-[\]:]+$/i.test(authority)) throw new SiteError(404, 'Site introuvable');
@@ -58,7 +59,7 @@ export async function loadSite(authority: string, runtime: Runtime, fetcher: typ
   }
   if (!runtime.supabaseUrl || !runtime.anonKey) throw new SiteError(503, 'Site temporairement indisponible');
   const url = new URL('/rest/v1/clubs', runtime.supabaseUrl);
-  url.searchParams.set('select', 'id,slug,name,sport,status,custom_domain,club_settings(config)');
+  url.searchParams.set('select', 'id,slug,name,sport,status,custom_domain,site_published,club_settings(config)');
   url.searchParams.set(field, `eq.${value}`);
   let response: Response;
   try {

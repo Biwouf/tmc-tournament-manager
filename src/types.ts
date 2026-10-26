@@ -340,3 +340,9 @@ export interface TeamRencontre {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Clubs (multi-tenant, SaaS S2 — migration 2026102601) ───────────────────
+/** `pending` : inscription self-serve pas encore confirmée par le lien magique, jamais résolue. */
+export type ClubStatus = 'active' | 'suspended' | 'pending';
+/** `internal` : clubs historiques et console, hors facturation ; `trial` : essai self-serve. */
+export type ClubPlan = 'internal' | 'trial' | 'saison';

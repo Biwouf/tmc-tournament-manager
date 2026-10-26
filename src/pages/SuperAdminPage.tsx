@@ -11,22 +11,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { invokeInvite } from '../lib/invite';
-import { useClub, enterSupportClub } from '../contexts/ClubContext';
+import { useClub, enterSupportClub, type ClubPlan, type ClubStatus } from '../contexts/ClubContext';
+import { RESERVED_SLUGS } from '../../shared/clubSlug.mjs';
 
 type ClubRow = {
   id: string;
   slug: string;
   name: string;
   sport: string;
-  status: string;
+  status: ClubStatus;
+  plan: ClubPlan;
+  trial_ends_at: string | null;
   created_at: string;
 };
 
 type MemberStat = { total: number; admins: number };
 
 // Mêmes règles que le CHECK `clubs_slug_format` (migration 2026081802) : le slug est une
-// adresse DNS (D9). Le CHECK SQL est le filet, ces messages sont l'UX.
-const RESERVED_SLUGS = ['admin', 'app', 'www', 'api', 'mail', 'static', 'assets', 'feelike'];
+// adresse DNS (D9). Le CHECK SQL est le filet, ces messages sont l'UX. Les slugs réservés
+// viennent de shared/clubSlug.mjs.
 
 function slugify(name: string): string {
   return name
@@ -87,7 +90,7 @@ export default function SuperAdminPage() {
       await Promise.all([
         supabase
           .from('clubs')
-          .select('id, slug, name, sport, status, created_at')
+          .select('id, slug, name, sport, status, plan, trial_ends_at, created_at')
           .order('created_at', { ascending: false }),
         // Lisible grâce à `club_members_select_super_admin` (2026081802). Sans cette
         // policy on ne verrait que ses propres appartenances.
@@ -303,7 +306,10 @@ export default function SuperAdminPage() {
             <div className="flex flex-col gap-4">
               {clubs.map((c) => {
                 const stat = stats[c.id] ?? { total: 0, admins: 0 };
-                const suspended = c.status !== 'active';
+                const suspended = c.status === 'suspended';
+                // Inscription self-serve pas encore confirmée : ni réactivable ni suspendable
+                // (contrainte `clubs_self_serve_lifecycle`), purgée après 7 jours.
+                const pending = c.status === 'pending';
                 return (
                   <div key={c.id} className="rounded-2xl border bg-card/90 p-6 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -313,6 +319,16 @@ export default function SuperAdminPage() {
                           {suspended && (
                             <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">
                               Suspendu
+                            </span>
+                          )}
+                          {pending && (
+                            <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                              En attente de confirmation
+                            </span>
+                          )}
+                          {c.plan === 'trial' && c.trial_ends_at && (
+                            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                              Essai jusqu’au {formatDate(c.trial_ends_at)}
                             </span>
                           )}
                           {c.id === currentClubId && (
@@ -348,14 +364,16 @@ export default function SuperAdminPage() {
                         >
                           Entrer dans ce club
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(c)}
-                          disabled={busyClub === c.id}
-                          className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-60"
-                        >
-                          {busyClub === c.id ? '...' : suspended ? 'Réactiver' : 'Suspendre'}
-                        </button>
+                        {!pending && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(c)}
+                            disabled={busyClub === c.id}
+                            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-60"
+                          >
+                            {busyClub === c.id ? '...' : suspended ? 'Réactiver' : 'Suspendre'}
+                          </button>
+                        )}
                       </div>
                     </div>
 

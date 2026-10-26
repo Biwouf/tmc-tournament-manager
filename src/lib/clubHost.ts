@@ -1,8 +1,9 @@
+import { isReservedSlug } from '../../shared/clubSlug.mjs';
+
 // Même contrat dans le BO et la PWA. Aucun repli implicite sur CAC.
 export function resolveClubSlug(hostname: string, surface: 'bo' | 'pwa', env: Record<string, unknown>): string | null {
   const host = hostname.toLowerCase().replace(/\.$/, '');
-  const valid = (slug: string) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) &&
-    !['admin', 'www', 'api', 'app'].includes(slug) && !slug.startsWith('app-');
+  const valid = (slug: string) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !isReservedSlug(slug);
   const match = /^([a-z0-9-]+)\.feelike\.pro$/.exec(host);
   if (match) {
     // Le BO central passe par AdminEntry ; aucun slug « admin ».

@@ -4,6 +4,8 @@ import { clubConfigSchema, type ClubConfig } from './clubConfig';
 export type Club = {
   id: string; slug: string; name: string; sport: string; status: string;
   custom_domain: string | null;
+  /** SaaS S2 : `false` pour un club self-serve tant qu'il n'a pas publié son site (noindex). */
+  site_published?: boolean;
 };
 export type Site = { club: Club; config: ClubConfig; clubName: string; origin: string; optimizeImages?: boolean; feeds?: HomeFeeds };
 export const PAGES = [
