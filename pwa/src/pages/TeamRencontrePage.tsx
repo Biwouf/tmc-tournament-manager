@@ -18,6 +18,7 @@ import TeamCompoSheet from '../components/teamMatches/TeamCompoSheet';
 import TeamSheet from '../components/teamMatches/TeamSheet';
 import { announceLiveStart } from '../lib/liveFollows';
 import TeamResultSheet from '../components/teamMatches/TeamResultSheet';
+import TeamPhotos from '../components/teamMatches/TeamPhotos';
 
 type Selection = { line: TeamLine; live?: LiveMatch; mode: 'actions' | 'result' };
 const toLocalInput = (iso: string) => {
@@ -152,6 +153,7 @@ export default function TeamRencontrePage() {
         className={`min-h-12 w-full rounded-xl border border-primary p-3 font-semibold disabled:opacity-40 ${ready ? 'bg-primary text-primary-foreground' : 'text-primary'}`}>Vérifier et confirmer la rencontre</button>}
       {rencontre.confirmed_at && <p className="text-sm text-muted-foreground">Chaque membre peut corriger un résultat. La rencontre sera alors à confirmer à nouveau.</p>}
     </>}
+    {clubId && <TeamPhotos clubId={clubId} rencontreId={id} photoUrls={rencontre.photo_urls} userId={user?.id ?? null} canAdd={!!canReschedule.data} onChanged={() => void query.refetch()} />}
     {creating && clubId && <CreateTeamMatch detail={detail} clubId={clubId} onClose={close} />}
     {composing && clubId && <TeamCompoSheet detail={detail} clubId={clubId} slots={freeSimples} onClose={close} />}
     {selection?.mode === 'actions' && <TeamSheet title={lineLabel(selection.line)} onClose={close} busy={action.busy}>

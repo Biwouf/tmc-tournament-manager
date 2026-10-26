@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
@@ -11,6 +11,7 @@ import type {
   TeamType,
 } from '../types';
 import CreateEquipeForm from '../components/teamMatches/CreateEquipeForm';
+import { addCaptain, loadCaptains, removeCaptain, type RosterMember } from '../lib/teamCaptains';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
 import {
   CATEGORIES_BY_TYPE,
@@ -738,6 +739,40 @@ function EquipesSection({
     [competitions]
   );
 
+  // Capitaines de toutes les équipes affichées + membres du club, chargés en deux requêtes.
+  const [captains, setCaptains] = useState<Record<string, string[]>>({});
+  const [roster, setRoster] = useState<RosterMember[]>([]);
+  const [captainBusy, setCaptainBusy] = useState(false);
+  const equipeIds = useMemo(() => equipes.map((e) => e.id).join(','), [equipes]);
+  const loadAllCaptains = useCallback(async () => {
+    if (!clubId || !equipeIds) return;
+    try {
+      const { byEquipe, roster: members } = await loadCaptains(clubId, equipeIds.split(','));
+      setCaptains(byEquipe);
+      setRoster(members);
+    } catch {
+      setError('Impossible de charger les capitaines.');
+    }
+  }, [clubId, equipeIds]);
+  useEffect(() => {
+    void loadAllCaptains();
+  }, [loadAllCaptains]);
+  const rosterById = useMemo(() => Object.fromEntries(roster.map((m) => [m.id, m])), [roster]);
+
+  const changeCaptain = async (equipeId: string, userId: string, action: 'add' | 'remove') => {
+    if (!clubId) return;
+    setCaptainBusy(true);
+    setError(null);
+    try {
+      await (action === 'add' ? addCaptain : removeCaptain)(clubId, equipeId, userId);
+      await loadAllCaptains();
+    } catch {
+      setError(action === 'add' ? 'Impossible d’ajouter ce capitaine.' : 'Impossible de retirer ce capitaine.');
+    } finally {
+      setCaptainBusy(false);
+    }
+  };
+
   const handleDelete = async (equipe: TeamEquipe) => {
     if (!window.confirm(`Supprimer l'équipe ${equipe.numero} et toutes ses rencontres ?`)) return;
     const { error: err } = await supabase
@@ -781,6 +816,7 @@ function EquipesSection({
                 <th className="px-4 py-2.5">Compétition</th>
                 <th className="px-4 py-2.5">Division</th>
                 <th className="px-4 py-2.5">Journées</th>
+                <th className="px-4 py-2.5">Capitaines</th>
                 <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
@@ -795,6 +831,42 @@ function EquipesSection({
                     </td>
                     <td className="px-4 py-2.5">{eq.division}{eq.tenup_team_name && <p className="text-xs text-muted-foreground">{eq.tenup_team_name}</p>}</td>
                     <td className="px-4 py-2.5">{eq.nb_journees_poule}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex min-w-48 flex-wrap items-center gap-1.5">
+                        {(captains[eq.id] ?? []).map((userId) => {
+                          const member = rosterById[userId];
+                          return (
+                            <span key={userId} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                              {member ? `${member.prenom} ${member.nom}` : 'Ancien membre'}
+                              <button
+                                onClick={() => changeCaptain(eq.id, userId, 'remove')}
+                                disabled={captainBusy}
+                                aria-label={`Retirer ${member ? `${member.prenom} ${member.nom}` : 'ce capitaine'}`}
+                                className="text-muted-foreground transition hover:text-red-700 disabled:opacity-50"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                        <select
+                          value=""
+                          disabled={captainBusy}
+                          onChange={(e) => e.target.value && changeCaptain(eq.id, e.target.value, 'add')}
+                          aria-label={`Ajouter un capitaine à l'équipe ${eq.numero}`}
+                          className="rounded-lg border border-input bg-background px-2 py-1 text-xs text-muted-foreground disabled:opacity-50"
+                        >
+                          <option value="">+ Ajouter…</option>
+                          {roster
+                            .filter((m) => !(captains[eq.id] ?? []).includes(m.id))
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.prenom} {m.nom}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    </td>
                     <td className="px-4 py-2.5">
                       <div className="flex justify-end gap-2">
                         <Link

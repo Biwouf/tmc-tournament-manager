@@ -116,7 +116,8 @@ rencontre depuis sa fiche ; comme au BO, la rencontre repasse alors à confirmer
 
 ### Capitaines — 26 octobre 2026
 - Table `team_equipe_captains (club_id, equipe_id, user_id)` : plusieurs capitaines par équipe,
-  déclarés par un admin depuis la fiche équipe du BO (section *Capitaines*), parmi les membres
+  déclarés par un admin depuis la liste des équipes du BO (`/team-matches/admin`, colonne
+  *Capitaines*) ou la fiche équipe (section *Capitaines*), parmi les membres
   du club. Lecture réservée aux membres du club ; écriture `can_manage_club_content`.
 - Une équipe appartient à une compétition, donc à une saison : les capitaines se redéclarent à
   chaque saison. Un capitaine retiré du club perd le droit, même si sa ligne subsiste
@@ -126,7 +127,17 @@ rencontre depuis sa fiche ; comme au BO, la rencontre repasse alors à confirmer
 - `team_rencontre_set_date(club, rencontre, date)` (SECURITY DEFINER) : seul chemin d'écriture
   de la date côté PWA. Il remet lui-même `confirmed_at`/`confirmed_by` à `NULL`, car
   `guard_team_encounter` ne le fait pas quand l'écriture vient du propriétaire de la fonction.
-- Prochaine étape : ajout de photos depuis la PWA par les capitaines.
+
+### Photos de rencontre — 26 octobre 2026
+- Section *Photos* sur la fiche rencontre (`TeamPhotos`) : grille visible de tous (bucket public).
+- Ajout réservé aux admins et capitaines (`team_can_reschedule`). La PWA réduit chaque photo
+  (1600 px, JPEG, orientation EXIF, `compressPhoto`), l'envoie sous
+  `<club>/<rencontre>/<user>-<horodatage>-<i>.jpg`, puis appelle `team_rencontre_add_photos`, qui
+  vérifie chemin et propriétaire Storage de chaque fichier avant de l'ajouter à `photo_urls`.
+- Retrait : chacun ses propres photos (auteur lu dans le nom de fichier), l'admin toutes.
+  `team_rencontre_remove_photo` retire l'URL, puis le client supprime le fichier (policy
+  propriétaire). Un échec de cette suppression laisse un fichier orphelin, sans effet visible.
+- Les photos ajoutées depuis la PWA sont les mêmes que celles du BO (visuel de résultat, actu).
 
 Le lot 4 (hors connexion transversal) reste à développer. Les nouvelles commandes sont
 rejouables, mais aucune file locale durable ni synchronisation automatique n'est encore
