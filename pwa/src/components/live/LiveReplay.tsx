@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { LiveMatch, LiveMatchWinner } from '../../types';
 import { getTeamLabel } from '../../liveScoreRules';
 import { livePhotoUrl } from '../../lib/liveActivity';
 import { formatDuration } from '../../lib/liveDurations';
 import {
   matchHighlight,
+  progression,
   recapSets,
   replayFrames,
+  winnerFirst,
   type LiveRecap,
+  type ProgressSet,
   type RecapSet,
 } from '../../lib/liveRecap';
 
@@ -52,6 +55,7 @@ export default function LiveReplay({
   }, []);
   const name = (side: LiveMatchWinner) => shortName(match, side);
   const sets = recapSets(match, recap.score);
+  const progress = progression(sets);
   const frames = replayFrames(match, recap.score);
   const highlight = matchHighlight(match, sets, name);
   const photos = recap.photos_top.filter((p) => p.image_path);
@@ -115,8 +119,16 @@ export default function LiveReplay({
     },
     {
       key: 'final',
-      duration: 5000,
-      render: () => <Final match={match} sets={sets} duration={duration} />,
+      duration: CURVE_START + curveTiming(progress).ms + FINISH_MS,
+      render: (elapsed) => (
+        <Final
+          match={match}
+          sets={sets}
+          progress={progress}
+          duration={duration}
+          elapsed={elapsed}
+        />
+      ),
     },
   );
 
@@ -180,7 +192,7 @@ export default function LiveReplay({
         </button>
       </div>
       <div className="replay-scene" key={scene.key}>
-        {scene.render(elapsed)}
+        {scene.render(ended ? scene.duration : elapsed)}
       </div>
       {ended ? (
         <div className="replay-end">
@@ -349,48 +361,268 @@ function Crowd({ recap, elapsed }: { recap: LiveRecap; elapsed: number }) {
   );
 }
 
+type Progress = ReturnType<typeof progression>;
+const CURVE_START = 600;
+const GAME_MS = 280;
+const SET_PAUSE = 800;
+const CURVE_MAX = 11000;
+const FINISH_MS = 3200;
+const W = 320;
+const H = 180;
+const PAD_L = 4;
+const PAD_R = 16;
+const GAP = 22;
+const TOP = 22;
+const BOTTOM = 8;
+
+/** Durée du tracé : un temps par jeu, une pause à chaque fin de set, plafonnée. */
+function curveTiming(p: Progress) {
+  const pauses = SET_PAUSE * Math.max(0, p.sets.length - 1);
+  const game = Math.min(GAME_MS, (CURVE_MAX - pauses) / (p.total || 1));
+  return { game, ms: p.total * game + pauses };
+}
+
+/** Jeux tracés après `t` ms de tracé. */
+function revealAt(p: Progress, t: number) {
+  const { game } = curveTiming(p);
+  let left = t;
+  for (const [i, s] of p.sets.entries()) {
+    const ms = (s.to - s.from) * game;
+    if (left <= ms) return s.from + left / game;
+    left -= ms;
+    if (i < p.sets.length - 1) {
+      if (left <= SET_PAUSE) return s.to;
+      left -= SET_PAUSE;
+    }
+  }
+  return p.total;
+}
+
 function Final({
   match,
   sets,
+  progress,
   duration,
+  elapsed,
 }: {
   match: LiveMatch;
   sets: RecapSet[];
+  progress: Progress;
   duration: number | null;
+  elapsed: number;
 }) {
+  const { total, events } = progress;
+  const parts = progress.sets;
+  const reveal = reducedMotion() ? total : revealAt(progress, Math.max(0, elapsed - CURVE_START));
+  const done = reveal >= total;
+  const winner = match.winner;
+  const team = (side: LiveMatchWinner | null) =>
+    side === 'j1' ? 'team-1' : side === 'j2' ? 'team-2' : '';
+  const width = W - PAD_L - PAD_R - GAP * Math.max(0, parts.length - 1);
+  const px = (x: number, i: number) => PAD_L + i * GAP + (x / (total || 1)) * width;
+  const games = Math.max(
+    6,
+    ...parts.filter((p) => !p.set.superTiebreak).map((p) => Math.max(...p.set.score)),
+  );
+  const py = (v: number, p: ProgressSet) =>
+    H - BOTTOM - (v / (p.set.superTiebreak ? Math.max(1, ...p.set.score) : games)) * (H - TOP - BOTTOM);
+  // Jeux de chaque joueur, interpolés le long du segment en cours.
+  const valueAt = (p: ProgressSet, x: number): [number, number] => {
+    const i = Math.max(1, p.points.findIndex((q) => q.x >= x));
+    const [a, b] = [p.points[i - 1], p.points[i] ?? p.points[i - 1]];
+    const t = b.x === a.x ? 1 : (x - a.x) / (b.x - a.x);
+    return [0, 1].map((k) => a.games[k] + (b.games[k] - a.games[k]) * t) as [number, number];
+  };
+  const countAt = (p: ProgressSet, x: number) =>
+    p.points.filter((q) => q.x <= x + 1e-6).pop()!.games;
+  const path = (p: ProgressSet, k: 0 | 1, from = p.from, to = p.to) =>
+    p.points
+      .filter((q) => q.x >= from && q.x <= to)
+      .map((q, i) => `${i ? 'L' : 'M'}${px(q.x, parts.indexOf(p))} ${py(q.games[k], p)}`)
+      .join(' ');
+  // Tracé par morceaux connus / inconnus, le second en pointillés.
+  const pieces = (p: ProgressSet, k: 0 | 1) => {
+    const i = parts.indexOf(p);
+    const out: { known: boolean; d: string }[] = [];
+    p.points.slice(1).forEach((q, j) => {
+      const prev = p.points[j];
+      const piece = out[out.length - 1];
+      const to = `L${px(q.x, i)} ${py(q.games[k], p)}`;
+      if (piece?.known === q.known) piece.d += ` ${to}`;
+      else out.push({ known: q.known, d: `M${px(prev.x, i)} ${py(prev.games[k], p)} ${to}` });
+    });
+    return out;
+  };
+  const current = Math.max(0, parts.findIndex((p) => reveal <= p.to));
+  const reached = events.filter((e) => e.x <= reveal);
+  const partAt = (x: number) => parts.find((p) => x > p.from && x <= p.to) ?? parts[0];
+  const pointOf = (side: LiveMatchWinner, x: number) => {
+    const p = partAt(x);
+    const k = side === 'j1' ? 0 : 1;
+    return { x: px(x, parts.indexOf(p)), y: py(valueAt(p, x)[k], p) };
+  };
+
+  const caption = (() => {
+    if (done && winner)
+      return {
+        id: 'match',
+        side: winner,
+        text: match.retired_player
+          ? `🏆 Victoire de ${shortName(match, winner)} sur abandon`
+          : `🏆 Jeu, set et match · ${shortName(match, winner)}`,
+      };
+    const e = reached[reached.length - 1];
+    if (!e) return null;
+    if (e.kind === 'streak') {
+      const n = Math.min(e.to, Math.floor(reveal)) - e.from;
+      return { id: e.id, side: e.side, text: `🔥 ${n} jeux d'affilée · ${shortName(match, e.side)}` };
+    }
+    const label = e.set.superTiebreak ? 'Super tie-break' : `Set ${e.set.set}`;
+    const score = `${Math.max(...e.set.score)}–${Math.min(...e.set.score)}`;
+    return {
+      id: e.id,
+      side: e.side,
+      text: e.side ? `${label} pour ${shortName(match, e.side)} · ${score}` : `${label} · ${score}`,
+    };
+  })();
+
   return (
-    <div className="replay-center">
-      <span className="replay-kicker">{match.winner ? 'VAINQUEUR' : 'SCORE FINAL'}</span>
-      {match.winner && (
+    <div className="replay-center replay-final">
+      <span className="replay-kicker">{winner ? 'VAINQUEUR' : 'SCORE FINAL'}</span>
+      {winner && (
         <p className="replay-big">
-          {getTeamLabel(match, match.winner === 'j1' ? 1 : 2)}
+          {getTeamLabel(match, winner === 'j1' ? 1 : 2)}
           {match.retired_player && <small>sur abandon</small>}
         </p>
       )}
       <p className="replay-score">
         {sets.map((s) => (
           <span key={s.set}>
-            {s.score[0]}–{s.score[1]}
+            {winnerFirst(s.score, winner).join('–')}
             {s.tiebreak && <sup>{Math.min(...s.tiebreak)}</sup>}
           </span>
         ))}
       </p>
-      <ol className="replay-games" aria-hidden="true">
-        {sets.map((s) => (
-          <li key={s.set}>
-            {s.games?.map((g, i) => (
-              <i
-                key={i}
-                className={`${g.side === 'j1' ? 'team-1' : 'team-2'}${g.known ? '' : ' unknown'}`}
-                style={{ animationDelay: `${i * 60}ms` }}
-              />
-            ))}
-          </li>
-        ))}
-      </ol>
       {duration !== null && (
         <p className="replay-muted">{formatDuration(duration)} de jeu</p>
       )}
+      {total > 0 && (
+        <figure className="replay-curve" aria-hidden="true">
+          <figcaption>
+            <span className="team-1">● {shortName(match, 'j1')}</span>
+            <span className="team-2">● {shortName(match, 'j2')}</span>
+          </figcaption>
+          <svg viewBox={`0 0 ${W} ${H}`}>
+            <defs>
+              <clipPath id="replay-reveal">
+                <rect x="0" y="0" width={px(reveal, current) + 0.01} height={H} />
+              </clipPath>
+            </defs>
+            {parts.map((p, i) => {
+              if (i > current) return null;
+              const finished = reveal >= p.to;
+              const x = Math.min(reveal, p.to);
+              const now = valueAt(p, x);
+              const count = countAt(p, x);
+              const high = now[0] >= now[1] ? 0 : 1;
+              const label = p.set.superTiebreak ? 'Super TB' : `Set ${p.set.set}`;
+              const setEvent = events.find((e) => e.kind === 'set' && e.set === p.set);
+              return (
+                <g key={p.set.set}>
+                  <line
+                    className="replay-axis"
+                    x1={px(p.from, i)}
+                    x2={px(p.to, i)}
+                    y1={py(0, p)}
+                    y2={py(0, p)}
+                  />
+                  <text
+                    key={finished ? 'score' : 'label'}
+                    className={`replay-set ${finished ? team(setEvent?.side ?? null) : ''}`}
+                    x={(px(p.from, i) + px(p.to, i)) / 2}
+                    y={11}
+                  >
+                    {finished ? winnerFirst(p.set.score, winner).join('–') : label}
+                  </text>
+                  <g clipPath="url(#replay-reveal)">
+                    {([1, 0] as const).map((k) =>
+                      pieces(p, k).map((piece, j) => (
+                        <path
+                          key={`${k}:${j}`}
+                          className={`replay-line team-${k + 1}${piece.known ? '' : ' unknown'}`}
+                          d={piece.d}
+                        />
+                      )),
+                    )}
+                    {events.map(
+                      (e) =>
+                        e.kind === 'streak' &&
+                        e.from < p.to &&
+                        e.to > p.from && (
+                          <path
+                            key={e.id}
+                            className={`replay-streak ${team(e.side)}`}
+                            d={path(p, e.side === 'j1' ? 0 : 1, Math.max(p.from, e.from), Math.min(p.to, e.to))}
+                          />
+                        ),
+                    )}
+                  </g>
+                  {([1, 0] as const).map((k) => (
+                    <g key={k} className={`team-${k + 1}`}>
+                      <circle className="replay-head" cx={px(x, i)} cy={py(now[k], p)} r="3.5" />
+                      <text
+                        className="replay-count"
+                        x={px(x, i) + 6}
+                        y={py(now[k], p) + (k === high ? -5 : 12)}
+                      >
+                        {count[k]}
+                      </text>
+                    </g>
+                  ))}
+                </g>
+              );
+            })}
+            {reached.map((e) => {
+              if (e.kind === 'set' && (e.x >= total || !e.side)) return null;
+              const p = pointOf(e.side!, e.x);
+              return (
+                <circle
+                  key={e.id}
+                  className={`replay-spark ${team(e.side)}`}
+                  cx={p.x}
+                  cy={p.y}
+                  r={e.kind === 'streak' ? 10 : 7}
+                />
+              );
+            })}
+            {done && winner && (
+              <g
+                className={`replay-finish ${team(winner)}`}
+                transform={`translate(${pointOf(winner, total).x} ${pointOf(winner, total).y})`}
+              >
+                <circle className="ring" r="6" />
+                <circle className="ring late" r="6" />
+                {!reducedMotion() &&
+                  Array.from({ length: 10 }, (_, i) => (
+                    <line
+                      key={i}
+                      className="ray"
+                      x1="0"
+                      x2="6"
+                      y1="0"
+                      y2="0"
+                      style={{ '--a': `${i * 36 + 18}deg` } as CSSProperties}
+                    />
+                  ))}
+                <circle className="core" r="5" />
+              </g>
+            )}
+          </svg>
+        </figure>
+      )}
+      <p className={`replay-caption ${caption ? team(caption.side) : ''}`} key={caption?.id}>
+        {caption?.text}
+      </p>
     </div>
   );
 }

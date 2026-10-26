@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { LiveMatch } from '../../types';
 import { getTeamLabel } from '../../liveScoreRules';
-import { recapSets, type LiveRecap as Recap } from '../../lib/liveRecap';
+import { recapSets, winnerFirst, type LiveRecap as Recap } from '../../lib/liveRecap';
 import LiveReplay from './LiveReplay';
 
 const plural = (n: number, one: string, many: string) =>
@@ -35,7 +35,7 @@ export default function LiveRecap({
       <p className="recap-score">
         {sets.map((s) => (
           <span key={s.set} className="recap-set-score">
-            {s.score[0]}–{s.score[1]}
+            {winnerFirst(s.score, match.winner).join('–')}
             {s.tiebreak && <sup>{Math.min(...s.tiebreak)}</sup>}
           </span>
         ))}
