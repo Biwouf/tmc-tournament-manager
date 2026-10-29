@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 import { clubSlugForEmail, platformBrand, renderEmail, type EmailBrand } from '../_shared/email-template.ts';
-import { authEmails, type AuthEmailPayload } from '../_shared/auth-email.ts';
+import { authEmails, clubSignupSlug, type AuthEmailPayload, type ClubSignup } from '../_shared/auth-email.ts';
 
 const failure = (status: number, message: string) => Response.json({ error: { http_code: status, message } }, { status });
 Deno.serve(async (req: Request) => {
@@ -33,7 +33,23 @@ Deno.serve(async (req: Request) => {
         brand = { name: club.name, color: config?.color, logo: config?.logo };
       }
     }
-    const messages = authEmails(payload, supabaseUrl);
+    // Lien magique de l'inscription self-serve : seulement si le destinataire est bien
+    // l'admin de ce club encore `pending` (sinon, gabarit « magiclink » ordinaire).
+    let signup: ClubSignup | null = null;
+    const signupSlug = payload.email_data.email_action_type === 'magiclink'
+      ? clubSignupSlug(payload.email_data.redirect_to) : null;
+    if (signupSlug && payload.user.id) {
+      const admin = createClient(supabaseUrl, key);
+      const { data: club, error } = await admin.from('clubs').select('id, name').eq('slug', signupSlug).eq('status', 'pending').maybeSingle();
+      if (error) throw new Error('Club lookup failed');
+      if (club) {
+        const { data: member, error: memberError } = await admin.from('club_members').select('role')
+          .eq('club_id', club.id).eq('user_id', payload.user.id).eq('role', 'admin').maybeSingle();
+        if (memberError) throw new Error('Membership lookup failed');
+        if (member) signup = { name: club.name, slug: signupSlug };
+      }
+    }
+    const messages = authEmails(payload, supabaseUrl, signup);
     const versions = messages.map(({ to, content }) => {
       const { html, text } = renderEmail(brand, content);
       return { to: [{ email: to }], subject: `${brand.name} — ${content.title}`, htmlContent: html, textContent: text };

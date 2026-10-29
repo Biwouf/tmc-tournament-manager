@@ -1,3 +1,5 @@
+import { isReservedSlug } from '../../../shared/clubSlug.mjs';
+
 /** HTML email sans CSS externe : même habillage pour Auth et les notifications. */
 export type EmailBrand = { name: string; color?: unknown; logo?: unknown };
 export type EmailContent = { title: string; paragraphs: string[]; action?: { label: string; url: string }; code?: string; footer?: string };
@@ -56,7 +58,6 @@ export function clubSlugForEmail(redirect: string, aliases: Record<string, strin
     const slug = domainSlug ?? (local && dynamicOrigins.includes(url.origin)
       ? dynamicSlug
       : local ? alias(url.origin) : alias(url.origin) ?? alias(host));
-    return typeof slug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) &&
-      !['admin', 'www', 'api', 'app'].includes(slug) && !slug.startsWith('app-') ? slug : null;
+    return typeof slug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !isReservedSlug(slug) ? slug : null;
   } catch { return null; }
 }

@@ -56,7 +56,11 @@ clubs
   slug          text unique         -- sous-domaine : "cac-tennis"
   name          text                -- "CAC Tennis Club"
   sport         text default 'tennis'  -- préparé pour D'AUTRES SPORTS (vision long terme)
-  status        text                -- 'active' | 'suspended'
+  status        text                -- 'active' | 'suspended' | 'pending' (self-serve non confirmé, S2)
+  plan          text                -- 'internal' | 'trial' | 'saison' (S2, cf. SAAS_ONBOARDING.md)
+  trial_ends_at timestamptz null    -- fin d'essai, posée à l'activation (S2)
+  created_via   text                -- 'console' | 'self_serve' (S2)
+  site_published boolean            -- false : vitrine noindex (S2 ; bouton « Publier » en S8)
   custom_domain text null           -- réservé à une phase ultérieure
   created_at    timestamptz
   updated_at    timestamptz
@@ -209,7 +213,7 @@ Principe commun aux 3 apps : **hostname → club_id**, posé en contexte React, 
       - "cac-tennis"        depuis "app-cac-tennis.feelike.pro" (PWA, préfixe "app-")
       → select … from clubs where slug = :slug and status='active'
    (en dev : fallback via VITE_DEV_CLUB_SLUG ou ?club=… )
-3. Si introuvable / suspended → page "club inconnu / indisponible"
+3. Si introuvable / suspended / pending → page "club inconnu / indisponible"
 4. Sinon → ClubProvider expose { clubId, club } à toute l'app
 5. Tous les hooks/queries existants ajoutent .eq('club_id', clubId)
 ```
@@ -377,7 +381,7 @@ le super-admin n'est pas un rôle de club). Carte « Console plateforme » sur l
   Les mêmes règles sont dupliquées côté front — le CHECK est le filet, pas le message d'erreur.
 - **`club_settings` par trigger**, pas par un 2ᵉ insert côté front : un échec entre les deux
   laisserait un club à moitié provisionné.
-- **Pas de suppression de club** : aucune policy `DELETE`. On suspend (cascade sur 10 tables).
+- **Pas de suppression de club** : aucune policy `DELETE`. On suspend (cascade sur 10 tables). *Exception S2 : un club self-serve resté `pending` 7 jours est purgé (cf. fin du document).*
 - **Accès support = override de club** (`localStorage.feelike_support_club`), résolu par
   `ClubContext` **avant** le hostname et **sans** le filtre `status = 'active'` — entrer dans un
   club suspendu pour le diagnostiquer est l'usage même du support. Bandeau permanent + Quitter.
@@ -1131,3 +1135,25 @@ chez OVHcloud. Le détail livré et la procédure opérationnelle sont dans
 appartenances après connexion ; le wildcard appartient à la vitrine, qui route les hôtes
 `app-<slug>` vers la PWA. Les anciens paragraphes PR2/PR5 décrivent les étapes historiques.
 La PR13 ne sera close qu’après la recette DNS/TLS/Auth et multi-clubs réelle.
+
+## SaaS S2 — club self-serve (`pending`, `plan`)
+
+Spec : [SAAS_ONBOARDING.md](SAAS_ONBOARDING.md). Migration `2026102601_club_self_serve.sql` :
+
+- **Nouveau statut `pending`** : club créé par l'inscription publique (`club-signup`), e-mail
+  pas encore confirmé. Toutes les résolutions filtraient déjà `status = 'active'` ; en plus, la
+  ligne `clubs` et sa `club_settings` sont **invisibles** pour `anon` et pour tout compte non
+  membre (super-admin excepté). Passe `active` au premier clic sur le lien magique
+  (`club_self_serve_activate`, appelée par `AdminEntry`), purgé après 7 jours sinon.
+- **`plan`** (`internal` / `trial` / `saison`), **`trial_ends_at`**, **`created_via`**
+  (`console` / `self_serve`), **`site_published`**. Les clubs existants et ceux de la console
+  restent `internal` / `console` / publiés : le CAC n'est pas touché.
+- **Console** : grants par colonne sur `clubs` (`INSERT (name, slug, sport)`,
+  `UPDATE (status)`) — les nouvelles colonnes ne s'écrivent que côté serveur. La contrainte
+  `clubs_self_serve_lifecycle` interdit de réactiver un `pending` depuis la console et de
+  remettre un club en `pending`. La console affiche « En attente de confirmation » et la fin
+  d'essai, sans bouton Suspendre/Réactiver pour un `pending`.
+- **Slugs réservés** : une seule source, `shared/clubSlug.mjs` (cf. SAAS_ONBOARDING §4).
+- **Exception à « on ne supprime pas un club » (§5.1)** : un club `pending` de plus de 7 jours
+  est supprimé. Il n'a jamais été ouvert par personne ; un club `active` ou `suspended` reste
+  non supprimable.

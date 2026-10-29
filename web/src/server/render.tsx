@@ -56,7 +56,8 @@ export async function renderRequest(
     const page = pageAt(legacyTarget ?? path);
     // L’alias Vercel sert le site sans indexation ni redirection vers le futur domaine canonique.
     const production = isProduction(runtime) && !isProductionAlias(request.host, runtime);
-    const ready = isReadyForIndexing(site.config);
+    // SaaS S2 : un club self-serve reste hors index tant qu'il n'a pas publié son site (S8).
+    const ready = isReadyForIndexing(site.config) && site.club.site_published !== false;
     const headers: Record<string, string> = { ...noCache, 'Content-Type': 'text/html; charset=utf-8' };
     if (!production || !ready) headers['X-Robots-Tag'] = 'noindex, follow';
     // Toute URL de page retirée ou vide garde un vrai 404, y compris sur un alias.

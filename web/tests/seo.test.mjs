@@ -35,14 +35,14 @@ function config(name) {
 }
 function fixture() {
   const rows = ['alpha', 'beta'].map(slug => ({ id: `id-${slug}`, slug, name: slug, sport: 'tennis',
-    status: 'active', custom_domain: null, club_settings: { config: config(slug) } }));
+    status: 'active', custom_domain: null, site_published: true, club_settings: { config: config(slug) } }));
   const calls = [];
   const fetcher = async (input, options) => {
     const url = new URL(input); calls.push({ url, options });
     if (url.pathname !== '/rest/v1/clubs') return Response.json([]);
     assert.equal(url.origin, runtime.supabaseUrl);
     assert.equal(options.cache, 'no-store');
-    assert.equal(url.searchParams.get('select'), 'id,slug,name,sport,status,custom_domain,club_settings(config)');
+    assert.equal(url.searchParams.get('select'), 'id,slug,name,sport,status,custom_domain,site_published,club_settings(config)');
     const key = url.searchParams.has('slug') ? 'slug' : 'custom_domain';
     const value = url.searchParams.get(key)?.slice(3);
     return Response.json(rows.filter(row => row[key] === value));
@@ -145,6 +145,18 @@ test('sitemap et robots : types corrects, URLs canoniques publiées seulement', 
   assert.doesNotMatch(sitemap.body, /localhost|vercel.app/);
   const robots = await request('/robots.txt'); assert.match(robots.headers['Content-Type'], /text\/plain/);
   assert.equal(robots.body, 'User-agent: *\nAllow: /\nSitemap: https://alpha.feelike.pro/sitemap.xml\n');
+});
+test('club self-serve non publié (S2) : noindex partout, sitemap vide, robots sans sitemap', async () => {
+  const { request, rows } = fixture(); rows[0].site_published = false;
+  for (const path of ['/', '/club', '/contact']) {
+    const result = await request(path);
+    assert.equal(result.status, 200, path); assert.match(result.headers['X-Robots-Tag'], /noindex/, path);
+    assert.match(result.body, /<meta name="robots" content="noindex/, path);
+  }
+  assert.doesNotMatch((await request('/sitemap.xml')).body, /<loc>/);
+  assert.equal((await request('/robots.txt')).body, 'User-agent: *\nAllow: /\n');
+  // Le club voisin, publié (cas du CAC), reste indexable.
+  assert.equal((await request('/', 'beta.feelike.pro')).headers['X-Robots-Tag'], undefined);
 });
 test('preview autorisée et dev : noindex sur tout, pas de sitemap indexable ni fallback arbitraire', async () => {
   const { request } = fixture();

@@ -158,3 +158,7 @@ export interface TeamRencontre {
   confirmed_at: string | null;
   created_at: string; updated_at: string;
 }
+
+// ─── Clubs (SaaS S2 — migration 2026102601) ─────────────────────────────────
+/** La PWA ne résout que `active` : `pending` (inscription non confirmée) reste invisible. */
+export type ClubStatus = 'active' | 'suspended' | 'pending';

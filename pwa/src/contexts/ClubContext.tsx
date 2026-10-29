@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase';
 import { resolveClubSlug } from '../lib/clubHost';
 import ClubUnavailable from '../components/ClubUnavailable';
 import { hideSplash } from '../lib/splash';
+import type { ClubStatus } from '../types';
 
-type Club = { id: string; slug: string; name: string; sport: string; status: string };
+type Club = { id: string; slug: string; name: string; sport: string; status: ClubStatus };
 type ClubContextValue = { clubId: string | null; club: Club | null; loading: boolean };
 const ClubContext = createContext<ClubContextValue>({ clubId: null, club: null, loading: true });
 

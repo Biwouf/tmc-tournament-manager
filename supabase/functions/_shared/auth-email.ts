@@ -1,6 +1,6 @@
 import type { EmailContent } from './email-template.ts';
 export type AuthEmailPayload = {
-  user: { email: string; new_email?: string };
+  user: { id?: string; email: string; new_email?: string };
   email_data: { email_action_type: string; token?: string; token_new?: string; token_hash?: string; token_hash_new?: string; redirect_to?: string; site_url?: string };
 };
 const copy: Record<string, [string, string, string]> = {
@@ -20,13 +20,24 @@ const notices: Record<string, string> = {
   mfa_factor_enrolled_notification: 'Un facteur de sécurité a été ajouté',
   mfa_factor_unenrolled_notification: 'Un facteur de sécurité a été retiré',
 };
-export function authEmails(payload: AuthEmailPayload, supabaseUrl: string): { to: string; content: EmailContent }[] {
+/** Club self-serve visé par un lien magique (`?inscription=<slug>`, posé par `club-signup`). */
+export function clubSignupSlug(redirect: string | undefined): string | null {
+  try {
+    const hints = new URL(redirect || '').searchParams.getAll('inscription');
+    return hints.length === 1 && /^[a-z0-9-]{3,32}$/.test(hints[0]) ? hints[0] : null;
+  } catch { return null; }
+}
+/** Gabarit « Gardez votre club » : seulement pour un club `pending` dont le destinataire est admin. */
+export type ClubSignup = { name: string; slug: string };
+export function authEmails(payload: AuthEmailPayload, supabaseUrl: string, signup?: ClubSignup | null): { to: string; content: EmailContent }[] {
   const { user, email_data: data } = payload;
   const type = data.email_action_type;
   if (!user.email) throw new Error('Missing recipient');
   if (notices[type]) return [{ to: user.email, content: { title: notices[type], paragraphs: ['Cette modification concerne votre compte.', 'Si vous n’êtes pas à l’origine de cette modification, contactez rapidement l’administrateur de votre club.'] } }];
   if (!copy[type]) throw new Error('Unsupported email action');
-  const [title, paragraph, label] = copy[type];
+  const [title, paragraph, label] = signup && type === 'magiclink'
+    ? ['Gardez votre club', `Votre club « ${signup.name} » vous attend à l’adresse ${signup.slug}.feelike.pro. Confirmez votre adresse email pour le garder et démarrer vos 30 jours d’essai gratuit, sans carte bancaire. Sans confirmation, il sera supprimé dans 7 jours.`, 'Garder mon club']
+    : copy[type];
   const footer = 'Si vous n’êtes pas à l’origine de cette demande ou si vous n’attendiez pas cet email, vous pouvez l’ignorer. Ne partagez jamais ce lien ou ce code.';
   if (type === 'reauthentication') {
     if (!data.token) throw new Error('Missing code');

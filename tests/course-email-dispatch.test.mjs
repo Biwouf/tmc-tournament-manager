@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { sharedRequire } from './helpers/shared-modules.mjs';
 const shared = {};
 const template = await readFile(new URL('../supabase/functions/_shared/email-template.ts', import.meta.url), 'utf8');
-vm.runInNewContext(ts.transpileModule(template, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports: shared, URL });
+vm.runInNewContext(ts.transpileModule(template, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText, { exports: shared, URL, require: sharedRequire });
 const source = (await readFile(new URL('../supabase/functions/course-email-dispatch/index.ts',import.meta.url),'utf8'))
   .replace(/^import .*;$/gm,'');
 function harness({ code=201, attempts=1, missing=false, network=false, lookup=false, body='Votre place est confirmée.', settingsError=false, deliveryError=false, brand={ color:'#123456', logo:'https://club.example/logo.png' }, cronSecret='dedicated-cron-secret-at-least-32-characters' }={}) {

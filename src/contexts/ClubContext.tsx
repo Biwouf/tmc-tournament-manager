@@ -3,8 +3,11 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '../lib/supabase';
 import { resolveClubSlug } from '../lib/clubHost';
 import ClubUnavailable from '../components/ClubUnavailable';
+import type { ClubStatus } from '../types';
 
-export type Club = { id: string; slug: string; name: string; sport: string; status: string };
+export type { ClubPlan, ClubStatus } from '../types';
+
+export type Club = { id: string; slug: string; name: string; sport: string; status: ClubStatus };
 type ClubContextValue = {
   clubId: string | null;
   club: Club | null;
