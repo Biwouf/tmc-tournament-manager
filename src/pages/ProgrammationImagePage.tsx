@@ -1085,10 +1085,11 @@ export default function ProgrammationImagePage() {
                   />
                   Afficher les partenaires en bas de l’affiche
                 </label>
-                {showPartners && partnerLogos.length > MAX_POSTER_PARTNERS && (
+                {showPartners && partnerLogos.length > 1 && (
                   <p className="text-xs text-muted-foreground">
-                    {partnerLogos.length} partenaires configurés : {MAX_POSTER_PARTNERS} sont tirés au hasard (affichés dans l’ordre de la{' '}
-                    <Link to="/admin/site" className="underline">configuration du site</Link>).{' '}
+                    {partnerLogos.length > MAX_POSTER_PARTNERS
+                      ? `${partnerLogos.length} partenaires configurés : ${MAX_POSTER_PARTNERS} sont tirés au hasard, dans un ordre aléatoire.`
+                      : 'Partenaires affichés dans un ordre aléatoire.'}{' '}
                     <button type="button" className="underline" onClick={() => setPartnerSeed(newPartnerSeed())}>
                       Autre tirage
                     </button>

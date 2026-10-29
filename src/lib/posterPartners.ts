@@ -1,5 +1,6 @@
 // Partenaires sur les affiches (programmation TMC, résultat par équipe) : 10 au plus.
-// Au-delà, un tirage aléatoire en retient 10, affichés dans l'ordre de /admin/site.
+// L'ordre est toujours tiré au hasard (au-delà de 10, le tirage choisit aussi lesquels) :
+// sinon les premiers partenaires de /admin/site gardaient toujours les mêmes places.
 // Le tirage dépend d'une graine : même graine → même sélection, ce qui garde l'aperçu
 // identique à l'export tant que l'utilisateur ne demande pas un autre tirage.
 
@@ -21,16 +22,15 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-/** Retient `MAX_POSTER_PARTNERS` éléments tirés selon `seed`, dans leur ordre d'origine. */
+/** Retient au plus `MAX_POSTER_PARTNERS` éléments tirés selon `seed`, dans l'ordre du tirage. */
 export function drawPosterPartners<T>(items: T[], seed: number): T[] {
-  if (items.length <= MAX_POSTER_PARTNERS) return items;
+  const count = Math.min(items.length, MAX_POSTER_PARTNERS);
   const random = seededRandom(seed);
   const indexes = items.map((_, index) => index);
-  // Fisher-Yates partiel : seules les MAX premières positions sont tirées.
-  for (let i = 0; i < MAX_POSTER_PARTNERS; i++) {
+  // Fisher-Yates partiel : seules les `count` premières positions sont tirées.
+  for (let i = 0; i < count; i++) {
     const j = i + Math.floor(random() * (indexes.length - i));
     [indexes[i], indexes[j]] = [indexes[j], indexes[i]];
   }
-  const kept = new Set(indexes.slice(0, MAX_POSTER_PARTNERS));
-  return items.filter((_, index) => kept.has(index));
+  return indexes.slice(0, count).map(index => items[index]);
 }
