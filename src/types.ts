@@ -110,7 +110,7 @@ export interface TeamMatch {
   competitionName: string;
   gender: TeamGenre;
   ageCategory: TeamCategorie;
-  teamNumber: 1 | 2 | 3;
+  teamNumber: number;
   opponent: string;
   location: 'home' | 'away'; // home = Au club, away = Chez l'adversaire
   date: string;              // "YYYY-MM-DD"
