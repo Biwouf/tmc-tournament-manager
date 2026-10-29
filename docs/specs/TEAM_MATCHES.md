@@ -628,7 +628,7 @@ Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localeme
   affiche `n / 8 sélectionnées`.
 - **Conversion** : `rencontreToTeamMatch()` (dans `components/teamMatches/poster/posterHelpers.ts`)
   mappe chaque rencontre en `TeamMatch` — genre déduit de `competition.genre`, type de
-  `competition.categorie` (affichée via `formatCategorie`), `teamNumber = min(numero, 3)`,
+  `competition.categorie` (affichée via `formatCategorie`), `teamNumber = numero` (sans plafond),
   `location` selon `domicile`, date/heure locales.
 - **Rendu** : `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`)
   → `html-to-image#toJpeg` (q=0.92, pixelRatio 2), plus un aperçu A4 mis à l'échelle dans le
