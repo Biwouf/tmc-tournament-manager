@@ -11,7 +11,7 @@ export default function EventsSection() {
         {feeds.events.map(item => (
           <article key={item.id} className="flex min-w-0 flex-col gap-4 rounded-soft border border-line bg-card px-6 py-5 shadow-soft sm:flex-row sm:items-center sm:gap-6">
             <div className="text-sm sm:w-48 sm:shrink-0 sm:border-r sm:border-line sm:pr-6">
-              <p className="font-bold text-brand">{item.type}</p>
+              <p className="font-bold text-brand-text">{item.type}</p>
               <p className="mt-1 text-muted"><time dateTime={item.date_debut}>{feedDate(item.date_debut)}</time>
                 {item.date_fin && feedDate(item.date_fin) !== feedDate(item.date_debut) && <><br />au <time dateTime={item.date_fin}>{feedDate(item.date_fin)}</time></>}
               </p>

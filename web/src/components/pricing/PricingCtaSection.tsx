@@ -37,7 +37,7 @@ export default function PricingCtaSection() {
           <button
             type="button"
             onClick={openDrawer}
-            /* `.btn-primary` porte déjà le fond `--brand`, le survol `--brand-dark` et le rayon
+            /* `.btn-primary` porte déjà le fond `--brand-fill`, le survol `--brand-dark` et le rayon
                999 px ; seules la taille et les marges internes de la maquette s'y ajoutent. */
             className="btn btn-primary shrink-0 px-[30px] py-[15px] text-[16px]"
           >

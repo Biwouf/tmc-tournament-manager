@@ -90,9 +90,13 @@ Documentation : [Protection Bypass for Automation](https://vercel.com/docs/deplo
 
 ## Limites explicites de cette première version
 
-- Feuilles complètes de matchs terminés normalement, dans les formats existants du club.
-  Les WO, abandons, feuilles partielles et formats inconnus sont refusés ; aucune
+- Feuilles complètes de matchs terminés, dans les formats existants du club.
+  Les WO, feuilles partielles et formats inconnus sont refusés ; aucune
   interprétation approximative ni contournement de CAPTCHA/file d’attente.
+- Abandons (depuis le 26/10/2026) : Ten’Up remplace la case de set suivante du joueur
+  qui abandonne par un badge « A » ; le vainqueur n’affiche que les sets communs. La
+  ligne est renvoyée avec `retired: 'a' | 'b'` et importée comme abandon (« AB. »).
+  Seule cette forme, constatée en octobre 2026, est acceptée.
 - La règle du troisième set des simples doit être configurée dans la compétition.
 - En double, Ten’Up affiche des poids : le classement individuel est repris des simples
   pour la même personne, sinon déduit du poids (1 = 1/6 … 18 = 40, un échelon par

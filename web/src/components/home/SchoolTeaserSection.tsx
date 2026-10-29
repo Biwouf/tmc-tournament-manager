@@ -22,7 +22,7 @@ export default function SchoolTeaserSection() {
   return (
     <section className="shell section [--sec-top:84px]">
       <div className="grid overflow-hidden rounded-card border border-line shadow-soft md:grid-cols-2">
-        <div className="bg-brand p-8 text-white sm:p-12">
+        <div className="bg-brand-fill p-8 text-brand-foreground sm:p-12">
           {home.school_teaser_eyebrow && (
             <span className="text-[13px] font-bold tracking-[0.14em] uppercase">
               {home.school_teaser_eyebrow}
@@ -34,7 +34,7 @@ export default function SchoolTeaserSection() {
             </h2>
           )}
           {home.school_teaser_text && (
-            <p className="mt-4 leading-relaxed text-white/85">{home.school_teaser_text}</p>
+            <p className="mt-4 leading-relaxed text-brand-foreground/85">{home.school_teaser_text}</p>
           )}
           {home.school_teaser_cta && isPublished(config, PAGES[3]) && (
             <Link reloadDocument

@@ -38,7 +38,7 @@ export function rencontreToTeamMatch(
   // heure locale HH:MM
   const time = `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 
-  const teamNumber = Math.min(equipe.numero, 3) as 1 | 2 | 3;
+  const teamNumber = equipe.numero;
 
   return {
     id: rencontre.id,

@@ -32,6 +32,19 @@ test('rejects queue, missing scores, unknown result kinds, duplicate slots and m
   assert.throws(()=>parse(page),/incomplète/);
  }
 });
+test('reads an abandonment marker as a retirement of that side; the winner shows only shared sets', () => {
+ // The marker is a set cell holding only "A" (red circled badge on Ten'Up).
+ const source=html(match('Simple',1,[2,'A'],[6]));
+ const line=parse(source).lines[0];
+ assert.equal(line.retired,'a');assert.deepEqual(line.sets,[{a:2,b:6}]);
+ assert.equal(parse(html()).lines[0].retired,undefined);
+ const midSet=parse(html(match('Simple',1,[6,3],[4,2,'A']))).lines[0];
+ assert.equal(midSet.retired,'b');assert.deepEqual(midSet.sets,[{a:6,b:4},{a:3,b:2}]);
+ for(const page of [html(match('Simple',1,[2,'A'],[6,'A'])),html(match('Simple',1,[2,'A'],[6,1])),html(match('Simple',1,[6],[2])),
+  html(match('Simple',1,[2,'W'],[6])),html(match('Simple',1,['A',2],['A',6])),html(match('Simple',1,[2,'A<sup>1</sup>'],[6]))]) {
+  assert.throws(()=>parse(page),/incomplète/);
+ }
+});
 test('does not confuse tie-break annotations with games; reads a super tie-break as third set', () => {
  assert.deepEqual(parse(html(match('Simple',1,[6,4,2],[1,6,10]))).lines[0].sets,[{a:6,b:1},{a:4,b:6},{a:2,b:10}]);
  const source=html(match('Simple',1,[7,6],[6,3])).replace('<span>7</span>','<span>7<sup>7</sup></span>').replace('<span>6</span><span>3</span>','<span>6<sup>5</sup></span><span>3</span>');

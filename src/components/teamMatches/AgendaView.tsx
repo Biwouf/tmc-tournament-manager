@@ -3,10 +3,11 @@ import { CELL_CLASSES } from './gridTypes';
 import { formatCategorie, etapeLabelCourt } from './teamMatchLabels';
 import {
   currentWeekendRange,
+  formatWeekLabel,
   formatWeekendLabel,
   isInRange,
   lastWeekendRange,
-  nextWeekendRange,
+  weekRange,
 } from './weekend';
 
 interface Section {
@@ -93,8 +94,33 @@ export default function AgendaView({
 }) {
   const now = new Date();
   const courant = currentWeekendRange(now);
-  const suivant = nextWeekendRange(now);
   const dernier = lastWeekendRange(now);
+  const thisWeek = weekRange(now);
+
+  // Toutes les rencontres à venir hors week-end courant, une section par semaine (lundi →
+  // dimanche) : les rencontres de semaine (11 novembre…) comptent autant que celles du week-end.
+  const weeks = new Map<number, Section>();
+  for (const e of entries) {
+    const d = new Date(e.rencontre.date_heure);
+    if (e.state === 'todo' || d < now || isInRange(e.rencontre.date_heure, courant)) continue;
+    const range = weekRange(d);
+    const key = range.start.getTime();
+    let section = weeks.get(key);
+    if (!section) {
+      section = {
+        key: `semaine-${key}`,
+        title: key === thisWeek.start.getTime() ? 'Cette semaine' : `À venir · ${formatWeekLabel(range)}`,
+        hint: '',
+        accent: false,
+        entries: [],
+      };
+      weeks.set(key, section);
+    }
+    section.entries.push(e);
+  }
+  const upcoming = [...weeks.entries()].sort(([a], [b]) => a - b).map(([, s]) => s);
+  // La semaine en cours (rencontres avant vendredi soir) précède « Ce week-end ».
+  const cetteSemaine = upcoming[0]?.title === 'Cette semaine' ? upcoming.splice(0, 1) : [];
 
   const sections: Section[] = [
     {
@@ -104,6 +130,7 @@ export default function AgendaView({
       accent: true,
       entries: entries.filter((e) => e.state === 'todo'),
     },
+    ...cetteSemaine,
     {
       key: 'courant',
       title: `Ce week-end · ${formatWeekendLabel(courant)}`,
@@ -113,13 +140,7 @@ export default function AgendaView({
         (e) => e.state !== 'todo' && isInRange(e.rencontre.date_heure, courant)
       ),
     },
-    {
-      key: 'suivant',
-      title: `Week-end suivant · ${formatWeekendLabel(suivant)}`,
-      hint: '',
-      accent: false,
-      entries: entries.filter((e) => isInRange(e.rencontre.date_heure, suivant)),
-    },
+    ...upcoming,
     {
       key: 'dernier',
       title: `Déjà jouées · ${formatWeekendLabel(dernier)}`,
@@ -134,8 +155,8 @@ export default function AgendaView({
   if (sections.length === 0) {
     return (
       <div className="rounded-[13px] border border-dashed border-border bg-card/50 p-12 text-center text-muted-foreground">
-        Rien à l'agenda : aucun score à saisir et aucune rencontre sur les trois week-ends
-        autour d'aujourd'hui.
+        Rien à l'agenda : aucun score à saisir, aucune rencontre à venir ni jouée le week-end
+        dernier.
       </div>
     );
   }

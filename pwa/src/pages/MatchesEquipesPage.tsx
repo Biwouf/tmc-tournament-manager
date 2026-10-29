@@ -20,9 +20,12 @@ import MatchEquipeList, {
   type EnrichedRencontre,
 } from '../components/matchesEquipes/MatchEquipeList';
 import { competitionShortLabel } from '../components/matchesEquipes/labels';
+import CalendarExport from '../components/matchesEquipes/CalendarExport';
+import { useAuth } from '../hooks/useAuth';
 
 export default function MatchesEquipesPage() {
   const { clubId } = useClub();
+  const { user } = useAuth();
   const [saisonId, setSaisonId] = useState<string | null>(null); // null = défaut (saison active)
   const [equipeId, setEquipeId] = useState<string | null>(null); // null = "Toutes les équipes"
   const [upcomingTab, setUpcomingTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -200,6 +203,13 @@ export default function MatchesEquipesPage() {
 
   return (
     <>
+      {user && equipesCtx && currentSaison && (
+        <CalendarExport
+          saisonLabel={currentSaison.label}
+          competitions={equipesCtx.competitions}
+          equipes={equipesCtx.equipes}
+        />
+      )}
       <PullToRefreshWrapper onRefresh={async () => void (await refetch())} isRefreshing={isFetching}>
         <MatchEquipeFilterBar
           saisonLabel={saisonLabel}

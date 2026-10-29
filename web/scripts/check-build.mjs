@@ -48,6 +48,8 @@ try {
       const css = await readFile(new URL(`static${stylesheet[1]}`, output), 'utf8');
       assert.match(css, /\.shell/);
       assert.match(head, /<style>html:root\{--brand:/, 'Les couleurs du club priment sur les valeurs CSS de repli');
+      assert.match(head, /<style>html:root\{[^}]*--brand-fill:[^}]*--brand-foreground:[^}]*--brand-text:/,
+        'Les tokens de contraste sont rendus avec les couleurs du club, sans attendre le JavaScript');
     }
   }
   assert.equal(queries, 7); // La route inconnue charge aussi le club pour personnaliser sa 404.

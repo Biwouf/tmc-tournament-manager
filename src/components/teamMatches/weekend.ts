@@ -81,3 +81,21 @@ export function weekendFileDate(range: WeekendRange): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${saturday.getFullYear()}-${pad(saturday.getMonth() + 1)}-${pad(saturday.getDate())}`;
 }
+
+/** Semaine (lundi 00:00 → dimanche 23:59:59.999, heure locale) contenant `d` — vue Agenda. */
+export function weekRange(d: Date): WeekendRange {
+  const mondayIndex = (d.getDay() + 6) % 7;
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - mondayIndex);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+/** ex. « 2 – 8 novembre » (ou « 26 octobre – 1 novembre »). */
+export function formatWeekLabel(range: WeekendRange): string {
+  const { start, end } = range;
+  const month = (d: Date) => d.toLocaleDateString('fr-FR', { month: 'long' });
+  return start.getMonth() === end.getMonth()
+    ? `${start.getDate()} – ${end.getDate()} ${month(end)}`
+    : `${start.getDate()} ${month(start)} – ${end.getDate()} ${month(end)}`;
+}

@@ -22,7 +22,7 @@ export default function ProgramsSection() {
                 <div className="flex flex-wrap items-center gap-3">
                   <h3 className="text-lg font-extrabold">{program.name}</h3>
                   {program.age && (
-                    <span className="rounded-full bg-brand-soft px-3 py-1 text-[12.5px] font-bold text-brand">
+                    <span className="rounded-full bg-brand-soft px-3 py-1 text-[12.5px] font-bold text-brand-text">
                       {program.age}
                     </span>
                   )}

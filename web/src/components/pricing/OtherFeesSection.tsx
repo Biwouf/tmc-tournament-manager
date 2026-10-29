@@ -13,7 +13,7 @@ export default function OtherFeesSection() {
         {fees.map((fee, index) => (
           <div key={index} className="flex items-center justify-between gap-4 px-5 py-4">
             <span className="text-[15px]">{fee.label}</span>
-            <span className="font-extrabold text-brand">{fee.price}</span>
+            <span className="font-extrabold text-brand-text">{fee.price}</span>
           </div>
         ))}
       </div>

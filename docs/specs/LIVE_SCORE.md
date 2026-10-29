@@ -661,7 +661,13 @@ des sets (points du perdant du tie-break en exposant), publications, réactions,
 bouton **« Revivre le match »**. Il ouvre une story plein écran façon retransmission
 (`LiveReplay.tsx`, `<dialog>` modal, fond noir et couleur du club) qui s'enchaîne seule, barres de
 progression en haut ; toucher à gauche recule, à droite avance, pause et fermeture en haut à droite,
-Échap ferme. Écran de fin : « Revoir » ou « Retour au live ». Scènes, les absentes étant sautées :
+Échap ferme. Écran de fin : « Revoir » ou « Retour au live ». 
+**Lecture du score** (26/10/2026) : sur une ligne (carte récap, écran Vainqueur, étiquettes des
+sets de la courbe), chaque set se lit du côté du **vainqueur du match**, cité en premier —
+`winnerFirst` : 4–6 6–3 10–6 pour un match gagné par j2 ; j1 d'abord sans vainqueur. Les tableaux
+à une ligne par joueur (match en accéléré) gardent j1 en haut.
+
+Scènes, les absentes étant sautées :
 
 1. **Intro** — joueurs ou paires, tournoi, court, date.
 2. **Le match en accéléré** (5 à 14 s, ~0,45 s par étape) — tableau de score qui se remplit avec
@@ -674,10 +680,22 @@ progression en haut ; toucher à gauche recule, à droite avance, pause et ferme
 4. **Photos** — diaporama des 6 photos les plus réagies, 2,6 s chacune, zoom lent, légende, auteur.
 5. **En tribune** — spectateurs (au-delà de 10), publications, réactions, top 3 des emojis qui
    s'envolent.
-6. **Vainqueur** — score final, jeux de chaque set en cases (couleur du club / blanc), durée.
+6. **Vainqueur** (26/10/2026) — score final, durée de jeu, puis **courbe de progression** (`progression`) : un
+   panneau par set, deux lignes qui ne font que monter — jeux gagnés dans le set par j1 (couleur
+   du club) et par j2 (blanc), repartant de 0 à chaque set. Tracé jeu après jeu (≈ 0,28 s par jeu,
+   pause de 0,8 s à chaque fin de set, 11 s au plus), avec le nombre de jeux de chaque joueur au
+   bout de sa ligne au fur et à mesure. Au-dessus de chaque panneau, « Set n » devient le score du
+   set à sa fin, avec une onde sur la ligne du gagnant. Une **série de plus de 3 jeux** (`STREAK`
+   = 4 jeux connus d'affilée, au-delà des fins de set) brille dans la couleur du joueur, avec une
+   onde quand le 4e jeu est tracé ; la **fin du match** déclenche une double onde et une gerbe de
+   rayons. Une légende commente le dernier événement atteint (« 🔥 5 jeux d'affilée · A. Martin »,
+   « Set 1 pour A. Martin · 6–4 », « 🏆 Jeu, set et match · A. Martin » ou « … sur abandon »).
+   Jeux d'ordre inconnu et sets sans historique : un seul segment en pointillés ; super
+   tie-break : panneau de 4 jeux de large, à sa propre échelle de points, en pointillés. Passer la
+   scène au doigt affiche la courbe complète.
 
 `prefers-reduced-motion` coupe les transitions, le zoom, les emojis et le défilement des
-compteurs ; les scènes avancent toujours seules. Les compteurs animés exposent leur valeur exacte
+compteurs ; la courbe s'affiche d'emblée complète, sans onde ni gerbe ; les scènes avancent toujours seules. Les compteurs animés exposent leur valeur exacte
 aux lecteurs d'écran.
 
 - **Déroulé du score** : le trigger `live_matches_score_events` (AFTER UPDATE) insère dans
@@ -687,8 +705,8 @@ aux lecteurs d'écran.
   normal, le court et les écritures hors live (Ten'Up, import) n'écrivent rien.
   `recapSets` (`pwa/src/lib/liveRecap.ts`) reconstruit l'ordre des jeux : une correction retire
   le jeu annulé au lieu de l'attribuer à l'adversaire ; les jeux déjà marqués au démarrage ou
-  ajoutés des deux côtés dans une même saisie ont un ordre inconnu (case pâle). Le score final
-  de la ligne fait foi. Pas de case pour le super tie-break (score affiché seul), pas de break :
+  ajoutés des deux côtés dans une même saisie ont un ordre inconnu (pointillés sur la courbe). Le
+  score final de la ligne fait foi. Le super tie-break n'a pas de déroulé point par point, pas de break :
   le serveur n'est pas connu. Un match terminé avant la migration n'a que son score final.
 - **Replay et breaks** : `replayFrames` rejoue les instantanés (une correction efface les étapes
   qu'elle annule, le score final de la ligne fait foi). Le break se déduit de `first_server` avec la

@@ -79,6 +79,14 @@ export function countLiveView(match: string) {
     .then(() => {});
 }
 
+/**
+ * Score d'un set lu du côté du vainqueur du match, qui est toujours cité en
+ * premier : 4–6 6–3 10–6. Sans vainqueur (match non conclu), j1 d'abord.
+ */
+export function winnerFirst(score: [number, number], winner: LiveMatchWinner | null) {
+  return winner === 'j2' ? [score[1], score[0]] : score;
+}
+
 export type RecapGame = { side: LiveMatchWinner; known: boolean };
 export type RecapSet = {
   set: 1 | 2 | 3;
@@ -267,4 +275,83 @@ export function matchHighlight(
     };
   }
   return null;
+}
+
+/** Série de jeux consécutifs à partir de laquelle la courbe la met en scène. */
+export const STREAK = 4;
+/** Largeur d'un super tie-break sur la courbe, en jeux. */
+const SUPER_TB_WIDTH = 4;
+/** Jeux de chaque joueur dans le set après `x` jeux du match ; known: ordre du segment qui y mène. */
+export type ProgressPoint = { x: number; games: [number, number]; known: boolean };
+export type ProgressSet = { set: RecapSet; from: number; to: number; points: ProgressPoint[] };
+export type ProgressEvent =
+  | { kind: 'streak'; id: string; x: number; side: LiveMatchWinner; from: number; to: number }
+  | { kind: 'set'; id: string; x: number; side: LiveMatchWinner | null; set: RecapSet };
+
+/**
+ * Progression du match, set par set : les jeux de chaque joueur ne font que
+ * monter dans un set et repartent de 0 au suivant. Les jeux d'ordre inconnu (et
+ * les sets sans historique) forment un seul segment `known: false` ; un super
+ * tie-break (points, ordre inconnu) occupe SUPER_TB_WIDTH jeux. Événements :
+ * séries d'au moins STREAK jeux connus (au-delà des fins de set) et fins de
+ * set, `x` étant le moment où la courbe les atteint.
+ */
+export function progression(sets: RecapSet[]) {
+  const out: ProgressSet[] = [];
+  const events: ProgressEvent[] = [];
+  let x = 0;
+  type Run = { side: LiveMatchWinner; from: number; length: number };
+  let run = null as Run | null;
+  const close = (run: Run | null) => {
+    if (run && run.length >= STREAK)
+      events.push({
+        kind: 'streak',
+        id: `streak${run.from}`,
+        x: run.from + STREAK,
+        side: run.side,
+        from: run.from,
+        to: run.from + run.length,
+      });
+  };
+  for (const s of sets) {
+    const from = x;
+    const points: ProgressPoint[] = [{ x, games: [0, 0], known: true }];
+    if (s.superTiebreak || !s.games) {
+      close(run);
+      run = null;
+      x += s.superTiebreak ? SUPER_TB_WIDTH : s.score[0] + s.score[1];
+      points.push({ x, games: s.score, known: false });
+    } else {
+      const games: [number, number] = [0, 0];
+      let unknown = false;
+      for (const g of s.games) {
+        if (g.known && unknown) points.push({ x, games: [...games], known: false });
+        unknown = !g.known;
+        x++;
+        games[g.side === 'j1' ? 0 : 1]++;
+        if (!g.known) {
+          close(run);
+          run = null;
+          continue;
+        }
+        points.push({ x, games: [...games], known: true });
+        if (run?.side === g.side) run.length++;
+        else {
+          close(run);
+          run = { side: g.side, from: x - 1, length: 1 };
+        }
+      }
+      if (unknown) points.push({ x, games: [...games], known: false });
+    }
+    out.push({ set: s, from, to: x, points });
+    events.push({
+      kind: 'set',
+      id: `set${s.set}`,
+      x,
+      side: s.score[0] === s.score[1] ? null : s.score[0] > s.score[1] ? 'j1' : 'j2',
+      set: s,
+    });
+  }
+  close(run);
+  return { sets: out, total: x, events: events.sort((a, b) => a.x - b.x) };
 }

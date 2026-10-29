@@ -16,7 +16,7 @@ export default function LessonsSection() {
           return (
             <article key={index} className="card card-lift flex flex-col p-6">
               {lesson.subtitle && (
-                <div className="text-[12.5px] font-bold tracking-[0.12em] text-brand uppercase">
+                <div className="text-[12.5px] font-bold tracking-[0.12em] text-brand-text uppercase">
                   {lesson.subtitle}
                 </div>
               )}

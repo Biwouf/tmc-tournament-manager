@@ -240,8 +240,12 @@ Points d'attention :
 |---|---|---|
 | **Super-admin** | Global (tous les clubs) | Console de provisioning : créer/suspendre un club, inviter le premier admin, accéder en lecture/écriture à n'importe quel club (support). Bypass RLS via `auth.is_super_admin()`. |
 | **Admin** | Un club | Gestion complète du club : config vitrine, comptes sociaux, GEN_PROG background, gestion des membres (inviter manager/member), tous les modules métier. |
-| **Manager** | Un club | Crée du contenu et utilise les outils (actus, events, équipes, programmation image, planning TMC). Ne gère ni la config club ni les membres. |
+| **Manager** | Un club | Crée du contenu et utilise les outils (actus, events, équipes, programmation image, planning TMC). Ne gère ni la config club ni les membres. **Retiré le 26/10/2026** : plus proposé dans le BO, gestionnaires existants basculés `member` (`supabase/scripts/retire_manager_role.sql`) ; la valeur reste dans l'enum et `can_manage_club_content` l'accepte encore. |
 | **Member** | Un club | Accès **Live Score** uniquement (saisie de scores). C'est le périmètre `authenticated` actuel de la PWA. |
+
+**Capitaine d'équipe** (26/10/2026) — pas un rôle de club : un `member` déclaré dans
+`team_equipe_captains` pour une équipe (donc une compétition et une saison) peut changer la date
+des rencontres de cette équipe (`team_rencontre_set_date`). Voir `TEAM_MATCHES_PWA.md`.
 
 Implémentation :
 - `club_role` enum `('admin','manager','member')` sur `club_members`.

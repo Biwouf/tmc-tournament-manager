@@ -44,7 +44,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Disponible aussi côté PWA : connexion avec un compte BO → création de match, démarrage/reprise/libération d'un live, suivi du score, suppression. Un live a un gestionnaire (champ `scored_by`) ; un autre utilisateur authentifié peut **prendre le contrôle** après confirmation (warning avec le nom du gestionnaire actuel) — le précédent gestionnaire, s'il est sur la page de saisie, voit un bandeau l'avertir et bascule en lecture seule via Realtime.
 - **Indicateur de service** : on indique qui sert — au démarrage du live, ou à tout moment pendant le match une fois le score saisi (« Déjà commencé » pour qui arrive en cours de match) ; la balle s'affiche ensuite à côté du joueur — ou de l'équipe en double — au service, calculée à partir du score (tie-breaks compris).
 - PWA — fil du live : les membres du club publient des messages, des sondages et des **photos** (pellicule ou prise de vue en direct, légende facultative) ; messages et photos restent possibles une fois le match terminé, les sondages non ; les spectateurs connectés votent et réagissent d'un emoji sous chaque commentaire ou photo — six raccourcis, ou n'importe quel emoji via un sélecteur intégré avec catégories et recherche en français — (une réaction par personne, modifiable, y compris après le match ; la liste de qui a réagi est visible des comptes connectés).
-- PWA — **revivre le match** : un live terminé se clôt sur un récap visible de tous, qui ouvre une story plein écran façon retransmission — le match rejoué en accéléré avec les breaks et les commentaires les plus réagis à leur heure, le moment fort, les meilleures photos, la tribune (réactions, emojis favoris, spectateurs uniques au-delà de 10) et le vainqueur.
+- PWA — **revivre le match** : un live terminé se clôt sur un récap visible de tous, qui ouvre une story plein écran façon retransmission — le match rejoué en accéléré avec les breaks et les commentaires les plus réagis à leur heure, le moment fort, les meilleures photos, la tribune (réactions, emojis favoris, spectateurs uniques au-delà de 10) et le vainqueur, avec la progression des jeux de chaque joueur, set par set, qui se trace en mettant en scène les séries de plus de 3 jeux, les fins de set et la balle de match.
 
 ### Actus
 - Rédaction d'actualités du club avec contenu en Markdown (aperçu intégré)
@@ -58,13 +58,14 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 ### Matches par équipe
 - Gestion des **rencontres interclubs** du club (back-office), indépendamment des événements
 - **Vue « grille de saison »** : lignes = équipes groupées par compétition, colonnes = journées de poule puis tours de phase finale. Chaque cellule est une rencontre colorée par état (victoire, défaite, nul, score à saisir, à venir, WO, à programmer) et cliquable — **saisir un score prend 2 clics**
-- Deux vues alternatives sur les mêmes données : **Agenda** (à saisir / ce week-end / week-end suivant / déjà jouées) et **Liste** (une ligne par équipe, avancement, bilan, état)
+- Deux vues alternatives sur les mêmes données : **Agenda** (à saisir / ce week-end / toutes les rencontres à venir semaine par semaine / déjà jouées) et **Liste** (une ligne par équipe, avancement, bilan, état)
+- **Export du calendrier** en image PNG : une grille date × équipe de toutes les rencontres à venir (à domicile / à l'extérieur), aussi disponible dans la PWA pour tout membre connecté
 - **Panneau latéral** : détail de la rencontre sélectionnée (score, matches individuels, raccourcis Live Score / Photos / Actu / WO) ou générateur d'affiche
 - Un compteur d'en-tête remonte les **scores à saisir** — les rencontres jouées sans score ne se découvrent plus par hasard
 - **Référentiel** (carte « Saisons & équipes » sur l'accueil) : saisons (une seule active à la fois), compétitions (nom, type adultes/jeunes, genre, catégorie d'âge libre — ex. « +70 ans », suggestions proposées et déduite du nom au préremplissage Ten'Up —, format) et équipes (création/suppression)
 - Une compétition peut être marquée **« terminée »** : elle quitte la grille active pour une section repliée, sans disparaître
 - **Équipes** par compétition : division, nombre de journées de poule (les journées sont générées automatiquement)
-- **Synchronisation Ten'Up** d'une rencontre : la feuille officielle fait foi et **écrase tout** — compositions, classements, scores (y compris saisis en live), date et nom de l'adversaire ; la rencontre est confirmée
+- **Synchronisation Ten'Up** d'une rencontre : la feuille officielle fait foi et **écrase tout** — compositions, classements, scores (y compris saisis en live), date et nom de l'adversaire ; la rencontre est confirmée. Un match terminé sur **abandon** (badge « A » sur Ten'Up) est importé comme tel (score suivi de « AB. »)
 - **Phase de poule** puis **phases finales** : qualification d'une équipe avec stade de départ (les stades 1/16 → finale sont générés automatiquement)
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
@@ -81,6 +82,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 ### PWA — navigation
 - En haut à droite de chaque onglet : le **bouton profil** (prénom, nom, sexe, classement, notifications, déconnexion), ou « Connexion » si l'on n'est pas connecté
 - Trois onglets en bas : **Actu**, **Match équipes**, **Live**
+- Sur **Match équipes**, un membre connecté dispose d'un **bouton calendrier** (à gauche du profil) qui génère une image de toutes les rencontres à venir de la saison, à partager ou enregistrer
 - **Actu** : Actualités et Événements fusionnés, basculables via des sous-onglets soulignés (l'URL conserve `?tab=…`, pull-to-refresh sur les deux flux)
 - **Match équipes** : rencontres interclubs d'une équipe du club en **lecture** — à venir / passées, filtrables par saison et par équipe (bottom sheet). Une rencontre commencée affiche son **score provisoire** (« En cours » pendant un live, sinon « Provisoire ») ; cellule en mode résultat (victoire/défaite/nul + score) pour les rencontres passées. Les membres saisissent les matchs depuis la rencontre : un **live terminé valide automatiquement le résultat du match**, une saisie directe aussi, et le score de la rencontre suit ; la vérification se fait une fois, à la **confirmation de la rencontre**
   - Fiche d'une rencontre : un membre connecté peut **prendre en photo la compo** des deux équipes : les feuilles sont lues automatiquement (IA), vérifiées puis tous les simples sont créés en une fois (sinon « Ajouter match manuellement »), joueurs du club reconnus parmi les membres, classement de la feuille repris (et mis à jour sur la fiche du membre si on le souhaite)
@@ -104,8 +106,10 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Accès au back-office **sur invitation** : tout se passe sur l'écran *Admin › Membres* (`/admin/members`), réservé aux administrateurs du club. L'ancienne adresse `/admin/invite` y redirige.
 - **Inviter** : par email, ou en générant un lien à copier (utile en cas de blocage SMTP). L'invitation porte un **rôle**, choisi à l'envoi (défaut : Membre, le moins privilégié) :
   - **Administrateur** — tous les modules + gestion des membres
-  - **Gestionnaire** — contenus et outils du club (actus, événements, matches par équipe, affiche, planning), sans gestion des membres
   - **Membre** — Live Score uniquement (profil adhérent PWA)
+  - Le rôle **Gestionnaire** n'est plus proposé depuis le 26/10/2026 (les gestionnaires existants passent Membre) ; il est remplacé par les **capitaines d'équipe**
+- **Capitaines d'équipe** : depuis la liste des équipes (*Saisons & équipes*, colonne Capitaines) ou sur la fiche d'une équipe, un administrateur déclare un ou plusieurs capitaines parmi les membres du club. Un capitaine garde les droits d'un membre et peut en plus **changer la date et l'heure** des rencontres de son équipe depuis la PWA (la rencontre repasse alors à confirmer). Une équipe étant liée à une saison, les capitaines se redéclarent à chaque saison
+- **Photos de rencontre dans la PWA** : sur la fiche d'une rencontre, tout le monde voit les photos ; les administrateurs et les capitaines de l'équipe en ajoutent (réduites automatiquement), et chacun ne peut retirer que les siennes. Elles alimentent ensuite, au BO, le visuel de résultat et les actus
 - Le rôle définit ce que la personne **voit** dans le back-office : le dashboard n'affiche que les modules autorisés
 - **Gérer les membres** depuis le même écran : liste (nom, email, rôle, statut), changement de rôle, retrait du club, et relance de l'invitation pour quelqu'un qui n'a jamais activé son compte
   - Une invitation non activée apparaît dans la liste avec le badge *Invitation en attente* — c'est l'email qui identifie la personne tant qu'elle n'a pas rempli son profil
@@ -158,6 +162,7 @@ Site **public** du club, servi sur `<slug>.feelike.pro` (application séparée, 
 
 - **Cinq pages** : Accueil, Le Club, Infrastructures, Tarifs, Contact — plus un panneau de contact accessible depuis n'importe quelle page.
 - **Tout le contenu vient de l'écran *Configuration du site*** : textes, images, tarifs, horaires, partenaires, mentions légales, et la **couleur** du club, qui colore boutons, badges et liens du site.
+- **Toute couleur reste lisible** : le texte des boutons et pastilles passe en blanc ou en foncé selon le contraste, et la couleur est automatiquement foncée là où elle sert de texte ou de fond trop moyen (contraste WCAG AA 4,5:1). Une couleur claire ne donne donc jamais du blanc sur jaune.
 - **Ce qui n'est pas renseigné ne s'affiche pas.** Un club qui vient d'être créé a un site vide mais propre : pas de bloc à moitié rempli, pas de cadre d'image cassé, aucun texte d'exemple emprunté à un autre club. Remplir un panneau au back-office fait apparaître la section correspondante au rechargement.
 - **Référencement automatique** : contenu et métadonnées sont présents dans le HTML initial. Les titres, descriptions, URL canoniques et données structurées viennent des informations publiées. Aucun champ SEO obligatoire.
 - **Affichage initial** : les styles sont chargés avant l’affichage du contenu, y compris en développement, sans attendre le JavaScript.

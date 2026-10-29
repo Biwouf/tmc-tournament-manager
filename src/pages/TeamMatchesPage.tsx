@@ -10,6 +10,7 @@ import AgendaView from '../components/teamMatches/AgendaView';
 import ListeView from '../components/teamMatches/ListeView';
 import RencontrePanel from '../components/teamMatches/RencontrePanel';
 import PosterPanel from '../components/teamMatches/poster/PosterPanel';
+import CalendarExportButton from '../components/teamMatches/CalendarExportButton';
 import { useTeamSeasonGrid } from '../components/teamMatches/useTeamSeasonGrid';
 import { CELL_CLASSES, STATE_LABELS, type CellState } from '../components/teamMatches/gridTypes';
 
@@ -151,6 +152,11 @@ export default function TeamMatchesPage() {
                 </option>
               ))}
             </select>
+
+            <CalendarExportButton
+              entries={entries}
+              saisonLabel={saisons.find((s) => s.id === saisonId)?.label ?? ''}
+            />
 
             <button
               type="button"
