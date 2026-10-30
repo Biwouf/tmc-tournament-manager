@@ -29,9 +29,13 @@
     "test:course-push": "node --test tests/course-push-sql.test.mjs tests/course-push-client.test.mjs tests/course-push-dispatch.test.mjs",
     "pwa:phone": "bash scripts/pwa-phone-tunnel.sh",
     "test:live-push": "node --test tests/live-push-sql.test.mjs tests/live-push-client.test.mjs tests/course-push-dispatch.test.mjs",
-    "test:club-signup": "node --test tests/club-signup-sql.test.mjs tests/club-signup-edge.test.mjs tests/domains.test.mjs"
+    "test:club-signup": "node --test tests/club-signup-tunnel.test.mjs tests/club-signup-sql.test.mjs tests/club-signup-edge.test.mjs tests/domains.test.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@fontsource/big-shoulders-display": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/instrument-sans": "^5.3.0",
     "@supabase/supabase-js": "^2.100.1",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

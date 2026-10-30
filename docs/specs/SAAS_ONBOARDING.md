@@ -24,10 +24,10 @@ annuel, Stripe). L'humain n'intervient que pour le call de réassurance.
 
 | PR | Contenu | État |
 |---|---|---|
-| S0 | Vitrine : texte lisible sur la couleur du club | en cours |
+| S0 | Vitrine : texte lisible sur la couleur du club | livrée |
 | S1 | Landing `www.feelike.pro` (`landing/`) | en place |
 | **S2** | Socle self-serve (ce document §3–§6) : modèle, `slug_available`, `club-signup`, activation, purge | livrée |
-| S3 | Tunnel `admin.feelike.pro/inscription` avec aperçu en direct | à faire |
+| **S3** | Tunnel `admin.feelike.pro/inscription` avec aperçu en direct (§7) | livrée, fermée tant que CGU / confidentialité manquent |
 | S4 | Activation par lien magique simplifiée, routage vers les premiers pas | à faire |
 | S5–S7 | Premiers pas : première actu, équipes, affiches | à faire |
 | S8 | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » | à faire |
@@ -164,3 +164,97 @@ Un échec laisse le club `pending` : le passage suivant reprend. Un club `active
 5. Vault + `supabase/scripts/club-signup-purge-cron.sql`.
 6. Recette : inscription, e-mail reçu, clic → club actif et fin d'essai à J+30 (vérifie le claim
    `amr`), vitrine `noindex`.
+7. Tunnel S3 : `VITE_TURNSTILE_SITE_KEY`, `VITE_SIGNUP_TERMS_URL`, `VITE_SIGNUP_PRIVACY_URL` sur le
+   projet Vercel du BO (§7.5), puis `PUBLIC_SIGNUP_URL=https://admin.feelike.pro/inscription` sur
+   la landing.
+
+## 7. Tunnel d'inscription (S3) — `admin.feelike.pro/inscription`
+
+### 7.1 Entrée
+
+`src/components/AdminEntry.tsx` sert `/inscription` **avant** toute résolution du BO central :
+aucune lecture de session, aucune activation, aucune liste de clubs, aucun bandeau de compte. Le
+chemin est traité quel que soit l'hôte (serveur de dev compris) ; il n'a aucune entrée dans les
+routes du BO de club. La page (`src/pages/SignupTunnelPage.tsx`) est un chunk à part : ses
+polices et sa feuille ne pèsent pas sur le reste du BO.
+
+### 7.2 Parcours
+
+| Étape | Contenu | Pour continuer |
+|---|---|---|
+| 1 · Club | Nom (2 à 80), ville (obligatoire : `club-signup` la refuse vide), sport (Tennis seul) | nom + ville |
+| 2 · Logo | Logo (PNG, JPEG, WebP — pas de SVG) → palette de 4 teintes au plus, la première choisie ; sans logo : Rouge, Vert, Bleu marine ou « Autre » ; photo facultative | rien (« Passer cette étape ») |
+| 3 · Adresse | Slug proposé depuis le nom tant qu'il n'a pas été modifié ; `signupSlugProblem` instantané puis `slug_available` (300 ms) ; si pris : `slug-ville` proposé | adresse disponible, ou vérification impossible (la création revérifie) |
+| 4 · Compte | E-mail, case CGU + confidentialité, Turnstile | les trois |
+| Confirmation | Adresse rappelée, spams, effacement à 7 jours ; **Renvoyer le lien** (nouveau jeton Turnstile, même e-mail et même slug, sans les images : S2 rejoue sans rien recréer), **Changer d'adresse** (retour à l'étape 4) | — |
+
+Images : réduites à 2400 px de côté et recompressées dans le navigateur (WebP ; repli PNG pour
+un logo, JPEG pour une photo si le navigateur n'encode pas le WebP), orientation EXIF appliquée,
+refusées au-delà de 5 Mo (`src/lib/signupImage.ts`).
+
+Saisie conservée au rechargement dans `sessionStorage` (`feelike_signup_draft`), images
+comprises si chacune tient sous 1,5 Mo encodée ; sinon la saisie est écrite sans elles. La case de
+consentement n'est jamais conservée.
+
+### 7.3 Erreurs de `club-signup`
+
+Aucune saisie n'est perdue. Un jeton Turnstile ne sert qu'une fois : il est relancé après toute
+réponse du serveur (pas après une coupure réseau, le jeton n'est alors jamais arrivé).
+
+| Code | Message (résumé) | Étape |
+|---|---|---|
+| `409`, `400` + `reason` | Adresse prise ou refusée, choisir une autre | 3 |
+| `413`, `400` image | Image trop lourde ou non reconnue | 2 |
+| `403` | Vérification anti-robot relancée | 4 |
+| `429` | Trop de tentatives, réessayer dans une heure | 4 |
+| `502` | Club enregistré, e-mail non parti, réessayer | 4 |
+| autre, `5xx` | Inscription momentanément indisponible | 4 |
+| réseau | Vérifier la connexion | 4 |
+
+Limite connue de S2 : « Changer d'adresse » puis renvoi avec le **même slug** donne `409` — le
+club `pending` du premier envoi tient le slug pendant 7 jours. Le tunnel le dit explicitement et
+propose de revenir à l'e-mail précédent ou de choisir une autre adresse. Le libérer côté serveur
+permettrait à un tiers de voler un slug en attente : non fait.
+
+### 7.4 Aperçu en direct
+
+Deux directions, jamais mélangées : le tunnel suit l'identité feelike.pro (nuit / argile / craie,
+polices auto-hébergées comme `landing/`), l'aperçu suit le **style réel du produit** (Manrope,
+couleur du club). Desktop : site et téléphone superposés ; mobile (< 720 px) : formulaire d'abord,
+aperçu replié derrière « Voir l'aperçu », onglets Site / App. Pas d'onglet Affiche avant S7.
+
+**Composants reproduits dans le BO** (`src/components/signup/SignupPreview.tsx`) plutôt
+qu'importés de `web/` et `pwa/` : les vrais composants dépendent de leurs contextes
+(`SiteContext`, `ContactDrawerContext`, `useClub`, `useAuth`, React Query) et de leur routeur, et
+les feuilles Tailwind de la vitrine et du BO donnent des sens différents aux mêmes classes
+(`bg-muted`, `bg-card`). Chaque rendu est fait à sa largeur réelle (vitrine 1200 px ou 390 px,
+PWA 390 px) puis réduit : tailles et proportions du produit.
+
+**Les couleurs ne sont pas reproduites** : la vitrine reçoit `brandTokens()` de
+`shared/brandTokens.mjs` (extrait de `web/src/lib/tokens.ts` sans changer une valeur, vérifié sur
+4 096 couleurs), l'app `clubThemeTokens()` de `src/lib/theme.ts` (copie synchronisée de la PWA).
+
+L'aperçu ne montre que ce que le produit rend pour un club qui vient d'être créé : sur le site,
+ni menu (aucune page n'a encore de contenu), ni sur-titre, ni « Découvrir le club », ni initiales
+sans logo ; dans l'app, l'initiale du club dans l'en-tête et des **rencontres d'exemple**
+(libellées comme telles). Il montre aussi les limites actuelles de la PWA : sur une couleur
+claire, le texte blanc de la colonne « Au club » et les libellés écrits dans la couleur du club
+sont peu lisibles — c'est le rendu réel, à corriger dans la PWA, pas dans l'aperçu.
+
+### 7.5 Configuration
+
+| Variable (BO) | Rôle | Dev |
+|---|---|---|
+| `VITE_TURNSTILE_SITE_KEY` | Clé de site du widget (`admin.feelike.pro`) | clé de test Cloudflare `1x00000000000000000000AA` |
+| `VITE_SIGNUP_TERMS_URL` | CGU (`www.feelike.pro`) | `https://www.feelike.pro/cgu` |
+| `VITE_SIGNUP_PRIVACY_URL` | Politique de confidentialité | `https://www.feelike.pro/confidentialite` |
+
+Hors serveur de dev, **le tunnel est fermé** (« Les inscriptions ouvrent bientôt ») tant que l'une
+des trois manque : décision du 29/10/2026, pas d'ouverture publique sans pages juridiques.
+
+### 7.6 Tests
+
+`tests/club-signup-tunnel.test.mjs` (dans `npm run test:club-signup`) : `slugify`, saisie et
+suggestion d'adresse, palette, codes → messages, formulaire envoyé, persistance, configuration,
+tokens de marque partagés (`#e8c547`, `#3a9a5c`), absence de copie de la règle du slug.
+`tests/domains.test.mjs` : `/inscription` sans session, sans club, sans bandeau, sur tout hôte.

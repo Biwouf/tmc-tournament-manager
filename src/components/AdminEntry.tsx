@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { SUPPORT_CLUB_KEY, type Club } from '../contexts/ClubContext';
@@ -7,8 +7,16 @@ import AcceptInvitePage from '../pages/AcceptInvitePage';
 import PasswordRecoveryPage from '../pages/PasswordRecoveryPage';
 import SuperAdminPage from '../pages/SuperAdminPage';
 
+// SaaS S3 — chunk à part : ses polices et sa feuille ne pèsent pas sur le reste du BO.
+const SignupTunnelPage = lazy(() => import('../pages/SignupTunnelPage'));
+
 // Ce sélecteur ne donne aucun droit : appartenance relue au chargement, puis garde BO + RLS.
 export default function AdminEntry({ children }: { children: (club?: Club, support?: boolean) => ReactNode }) {
+  const { pathname } = useLocation();
+  // SaaS S3 — le tunnel d'inscription ne dépend d'aucun club ni d'aucune session : il passe
+  // avant la résolution du BO central (pas d'activation, pas de liste de clubs, pas de bandeau
+  // de compte), quel que soit l'hôte — y compris le serveur de dev.
+  if (pathname === '/inscription') return <Suspense fallback={null}><SignupTunnelPage /></Suspense>;
   if (window.location.hostname.toLowerCase().replace(/\.$/, '') !== 'admin.feelike.pro') return children();
   return <CentralAdmin>{children}</CentralAdmin>;
 }
