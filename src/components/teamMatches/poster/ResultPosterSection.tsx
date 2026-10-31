@@ -123,8 +123,10 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
     </div>}
     {model === 'photo' && photo && <PhotoFocusPicker key={photo} photo={photo} crop={crop} frameHeight={frameHeight} onChange={setCrop} />}
     <p className="text-xs text-muted-foreground">PNG · 1080 × 1350 px · couleurs, logo et partenaires du club inclus.</p>
-    {allPartners.length > MAX_POSTER_PARTNERS && <p className="text-xs text-muted-foreground">
-      {allPartners.length} partenaires configurés : {MAX_POSTER_PARTNERS} sont tirés au hasard (affichés dans l’ordre de la configuration du site).{' '}
+    {allPartners.length > 1 && <p className="text-xs text-muted-foreground">
+      {allPartners.length > MAX_POSTER_PARTNERS
+        ? `${allPartners.length} partenaires configurés : ${MAX_POSTER_PARTNERS} sont tirés au hasard, dans un ordre aléatoire.`
+        : 'Partenaires affichés dans un ordre aléatoire.'}{' '}
       <button type="button" className="underline" onClick={() => setPartnerSeed(newPartnerSeed())}>Autre tirage</button>
     </p>}
     {needsPhoto ? <p role="status" className="text-sm">Choisissez ou importez une photo pour afficher ce modèle.</p> : error ? <p role="alert" className="text-sm text-red-600">{error}</p> : !url ? <p role="status" className="text-sm">Préparation de l’aperçu…</p> : <img src={url} alt={`Aperçu du résultat : ${input.clubName} ${result.club} – ${result.adverse} ${rencontre.club_adverse}`} className="mx-auto w-full max-w-md rounded-lg border" />}

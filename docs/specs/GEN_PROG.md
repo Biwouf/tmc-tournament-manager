@@ -196,9 +196,10 @@ partenaire n'a de logo. Le bandeau sort même si `settings.show_partners` masque
 sur la vitrine, comme pour l'affiche résultats par équipe.
 
 - **10 logos au maximum** (`MAX_POSTER_PARTNERS`, `src/lib/posterPartners.ts`) : au-delà,
-  **10 sont tirés au hasard** et affichés dans l'ordre de `/admin/site`. Le tirage est fait à
-  l'ouverture de la page (graine en state : l'aperçu est l'export) ; un message sous la case le
-  dit et propose **« Autre tirage »**. Même règle sur l'affiche résultat par équipe.
+  **10 sont tirés au hasard**. Quel que soit leur nombre, l'**ordre est tiré au hasard** (pas
+  celui de `/admin/site`, qui figeait les premiers logos). Le tirage est fait à l'ouverture de
+  la page (graine en state : l'aperçu est l'export) ; dès 2 partenaires, un message sous la case
+  le dit et propose **« Autre tirage »**. Même règle sur l'affiche résultat par équipe.
 - Mise en page : **2 rangées de 5** au plus, centrées, ancrées à 14 px du bas
   (`PARTNERS_BOTTOM`), rangées de 44 px (`PARTNER_ROW_H`) espacées de 10 px. Jusqu'à 5 logos,
   une seule rangée ; au-delà, partage équilibré (6 → 3 + 3, 7 → 4 + 3). Chaque logo occupe une

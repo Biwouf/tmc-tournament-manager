@@ -202,6 +202,8 @@ CREATE POLICY "event_images_delete" ON storage.objects
 3. Si une image existait (cas édition) : supprimer l'ancienne du bucket avant d'uploader la nouvelle
 4. Bouton "Supprimer l'image" : vide le champ et supprime du bucket si déjà uploadée
 
+**Notification push** (29/10/2026) : en création uniquement, case « Envoyer une notification aux membres du club », **cochée par défaut**. Après l'enregistrement (image comprise), appel à la RPC `content_push_announce` (`kind = 'event'`), sans bloquer en cas d'échec. Voir `docs/CONTENT_PUSH.md`.
+
 **Validation côté client (avant soumission) :**
 - Afficher les erreurs inline sous chaque champ
 - Bloquer si `date_fin` absent et `type === 'Tournoi'`

@@ -182,6 +182,10 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
   2. Si « Publier aussi sur Facebook » coché : appel à l'Edge Function `post-to-facebook` avec `{ actu_id, debug }`.
   3. Affichage d'un état de chargement inline, puis message vert (lien vers le post) ou rouge (erreur détaillée).
   4. Navigation vers `/actus` seulement après le retour de l'Edge Function.
+- **Notification push** (29/10/2026) : au-dessus de Facebook, case « Envoyer une notification aux
+  membres du club », **cochée par défaut**, désactivée si l'actu est déjà publiée, ignorée sur
+  « Enregistrer en brouillon ». Au clic sur « Publier », après l'enregistrement, appel à la RPC
+  `content_push_announce` (sans bloquer en cas d'échec). Voir `docs/CONTENT_PUSH.md`.
 - **PR8** — la case reste proposée **même si aucune page n'est connectée** : `club_social_credentials`
   n'est lisible que par un **admin** du club, or un `manager` publie des actus. Le formulaire ne peut
   donc pas savoir si le club est connecté ; c'est l'Edge Function qui le dit, au clic, par un message

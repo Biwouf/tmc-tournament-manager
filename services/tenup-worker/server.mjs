@@ -66,6 +66,11 @@ export async function extract(url, launchOptions = {}, kind = 'rencontre') {
       return allowed ? route.continue() : route.abort();
     });
     const page = await context.newPage();
+    // Ten'Up's cookie banner (seen October 2026) locks page scroll, leaving the
+    // pool's round selector unreachable. Refuse it whenever it gets in the way.
+    // Its « Tout refuser » button is not exposed with a button role.
+    const refuseCookies = page.locator('#popin_tc_privacy_button');
+    await page.addLocatorHandler(refuseCookies, () => refuseCookies.click());
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'competition') await page.locator('main p').filter({ hasText: /^Nombre de points pour un double\s*:/ }).waitFor({ timeout: 12_000 });
     else if (kind === 'pool') await poolDayButton(page).waitFor({ timeout: 12_000 });

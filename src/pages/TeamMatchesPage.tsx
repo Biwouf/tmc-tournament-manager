@@ -11,6 +11,8 @@ import ListeView from '../components/teamMatches/ListeView';
 import RencontrePanel from '../components/teamMatches/RencontrePanel';
 import PosterPanel from '../components/teamMatches/poster/PosterPanel';
 import CalendarExportButton from '../components/teamMatches/CalendarExportButton';
+import TenupBatchSync from '../components/teamMatches/TenupBatchSync';
+import ActionsMenu, { MENU_ITEM_CLASS } from '../components/teamMatches/ActionsMenu';
 import { useTeamSeasonGrid } from '../components/teamMatches/useTeamSeasonGrid';
 import { CELL_CLASSES, STATE_LABELS, type CellState } from '../components/teamMatches/gridTypes';
 
@@ -153,18 +155,17 @@ export default function TeamMatchesPage() {
               ))}
             </select>
 
-            <CalendarExportButton
-              entries={entries}
-              saisonLabel={saisons.find((s) => s.id === saisonId)?.label ?? ''}
-            />
-
-            <button
-              type="button"
-              onClick={() => setPosterMode(true)}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
-            >
-              Générer une affiche
-            </button>
+            <ActionsMenu>
+              <CalendarExportButton
+                entries={entries}
+                saisonLabel={saisons.find((s) => s.id === saisonId)?.label ?? ''}
+                className={MENU_ITEM_CLASS}
+              />
+              <TenupBatchSync entries={entries} onDone={reload} className={MENU_ITEM_CLASS} />
+              <button type="button" onClick={() => setPosterMode(true)} className={MENU_ITEM_CLASS}>
+                Générer une affiche
+              </button>
+            </ActionsMenu>
           </div>
         }
       />

@@ -78,6 +78,7 @@ export default function ActuForm() {
   const [urlsToRemove, setUrlsToRemove] = useState<string[]>([]);
   const [newFiles, setNewFiles] = useState<NewFile[]>([]);
 
+  const [notifyMembers, setNotifyMembers] = useState(true);
   const [postToFacebook, setPostToFacebook] = useState(false);
   const [facebookDebug, setFacebookDebug] = useState(false);
   const [facebookStatus, setFacebookStatus] = useState<
@@ -250,6 +251,7 @@ export default function ActuForm() {
   };
 
   const facebookDisabled = Boolean(actu?.published);
+  const notifyDisabled = Boolean(actu?.published);
 
   const persist = async (publish: boolean) => {
     setSubmitError(null);
@@ -323,6 +325,11 @@ export default function ActuForm() {
         .eq('id', targetId)
         .eq('club_id', clubId);
       if (imgErr) throw imgErr;
+
+      // La notification ne bloque jamais la publication (au pire, pas de notification).
+      if (publish && notifyMembers && !notifyDisabled) {
+        await supabase.rpc('content_push_announce', { p_club: clubId, p_kind: 'actu', p_id: targetId });
+      }
 
       const shouldPostToFacebook = publish && postToFacebook && !facebookDisabled;
 
@@ -492,8 +499,29 @@ export default function ActuForm() {
             )}
           </div>
 
-          {/* Options Facebook (appliquées uniquement au clic sur "Publier") */}
+          {/* Options de publication (appliquées uniquement au clic sur "Publier") */}
           <div className="rounded-lg border border-border/70 bg-muted/40 px-4 py-3">
+            <label
+              className={`mb-2 flex items-start gap-2 text-sm ${
+                notifyDisabled ? 'text-muted-foreground' : 'text-foreground'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={notifyMembers && !notifyDisabled}
+                disabled={notifyDisabled || saving}
+                onChange={(e) => setNotifyMembers(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                Envoyer une notification aux membres du club
+                {notifyDisabled && (
+                  <span className="ml-2 text-xs italic">
+                    (désactivé — actu déjà publiée)
+                  </span>
+                )}
+              </span>
+            </label>
             <label
               className={`flex items-start gap-2 text-sm ${
                 facebookDisabled ? 'text-muted-foreground' : 'text-foreground'

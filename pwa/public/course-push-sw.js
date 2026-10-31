@@ -1,5 +1,5 @@
-// Web Push handlers for courses and Live (name kept: loaded by the service worker via importScripts).
-const ALLOWED = /^\/(?:cours(?:\?|$)|matches\/[0-9a-f-]{36}$)/;
+// Web Push handlers for courses, Live and news (name kept: loaded by the service worker via importScripts).
+const ALLOWED = /^\/(?:cours(?:\?|$)|(?:matches|actus|evenements)\/[0-9a-f-]{36}$)/;
 
 function destinationPath(candidate) {
   return typeof candidate === 'string' && ALLOWED.test(candidate) ? candidate : '/cours';
@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
     // A Live feed tag groups the alerts of one match: the newest replaces the previous one.
     const tag = live && typeof message.tag === 'string' && /^live-[\w-]{1,80}$/.test(message.tag)
       ? message.tag
-      : typeof message.id === 'string' ? `${live ? 'live' : 'course'}-${message.id}` : undefined;
+      : typeof message.id === 'string' ? `${live ? 'live' : url.startsWith('/cours') ? 'course' : 'news'}-${message.id}` : undefined;
     await self.registration.showNotification(message.title, {
       body: message.body,
       tag,
