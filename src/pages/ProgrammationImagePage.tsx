@@ -10,6 +10,7 @@ import { clubTint, hexToHsl } from '../lib/theme';
 import PosterPartnersBand from '../components/PosterPartnersBand';
 import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../components/PosterBackgroundPicker';
 import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../lib/posterPartners';
+import ProgrammeAnimationSection from '../components/programmeAnimation/ProgrammeAnimationSection';
 import type { ClubEvent } from '../types';
 
 // Worker fourni en tant qu'instance (workerPort) : Vite le bundle correctement
@@ -634,7 +635,7 @@ function formatEventLabel(ev: Pick<ClubEvent, 'titre' | 'date_debut'>): string {
 }
 
 export default function ProgrammationImagePage() {
-  const { clubId } = useClub();
+  const { clubId, club } = useClub();
   // Une PAGE monte le hook elle-même. `TeamMatchImagePreview`, lui, reçoit son fond en prop :
   // il est monté deux fois sur le même écran (brief §8).
   // `loading` n'est pas décoratif : le hook rend les DÉFAUTS avant sa requête, donc une liste
@@ -668,6 +669,12 @@ export default function ProgrammationImagePage() {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [listExpanded, setListExpanded] = useState(false);
   const [mode, setMode] = useState<PosterMode>('programmation');
+  /** Signature des réglages de la dernière affiche téléchargée : la vidéo n'est proposée que si
+   *  elle correspond aux réglages courants (elle reprend exactement l'affiche). */
+  const [posterSignature, setPosterSignature] = useState<string | null>(null);
+  /** « Générer aussi la vidéo » : coché par défaut, l'export vidéo suit le téléchargement de l'affiche. */
+  const [withVideo, setWithVideo] = useState(true);
+  const [videoRequest, setVideoRequest] = useState(0);
 
   const availableClubs = useMemo(() => {
     const clubs = new Set<string>();
@@ -815,6 +822,16 @@ export default function ProgrammationImagePage() {
     setMatches(parseCSV(FAKE_CSV));
   }
 
+  // Tout ce que la vidéo reprend de l'affiche. Changer l'un de ces réglages exige de la régénérer.
+  const currentSignature = JSON.stringify([
+    mode,
+    displayMatches.map((m) => [m.date, m.heure, m.type_tournoi, m.j1_nom, m.j2_nom]),
+    highlightedClub,
+    showPartners,
+    partnerSeed,
+    backgroundIndex,
+  ]);
+
   async function handleDownload() {
     // Sans fond, on ne génère pas : une affiche sur aplat uni est un brouillon qu'on diffuse
     // par mégarde. Le bouton est déjà désactivé — cette garde tient si l'état change entre
@@ -831,6 +848,8 @@ export default function ProgrammationImagePage() {
       link.click();
     }
     setIsGenerating(false);
+    setPosterSignature(currentSignature);
+    if (withVideo && mode === 'programmation') setVideoRequest((n) => n + 1);
   }
 
   const date = displayMatches[0]?.date ?? '';
@@ -878,36 +897,41 @@ export default function ProgrammationImagePage() {
           {pdfError && <p className="text-sm text-destructive">{pdfError}</p>}
         </div>
 
-        {/* Saisie CSV */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <div className="flex items-center justify-between">
+        {/* Saisie CSV — repliée par défaut : l'import PDF est le cas courant */}
+        <details className="group rounded-xl border border-border bg-card p-6">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
             <h2 className="text-lg font-semibold">Données CSV</h2>
-            <button
-              onClick={handleLoadFake}
-              className="text-sm text-muted-foreground underline hover:text-foreground"
-            >
-              Charger des données de test
-            </button>
+            <span className="text-sm text-muted-foreground transition group-open:rotate-180" aria-hidden="true">▾</span>
+          </summary>
+          <div className="mt-4 space-y-4">
+            <div className="flex justify-end">
+              <button
+                onClick={handleLoadFake}
+                className="text-sm text-muted-foreground underline hover:text-foreground"
+              >
+                Charger des données de test
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground font-mono">
+              Format attendu : date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_classement[,wo]
+            </p>
+            <textarea
+              className="w-full rounded-lg border border-border bg-background p-3 text-sm font-mono h-36 resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Colle ton CSV ici ou utilise les données de test…"
+              value={csvText}
+              onChange={e => setCsvText(e.target.value)}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleParse}
+                disabled={!csvText.trim()}
+                className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+              >
+                Générer l'aperçu
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground font-mono">
-            Format attendu : date,heure,type_tournoi,j1_prenom,j1_nom,j1_classement,j2_prenom,j2_nom,j2_classement[,wo]
-          </p>
-          <textarea
-            className="w-full rounded-lg border border-border bg-background p-3 text-sm font-mono h-36 resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="Colle ton CSV ici ou utilise les données de test…"
-            value={csvText}
-            onChange={e => setCsvText(e.target.value)}
-          />
-          <div className="flex gap-3">
-            <button
-              onClick={handleParse}
-              disabled={!csvText.trim()}
-              className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-            >
-              Générer l'aperçu
-            </button>
-          </div>
-        </div>
+        </details>
 
         {/* Affiche programmation / résultats */}
         {matches.length > 0 && (
@@ -1069,6 +1093,12 @@ export default function ProgrammationImagePage() {
                 {isGenerating ? 'Génération…' : `Télécharger${pages.length > 1 ? ` (${pages.length} images)` : ' l’image'}`}
               </button>
             </div>
+            {mode === 'programmation' && (
+              <label className="flex items-center justify-end gap-2 text-sm">
+                <input type="checkbox" checked={withVideo} onChange={(e) => setWithVideo(e.target.checked)} />
+                Générer aussi la vidéo dans la foulée
+              </label>
+            )}
             {!configLoading && !background && <PosterBackgroundEmpty poster="la programmation TMC" />}
             <PosterBackgroundPicker
               backgrounds={backgrounds}
@@ -1113,6 +1143,24 @@ export default function ProgrammationImagePage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Animation vidéo : programmation uniquement, une fois l'affiche générée */}
+        {displayMatches.length > 0 && mode === 'programmation' && (
+          <ProgrammeAnimationSection
+            ready={posterSignature === currentSignature}
+            matches={displayMatches}
+            date={date}
+            highlightedClub={highlightedClub}
+            partnerLogos={showPartners ? drawnPartnerLogos : []}
+            color={config.brand.color ?? ''}
+            logo={config.brand.logo ?? ''}
+            logoInverse={config.brand.logo_inverse ?? ''}
+            clubName={config.brand.name || club?.name || ''}
+            clubSlug={club?.slug ?? 'club'}
+            defaultTitle={events.find((ev) => ev.id === selectedEventId)?.titre ?? ''}
+            exportRequest={videoRequest}
+          />
         )}
       </main>
     </div>
