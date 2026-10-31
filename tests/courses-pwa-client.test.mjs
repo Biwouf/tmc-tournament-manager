@@ -84,6 +84,7 @@ function mock() {
   let failure = null;
   let wait = false;
   let resolveCommand;
+  let admin = false;
   const course = {
     id: 'course-a',
     name: 'Panier du club',
@@ -139,6 +140,18 @@ function mock() {
         abortSignal: () => {
           if (name === 'course_my_context')
             return Promise.resolve({ data: structuredClone(context) });
+          if (name === 'course_is_admin')
+            return Promise.resolve({ data: admin });
+          if (name === 'course_admin_read')
+            return Promise.resolve({
+              data:
+                args.p_kind === 'types'
+                  ? [
+                      { id: 'type-a', name: 'Panier', archived_at: null },
+                      { id: 'type-old', name: 'Ancien', archived_at: '2026-01-01' },
+                    ]
+                  : [{ user_id: 'owner-a', prenom: 'Alex', nom: 'Durand' }],
+            });
           if (name === 'course_catalog')
             return Promise.resolve({
               data: envelope([
@@ -201,6 +214,7 @@ function mock() {
     fail: (value) => (failure = value),
     hold: (value) => (wait = value),
     finish: () => resolveCommand(),
+    setAdmin: (value) => (admin = value),
   };
 }
 async function mount(
@@ -541,5 +555,62 @@ test('PWA client: « Plus tard » is remembered and the request prompt is not sh
   } finally {
     await screen.close();
     localStorage.clear();
+  }
+});
+
+test('PWA client: only admins get the floating button and create through save_course', async () => {
+  const member = mock();
+  let screen = await mount(loader(member.api));
+  try {
+    assert.equal(document.querySelector('.booking-fab'), null);
+  } finally {
+    await screen.close();
+  }
+  const api = mock();
+  api.setAdmin(true);
+  screen = await mount(loader(api.api));
+  try {
+    const fab = document.querySelector('.booking-fab');
+    assert.ok(fab);
+    await act(async () => fab.click());
+    await flush();
+    const options = [...document.querySelectorAll('select option')].map((o) => o.textContent);
+    assert.deepEqual(options, ['Choisir…', 'Panier']);
+    await new Promise((r) => setTimeout(r, 300));
+    await flush();
+    assert.equal(button('Alex Durand'), undefined, 'no member list before typing');
+    assert.ok(!api.calls.some((c) => c.args.p_kind === 'members'));
+    await change(document.querySelector('input[type="search"]'), 'Al');
+    await new Promise((r) => setTimeout(r, 300));
+    await flush();
+    assert.equal(
+      api.calls.find((c) => c.args.p_kind === 'members').args.p_search,
+      'Al',
+    );
+    await click('Alex Durand');
+    const form = document.querySelector('form.booking-create');
+    const [name, local, duration] = form.querySelectorAll('input');
+    await change(name, 'Mini-tennis');
+    await change(form.querySelector('select'), 'type-a');
+    await change(local, '2026-12-10T18:00');
+    await change(duration, '90');
+    await act(async () => form.requestSubmit());
+    await flush();
+    const write = api.calls.find((c) => c.name === 'course_admin_command');
+    assert.equal(write.args.p_operation, 'save_course');
+    assert.deepEqual(write.args.p_data, {
+      name: 'Mini-tennis',
+      type_id: 'type-a',
+      owner_id: 'owner-a',
+      starts_at: '2026-12-10T17:00:00.000Z',
+      duration_minutes: 90,
+      capacity_female: 4,
+      capacity_male: 4,
+    });
+    assert.ok(write.args.p_request_id);
+    assert.equal(document.querySelector('form.booking-create'), null);
+    assert.match(document.body.textContent, /Cours « Mini-tennis » créé et publié/);
+  } finally {
+    await screen.close();
   }
 });

@@ -594,6 +594,10 @@ club), `course_registrations.guest_id` exclusif de `user_id`, commande `save_gue
   responsable par cours et file de validation. `pwa/src/lib/courses.ts` centralise les RPC
   et les états, `hooks/useCourses.ts` les commandes idempotentes et l'horloge serveur.
 - `pwa/src/components/courses/` : cartes, dialogue natif, parcours de demande et file.
+- Création admin (31/10/2026) : bouton flottant « + » de `CoursesPage` (admins seuls, `useCourseAdminRole` → RPC `course_is_admin`)
+  qui ouvre `components/courses/CourseCreateSheet.tsx` — formulaire de création du BO dans une feuille (types actifs et membres
+  lus par `course_admin_read`, envoi `course_admin_command` / `save_course`). Heure Europe/Paris via `shared/parisTime.ts`
+  (`parisInput` / `parisCandidates`, réexportés par `src/lib/courses.ts`).
 - `/profil` : profil (prénom, nom, sexe, classement), section **Notifications** et **Se déconnecter**
   (désabonne l'appareil avant `signOut`) ; ouvert depuis le bouton profil du header de toute page racine.
 - Web Push (`docs/COURSE_PUSH.md`, `docs/LIVE_PUSH.md`) : `pwa/src/lib/coursePush.ts` (abonnement d'appareil lié au compte et au club, préférences Cours / Live — `enablePush`, `disablePushCategory`, `syncPush`, `onPushPreferences`,
@@ -641,6 +645,7 @@ Déploiement, variables et opérations DNS : `landing/README.md`.
 - **Calendrier des rencontres** (26/10/2026) : `teamCalendar.ts` (`buildTeamCalendar` — rencontres du jour et à venir, hors WO, colonnes = équipes triées par `sortKey`, lignes = jours groupés par mois ; minuit = heure non renseignée ; testé par `npm run test:team-calendar-export`) et `TeamCalendarImage.tsx` (grille date × équipe en **styles inline**, à domicile en aplat de la couleur du club, à l'extérieur en contour), utilisés par l'export PNG du BO (`CalendarExportButton`) et de la PWA (`CalendarExport`). Chaque app appelle `html-to-image` elle-même : `shared/` n'importe que React.
 - `shared/clubSlug.mjs` (+ `.d.mts`, SaaS S2) : **seule liste des slugs réservés** (`RESERVED_SLUGS`, `isReservedSlug`) et format self-serve (`signupSlugProblem`), importés par `src/lib/clubHost.ts` et sa copie PWA, `SuperAdminPage`, `web/src/server/tenant.ts`, `_shared/email-template.ts` et `club-signup`. Copies SQL (CHECK `clubs_slug_format`, `club_slug_problem`) vérifiées par `tests/club-signup-sql.test.mjs`. Les tests qui chargent une Edge Function en contexte vm fournissent ce module par `tests/helpers/shared-modules.mjs`.
 - `shared/brandTokens.mjs` (+ `.d.mts`, SaaS S3) : `brandTokens(color)` et `BRAND_FALLBACK`, tokens de marque de la vitrine (`web/src/lib/tokens.ts`, rendu serveur) et de l'aperçu du tunnel d'inscription (`src/components/signup/SignupPreview.tsx`). Extrait sans changer une valeur.
+- `shared/parisTime.ts` : `parisInput` / `parisCandidates` (saisie `datetime-local` en Europe/Paris, heures ambiguës ou inexistantes), utilisés par le formulaire de cours du BO et la création de cours PWA.
 - `shared/tennisRankings.ts` : `TENNIS_RANKINGS` (NC → -15, ordre croissant) et type `TennisRanking`, importés par le BO (`src/types.ts`, sélecteurs TMC) et la PWA (inscription, profil, perfs des rencontres). Avec les modules Ten'Up, le calendrier, `clubSlug.mjs` et `brandTokens.mjs` ci-dessus, ce sont les seuls modules réellement partagés : les autres doublons BO/PWA/web restent des copies à synchroniser à la main.
 
 ## Service Ten'Up — `services/tenup-worker/`

@@ -111,7 +111,7 @@ l'assignation ; cette règle est contrôlée serveur, pas seulement dans le sél
 | Connecté non membre | Oui | Non | Non | Non |
 | Membre ou manager | Oui | Oui, si éligible | Non | Non |
 | Membre responsable du cours | Oui | Droits de membre inchangés | Demandes de ce cours seulement | Approuver, refuser, consulter décisions, annuler ce cours |
-| Admin du club / super-admin | Oui | Rattachement requis pour réserver pour soi | Tous les cours du club courant | Mêmes actions de gestion sur tous ces cours |
+| Admin du club / super-admin | Oui | Rattachement requis pour réserver pour soi | Tous les cours du club courant | Mêmes actions de gestion sur tous ces cours, et **création d'un cours** (bouton flottant, cf. §7) |
 
 Le statut de responsable est un droit local à un cours, indépendant de `club_members.role`.
 Il ne donne ni accès au BO admin, ni édition des types, ni ajout manuel d'un tiers, ni édition
@@ -191,6 +191,18 @@ gérables par le compte. Calcul global serveur, indépendant de la pagination.
 Le bouton « Gérer les demandes » et son compteur sont possibles dans « Tous » pour les
 cours gérables. Si le responsable a aussi sa propre inscription, conserver son statut et
 ses actions personnelles séparément des actions de gestion ; ne pas fusionner ces deux états.
+
+**Création d'un cours (31/10/2026).** Un admin du club (ou super-admin) voit sur `/cours`
+un bouton flottant « + » en bas à droite, au-dessus de la barre d'onglets, quelle que soit la
+vue. Le rôle est lu par la RPC existante `course_is_admin` (un simple responsable de cours n'a
+pas le bouton). Il ouvre une feuille reprenant le formulaire de création du BO : nom, type
+actif, responsable obligatoire (autocomplétion à partir de 2 lettres, jamais de liste complète ;
+uniquement des comptes rattachés au club, pas les invités sans compte), date et heure Europe/Paris (choix
+du décalage pour une heure ambiguë), durée et places femmes / hommes. Envoi par
+`course_admin_command` / `save_course` avec clé idempotente conservée après erreur — mêmes
+contrôles serveur que le BO, aucune migration. Pas de modification de cours ni de gestion des
+types dans la PWA : sans type actif, la feuille renvoie au back-office. Le cours est publié dès
+sa création, sans email ni push.
 
 ### États combinés
 
