@@ -24,6 +24,7 @@ const supabase = {
     getSession: async () => ({ data: { session: user ? { user } : null } }),
     onAuthStateChange: cb => { listeners.add(cb); return { data: { subscription: { unsubscribe: () => listeners.delete(cb) } } }; },
     signOut: async () => { user = null; for (const cb of listeners) cb('SIGNED_OUT', null); },
+    signInWithOtp: async args => { calls.push(['otp', args]); return { error: null }; },
   },
   // SaaS S2 : l'activation self-serve rend actifs les clubs pending de l'appelant.
   async rpc(name) {
@@ -133,6 +134,52 @@ test('central BO: self-serve activation runs before the club list, and its failu
   try { root = await mount(Admin, club => h('p', null, 'CONTENU ' + club.id)); } finally { console.error = error; }
   assert.match(document.body.textContent, /Alpha Tennis/); assert.doesNotMatch(document.body.textContent, /Gamma Tennis/);
   await act(async () => root.unmount());
+});
+test('central BO (SaaS S4): magic link of a pending club opens it on the first steps, URL cleaned', async () => {
+  reset(); dom.reconfigure({ url: 'https://admin.feelike.pro/?inscription=gamma' });
+  rows.club_members.push({ user_id: 'u1', club_id: 'c' });
+  rows.clubs.push({ ...alpha, id: 'c', slug: 'gamma', name: 'Gamma Tennis', status: 'pending', activatable: true });
+  const Admin = load('src/components/AdminEntry.tsx').default;
+  const root = await mount(Admin, club => h('p', null, 'CONTENU ' + club.id + ' ' + pathname));
+  assert.match(document.body.textContent, /CONTENU c \/premiers-pas/);
+  assert.doesNotMatch(document.body.textContent, /Choisir un club/);
+  assert.equal(sessionStorage.getItem('feelike_admin_club:u1'), 'c');
+  await act(async () => root.unmount());
+  dom.reconfigure({ url: 'https://admin.feelike.pro/' });
+});
+test('central BO (SaaS S4): a single active club opens without selector; multi-club selector unchanged', async () => {
+  reset(); rows.club_members = [{ user_id: 'u1', club_id: 'a' }];
+  rows.clubs.push({ ...alpha, id: 'c', slug: 'gamma', name: 'Gamma Tennis', status: 'pending' });
+  rows.club_members.push({ user_id: 'u1', club_id: 'c' });
+  const Admin = load('src/components/AdminEntry.tsx').default;
+  let root = await mount(Admin, club => h('p', null, 'CONTENU ' + club.id + ' ' + pathname));
+  assert.match(document.body.textContent, /CONTENU a \/$/, 'pas de premiers pas sans ?inscription');
+  assert.equal(sessionStorage.getItem('feelike_admin_club:u1'), 'a');
+  // « Changer de club » mène bien au sélecteur, même avec un seul club.
+  await click('Changer de club'); assert.match(document.body.textContent, /Choisir un club/);
+  await act(async () => root.unmount());
+  // Super-admin à un seul club, en support sur un autre : le support prime.
+  reset(); rows.club_members = [{ user_id: 'u1', club_id: 'a' }]; rows.profiles[0].is_super_admin = true;
+  localStorage.setItem('feelike_support_club', 'b');
+  root = await mount(Admin, (club, support) => h('p', null, 'SUPPORT ' + club.id + ' ' + support));
+  assert.match(document.body.textContent, /SUPPORT b true/);
+  await act(async () => root.unmount());
+});
+test('central BO (SaaS S4): pending club not activated → explains the link instead of an empty selector', async () => {
+  for (const [url, members] of [['https://admin.feelike.pro/?inscription=gamma', ['a', 'c']], ['https://admin.feelike.pro/', ['c']]]) {
+    reset(); dom.reconfigure({ url }); user = { id: 'u1', email: 'fondateur@example.com' };
+    rows.club_members = members.map(club_id => ({ user_id: 'u1', club_id }));
+    rows.clubs.push({ ...alpha, id: 'c', slug: 'gamma', name: 'Gamma Tennis', status: 'pending' });
+    const Admin = load('src/components/AdminEntry.tsx').default;
+    const root = await mount(Admin, club => h('p', null, 'CONTENU ' + club.id));
+    assert.match(document.body.textContent, /Ouvrez le lien reçu par e-mail pour activer votre club « Gamma Tennis »/, url);
+    assert.doesNotMatch(document.body.textContent, /CONTENU|Aucun club actif/);
+    await click('Recevoir un nouveau lien');
+    assert.deepEqual(calls.at(-1), ['otp', { email: 'fondateur@example.com', options: { shouldCreateUser: false, emailRedirectTo: 'https://admin.feelike.pro/?inscription=gamma' } }]);
+    assert.match(document.body.textContent, /Un nouveau lien a été envoyé à fondateur@example.com/);
+    await act(async () => root.unmount());
+  }
+  dom.reconfigure({ url: 'https://admin.feelike.pro/' });
 });
 test('central BO: suspended memberships hidden, support restricted to superadmin', async () => {
   reset(); rows.clubs = [{ ...alpha, status: 'suspended' }];

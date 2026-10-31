@@ -26,6 +26,7 @@ import SocialAccountsPage from './pages/SocialAccountsPage';
 import ContactMessagesPage from './pages/ContactMessagesPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import SuperAdminPage from './pages/SuperAdminPage';
+import FirstStepsPage from './pages/FirstStepsPage';
 import TeamMatchesPage from './pages/TeamMatchesPage';
 import TeamMatchesAdminPage from './pages/TeamMatchesAdminPage';
 import TeamEquipePage from './pages/TeamEquipePage';
@@ -148,6 +149,7 @@ function GuardedRoutes({ user }: { user: User | null }) {
           <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/" element={auth(<AppHomePage />)} />
+        <Route path="/premiers-pas" element={auth(<FirstStepsPage />)} />
         <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
         <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
         <Route path="/tournament/:id" element={<RedirectTournament />} />

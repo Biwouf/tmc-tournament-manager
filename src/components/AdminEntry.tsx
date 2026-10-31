@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { SUPPORT_CLUB_KEY, type Club } from '../contexts/ClubContext';
+import { CLUB_FIELDS, SUPPORT_CLUB_KEY, type Club } from '../contexts/ClubContext';
+import { FIRST_STEPS_PATH, inscriptionSlug, magicLinkRedirect, MAGIC_LINK_MESSAGES, pickAdminClub, requestMagicLink } from '../lib/magicLink';
 import LoginPage from '../pages/LoginPage';
 import AcceptInvitePage from '../pages/AcceptInvitePage';
 import PasswordRecoveryPage from '../pages/PasswordRecoveryPage';
@@ -24,7 +25,8 @@ function CentralAdmin({ children }: { children: (club?: Club, support?: boolean)
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null | undefined>(undefined);
-  const [state, setState] = useState<{ userId: string; clubs: Club[]; superAdmin: boolean } | null>(null);
+  const [email, setEmail] = useState('');
+  const [state, setState] = useState<{ userId: string; clubs: Club[]; superAdmin: boolean; awaiting?: Club } | null>(null);
   const [selected, setSelected] = useState<Club | undefined>();
   const [support, setSupport] = useState(false);
   const [error, setError] = useState(false);
@@ -33,10 +35,10 @@ function CentralAdmin({ children }: { children: (club?: Club, support?: boolean)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       if (!session) { setState(null); setSelected(undefined); setSupport(false); localStorage.removeItem(SUPPORT_CLUB_KEY); }
-      setUserId(session?.user.id ?? null);
+      setUserId(session?.user.id ?? null); setEmail(session?.user.email ?? '');
     });
     supabase.auth.getSession().then(({ data, error }) => {
-      if (active) { if (error) setError(true); setUserId(data.session?.user.id ?? null); }
+      if (active) { if (error) setError(true); setUserId(data.session?.user.id ?? null); setEmail(data.session?.user.email ?? ''); }
     }).catch(() => { if (active) setError(true); });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -56,30 +58,41 @@ function CentralAdmin({ children }: { children: (club?: Club, support?: boolean)
       if (members.error || profile.error) throw new Error('Accès indisponible');
       const superAdmin = profile.data?.is_super_admin === true;
       const ids = (members.data || []).map(row => row.club_id);
-      let clubs: Club[] = [];
+      const clubs: Club[] = [], pending: Club[] = [];
       if (ids.length) {
-        const result = await supabase.from('clubs').select('id, slug, name, sport, status').in('id', ids).eq('status', 'active').order('name');
+        // SaaS S4 : les clubs `pending` du compte (visibles de leurs seuls membres) ne s'ouvrent
+        // pas, mais permettent d'expliquer l'activation au lieu d'un sélecteur vide.
+        const result = await supabase.from('clubs').select(CLUB_FIELDS).in('id', ids).in('status', ['active', 'pending']).order('name');
         if (result.error) throw result.error;
-        clubs = result.data || [];
+        for (const club of (result.data || []) as Club[]) (club.status === 'active' ? clubs : pending).push(club);
       }
       let choice: Club | undefined;
       let inSupport = false;
       const override = localStorage.getItem(SUPPORT_CLUB_KEY);
       if (override && superAdmin) {
-        const result = await supabase.from('clubs').select('id, slug, name, sport, status').eq('id', override).maybeSingle();
+        const result = await supabase.from('clubs').select(CLUB_FIELDS).eq('id', override).maybeSingle();
         if (result.error) throw result.error;
-        choice = result.data || undefined;
+        choice = (result.data as Club | null) || undefined;
         inSupport = !!choice;
       }
       if (override && !choice) localStorage.removeItem(SUPPORT_CLUB_KEY);
-      const saved = sessionStorage.getItem(`feelike_admin_club:${userId}`);
-      choice ??= clubs.find(club => club.id === saved);
+      // SaaS S4 : `?inscription=<slug>` (lien « Gardez votre club ») ouvre ce club et mène aux
+      // premiers pas ; sans lui, un compte à un seul club actif y entre sans sélecteur. Lien
+      // ouvert sans activation (claim `amr` refusé, ex. connexion par mot de passe) : message.
+      const inscription = inscriptionSlug(window.location.href);
+      const awaiting = choice ? undefined : pending.find(club => club.slug === inscription) ?? (clubs.length ? undefined : pending[0]);
+      const picked = choice || awaiting ? { club: undefined, firstSteps: false } : pickAdminClub(clubs, sessionStorage.getItem(`feelike_admin_club:${userId}`), inscription);
+      choice ??= picked.club;
       if (!active) return;
+      if (picked.club) sessionStorage.setItem(`feelike_admin_club:${userId}`, picked.club.id);
       setSelected(choice); setSupport(inSupport); setError(false);
-      setState({ userId: userId!, clubs, superAdmin });
+      setState({ userId: userId!, clubs, superAdmin, awaiting });
+      if (picked.firstSteps) navigate(FIRST_STEPS_PATH, { replace: true });
     }
     load().catch(() => { if (active) setError(true); });
     return () => { active = false; };
+    // `navigate` change à chaque navigation : le mettre ici relancerait la lecture des clubs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
   // Ces parcours restent accessibles sans club, y compris pendant l'activation du compte.
   if (pathname === '/accept-invite') return <AcceptInvitePage />;
@@ -105,12 +118,33 @@ function CentralAdmin({ children }: { children: (club?: Club, support?: boolean)
     {pathname === '/super-admin' && state.superAdmin ? <SuperAdminPage /> : selected
       ? <div key={`${userId}:${selected.id}`}>{children(selected, support)}</div>
       : <main className="mx-auto max-w-xl p-6 sm:p-10">
-        <h1 className="text-2xl font-semibold">Choisir un club</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Ouvrez le back-office du club que vous souhaitez gérer.</p>
-        {!state.clubs.length && <p className="mt-6">Aucun club actif associé à votre compte. Demandez à votre club de vous inviter.</p>}
+        <h1 className="text-2xl font-semibold">{state.clubs.length || !state.awaiting ? 'Choisir un club' : 'Activez votre club'}</h1>
+        {!!state.clubs.length && <p className="mt-2 text-sm text-muted-foreground">Ouvrez le back-office du club que vous souhaitez gérer.</p>}
+        {state.awaiting ? <AwaitingActivation club={state.awaiting} email={email} />
+          : !state.clubs.length && <p className="mt-6">Aucun club actif associé à votre compte. Demandez à votre club de vous inviter.</p>}
         <div className="mt-6 grid gap-3">{state.clubs.map(club => <button key={club.id}
           className="rounded-xl border bg-card p-5 text-left font-medium hover:bg-muted"
           onClick={() => { sessionStorage.setItem(`feelike_admin_club:${userId}`, club.id); setSelected(club); navigate('/'); }}>{club.name}</button>)}</div>
       </main>}
   </>;
+}
+// SaaS S4 — seul le lien magique active un club `pending` : on le renvoie à l'adresse du compte.
+function AwaitingActivation({ club, email }: { club: Club; email: string }) {
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  async function resend() {
+    setBusy(true);
+    const result = await requestMagicLink(supabase, email, magicLinkRedirect(window.location.origin, club.slug));
+    setSent(result === 'sent');
+    setNotice(result === 'sent' ? `Un nouveau lien a été envoyé à ${email}.` : MAGIC_LINK_MESSAGES[result]);
+    setBusy(false);
+  }
+  return <div className="mt-6 rounded-xl border bg-card p-5">
+    <p className="font-medium">Ouvrez le lien reçu par e-mail pour activer votre club « {club.name} ».</p>
+    <p className="mt-2 text-sm text-muted-foreground">Seul ce lien démarre votre essai : une connexion par mot de passe ne suffit pas.</p>
+    {notice && <p role="status" className="mt-4 text-sm">{notice}</p>}
+    {!sent && <button disabled={busy} onClick={resend}
+      className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">Recevoir un nouveau lien</button>}
+  </div>;
 }
