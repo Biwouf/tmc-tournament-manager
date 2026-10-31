@@ -12,6 +12,7 @@ import {
 } from '../lib/courses';
 import {
   useCourseAction,
+  useCourseAdminRole,
   useCourseContext,
   useCourseNow,
 } from '../hooks/useCourses';
@@ -20,6 +21,7 @@ import CourseInteraction, {
   type SheetMode,
 } from '../components/courses/CourseInteraction';
 import CourseSheet from '../components/courses/CourseSheet';
+import CourseCreateSheet from '../components/courses/CourseCreateSheet';
 import { CoursePushPrompt } from '../components/courses/CoursePushSettings';
 import '../components/courses/courses.css';
 
@@ -39,6 +41,8 @@ export default function CoursesPage() {
   const [toast, setToast] = useState('');
   const context = useCourseContext();
   const action = useCourseAction();
+  const isAdmin = useCourseAdminRole().data === true;
+  const [creating, setCreating] = useState(false);
   const page = useQuery({
     queryKey: ['courses', clubId, user?.id, 'page', view, offset],
     enabled: !!clubId,
@@ -271,6 +275,25 @@ export default function CoursesPage() {
         ))}
       {pushPrompt && user && clubId && (
         <CoursePushPrompt clubId={clubId} userId={user.id} reason="request" onClose={closePushPrompt} />
+      )}
+      {isAdmin && clubId && !selected && !creating && (
+        <button
+          className="booking-fab"
+          aria-label="Créer un cours"
+          onClick={() => setCreating(true)}
+        >
+          +
+        </button>
+      )}
+      {creating && clubId && (
+        <CourseCreateSheet
+          clubId={clubId}
+          onClose={() => setCreating(false)}
+          onCreated={(message) => {
+            setCreating(false);
+            setToast(message);
+          }}
+        />
       )}
       {toast && (
         <div className="booking-toast" role="status">

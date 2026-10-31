@@ -5,6 +5,7 @@ import { useClub } from '../contexts/ClubContext';
 import {
   courseError,
   courseRpc,
+  isCourseAdmin,
   type CourseContext,
   type CoursePage,
 } from '../lib/courses';
@@ -20,6 +21,18 @@ export function useCourseContext() {
     staleTime: 0,
     refetchOnWindowFocus: 'always',
     refetchInterval: 60000,
+  });
+}
+// Admin du club (ou super-admin) : seul rôle autorisé à créer un cours.
+export function useCourseAdminRole() {
+  const { clubId } = useClub();
+  const { user } = useAuth();
+  return useQuery({
+    // Hors du préfixe ['courses'] : le rôle ne change pas à chaque commande.
+    queryKey: ['course-admin-role', clubId, user?.id],
+    enabled: Boolean(clubId && user),
+    queryFn: async () => (await isCourseAdmin(clubId!)) === true,
+    staleTime: 5 * 60000,
   });
 }
 export function useCourseNow(
