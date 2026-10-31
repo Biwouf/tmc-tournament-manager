@@ -50,6 +50,7 @@ export default function EventForm() {
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [prix, setPrix] = useState('');
+  const [notifyMembers, setNotifyMembers] = useState(true);
 
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -214,6 +215,11 @@ export default function EventForm() {
         if (imgErr) throw imgErr;
       }
 
+      // La notification ne bloque jamais l'enregistrement (au pire, pas de notification).
+      if (!isEdit && notifyMembers) {
+        await supabase.rpc('content_push_announce', { p_club: clubId, p_kind: 'event', p_id: targetId });
+      }
+
       navigate('/events');
     } catch (err) {
       console.error(err);
@@ -358,6 +364,18 @@ export default function EventForm() {
             />
             {errors.prix && <p className="mt-1 text-xs text-red-600">{errors.prix}</p>}
           </div>
+
+          {!isEdit && (
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={notifyMembers}
+                disabled={saving}
+                onChange={(e) => setNotifyMembers(e.target.checked)}
+              />
+              Envoyer une notification aux membres du club
+            </label>
+          )}
 
           {submitError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

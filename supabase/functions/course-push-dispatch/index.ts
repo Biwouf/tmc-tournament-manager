@@ -1,5 +1,5 @@
 // Gateway JWT + dedicated cron secret. Events and recipients come only from SQL.
-// Sends course and Live deliveries; called every minute by pg_cron and woken by Live triggers.
+// Sends Live, news (actus/events) and course deliveries; called every minute by pg_cron and woken by Live triggers.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
@@ -14,7 +14,7 @@ type Delivery = {
   body: string;
   url: string;
   attempts: number;
-  // Live only: notification grouping and lifetime.
+  // Live and news only: notification grouping and lifetime.
   tag?: string;
   ttl?: number;
 };
@@ -34,6 +34,7 @@ function allowedEndpoint(endpoint: string): boolean {
 
 const SOURCES = [
   { claim: 'live_push_claim', table: 'live_push_deliveries', limit: 100 },
+  { claim: 'content_push_claim', table: 'content_push_deliveries', limit: 100 },
   { claim: 'course_push_claim', table: 'course_push_deliveries', limit: 10 },
 ];
 const CONCURRENCY = 10;
@@ -102,7 +103,7 @@ Deno.serve(async (req) => {
   let failed = 0;
   let claimFailed = false;
   let recordFailed = false;
-  // Live first: its alerts expire quickly. A Live claim failure never blocks course pushes.
+  // Live first: its alerts expire quickly. A claim failure never blocks the other sources.
   for (const source of SOURCES) {
     const { data, error } = await db.rpc(source.claim, { p_limit: source.limit });
     if (error) {

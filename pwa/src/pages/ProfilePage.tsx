@@ -10,6 +10,7 @@ import { coursePushSupported, disableCoursePush } from '../lib/coursePush';
 import { returnPath } from '../components/layout/headerConfig';
 import CoursePushSettings from '../components/courses/CoursePushSettings';
 import { LivePushSettings } from '../components/live/LivePush';
+import NewsPushSettings from '../components/actu/NewsPushSettings';
 import '../components/courses/courses.css';
 
 function ProfileForm({
@@ -179,6 +180,7 @@ export default function ProfilePage() {
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
             <CoursePushSettings clubId={clubId} userId={user.id} />
             <LivePushSettings clubId={clubId} userId={user.id} />
+            <NewsPushSettings clubId={clubId} userId={user.id} />
           </ul>
           {!coursePushSupported() && (
             <p className="booking-note">Indisponible ici. Sur iPhone ou iPad, ajoutez l’application à l’écran d’accueil.</p>

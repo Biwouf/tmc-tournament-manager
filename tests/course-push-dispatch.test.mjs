@@ -5,13 +5,13 @@ import ts from 'typescript';
 import { readFile } from 'node:fs/promises';
 const source = (await readFile(new URL('../supabase/functions/course-push-dispatch/index.ts',import.meta.url),'utf8')).replace(/^import .*;$/gm,'');
 const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText;
-function harness({code,attempts=1,missing=false,finishError=false,endpoint='https://web.push.apple.com/endpoint',live=[],liveError=false}={}) {
+function harness({code,attempts=1,missing=false,finishError=false,endpoint='https://web.push.apple.com/endpoint',live=[],liveError=false,news=[]}={}) {
  let handler, claims=0; const sends=[], updates=[], deletes=[], tables=[];
  const secret='dedicated-push-cron-secret-32-characters';
  const env={COURSE_PUSH_CRON_SECRET:secret,SUPABASE_URL:'https://example.test',SUPABASE_SERVICE_ROLE_KEY:'runtime-key',
    VAPID_PUBLIC_KEY:'public',VAPID_PRIVATE_KEY:'private',VAPID_SUBJECT:'mailto:contact@example.test'};
  if(missing) delete env.VAPID_PRIVATE_KEY;
- const db={rpc:async(name)=>{claims++;if(name==='live_push_claim')return liveError?{error:{message:'missing'}}:{data:live};return {data:[{id:'job',claim_token:'lease',subscription_id:'sub',endpoint,
+ const db={rpc:async(name)=>{claims++;if(name==='live_push_claim')return liveError?{error:{message:'missing'}}:{data:live};if(name==='content_push_claim')return {data:news};return {data:[{id:'job',claim_token:'lease',subscription_id:'sub',endpoint,
    p256dh:'key',auth_secret:'auth',title:'Cours',body:'Accepté',url:'/cours?course=42',attempts}]};},
    from:table=>({update:value=>{updates.push(value);tables.push(table);return {eq:()=>({eq:async()=>({error:finishError})})};},
      delete:()=>({eq:async(_,id)=>{deletes.push(id);return {error:null};}})})};
@@ -52,4 +52,13 @@ test('live deliveries go first, carry tag and lifetime, and a live claim failure
  assert.equal(h.tables.at(-1),'course_push_deliveries'); assert.equal(h.sends.at(-1).options.TTL,3600);
  const broken=harness({liveError:true}); assert.equal((await broken.run()).status,500);
  assert.equal(broken.sends.length,1); assert.equal(broken.updates[0].status,'sent');
+});
+test('news deliveries are sent after Live and before courses, with their tag and lifetime',async()=>{
+ const news=[{id:'news-1',claim_token:'lease',subscription_id:'sub',endpoint:'https://fcm.googleapis.com/fcm/send/x',
+   p256dh:'key',auth_secret:'auth',title:'Nouvelle actu',body:'Assemblée générale',url:'/actus/1',tag:'actu-1',ttl:86400,attempts:1}];
+ const h=harness({news}); const response=await h.run(); assert.equal(response.status,200);
+ assert.deepEqual(await response.json(),{claimed:2,sent:2,failed:0});
+ assert.deepEqual(h.tables,['content_push_deliveries','course_push_deliveries']);
+ assert.equal(h.sends[0].payload.url,'/actus/1'); assert.equal(h.sends[0].payload.tag,'actu-1');
+ assert.equal(h.sends[0].options.TTL,86400);
 });
