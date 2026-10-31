@@ -27,8 +27,8 @@
   overflow-x: hidden;
 }
 .fl *, .fl *::before, .fl *::after { box-sizing: border-box; }
-.fl a { color: var(--fl-clay); text-decoration: none; }
-.fl a:hover { color: var(--fl-chalk); }
+.fl a:not(.fl-cta) { color: var(--fl-clay); text-decoration: none; }
+.fl a:not(.fl-cta):hover { color: var(--fl-chalk); }
 .fl :is(input, button, a, select):focus-visible, .fl label:focus-within { outline: 2px solid var(--fl-clay); outline-offset: 2px; }
 .fl button { font: inherit; }
 .fl button:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -65,7 +65,7 @@
 .fl-chip { background: transparent; color: var(--fl-stone-400); border: 1px solid rgba(255, 255, 255, 0.25); padding: 12px 18px; min-height: 44px; font-family: var(--mono) !important; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; }
 .fl-chip[aria-pressed='true'] { background: var(--fl-chalk); color: var(--fl-night); border-color: var(--fl-chalk); }
 .fl-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.fl-cta { background: var(--fl-clay); color: var(--fl-night); border: 0; padding: 18px 28px; min-height: 44px; font-family: var(--mono) !important; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; box-shadow: 0 10px 40px color-mix(in oklab, var(--fl-clay) 40%, transparent); }
+.fl-cta { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; background: var(--fl-clay); color: var(--fl-night); border: 0; padding: 18px 28px; min-height: 44px; font-family: var(--mono) !important; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; box-shadow: 0 10px 40px color-mix(in oklab, var(--fl-clay) 40%, transparent); }
 .fl-cta-wide { width: 100%; padding: 20px 24px; font-size: 15px; }
 .fl-ghost { background: transparent; color: var(--fl-chalk); border: 1px solid rgba(255, 255, 255, 0.3); padding: 18px 24px; min-height: 44px; font-family: var(--mono) !important; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; }
 .fl-link { align-self: flex-start; background: transparent; color: var(--fl-stone-400); border: 0; padding: 10px 0; min-height: 44px; font-family: var(--mono) !important; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; }
