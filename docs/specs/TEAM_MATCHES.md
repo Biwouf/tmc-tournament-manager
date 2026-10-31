@@ -604,13 +604,12 @@ de compétitions terminées sont à `opacity .6`.
 
 Chaîne de contexte · titre `etapeLabel()` + club adverse · état/date/lieu · bloc score 32px ·
 liste des `team_match_lines` (chargée à la sélection, requête annulable, `.eq('club_id', …)`,
-sans cache — le retour depuis la page rencontre doit voir les lines à jour) · CTA contextuel
-(`Créer la rencontre` / `Saisir le score` / `Composer l'équipe` / `Modifier le score`) ·
-actions secondaires (Live Score, Photos, Créer une actu, Plein écran, Déclarer un WO).
+sans cache — le retour depuis la page rencontre doit voir les lines à jour) · CTA principal
+`Voir la rencontre` (`Créer la rencontre` si l'étape n'en a pas) · bouton `Déclarer un WO` /
+`Annuler le WO`.
 
-Les actions secondaires **ouvrent la page rencontre**, seule surface d'édition de ces flux ;
-« Créer une actu » navigue directement vers `/actus/new` avec le même `location.state` que
-`TeamPhotosSection`.
+Les deux boutons **ouvrent la page rencontre**, seule surface d'édition (score, compo, photos,
+WO, actu, live).
 
 Au chargement, la **première rencontre `todo`** est présélectionnée, sinon la prochaine à
 venir. La sélection porte sa saison : changer de saison l'invalide.
