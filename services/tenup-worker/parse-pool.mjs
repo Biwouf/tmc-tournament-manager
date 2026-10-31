@@ -36,7 +36,8 @@ export function extractTenupPoolRound(document) {
       .filter(Boolean)
       .map((x) => JSON.parse(x))
       .join('');
-    payload = (raw.match(/\{"id":\d+,[^{}]*\}/g) ?? [])
+    // One level of nesting: an appointed referee is an object (`jugeArbitre`).
+    payload = (raw.match(/\{"id":\d+,(?:[^{}]|\{[^{}]*\})*\}/g) ?? [])
       .map((x) => JSON.parse(x))
       .filter((r) => 'idEquipe1' in r && 'idEquipe2' in r);
     return payload;
