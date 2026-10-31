@@ -96,15 +96,6 @@ export default function RencontrePanel({
 
   const { competition, equipe, etape, rencontre, state } = cell;
   const spec = FORMAT_SPECS[competition.format];
-  const liveLine = lines.find((l) => l.live_match_id);
-
-  const ctaLabel = !rencontre
-    ? 'Créer la rencontre'
-    : state === 'todo' || rencontre.score_club === null
-      ? 'Saisir le score'
-      : lines.length === 0
-        ? "Composer l'équipe"
-        : 'Modifier le score';
 
   const goToRencontre = () =>
     navigate(
@@ -112,21 +103,6 @@ export default function RencontrePanel({
         ? `/team-matches/rencontre/${rencontre.id}`
         : `/team-matches/rencontre/new?etapeId=${etape.id}`
     );
-
-  const handleCreateActu = () => {
-    if (!rencontre) return;
-    const dateCourte = new Date(rencontre.date_heure).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-    navigate('/actus/new', {
-      state: {
-        titre: `Match par équipe — ${rencontre.club_adverse} (${dateCourte})`,
-        image_urls: rencontre.photo_urls,
-      },
-    });
-  };
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-5">
@@ -216,62 +192,25 @@ export default function RencontrePanel({
         )}
       </div>
 
-      {/* CTA principal */}
+      {/* CTA principal — la page rencontre reste la seule surface d'édition
+          (score, compo, photos, WO). */}
       <button
         type="button"
         onClick={goToRencontre}
         className="mt-5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95"
       >
-        {ctaLabel}
+        {rencontre ? 'Voir la rencontre' : 'Créer la rencontre'}
       </button>
 
-      {/* Actions secondaires — toutes branchées sur les flux existants de la
-          page rencontre, qui reste la seule surface d'édition. */}
       {rencontre && (
-        <div className="mt-2.5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              navigate(liveLine ? `/live-score/${liveLine.live_match_id}` : '/live-score')
-            }
-            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Live Score
-          </button>
-          <button
-            type="button"
-            onClick={goToRencontre}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Photos ({rencontre.photo_urls.length})
-          </button>
-          <button
-            type="button"
-            onClick={handleCreateActu}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Créer une actu
-          </button>
-          <button
-            type="button"
-            onClick={goToRencontre}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Plein écran
-          </button>
-          <button
-            type="button"
-            onClick={goToRencontre}
-            className="col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100"
-          >
-            {rencontre.wo ? 'Annuler le WO' : 'Déclarer un WO'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={goToRencontre}
+          className="mt-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100"
+        >
+          {rencontre.wo ? 'Annuler le WO' : 'Déclarer un WO'}
+        </button>
       )}
-
-      <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-        Photos, WO et plein écran ouvrent la page de la rencontre — c'est là que vivent ces flux.
-      </p>
     </div>
   );
 }
