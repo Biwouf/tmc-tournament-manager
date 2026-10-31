@@ -80,6 +80,13 @@ test('a forfeit card without a link takes its rencontre id from the Next.js payl
     { ...pool, rounds: [{ ...round, numero: 1 }] },
     'https://tenup.fft.fr/championnat/82647633?division=142820&phase=231381&poule=510344'
   );
+  // An appointed referee nests an object in the rencontre (seen October 2026).
+  const refereed = html.replace(
+    /(\\"id\\":9822752,[^{}]*?\\"jugeArbitre\\":)null/,
+    '$1{\\"idCrm\\":1,\\"idPersonne\\":null,\\"nom\\":\\"ARBITRE\\",\\"prenom\\":\\"Jean\\",\\"plusHauteQualification\\":null}'
+  );
+  assert.notEqual(refereed, html);
+  assert.equal(parse(refereed).round.matches[1].url, base + '9822752');
   // Without the payload, or when its home side or date disagree, the card stays unreadable.
   for (const value of [
     html.replace(/<script>[\s\S]*<\/script>/, ''),
