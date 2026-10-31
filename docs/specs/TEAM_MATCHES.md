@@ -585,7 +585,7 @@ tag d'état à droite. Le clic sélectionne la rencontre dans le panneau sans ch
 
 #### Export du calendrier
 
-Bouton « Exporter le calendrier » de l'en-tête (et bouton calendrier du header de la PWA, à
+Entrée « Exporter le calendrier » du menu « ⋮ » de l'en-tête (et bouton calendrier du header de la PWA, à
 gauche du profil, pour tout membre connecté) : PNG d'une grille **date × équipe** des rencontres
 du jour et à venir, hors WO (compétitions non terminées côté BO ; toutes les équipes de la
 saison affichée côté PWA, quel que soit le filtre). Colonnes = équipes (compétition, genre,
@@ -955,6 +955,12 @@ src/
 6. **Page suivi** (matches individuels + score) — `TeamRencontrePage`
 7. **Intégration Live Score** (basculement + mise à jour score)
 8. **Photos + lien Actu**
+
+### Synchronisation Ten’Up groupée (`/team-matches`)
+
+L’entrée **« Synchroniser Ten’Up »** du menu d’actions « ⋮ » de l’en-tête (avec « Exporter le calendrier » et « Générer une affiche ») (`components/teamMatches/TenupBatchSync.tsx`) importe en une fois les résultats des rencontres récentes de la saison affichée. Sont retenues (`tenupBatchCandidates`, `tenupBatch.ts`) les rencontres **créées depuis une poule Ten’Up** (`tenup_url` et `tenup_side` renseignés), hors WO, **jamais synchronisées** (`tenup_synced_at` nul) et dont la date tombe dans les **N derniers jours** (7 par défaut, réglable de 1 à 60 ; mémorisé dans le navigateur par club). Les rencontres créées à la main restent synchronisées une par une depuis leur page.
+
+Le lot réutilise le même chemin que la synchro unitaire (`tenup-sync` puis `team_tenup_apply`), sans relecture rencontre par rencontre : le côté du club est connu et Ten’Up fait foi ; l’avertissement est donné une fois dans la fenêtre avant le lancement. Les rencontres passent **une à la fois**, un aperçu toutes les 21 s au plus, ce qui reste sous le quota de `team_tenup_begin` (3 aperçus/minute/utilisateur) ; si le quota est déjà entamé, la rencontre est relancée une fois après 61 s. Une feuille pas encore publiée ou illisible est marquée « Non importée » avec le message du serveur, sans interrompre le lot. « Arrêter » prend effet avant la rencontre suivante. Chaque ligne a un fond animé selon son statut (classes `tenup-row-*` de `src/index.css`) : neutre en attente, balayage aux couleurs du club pendant l’import, remplissage vert une fois importée, rouge avec un léger tremblement en cas d’échec ; animations coupées si `prefers-reduced-motion`. Aucune migration.
 
 ### Création d’une équipe depuis Ten’Up
 

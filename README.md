@@ -66,6 +66,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Une compétition peut être marquée **« terminée »** : elle quitte la grille active pour une section repliée, sans disparaître
 - **Équipes** par compétition : division, nombre de journées de poule (les journées sont générées automatiquement)
 - **Synchronisation Ten'Up** d'une rencontre : la feuille officielle fait foi et **écrase tout** — compositions, classements, scores (y compris saisis en live), date et nom de l'adversaire ; la rencontre est confirmée. Un match terminé sur **abandon** (badge « A » sur Ten'Up) est importé comme tel (score suivi de « AB. »)
+- **Synchronisation Ten'Up groupée** : sur la grille des matches par équipe, l'entrée « Synchroniser Ten'Up » du menu « ⋮ » (qui regroupe aussi l'export du calendrier et l'affiche) importe d'un coup les résultats des rencontres créées depuis Ten'Up et jouées sur les N derniers jours (7 par défaut, réglable), une rencontre après l'autre (environ 20 s chacune) ; une feuille pas encore publiée est simplement signalée.
 - **Phase de poule** puis **phases finales** : qualification d'une équipe avec stade de départ (les stades 1/16 → finale sont générés automatiquement)
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
