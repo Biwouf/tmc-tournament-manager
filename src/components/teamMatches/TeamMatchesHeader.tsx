@@ -14,7 +14,7 @@ export default function TeamMatchesHeader({ title, subtitle, backTo, backLabel, 
   const handleLogout = () => supabase.auth.signOut();
 
   return (
-    <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
+    <header className="relative z-20 border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
       <div className="container mx-auto flex items-start justify-between px-4 py-8">
         <div>
           <Link

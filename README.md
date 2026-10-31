@@ -67,6 +67,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Une compétition peut être marquée **« terminée »** : elle quitte la grille active pour une section repliée, sans disparaître
 - **Équipes** par compétition : division, nombre de journées de poule (les journées sont générées automatiquement)
 - **Synchronisation Ten'Up** d'une rencontre : la feuille officielle fait foi et **écrase tout** — compositions, classements, scores (y compris saisis en live), date et nom de l'adversaire ; la rencontre est confirmée. Un match terminé sur **abandon** (badge « A » sur Ten'Up) est importé comme tel (score suivi de « AB. »)
+- **Synchronisation Ten'Up groupée** : sur la grille des matches par équipe, l'entrée « Synchroniser Ten'Up » du menu « ⋮ » (qui regroupe aussi l'export du calendrier et l'affiche) importe d'un coup les résultats des rencontres créées depuis Ten'Up et jouées sur les N derniers jours (7 par défaut, réglable), une rencontre après l'autre (environ 20 s chacune) ; une feuille pas encore publiée est simplement signalée.
 - **Phase de poule** puis **phases finales** : qualification d'une équipe avec stade de départ (les stades 1/16 → finale sont générés automatiquement)
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
@@ -180,6 +181,17 @@ Site marketing de la plateforme (application séparée, dossier `landing/`) : pr
 - **Tant que l'inscription en ligne n'est pas ouverte**, les boutons d'essai affichent « Demander un accès » et mènent au call. Il suffit de renseigner `PUBLIC_SIGNUP_URL` dans Vercel pour les rebrancher.
 - Lien de réservation, mention TVA, e-mail de contact et mesure d'audience (Plausible, sans cookie ni bandeau) se règlent par variables d'environnement : voir `landing/README.md`.
 - Mentions légales et CGV : pages prêtes mais **contenu à fournir**, exclues de l'indexation d'ici là.
+
+### Inscription d'un club `admin.feelike.pro/inscription`
+
+Un club crée son espace seul, en quatre écrans et moins de deux minutes, avec 30 jours d'essai sans carte bancaire.
+
+- **Club** (nom, ville, sport), **Logo** (la couleur du club est tirée du logo ; sans logo, trois couleurs proposées ou une couleur libre ; photo du club facultative), **Adresse** (`<slug>.feelike.pro`, proposée depuis le nom et vérifiée en direct ; si elle est prise, une variante avec la ville est proposée), **Compte** (e-mail, acceptation des CGU et de la politique de confidentialité, vérification anti-robot).
+- À droite, le **site et l'app du club se construisent pendant la saisie**, à ses couleurs et tels que le produit les affichera ; l'app montre des rencontres d'exemple. Sur téléphone, l'aperçu s'ouvre avec « Voir l'aperçu ».
+- Logos et photos acceptés : PNG, JPEG ou WebP. Les photos de téléphone sont réduites automatiquement avant l'envoi.
+- À la fin, un **lien de connexion** part par e-mail : le club est confirmé et l'essai démarre au clic. L'écran de confirmation permet de **renvoyer le lien** ou de corriger l'adresse e-mail. Sans clic sous 7 jours, l'inscription est effacée.
+- La saisie survit à un rechargement de la page (dans le même onglet).
+- **Pas encore ouvert au public** : la page affiche « Les inscriptions ouvrent bientôt » tant que la clé anti-robot et les adresses des CGU et de la politique de confidentialité ne sont pas configurées.
 
 ### Comptes sociaux
 Écran *Admin › Comptes sociaux* (`/admin/social`), réservé aux **administrateurs** du club.

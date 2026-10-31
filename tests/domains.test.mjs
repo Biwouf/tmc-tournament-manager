@@ -156,6 +156,19 @@ test('central BO: no club required for activation/recovery/platform console', as
     await act(async () => root.unmount());
   }
 });
+test('signup tunnel (SaaS S3): no session, no club, no BO chrome, on any host', async () => {
+  for (const [host, signedIn] of [['admin.feelike.pro', false], ['admin.feelike.pro', true], ['localhost', false]]) {
+    reset(); pathname = '/inscription'; if (!signedIn) user = null; dom.reconfigure({ url: `https://${host}/inscription` });
+    const Admin = load('src/components/AdminEntry.tsx').default;
+    const root = await mount(Admin, () => h('p', null, 'WRONG'));
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    assert.match(document.body.textContent, /SignupTunnelPage/, host);
+    assert.doesNotMatch(document.body.textContent, /WRONG|Changer de club|Se déconnecter/);
+    assert.deepEqual(calls, [], 'aucune lecture de session, de club ni activation');
+    await act(async () => root.unmount());
+  }
+  dom.reconfigure({ url: 'https://admin.feelike.pro/' });
+});
 test('PWA distinguishes missing/suspended club from database failure and never mounts business UI', async () => {
   for (const [host, records, offline, expected] of [
     ['app-alpha.feelike.pro', [alpha], false, 'BUSINESS'],
