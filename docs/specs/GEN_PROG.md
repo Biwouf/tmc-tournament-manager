@@ -391,8 +391,8 @@ Code : `src/components/programmeAnimation/`.
 | Couleurs | `brand.color` (repli `#c8102e`) ; bordeaux, halo, voiles et ombres dérivés par `clubTint` (`palette.ts`) |
 
 Polices : Prompt (600/700/800) et Manrope (600/800) **embarquées** via `@fontsource` sous les noms « Anim Prompt » /
-« Anim Manrope » (sous-ensembles latin et latin-ext, data URL). Google Fonts est cross-origin : `html-to-image` ne
-l'embarque pas et l'export sortirait en police de repli sans erreur.
+« Anim Manrope » (sous-ensembles latin et latin-ext), chargées en `FontFace` dans la page et dans le worker d'export
+(un worker n'a pas accès aux feuilles de style de la page). Le VS est en « Arial Black » italique, police système.
 
 ### Séquences (grille de 0,5 s)
 
@@ -406,18 +406,37 @@ l'embarque pas et l'export sortirait en police de repli sans erreur.
 Affiche du 13/10/2026 (7 matchs) : 20,25 s en story, 23,25 s en carré (`npm run test:programme-animation`).
 Au-delà de 9 lignes en story ou 8 en carré, le récap déborde : un avertissement s'affiche (réduction non gérée).
 
-### Export MP4
+### Rendu et export MP4
 
-Entièrement dans le navigateur (`exportMp4.ts`) : pour chaque image, `T` est posé par `flushSync` sur une scène à
-taille réelle montée hors écran, `html-to-image` (`toCanvas`, pixelRatio 1) la rastérise, `VideoEncoder` (WebCodecs)
-encode en H.264 (High 5.0 de préférence, 8 Mb/s, 30 i/s, image clé toutes les 2 s) et `mp4-muxer` assemble le fichier
-`programme-<slug du club>-<date>-<story|carre>.mp4`.
+Rendu **Canvas 2D** (`renderFrame.ts`), le même pour le lecteur et pour l'export. Il remplace depuis le 31/10/2026 la
+scène React rastérisée par `html-to-image` (~140 ms par image, export en pause onglet caché) ; il en reproduit la mise en
+page boîte par boîte. Comparaison image par image avec l'ancien rendu (3 jeux × story/carré × 11 instants : derby,
+sans club mis en valeur, adversaire inconnu, noms longs, 0 / 3 / 10 partenaires) : écart moyen ≤ 3/255, limité aux
+bords des glyphes (lignes de base arrondies au pixel par la mise en page de Chrome, < 1 px).
 
+- **Lecteur** : `<canvas>` à la taille de l'aperçu × `devicePixelRatio`, redessiné à chaque `T`.
+- **Export** (`exportMp4.ts`) : dans un **Web Worker** (`exportWorker.ts`) — OffscreenCanvas 1080 px, polices chargées
+  dans le worker, `VideoEncoder` (WebCodecs) en H.264 (High 5.0 de préférence, 8 Mb/s, 30 i/s, image clé toutes les 2 s)
+  et `mp4-muxer` → `programme-<slug du club>-<date>-<story|carre>.mp4`. Le logo et les partenaires sont décodés **côté
+  page** en `ImageBitmap` (un worker ne décode pas le SVG), rastérisés à 512 px de côté au plus, puis clonés vers le worker.
+- **Repli** : si le worker n'a pas OffscreenCanvas 2D, `VideoEncoder` H.264 ou `self.fonts`, la même boucle
+  (`encodeAnimation.ts`) tourne sur le thread principal. Elle rend la main par `MessageChannel` (un `setTimeout` est
+  bridé à 1 s onglet caché).
 - Navigateur sans `VideoEncoder` ou sans configuration H.264 acceptée : bouton désactivé et message. Pas de repli serveur
   (les Edge Functions ne font tourner ni Chromium ni ffmpeg).
-- Onglet caché : l'export se met en pause jusqu'au retour (le navigateur bride les pages en arrière-plan). Bouton Annuler.
-- Durée mesurée (M1 Pro) : ~90 s pour une story de 20 s en onglet visible. Pas de flou de mouvement (×4 sur le temps).
-- Logos et partenaires sont convertis en data URL avant l'export.
+- **Onglet caché : l'export continue** (plus de pause). Bouton Annuler (arrête le worker).
+- `letterSpacing` du canvas (Chrome 99, Firefox 115, Safari 18.4) ; à défaut, texte espacé dessiné lettre par lettre
+  (sans crénage).
+
+Durées mesurées le 31/10/2026 (Chrome, Mac Apple Silicon), story de 20,25 s (affiche du 13/10, 608 images) :
+
+| Chemin | Onglet visible | Onglet caché |
+|---|---|---|
+| Ancien rendu DOM (`html-to-image`) | ~90 s | en pause |
+| Worker Canvas | 4,2 à 5,7 s | même cadence (~0,75 s / 100 images, mesurée sur les 300 premières images d’un export lancé onglet caché) |
+| Repli thread principal | 4,5 s | non mesuré |
+
+Rendu d'une image : 0,5 à 6 ms selon l'instant ; l'encodage H.264 matériel domine.
 
 Hors périmètre : mode Résultats, musique, publication directe sur Facebook (`post-to-facebook` ne publie que des photos et des posts).
 

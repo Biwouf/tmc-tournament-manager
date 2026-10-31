@@ -1,8 +1,7 @@
-// Polices de l'animation, embarquées (et non lues sur Google Fonts) : `html-to-image` ne sait pas
-// lire une feuille de style d'une autre origine, et l'export sortirait alors en police de repli
-// sans la moindre erreur (constaté au prototype du 16/10/2026). On ne garde que les
-// sous-ensembles latin et latin-ext, inlinés en data URL (~140 Ko) : la même chaîne sert à
-// enregistrer les polices dans le document (aperçu) et au `fontEmbedCSS` de l'export.
+// Polices de l'animation, embarquées (et non lues sur Google Fonts) : le rendu Canvas tourne
+// aussi dans un worker, qui n'a pas accès aux feuilles de style de la page. On ne garde que les
+// sous-ensembles latin et latin-ext (~140 Ko), chargés en `FontFace` dans le document (lecteur)
+// et dans le worker d'export.
 import prompt600 from '@fontsource/prompt/files/prompt-latin-600-normal.woff2?url';
 import prompt600x from '@fontsource/prompt/files/prompt-latin-ext-600-normal.woff2?url';
 import prompt700 from '@fontsource/prompt/files/prompt-latin-700-normal.woff2?url';
@@ -35,30 +34,22 @@ const FACES: { family: string; weight: number; url: string; range: string }[] = 
   { family: 'Anim Manrope', weight: 800, url: manrope800x, range: LATIN_EXT },
 ];
 
-export function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
+/** Charge les polices dans `set` : `document.fonts` (lecteur) ou `self.fonts` du worker d'export. */
+export async function addAnimationFonts(set: FontFaceSet): Promise<void> {
+  await Promise.all(
+    FACES.map(async (f) => {
+      const data = await (await fetch(f.url)).arrayBuffer();
+      const face = new FontFace(f.family, data, { weight: String(f.weight), unicodeRange: f.range });
+      set.add(await face.load());
+    }),
+  );
 }
 
-let pending: Promise<string> | null = null;
+let pending: Promise<void> | null = null;
 
-/** Charge les polices une seule fois et renvoie le CSS `@font-face` à passer en `fontEmbedCSS`. */
-export function loadAnimationFonts(): Promise<string> {
-  pending ??= (async () => {
-    const rules = await Promise.all(
-      FACES.map(async (f) => {
-        const data = await blobToDataUrl(await (await fetch(f.url)).blob());
-        const face = new FontFace(f.family, `url(${data}) format('woff2')`, { weight: String(f.weight), unicodeRange: f.range });
-        document.fonts.add(await face.load());
-        return `@font-face{font-family:'${f.family}';font-style:normal;font-weight:${f.weight};src:url(${data}) format('woff2');unicode-range:${f.range};}`;
-      }),
-    );
-    return rules.join('\n');
-  })();
+/** Charge les polices dans le document, une seule fois. */
+export function loadAnimationFonts(): Promise<void> {
+  pending ??= addAnimationFonts(document.fonts);
   pending.catch(() => {
     pending = null;
   });
