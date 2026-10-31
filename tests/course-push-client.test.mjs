@@ -11,7 +11,7 @@ const compiled = ts.transpileModule(source, { compilerOptions: {
 }}).outputText;
 function harness() {
   let active = true, userId = 'member', rpcError = false, unsubscribeError = false;
-  let pauseSubscribe, prefs = { courses: false, live: false };
+  let pauseSubscribe, prefs = { courses: false, live: false, news: true };
   const calls = [], storage = new Map(), rpcArgs = [];
   const subscription = {
     endpoint: 'https://fcm.googleapis.com/test',
@@ -35,9 +35,9 @@ function harness() {
         calls.push(name);
         if (name === 'push_subscribe' && pauseSubscribe) await pauseSubscribe;
         if (name === 'push_subscribe' && !rpcError) {
-          prefs = { courses: args.p_courses ?? prefs.courses, live: args.p_live ?? prefs.live };
+          prefs = { courses: args.p_courses ?? prefs.courses, live: args.p_live ?? prefs.live, news: args.p_news ?? prefs.news };
           rpcArgs.push(args);
-          return { data: [{ notify_courses: prefs.courses, notify_live: prefs.live }], error: null };
+          return { data: [{ notify_courses: prefs.courses, notify_live: prefs.live, notify_news: prefs.news }], error: null };
         }
         return {error: rpcError ? Error('network') : null};
       } },
@@ -89,15 +89,15 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 test('categories share one device subscription: turning one off keeps the other and the device', async () => {
   const h=harness(); const seen=[];
   h.api.onPushPreferences(p=>seen.push(p));
-  assert.deepEqual(plain(await h.api.enablePush('club','member',{live:true})),{courses:false,live:true});
+  assert.deepEqual(plain(await h.api.enablePush('club','member',{live:true})),{courses:false,live:true,news:true});
   assert.equal(h.rpcArgs[0].p_courses,null);
   await h.api.enableCoursePush('club','member');
-  assert.deepEqual(plain(await h.api.syncPush('club','member')),{courses:true,live:true});
-  assert.deepEqual(plain(await h.api.disablePushCategory('club','member',{live:false})),{courses:true,live:false});
+  assert.deepEqual(plain(await h.api.syncPush('club','member')),{courses:true,live:true,news:true});
+  assert.deepEqual(plain(await h.api.disablePushCategory('club','member',{live:false})),{courses:true,live:false,news:true});
   assert.equal(h.active,true);
   assert.equal(await h.api.disablePushCategory('club','other',{live:false}),null);
   // Empty patch: subscribe the device for followed matches without touching preferences.
-  assert.deepEqual(plain(await h.api.enablePush('club','member',{})),{courses:true,live:false});
+  assert.deepEqual(plain(await h.api.enablePush('club','member',{})),{courses:true,live:false,news:true});
   await h.api.disableCoursePush('club');
   assert.equal(h.active,false); assert.equal(seen.at(-1),null);
 });
@@ -144,4 +144,20 @@ test('worker opens Live alerts on the match and groups feed alerts per match', a
   assert.equal(opened[0],`https://club.example/matches/${match}`);
   await run('push',{data:{json:()=>({id:'d3',title:'x',body:'y',url:'/matches/../admin'})}});
   assert.equal(notifications[2].data.url,'/cours');
+});
+test('worker opens news alerts on the actu or the event', async () => {
+  const handlers=new Map(), notifications=[], opened=[];
+  const self={location:{origin:'https://club.example'},
+    addEventListener:(kind,fn)=>handlers.set(kind,fn),
+    registration:{showNotification:async(title,options)=>notifications.push({title,...options})},
+    clients:{matchAll:async()=>[],openWindow:async url=>opened.push(url)},
+  };
+  vm.runInNewContext(worker,{self,URL});
+  const run=async(kind,event)=>{let work; handlers.get(kind)({...event,waitUntil:p=>{work=p;}}); await work;};
+  const content='00000000-0000-0000-0000-000000000030';
+  await run('push',{data:{json:()=>({id:'n1',title:'Nouvelle actu',body:'AG',url:`/actus/${content}`})}});
+  await run('push',{data:{json:()=>({id:'n2',title:'Nouvel événement',body:'Tournoi',url:`/evenements/${content}`})}});
+  assert.equal(notifications[0].tag,'news-n1'); assert.equal(notifications[1].data.url,`/evenements/${content}`);
+  await run('notificationclick',{notification:{data:notifications[0].data,close(){}}});
+  assert.equal(opened[0],`https://club.example/actus/${content}`);
 });
