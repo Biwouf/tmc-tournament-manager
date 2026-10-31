@@ -189,6 +189,8 @@ Un club crée son espace seul, en quatre écrans et moins de deux minutes, avec 
 - À droite, le **site et l'app du club se construisent pendant la saisie**, à ses couleurs et tels que le produit les affichera ; l'app montre des rencontres d'exemple. Sur téléphone, l'aperçu s'ouvre avec « Voir l'aperçu ».
 - Logos et photos acceptés : PNG, JPEG ou WebP. Les photos de téléphone sont réduites automatiquement avant l'envoi.
 - À la fin, un **lien de connexion** part par e-mail : le club est confirmé et l'essai démarre au clic. L'écran de confirmation permet de **renvoyer le lien** ou de corriger l'adresse e-mail. Sans clic sous 7 jours, l'inscription est effacée.
+- Le clic sur le lien ouvre **directement le back-office du nouveau club**, sans mot de passe à choisir ni club à sélectionner, sur un écran « Votre club est prêt » (les premiers pas guidés viendront le remplacer).
+- Un lien **expiré ou déjà utilisé** affiche « Ce lien a expiré » avec un bouton pour en recevoir un nouveau. Si le compte s'est connecté par mot de passe sans cliquer le lien, le back-office rappelle qu'il faut ouvrir le lien reçu (et permet de le renvoyer) : seul ce clic active le club.
 - La saisie survit à un rechargement de la page (dans le même onglet).
 - **Pas encore ouvert au public** : la page affiche « Les inscriptions ouvrent bientôt » tant que la clé anti-robot et les adresses des CGU et de la politique de confidentialité ne sont pas configurées.
 
@@ -459,6 +461,11 @@ Installation Supabase et vérifications : [docs/CONTACT_DELIVERY.md](docs/CONTAC
 
 ### Récupération de compte
 
+Le back-office propose aussi **« Recevoir un lien de connexion »** sur l'écran de connexion,
+pour tous les comptes : un e-mail permet d'entrer sans mot de passe (indispensable pour un
+compte né de l'inscription en ligne, qui n'en a pas). Aucun compte n'est créé pour une adresse
+inconnue, et la réponse est la même qu'il existe ou non.
+
 Le back-office et la PWA proposent « Mot de passe oublié ». Les liens sont gérés par
 Supabase Auth ; l’envoi via Brevo exige de configurer le SMTP personnalisé du projet
 (et sa limite d’emails), indépendamment de la clé API du formulaire de contact.
@@ -468,7 +475,7 @@ Configuration et recette : [ACCOUNT_RECOVERY.md](docs/ACCOUNT_RECOVERY.md).
 
 Domaine racine confirmé : **feelike.pro**, enregistré chez OVHcloud.
 Vitrine : `<club>.feelike.pro` ; PWA : `app-<club>.feelike.pro` ; BO central avec sélection
-du club après connexion : `admin.feelike.pro`. Landing marketing : `www.feelike.pro` (apex redirigé),
+du club après connexion : `admin.feelike.pro` (sans sélecteur quand le compte n'a qu'un club actif). Landing marketing : `www.feelike.pro` (apex redirigé),
 projet Vercel séparé, cf. `landing/README.md`.
 Le code ne met pas les DNS en service : suivre [la procédure OVH/Vercel](docs/DOMAINS_DELIVERY.md)
 avant de clôturer la PR13. Le domaine propre de CAC est prévu en PR14.

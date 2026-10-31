@@ -28,7 +28,7 @@ annuel, Stripe). L'humain n'intervient que pour le call de réassurance.
 | S1 | Landing `www.feelike.pro` (`landing/`) | en place |
 | **S2** | Socle self-serve (ce document §3–§6) : modèle, `slug_available`, `club-signup`, activation, purge | livrée |
 | **S3** | Tunnel `admin.feelike.pro/inscription` avec aperçu en direct (§7) | livrée, fermée tant que CGU / confidentialité manquent |
-| S4 | Activation par lien magique simplifiée, routage vers les premiers pas | à faire |
+| **S4** | Activation par lien magique simplifiée, routage vers les premiers pas (§8) | livrée |
 | S5–S7 | Premiers pas : première actu, équipes, affiches | à faire |
 | S8 | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » | à faire |
 | S9 | Abonnement Stripe, lecture seule en fin d'essai | à faire |
@@ -131,6 +131,7 @@ est admin, **seulement si la session vient d'un lien magique cliqué après la c
 (claim `amr` du JWT : méthode `otp` ou `magiclink`, horodatage ≥ `created_at`). Un tiers qui
 rattache un club à l'adresse d'un compte existant ne l'active donc pas quand ce compte se
 connecte par mot de passe. Un échec de la RPC n'empêche pas d'ouvrir les clubs déjà actifs.
+Ce qui suit l'activation (choix du club, premiers pas, lien expiré) : §8.
 
 ### 5.3 Purge — Edge Function `club-signup-purge`, cron quotidien
 
@@ -258,3 +259,70 @@ des trois manque : décision du 29/10/2026, pas d'ouverture publique sans pages 
 suggestion d'adresse, palette, codes → messages, formulaire envoyé, persistance, configuration,
 tokens de marque partagés (`#e8c547`, `#3a9a5c`), absence de copie de la règle du slug.
 `tests/domains.test.mjs` : `/inscription` sans session, sans club, sans bandeau, sur tout hôte.
+
+## 8. Activation et connexion par lien magique (S4)
+
+Décisions du 31/10/2026 : connexion par lien magique **pour tous les comptes** ; **aucun mot de
+passe** demandé dans le parcours (« Choisir un mot de passe » ira dans la checklist de S8) ;
+club **sélectionné d'office** quand le compte n'en a qu'un actif, pour tous les comptes.
+
+### 8.1 Arrivée sur `admin.feelike.pro` (`src/components/AdminEntry.tsx`)
+
+Après `club_self_serve_activate` (§5.2), le BO central lit les clubs `active` et `pending` du
+compte (un club `pending` n'est visible que de ses membres), puis, dans cet ordre :
+
+| Situation | Résultat |
+|---|---|
+| Super-admin en mode support | Le club de support, inchangé (prime sur tout) |
+| `?inscription=<slug>` désigne un club **actif** du compte | Club sélectionné (clé `sessionStorage` `feelike_admin_club:<user>`), `navigate('/premiers-pas', { replace: true })` : le paramètre quitte l'URL |
+| `?inscription=<slug>` désigne un club encore **`pending`** (claim `amr` refusé : connexion par mot de passe) | « Ouvrez le lien reçu par e-mail pour activer votre club », bouton **Recevoir un nouveau lien** (vers `?inscription=<slug>`, gabarit « Gardez votre club ») ; les autres clubs actifs restent proposés |
+| Choix déjà fait dans la session | Ce club |
+| Un seul club actif | Ce club, sans sélecteur (CAC compris) |
+| Aucun club actif mais un club `pending` | Le message d'activation ci-dessus, pas un sélecteur vide |
+| Sinon | Sélecteur « Choisir un club », inchangé |
+
+`/premiers-pas` (`src/pages/FirstStepsPage.tsx`) est en S4 un écran **provisoire** « Votre club
+est prêt » + lien vers le tableau de bord ; S5 le remplace. Rouvrir le lien d'un club déjà actif
+y ramène aussi.
+
+### 8.2 Lien expiré ou déjà utilisé
+
+GoTrue redirige vers `redirect_to#error=access_denied&error_code=otp_expired&…` (la requête,
+donc `?inscription`, est conservée) ; supabase-js laisse l'erreur dans l'URL et garde une session
+existante. `src/lib/magicLink.ts` lit `error_code` (fragment, ou requête en PKCE) **au chargement
+du module**, avant qu'une redirection du routeur vers `/login` ne perde le fragment. Sans session,
+`LoginPage` s'ouvre alors en « Ce lien a expiré » : champ e-mail, **Recevoir un nouveau lien**
+(retour `https://admin.feelike.pro/?inscription=<slug>` si le slug est connu, sinon la racine),
+erreur retirée du fragment. Le hook `send-auth-email` choisit le gabarit « Gardez votre club » si
+le club est encore `pending`.
+
+### 8.3 Revenir sans mot de passe
+
+`LoginPage` propose **Recevoir un lien de connexion** (et « Se connecter avec un mot de passe »
+pour revenir) ; le mot de passe et « Mot de passe oublié » sont inchangés. Retour du lien :
+l'origine courante.
+
+Tous les envois passent par `requestMagicLink` : `signInWithOtp({ shouldCreateUser: false })`,
+le BO reste sur invitation et aucun compte n'est créé. GoTrue refuse une adresse inconnue en
+`422` : toute réponse `4xx` (hors `429`) donne le même message neutre que l'envoi réussi
+(« Si un compte correspond à cette adresse… »). `429` → « Trop de demandes » ; `5xx` ou réseau
+→ réessayer. Aucune adresse n'est journalisée.
+
+Type `Club` du BO : `plan` et `trial_ends_at` ajoutés (lecture seule) à `CLUB_FIELDS`, lu par
+`ClubContext` et `AdminEntry`, pour S5 et S8.
+
+### 8.4 Tests et recette
+
+`tests/magic-link.test.mjs` : lecture de `error_code`, slug d'inscription, choix du club,
+réponse neutre et `shouldCreateUser: false` (y compris un balayage de tous les appels
+`signInWithOtp` du dépôt), `LoginPage` en mot de passe, en lien et en lien expiré.
+`tests/domains.test.mjs` : routage `?inscription` vers `/premiers-pas`, club unique, message
+d'activation, support et multi-club inchangés.
+
+Recette locale : le lien envoyé depuis `localhost` revient sur `localhost`, qui sert le BO du
+club de dev, pas le BO central. Pour le parcours complet, faire pointer `admin.feelike.pro` sur
+`127.0.0.1` dans `/etc/hosts` et lancer Vite avec
+`__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=admin.feelike.pro`.
+
+Aucune opération hors code : pas de migration, pas d'Edge Function. La Redirect URL
+`https://admin.feelike.pro/**` (PR13) couvre `?inscription`.
