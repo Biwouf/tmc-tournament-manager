@@ -29,12 +29,24 @@ export default function SignupRequests({ clubId, onChanged }: { clubId: string; 
     } catch { setError('Décision impossible. Actualisez la liste : la demande a peut-être déjà été traitée.'); }
     finally { lock.current = false; setBusy(null); }
   }
+  async function remove(row: Request) {
+    if (lock.current) return;
+    if (!window.confirm(`Supprimer définitivement la demande de ${row.prenom} ${row.nom} (${row.email}) ? Elle disparaît de cette liste ; le compte n’est pas supprimé et la personne pourra redéposer une demande.`)) return;
+    lock.current = true; setBusy(row.user_id); setError(null); setSuccess(null);
+    try {
+      const { error } = await supabase.rpc('club_signup_delete', { p_club: clubId, p_user: row.user_id });
+      if (error) throw error;
+      setSuccess('Demande supprimée.');
+      await load();
+    } catch { setError('Suppression impossible. Actualisez la liste et réessayez.'); }
+    finally { lock.current = false; setBusy(null); }
+  }
   return <section>
     <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Demandes d’inscription ({rows.filter(r => r.status === 'pending').length})</h2><button type="button" className="course-button" disabled={loading || !!busy} onClick={() => void load()}>Actualiser</button></div>
     {error && <p role="alert" className="mb-3 text-destructive">{error}</p>}
     {success && <p role="status" className="mb-3 text-foreground">{success}</p>}
     {loading ? <p role="status">Chargement des demandes…</p> : rows.length === 0 ? <p className="text-sm text-muted-foreground">Aucune demande d’inscription.</p> : <div className="space-y-3">{rows.map(r => <div key={r.user_id} className="rounded-2xl border bg-card p-6 shadow-sm">
-      <h3 className="font-semibold">{r.prenom} {r.nom}</h3><p className="text-sm text-muted-foreground">{r.email}</p>
+      <div className="flex items-start justify-between gap-3"><h3 className="font-semibold">{r.prenom} {r.nom}</h3>{r.status !== 'pending' && <button type="button" className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-60" disabled={!!busy} onClick={() => void remove(r)}>{busy === r.user_id ? 'Suppression…' : 'Supprimer'}</button>}</div><p className="text-sm text-muted-foreground">{r.email}</p>
       <p className="my-2 text-sm">{r.sex === 'female' ? 'Femme' : r.sex === 'male' ? 'Homme' : 'Sexe non renseigné'} · Classement : {r.classement ?? 'Non renseigné'} · {new Date(r.created_at).toLocaleDateString('fr-FR')}</p>
       {r.status === 'pending' ? <div className="flex flex-wrap gap-2"><button type="button" className="course-button primary" disabled={!!busy} onClick={() => void decide(r, 'approved')}>{busy === r.user_id ? 'Traitement…' : 'Accepter comme membre'}</button><button type="button" className="course-button" disabled={!!busy} onClick={() => void decide(r, 'denied')}>Refuser</button></div> : <p className="text-sm text-muted-foreground">{r.status === 'denied' ? 'Demande refusée' : 'Accès retiré'}. Pour rétablir l’accès, utilisez l’invitation existante.</p>}
     </div>)}</div>}
