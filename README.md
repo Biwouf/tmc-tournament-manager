@@ -24,6 +24,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Partenaires en bas de l'affiche** : les logos configurés dans *Admin › Configuration du site › Partenaires* sont ajoutés automatiquement (10 max, 2 rangées de 5 ; au-delà de 10, tirage au hasard avec un bouton « Autre tirage », règle identique sur l'affiche des rencontres à venir et le visuel du résultat par équipe) ; case à cocher pour les retirer, cochée par défaut
 - **Couleurs du club** : l'affiche reprend la couleur principale du club (*Admin › Configuration du site › Identité du club › Couleur principale*), avec des nuances dérivées pour le cartouche et le fond des joueurs du club ; rouge `#c8102e` par défaut
 - **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
+- **Animation vidéo du programme** : une fois l'affiche téléchargée, une animation (story 1080×1920 ou carré 1080×1080) reprend ses matchs, son club mis en valeur et ses partenaires, aux couleurs et au logo du club ; lecteur intégré et **export MP4 généré dans le navigateur** (1 à 3 minutes, onglet ouvert)
 
 ### Événements
 - Gestion des événements du club (Animations, Tournois, Sorties, Soirées)
@@ -323,7 +324,7 @@ Accessible depuis le menu principal → **Programmation Image**.
 
 Deux méthodes disponibles :
 - **Import PDF** : Importer directement une feuille de programmation FFT/TEN'UP. L'application extrait automatiquement les joueurs, classements, clubs et horaires.
-- **Saisie CSV** : Saisir manuellement les données des matches au format CSV (sans club).
+- **Saisie CSV** : Saisir manuellement les données des matches au format CSV (sans club). La section « Données CSV » est repliée par défaut : cliquer sur son titre pour l'ouvrir.
 
 #### 2. Export en image
 
@@ -331,7 +332,15 @@ Une fois les matches chargés, cliquez sur "Télécharger", en tête de l'aperç
 - Chaque page contient jusqu'à 8 matches
 - Le fond de l'affiche se choisit **parmi les fonds du club**, ajoutés dans *Admin › Configuration du site › Affiches* : une rangée de vignettes au-dessus de l'aperçu, le premier fond par défaut. **Sans aucun fond configuré, la génération est impossible.**
 
-#### 3. Basculer les matches vers Live Score
+#### 3. Animation vidéo (story ou carré)
+
+Sous l'aperçu, la section **« Animation vidéo »** s'ouvre une fois l'affiche téléchargée : la vidéo reprend exactement ses réglages (matchs, club mis en valeur, partenaires). Modifier l'un d'eux demande de régénérer l'affiche.
+- La case **« Générer aussi la vidéo dans la foulée »**, sous le bouton de téléchargement de l'affiche et cochée par défaut, lance la vidéo (au format choisi, story par défaut) juste après l'image
+- Choisir le format : **story** (1080 × 1920, pour les stories Facebook / Instagram) ou **carré** (1080 × 1080, pour une publication)
+- Le titre est prérempli avec l'événement choisi dans « Envoyer vers Live Score », modifiable
+- **Télécharger la vidéo (MP4)** la génère dans le navigateur (Chrome, Edge ou Safari récents) : garder l'onglet ouvert et visible, la génération se met en pause sinon
+
+#### 4. Basculer les matches vers Live Score
 
 Sous l'aperçu, la zone **« Envoyer vers Live Score »** permet de créer en un clic tous les matches détectés dans le module Live Score :
 - Sélection optionnelle d'un événement à associer aux matches

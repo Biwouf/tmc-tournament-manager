@@ -81,7 +81,7 @@ Si aucun match n'est trouvé, un message d'erreur est affiché à l'utilisateur.
 
 ### Mode CSV — saisie manuelle
 
-Copier-coller d'un CSV dans une zone de texte, puis clic sur « Générer l'aperçu ».
+Copier-coller d'un CSV dans une zone de texte, puis clic sur « Générer l'aperçu ». La section « Données CSV » est un `<details>` **replié par défaut** (l'import PDF est le cas courant) ; un clic sur son titre l'ouvre.
 
 **Schéma attendu** (ligne d'en-tête obligatoire) :
 
@@ -357,6 +357,72 @@ Les téléchargements sont déclenchés séquentiellement.
 
 ---
 
+## Animation vidéo (story / carré)
+
+Portage dans le BO de la skill Claude `tournoi-animation-facebook` (v2 du 11/10/2026, avec l'extension
+`tournoi-animation-facebook-multi-matchs`) : mêmes séquences, mêmes durées, rendu fonction pure du temps `T`.
+Code : `src/components/programmeAnimation/`.
+
+### Disponibilité
+
+- Mode **Programmation** uniquement.
+- La section n'est active qu'une fois **l'affiche téléchargée avec les réglages courants**. `handleDownload` mémorise
+  une signature (`mode`, matchs affichés, `highlightedClub`, `showPartners`, `partnerSeed`, `backgroundIndex`) ;
+  si elle ne correspond plus, la section demande de régénérer l'affiche. La vidéo n'a donc aucun réglage propre, sauf
+  le **format** et le **titre**.
+- Case **« Générer aussi la vidéo dans la foulée »** sous le bouton « Télécharger l'image » (mode Programmation,
+  cochée par défaut, non enregistrée) : après le téléchargement, la page incrémente `videoRequest`, passé en prop
+  `exportRequest` à la section. La section lance l'export une fois prête (polices, images, détection de l'encodeur),
+  fait défiler jusqu'à elle, et le format en cours (story par défaut). Titre vide : pas d'export, message.
+
+### Données
+
+| Animation | Source |
+|---|---|
+| Matchs | `displayMatches` (WO exclus), dans l'ordre de l'affiche, groupés par horaire consécutif |
+| Joueurs du club (`home`) | club du joueur égal à `highlightedClub` (insensible à la casse et aux espaces). Aucun club mis en valeur ⇒ ni bandeau ni derby |
+| Bandeau | 2 joueurs du club → `DERBY · <club>` ; 1 → `JOUEUSE DU CLUB` si tableau dames (`SD`, `DD`, `SF`, dames, femmes, féminin), sinon `JOUEUR DU CLUB` |
+| Adversaire inconnu | carte conservée, joueur « À DÉTERMINER » |
+| Titre | titre de l'événement choisi dans « Envoyer vers Live Score », modifiable (40 caractères max) |
+| Surtitre | `brand.name` (à défaut le nom du club), en majuscules |
+| Date | « Programme du mardi 13 octobre » (`formatDateLabel`) |
+| Logo | en-tête : `brand.logo_inverse` tel quel, sinon `brand.logo` dans un disque blanc, sinon initiales ; cartes et pastille du récap : `brand.logo` |
+| Partenaires | les logos déjà tirés pour l'affiche (vide si la case est décochée) : une rangée jusqu'à 5, deux au-delà |
+| Couleurs | `brand.color` (repli `#c8102e`) ; bordeaux, halo, voiles et ombres dérivés par `clubTint` (`palette.ts`) |
+
+Polices : Prompt (600/700/800) et Manrope (600/800) **embarquées** via `@fontsource` sous les noms « Anim Prompt » /
+« Anim Manrope » (sous-ensembles latin et latin-ext, data URL). Google Fonts est cross-origin : `html-to-image` ne
+l'embarque pas et l'export sortirait en police de repli sans erreur.
+
+### Séquences (grille de 0,5 s)
+
+1. Intro 1 s — logo, surtitre lettre par lettre, titre.
+2. Date 1 s — date soulignée, onglets horaires (un par horaire), partenaires.
+3. Un écran par groupe de cartes : 3 s + 0,5 s par match (+ 1,5 s d'ouverture « DERBY » si l'écran contient un derby).
+   3 cartes max en story, 2 en carré, répartition équilibrée (carré : 3 → 2+1, 4 → 2+2, 5 → 2+2+1 ; story : 4 → 2+2, 5 → 3+2).
+4. Récap : 3 s + 0,25 s par ligne, puis « N JOUEURS DU CLUB EN LICE ».
+5. Outro 1 s, fondu pour boucler.
+
+Affiche du 13/10/2026 (7 matchs) : 20,25 s en story, 23,25 s en carré (`npm run test:programme-animation`).
+Au-delà de 9 lignes en story ou 8 en carré, le récap déborde : un avertissement s'affiche (réduction non gérée).
+
+### Export MP4
+
+Entièrement dans le navigateur (`exportMp4.ts`) : pour chaque image, `T` est posé par `flushSync` sur une scène à
+taille réelle montée hors écran, `html-to-image` (`toCanvas`, pixelRatio 1) la rastérise, `VideoEncoder` (WebCodecs)
+encode en H.264 (High 5.0 de préférence, 8 Mb/s, 30 i/s, image clé toutes les 2 s) et `mp4-muxer` assemble le fichier
+`programme-<slug du club>-<date>-<story|carre>.mp4`.
+
+- Navigateur sans `VideoEncoder` ou sans configuration H.264 acceptée : bouton désactivé et message. Pas de repli serveur
+  (les Edge Functions ne font tourner ni Chromium ni ffmpeg).
+- Onglet caché : l'export se met en pause jusqu'au retour (le navigateur bride les pages en arrière-plan). Bouton Annuler.
+- Durée mesurée (M1 Pro) : ~90 s pour une story de 20 s en onglet visible. Pas de flou de mouvement (×4 sur le temps).
+- Logos et partenaires sont convertis en data URL avant l'export.
+
+Hors périmètre : mode Résultats, musique, publication directe sur Facebook (`post-to-facebook` ne publie que des photos et des posts).
+
+---
+
 ## État React (local, pas de persistance)
 
 | State | Type | Rôle |
@@ -584,3 +650,4 @@ Conséquences :
 - Stratégie de pagination alternative : par type de tournoi ou par moment de la journée (vs. découpage séquentiel actuel)
 - Permettre de **réordonner** les matchs avant export
 - Support multi-dates (actuellement, tous les matchs sont supposés partager la même date)
+- Animation vidéo : publication directe en story Facebook / Instagram, récap au-delà de 9 lignes, flou de mouvement optionnel
