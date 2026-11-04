@@ -33,15 +33,31 @@ test('Screens are balanced: story 4 → 2+2, 5 → 3+2 ; square 3 → 2+1, 4 →
 
 test('The 13/10 poster gives the same screens and durations as the skill', () => {
   const story = buildTimeline(OCT13, CLUB, 'story');
-  assert.deepEqual(story.slots.map((s) => [s.time, s.matches.length]), [['18h', 3], ['19h30', 2], ['21h', 2]]);
+  assert.deepEqual(story.slots.map((s) => [s.times, s.matches.length]), [[['18h'], 3], [['19h30'], 2], [['21h'], 2]]);
   assert.equal(story.total, 20.25);
   assert.deepEqual([story.W, story.H], [1080, 1920]);
 
   const carre = buildTimeline(OCT13, CLUB, 'carre');
-  assert.deepEqual(carre.slots.map((s) => [s.time, s.matches.length]), [['18h', 2], ['18h', 1], ['19h30', 2], ['21h', 2]]);
+  assert.deepEqual(carre.slots.map((s) => [s.times, s.matches.length]), [[['18h'], 2], [['18h'], 1], [['19h30'], 2], [['21h'], 2]]);
   assert.equal(carre.total, 23.25);
   assert.deepEqual([carre.W, carre.H], [1080, 1080]);
   assert.equal(carre.cards.length, 7);
+});
+
+test('Close times share a screen, each card keeping its own time', () => {
+  const one = (h) => m(h, 'SM', ['A', 'X', '30', 'C1'], ['B', 'Y', '30', 'C2']);
+  const screens = (hs, f = 'story') => buildTimeline(hs.map(one), null, f).slots.map((s) => s.times);
+  const tl = buildTimeline(['17:00', '17:30', '18:00'].map(one), null, 'story');
+  assert.deepEqual(tl.slots.map((s) => s.times), [['17h', '17h30', '18h']]);
+  assert.deepEqual(tl.cards.map((c) => c.time), ['17h', '17h30', '18h']);
+  // 2 cartes max en carré : le groupe se découpe comme un même horaire
+  assert.deepEqual(screens(['17:00', '17:30', '18:00'], 'carre'), [['17h', '17h30'], ['18h']]);
+  // l'écart se mesure de proche en proche, et s'arrête au-delà de 30 min
+  assert.deepEqual(screens(['17:00', '17:30', '18:15']), [['17h', '17h30'], ['18h15']]);
+  assert.deepEqual(screens(['17:00', '18:00']), [['17h'], ['18h']]);
+  // ordre de l'affiche non chronologique ou horaire illisible : pas de regroupement
+  assert.deepEqual(screens(['18:00', '17:30']), [['18h'], ['17h30']]);
+  assert.equal(screens(['?', '17:00']).length, 2);
 });
 
 test('Banner: JOUEUSE for a ladies draw, JOUEUR otherwise, DERBY when both players are from the club', () => {

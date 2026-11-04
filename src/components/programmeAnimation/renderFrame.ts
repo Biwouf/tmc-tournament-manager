@@ -710,12 +710,12 @@ function header(g: Ctx2D, { tl, T, pal, texts, assets }: Ctx) {
   }
 }
 
-// Un onglet par horaire, actif tant que l'un de ses écrans est à l'affiche (la somme des deux
+// Un onglet par horaire (un écran d'horaires rapprochés en allume plusieurs), actif tant que l'un de ses écrans est à l'affiche (la somme des deux
 // fondus reste à 1 entre deux écrans du même horaire : l'onglet ne clignote pas).
 function tabs(g: Ctx2D, { tl, T, pal }: Ctx) {
   const k = M.enter(T, tl.cues.Date + 0.3, 0.35);
   const hide = M.draw(T, tl.cues.Recap - 0.3, 0.3);
-  const times = [...new Set(tl.slots.map((sl) => sl.time))];
+  const times = [...new Set(tl.slots.flatMap((sl) => sl.times))];
   const f = font(700, 22, PROMPT), top = 319 + tl.OY + (1 - k) * 16, h = 45;
   g.font = f;
   const ws = times.map((t) => measure(g, t) + 48);
@@ -724,7 +724,7 @@ function tabs(g: Ctx2D, { tl, T, pal }: Ctx) {
     times.forEach((time, ti) => {
       let on = 0;
       tl.slots.forEach((sl, i) => {
-        if (sl.time !== time) return;
+        if (!sl.times.includes(time)) return;
         on += M.draw(T, tl.cues[sl.cue] - 0.15, 0.25) * (1 - (tl.slots[i + 1] ? M.draw(T, tl.cues[tl.slots[i + 1].cue] - 0.15, 0.25) : 0));
       });
       on = clamp(on, 0, 1);
@@ -859,7 +859,7 @@ function recap(g: Ctx2D, { tl, T, pal, assets }: Ctx) {
   const s = tl.cues.Recap;
   if (T < s - 0.05) return;
   const { story, OY, homeCount, W } = tl;
-  const rows = tl.slots.flatMap((sl) => sl.matches.map((m) => ({ m, time: sl.time })));
+  const rows = tl.slots.flatMap((sl) => sl.matches.map((m) => ({ m, time: m.time })));
   const STEP = Math.min(story ? 110 : 106, ((homeCount ? 510 : 550) + (story ? 280 : 0)) / rows.length), RH = STEP - 10;
   const t = M.enter(T, s + 0.1, 0.4);
   const last = s + BEAT * (1 + (rows.length - 1) * 0.5) + 0.3;

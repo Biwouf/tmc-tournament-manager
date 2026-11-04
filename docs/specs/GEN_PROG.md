@@ -379,7 +379,7 @@ Code : `src/components/programmeAnimation/`.
 
 | Animation | Source |
 |---|---|
-| Matchs | `displayMatches` (WO exclus), dans l'ordre de l'affiche, groupés par horaire consécutif |
+| Matchs | `displayMatches` (WO exclus), dans l'ordre de l'affiche. Deux matchs consécutifs à 30 min d'écart au plus restent dans le même groupe (17h, 17h30, 18h : un seul écran), de proche en proche ; chaque carte garde son horaire |
 | Joueurs du club (`home`) | club du joueur égal à `highlightedClub` (insensible à la casse et aux espaces). Aucun club mis en valeur ⇒ ni bandeau ni derby |
 | Bandeau | 2 joueurs du club → `DERBY · <club>` ; 1 → `JOUEUSE DU CLUB` si tableau dames (`SD`, `DD`, `SF`, dames, femmes, féminin), sinon `JOUEUR DU CLUB` |
 | Adversaire inconnu | carte conservée, joueur « À DÉTERMINER » |
@@ -397,8 +397,8 @@ Polices : Prompt (600/700/800) et Manrope (600/800) **embarquées** via `@fontso
 ### Séquences (grille de 0,5 s)
 
 1. Intro 1 s — logo, surtitre lettre par lettre, titre.
-2. Date 1 s — date soulignée, onglets horaires (un par horaire), partenaires.
-3. Un écran par groupe de cartes : 3 s + 0,5 s par match (+ 1,5 s d'ouverture « DERBY » si l'écran contient un derby).
+2. Date 1 s — date soulignée, onglets horaires (un par horaire ; un écran d'horaires rapprochés en allume plusieurs), partenaires.
+3. Un écran par groupe d'horaires rapprochés (découpé au-delà du maximum de cartes) : 3 s + 0,5 s par match (+ 1,5 s d'ouverture « DERBY » si l'écran contient un derby).
    3 cartes max en story, 2 en carré, répartition équilibrée (carré : 3 → 2+1, 4 → 2+2, 5 → 2+2+1 ; story : 4 → 2+2, 5 → 3+2).
 4. Récap : 3 s + 0,25 s par ligne, puis « N JOUEURS DU CLUB EN LICE ».
 5. Outro 1 s, fondu pour boucler.
