@@ -1,7 +1,25 @@
 # GEN_PROG — Spec module Programmation Image
 
-> Module : `src/pages/ProgrammationImagePage.tsx`  
-> Route : `/programmation-image`
+> Module : `src/pages/MediaGeneratorPage.tsx` (génération de médias), `src/pages/ProgrammationImagePage.tsx` (type Tournoi)  
+> Route : `/medias` (`/programmation-image` y redirige)
+
+---
+
+## Génération de médias
+
+`MediaGeneratorPage` regroupe la génération d'images. L'utilisateur choisit le type de média :
+
+| Type | URL | Contenu |
+|---|---|---|
+| **Tournoi** (défaut) | `/medias` | Cette spec : `ProgrammationImagePage`, avec sa bascule Programmation / Résultats après import |
+| **Matches par équipe** | `/medias?type=equipes` | `TeamPosterGenerator` : choix de la saison puis affiche des rencontres à venir (`PosterPanel`, cf. `TEAM_MATCHES.md`) |
+
+Le type Tournoi est **masqué et non démonté** (prop `hidden`) : changer de type conserve le fichier
+importé et les réglages. La saison est mémorisée par club et partagée avec `/team-matches`
+(`useTeamSaisons`). `TeamPosterGenerator` monte la grille avec `key={saisonId}` : sans cela, le
+hook garderait l'ancienne saison jusqu'à sa réponse et `PosterPanel` présélectionnerait ses
+rencontres. L'action « Générer une affiche » de `/team-matches` reste disponible. Le calendrier et
+le visuel de résultat par équipe ne sont pas dans ce module.
 
 ---
 

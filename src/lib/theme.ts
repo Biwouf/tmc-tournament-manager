@@ -133,7 +133,7 @@ const tint = (hue: number, saturation: number, lightness: number, cap: number): 
 
 /**
  * Une teinte du club en `hsl()` CSS, pour les rendus qui ne lisent pas les tokens (affiche de
- * `/programmation-image`, exportée en JPEG). Même dérivation que les neutres ci-dessous :
+ * `/medias`, exportée en JPEG). Même dérivation que les neutres ci-dessous :
  * teinte de la principale, saturation plafonnée par la sienne, luminosité fixe. Sans
  * `saturation` / `lightness`, c'est la principale elle-même. `null` si l'hex est illisible.
  */

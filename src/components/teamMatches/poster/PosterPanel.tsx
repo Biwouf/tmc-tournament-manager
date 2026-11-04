@@ -55,12 +55,13 @@ function groupByWeekend(entries: RencontreEntry[], now: Date): Groupe[] {
   return groupes.filter((g) => g.entries.length > 0);
 }
 
+/** Sans `onClose`, le panneau est monté en pleine page (`/medias`) : aperçu agrandi, rien à fermer. */
 export default function PosterPanel({
   entries,
   onClose,
 }: {
   entries: RencontreEntry[];
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   // Le fond d'affiche du club (PR7) est lu ICI et passé en prop : `TeamMatchImagePreview` est
   // monté deux fois plus bas (aperçu réduit + nœud d'export hors viewport), et le hook n'a
@@ -166,19 +167,43 @@ export default function PosterPanel({
           </p>
           <h2 className="mt-1 text-[21px] font-extrabold leading-tight">Rencontres à venir</h2>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Fermer le mode affiche"
-          className="rounded-lg border border-border bg-card px-2.5 py-1 text-sm text-muted-foreground transition hover:bg-muted"
-        >
-          ✕
-        </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer le mode affiche"
+            className="rounded-lg border border-border bg-card px-2.5 py-1 text-sm text-muted-foreground transition hover:bg-muted"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <p className="tabular mt-1 text-xs text-muted-foreground">
         {selectedIds.length} / {MAX_POSTER_MATCHES} sélectionnées
       </p>
+
+      <button
+        type="button"
+        onClick={handleGenerate}
+        disabled={selectedMatches.length === 0 || genStatus === 'loading' || !background}
+        className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+      >
+        {genStatus === 'loading' && (
+          <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+        )}
+        {genBtnLabel}
+      </button>
+
+      {dataUrl && (
+        <a
+          href={dataUrl}
+          download={fileName}
+          className="mt-2 rounded-lg border border-border bg-card px-5 py-2.5 text-center text-sm font-semibold text-primary transition hover:bg-muted"
+        >
+          Télécharger l'affiche JPEG
+        </a>
+      )}
 
       {groupes.length === 0 ? (
         <p className="mt-5 rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
@@ -280,10 +305,10 @@ export default function PosterPanel({
 
       {/* Aperçu A4 (le rendu exporté est le nœud hors viewport plus bas) */}
       {selectedMatches.length > 0 && (
-        <div className="mt-3 overflow-hidden rounded-xl border border-border">
-          <div className="h-[260px] w-full overflow-hidden">
+        <div className={`mt-3 overflow-hidden rounded-xl border border-border ${onClose ? '' : 'mx-auto w-fit max-w-full'}`}>
+          <div className={onClose ? 'h-[260px] w-full overflow-hidden' : 'h-[800px] w-[566px] max-w-full overflow-hidden'}>
             <div
-              style={{ width: 1414, transform: 'scale(0.234)', transformOrigin: 'top left' }}
+              style={{ width: 1414, transform: `scale(${onClose ? 0.234 : 0.4})`, transformOrigin: 'top left' }}
               aria-label="Aperçu de l'affiche"
             >
               <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={config.brand.color} partnerLogos={posterPartnerLogos} />
@@ -292,35 +317,15 @@ export default function PosterPanel({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleGenerate}
-        disabled={selectedMatches.length === 0 || genStatus === 'loading' || !background}
-        className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-      >
-        {genStatus === 'loading' && (
-          <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-        )}
-        {genBtnLabel}
-      </button>
-
-      {dataUrl && (
-        <a
-          href={dataUrl}
-          download={fileName}
-          className="mt-2 rounded-lg border border-border bg-card px-5 py-2.5 text-center text-sm font-semibold text-primary transition hover:bg-muted"
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2 rounded-lg px-5 py-2 text-center text-xs font-medium text-muted-foreground transition hover:text-foreground"
         >
-          Télécharger l'affiche JPEG
-        </a>
+          Revenir à la rencontre
+        </button>
       )}
-
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-2 rounded-lg px-5 py-2 text-center text-xs font-medium text-muted-foreground transition hover:text-foreground"
-      >
-        Revenir à la rencontre
-      </button>
 
       {/* Affiche hors viewport — requise pour html-to-image */}
       <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>

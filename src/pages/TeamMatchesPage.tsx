@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import type { TeamSaison } from '../types';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
 import SeasonGridView from '../components/teamMatches/SeasonGridView';
 import AgendaView from '../components/teamMatches/AgendaView';
@@ -13,6 +11,7 @@ import PosterPanel from '../components/teamMatches/poster/PosterPanel';
 import CalendarExportButton from '../components/teamMatches/CalendarExportButton';
 import TenupBatchSync from '../components/teamMatches/TenupBatchSync';
 import ActionsMenu, { MENU_ITEM_CLASS } from '../components/teamMatches/ActionsMenu';
+import { useTeamSaisons } from '../components/teamMatches/useTeamSaisons';
 import { useTeamSeasonGrid } from '../components/teamMatches/useTeamSeasonGrid';
 import { CELL_CLASSES, STATE_LABELS, type CellState } from '../components/teamMatches/gridTypes';
 
@@ -35,43 +34,12 @@ interface Selection {
 export default function TeamMatchesPage() {
   const { clubId } = useClub();
 
-  const [saisons, setSaisons] = useState<TeamSaison[]>([]);
-  const [refError, setRefError] = useState<string | null>(null);
-  const [refReady, setRefReady] = useState(false);
+  const { saisons, error: refError, ready: refReady, saisonId, selectSaison } = useTeamSaisons();
 
   const [view, setView] = useLocalStorage<View>(`tmc:${clubId}:team-matches:view`, 'grille');
-  const [storedSaisonId, setStoredSaisonId] = useLocalStorage<string>(
-    `tmc:${clubId}:team-matches:saison`,
-    ''
-  );
   const [showDone, setShowDone] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [posterMode, setPosterMode] = useState(false);
-
-  // Référentiel des saisons.
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from('team_saisons')
-      .select('*')
-      .eq('club_id', clubId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        setRefError(error?.message ?? null);
-        setSaisons((data ?? []) as TeamSaison[]);
-        setRefReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [clubId]);
-
-  // Saison retenue : celle mémorisée si elle existe encore, sinon l'active.
-  const saisonId = useMemo(() => {
-    if (storedSaisonId && saisons.some((s) => s.id === storedSaisonId)) return storedSaisonId;
-    return (saisons.find((s) => s.actif) ?? saisons[0])?.id ?? '';
-  }, [saisons, storedSaisonId]);
 
   const grid = useTeamSeasonGrid(saisonId);
   const { blocks, doneBlocks, entries, cellByEtapeId, counters, reload } = grid;
@@ -141,7 +109,7 @@ export default function TeamMatchesPage() {
             <select
               value={saisonId}
               onChange={(e) => {
-                setStoredSaisonId(e.target.value);
+                selectSaison(e.target.value);
                 setSelection(null);
                 setPosterMode(false);
               }}

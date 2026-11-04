@@ -1,4 +1,4 @@
-// Section « Animation vidéo » de /programmation-image : lecteur de l'animation du programme du
+// Section « Animation vidéo » de /medias : lecteur de l'animation du programme du
 // jour (story ou carré) et export MP4 dans le navigateur. La vidéo reprend EXACTEMENT les
 // réglages de l'affiche générée (matchs, club mis en valeur, partenaires tirés) : la page ne la
 // rend disponible qu'une fois l'affiche téléchargée avec les réglages courants (`ready`).
