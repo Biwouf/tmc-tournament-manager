@@ -133,13 +133,11 @@ const TABS = [
   { label: 'Cours', icon: <Icon strokeWidth={1.8}><path d="m2 8 10-5 10 5-10 5L2 8Z" /><path d="M6 10v6c4 3 8 3 12 0v-6M22 8v7" /></Icon> },
 ];
 
-/** Écran « Matchs équipes » de la PWA (`AppHeader`, `MatchEquipeFilterBar`, `MatchEquipeCell`
- *  à l'état « à venir », `BottomNav`), avec les classes Tailwind de la PWA : le BO a les mêmes
- *  tokens, pilotés ici par `clubThemeTokens()`. */
-export function AppPreview({ data }: { data: PreviewData }) {
+/** Le téléphone de la PWA (`AppHeader`, `BottomNav`) autour d'un écran, avec les classes Tailwind
+ *  de la PWA : le BO a les mêmes tokens, pilotés ici par `clubThemeTokens()`. Partagé avec les
+ *  premiers pas (S5). */
+export function PhoneFrame({ data, title, tab, children }: { data: PreviewData; title: string; tab: string; children: ReactNode }) {
   const name = displayName(data);
-  const today = new Date();
-  const matches = sampleMatches(today);
   return (
     <div className="pv-phone">
       <Scaled width={390}>
@@ -149,9 +147,30 @@ export function AppPreview({ data }: { data: PreviewData }) {
             {data.logo
               ? <img src={data.logo} alt="" className="h-8 w-8 shrink-0 rounded-full object-contain" />
               : <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{name[0]}</span>}
-            <span className="flex-1 truncate tracking-tight text-foreground" style={{ fontSize: 17, fontWeight: 800 }}>Matchs équipes</span>
+            <span className="flex-1 truncate tracking-tight text-foreground" style={{ fontSize: 17, fontWeight: 800 }}>{title}</span>
             <span className="h-9 px-3 text-sm leading-9 font-bold text-primary">Connexion</span>
           </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+          <div className="flex border-t border-border bg-card">
+            {TABS.map(item => (
+              <span key={item.label} className={`flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium ${item.label === tab ? 'text-primary' : 'text-muted-foreground'}`}>
+                {item.icon}<span>{item.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </Scaled>
+    </div>
+  );
+}
+
+/** Écran « Matchs équipes » de la PWA (`MatchEquipeFilterBar`, `MatchEquipeCell` à l'état
+ *  « à venir »). */
+export function AppPreview({ data }: { data: PreviewData }) {
+  const today = new Date();
+  const matches = sampleMatches(today);
+  return (
+    <PhoneFrame data={data} title="Matchs équipes" tab="Matchs équipes">
           <div className="flex flex-col gap-3 px-4 py-3">
             <div className="flex gap-2">
               <span className="flex h-[34px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm">
@@ -194,16 +213,7 @@ export function AppPreview({ data }: { data: PreviewData }) {
               </div>
             ))}
           </div>
-          <div className="flex border-t border-border bg-card">
-            {TABS.map(tab => (
-              <span key={tab.label} className={`flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium ${tab.label === 'Matchs équipes' ? 'text-primary' : 'text-muted-foreground'}`}>
-                {tab.icon}<span>{tab.label}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </Scaled>
-    </div>
+    </PhoneFrame>
   );
 }
 

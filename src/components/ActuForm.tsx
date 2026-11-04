@@ -4,17 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
 import type { Actu, ActuFocalPoint } from '../types';
-import {
-  STORAGE_BUCKETS,
-  clubPath,
-  extractStoragePath,
-  sanitizeFilename,
-} from '../lib/storage';
-
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
-const STORAGE_BUCKET = STORAGE_BUCKETS.actuImages;
-const DEFAULT_FOCAL_POINT: ActuFocalPoint = { x: 50, y: 50 };
+import { DEFAULT_FOCAL_POINT, actuImageProblem, saveActu } from '../lib/actuWrites';
 
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -158,12 +148,9 @@ export default function ActuForm() {
     let imgError: string | undefined;
 
     for (const file of Array.from(files)) {
-      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-        imgError = `Format non supporté pour "${file.name}" (JPEG ou PNG uniquement).`;
-        continue;
-      }
-      if (file.size > MAX_IMAGE_SIZE) {
-        imgError = `"${file.name}" est trop lourd (max 5 Mo).`;
+      const problem = actuImageProblem(file);
+      if (problem) {
+        imgError = problem;
         continue;
       }
       accepted.push({
@@ -230,26 +217,6 @@ export default function ActuForm() {
     return errs;
   };
 
-  const uploadFile = async (file: File, actuId: string, index: number): Promise<string> => {
-    const path = clubPath(clubId, actuId, `${Date.now()}-${index}-${sanitizeFilename(file.name)}`);
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
-      contentType: file.type,
-      cacheControl: '3600',
-    });
-    if (error) throw error;
-    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-    return data.publicUrl;
-  };
-
-  const deleteStorageFiles = async (publicUrls: string[]) => {
-    const paths = publicUrls
-      .map((url) => extractStoragePath(STORAGE_BUCKET, url))
-      .filter((p): p is string => p !== null);
-    if (paths.length > 0) {
-      await supabase.storage.from(STORAGE_BUCKET).remove(paths);
-    }
-  };
-
   const facebookDisabled = Boolean(actu?.published);
   const notifyDisabled = Boolean(actu?.published);
 
@@ -262,74 +229,17 @@ export default function ActuForm() {
 
     setSaving(true);
     try {
-      const nowIso = new Date().toISOString();
-      const basePayload: Partial<Actu> = {
+      const targetId = await saveActu(clubId, {
+        id,
         titre: titre.trim(),
         contenu,
-        published: publish,
-      };
-      if (publish && !actu?.published_at) {
-        basePayload.published_at = nowIso;
-      }
-
-      let targetId = id;
-
-      if (isEdit && targetId) {
-        const { error: updateErr } = await supabase
-          .from('actus')
-          .update(basePayload)
-          .eq('id', targetId)
-          .eq('club_id', clubId);
-        if (updateErr) throw updateErr;
-      } else {
-        const { data, error: insertErr } = await supabase
-          .from('actus')
-          .insert({ ...basePayload, image_urls: [], club_id: clubId })
-          .select('id')
-          .single();
-        if (insertErr || !data) throw insertErr ?? new Error('Insert failed');
-        targetId = data.id;
-      }
-
-      if (!targetId) throw new Error('Identifiant manquant après sauvegarde');
-
-      if (urlsToRemove.length > 0) {
-        await deleteStorageFiles(urlsToRemove);
-      }
-
-      const uploadedUrls: string[] = [];
-      for (let i = 0; i < newFiles.length; i++) {
-        const url = await uploadFile(newFiles[i].file, targetId, i);
-        uploadedUrls.push(url);
-      }
-
-      const finalUrls = [
-        ...visibleExistingItems.map((item) => item.url),
-        ...uploadedUrls,
-      ];
-      const finalFocalPoints: (ActuFocalPoint | null)[] = [
-        ...visibleExistingItems.map((item) => item.focalPoint),
-        ...newFiles.map((f) => f.focalPoint),
-      ];
-      const finalCaptions: string[] = [
-        ...visibleExistingItems.map((item) => item.caption),
-        ...newFiles.map((f) => f.caption),
-      ];
-      const { error: imgErr } = await supabase
-        .from('actus')
-        .update({
-          image_urls: finalUrls,
-          image_focal_points: finalFocalPoints,
-          image_captions: finalCaptions,
-        })
-        .eq('id', targetId)
-        .eq('club_id', clubId);
-      if (imgErr) throw imgErr;
-
-      // La notification ne bloque jamais la publication (au pire, pas de notification).
-      if (publish && notifyMembers && !notifyDisabled) {
-        await supabase.rpc('content_push_announce', { p_club: clubId, p_kind: 'actu', p_id: targetId });
-      }
+        publish,
+        alreadyPublishedAt: actu?.published_at,
+        keptImages: visibleExistingItems,
+        newImages: newFiles,
+        removedUrls: urlsToRemove,
+        notify: notifyMembers && !notifyDisabled,
+      });
 
       const shouldPostToFacebook = publish && postToFacebook && !facebookDisabled;
 

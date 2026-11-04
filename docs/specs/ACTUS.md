@@ -158,6 +158,9 @@ Nommage des fichiers : `{actu-id}/{timestamp}-{index}-{nom-sanitizé}.{ext}`.
   2. Suppression dans le bucket des images marquées.
   3. Upload des nouveaux fichiers.
   4. Update de `image_urls` + `image_focal_points` + `image_captions` avec les listes finales.
+  5. Notification des membres si l'actu est publiée et la case cochée.
+
+  Ces étapes vivent dans `saveActu` (`src/lib/actuWrites.ts`, SaaS S5), partagé avec l'étape « Première actu » des premiers pas (`SAAS_ONBOARDING.md` §9.4) ; la validation d'une image dans `actuImageProblem`. La publication Facebook reste dans `ActuForm`.
 
 **Validation côté client :**
 - Titre : non vide.

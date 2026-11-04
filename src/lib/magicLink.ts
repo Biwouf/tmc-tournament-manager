@@ -2,7 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Club } from '../contexts/ClubContext';
 
-/** Écran d'arrivée après l'activation d'un club self-serve (provisoire en S4, S5 le remplace). */
+/** Écran d'arrivée après l'activation d'un club self-serve : les premiers pas (S5). */
 export const FIRST_STEPS_PATH = '/premiers-pas';
 
 /** `error_code` d'un lien d'auth refusé (fragment en implicite, requête en PKCE), sinon null. */

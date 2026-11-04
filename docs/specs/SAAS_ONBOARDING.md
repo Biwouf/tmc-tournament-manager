@@ -29,7 +29,8 @@ annuel, Stripe). L'humain n'intervient que pour le call de réassurance.
 | **S2** | Socle self-serve (ce document §3–§6) : modèle, `slug_available`, `club-signup`, activation, purge | livrée |
 | **S3** | Tunnel `admin.feelike.pro/inscription` avec aperçu en direct (§7) | livrée, fermée tant que CGU / confidentialité manquent |
 | **S4** | Activation par lien magique simplifiée, routage vers les premiers pas (§8) | livrée |
-| S5–S7 | Premiers pas : première actu, équipes, affiches | à faire |
+| **S5** | Premiers pas : cadre, fil d'Ariane, première actu, écran final (§9) | livrée |
+| S6–S7 | Premiers pas : équipes, affiches | à faire |
 | S8 | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » | à faire |
 | S9 | Abonnement Stripe, lecture seule en fin d'essai | à faire |
 | S10 | E-mails de cycle de vie, funnel super-admin | à faire |
@@ -281,9 +282,8 @@ compte (un club `pending` n'est visible que de ses membres), puis, dans cet ordr
 | Aucun club actif mais un club `pending` | Le message d'activation ci-dessus, pas un sélecteur vide |
 | Sinon | Sélecteur « Choisir un club », inchangé |
 
-`/premiers-pas` (`src/pages/FirstStepsPage.tsx`) est en S4 un écran **provisoire** « Votre club
-est prêt » + lien vers le tableau de bord ; S5 le remplace. Rouvrir le lien d'un club déjà actif
-y ramène aussi.
+`/premiers-pas` : les premiers pas de S5 (§9). Rouvrir le lien d'un club déjà actif y ramène
+aussi, puis au tableau de bord s'ils sont terminés ou reportés.
 
 ### 8.2 Lien expiré ou déjà utilisé
 
@@ -308,8 +308,8 @@ le BO reste sur invitation et aucun compte n'est créé. GoTrue refuse une adres
 (« Si un compte correspond à cette adresse… »). `429` → « Trop de demandes » ; `5xx` ou réseau
 → réessayer. Aucune adresse n'est journalisée.
 
-Type `Club` du BO : `plan` et `trial_ends_at` ajoutés (lecture seule) à `CLUB_FIELDS`, lu par
-`ClubContext` et `AdminEntry`, pour S5 et S8.
+Type `Club` du BO : `plan`, `trial_ends_at` (S4) et `created_via` (S5) ajoutés (lecture seule) à
+`CLUB_FIELDS`, lu par `ClubContext` et `AdminEntry`, pour S5 et S8.
 
 ### 8.4 Tests et recette
 
@@ -326,3 +326,67 @@ club de dev, pas le BO central. Pour le parcours complet, faire pointer `admin.f
 
 Aucune opération hors code : pas de migration, pas d'Edge Function. La Redirect URL
 `https://admin.feelike.pro/**` (PR13) couvre `?inscription`.
+
+## 9. Premiers pas (S5) — `/premiers-pas`
+
+### 9.1 Qui les voit
+
+`eligibleForFirstSteps` : `plan = trial`, `created_via = self_serve`, rôle `admin`, hors mode
+support. `firstStepsPending` : ni terminés ni reportés. `FirstStepsGate`, autour du tableau de bord
+seulement, y renvoie tant que les deux sont vrais ; les autres pages restent accessibles (les liens
+« à découvrir » y mènent). Un club `internal` ne fait aucune lecture de plus. Hors de ces conditions,
+`/premiers-pas` renvoie au tableau de bord : le parcours ne revient pas de lui-même une fois reporté,
+la checklist de S8 prend le relais.
+
+### 9.2 Avancement — clé `onboarding` de `club_settings.config`
+
+```json
+{ "completed_steps": ["actu"], "postponed_at": "…", "finished_at": "…" }
+```
+
+État explicite, jamais déduit des données : une actu supprimée ne rouvre rien. Choisi plutôt
+qu'une table dédiée parce que la ligne existe pour chaque club, que la RLS réserve déjà l'écriture
+aux admins du club et au super-admin, et qu'il n'y a ainsi ni migration ni droit à poser. Le groupe
+est additif (`CLUB_CONFIG_VERSION` inchangée, copie `web/src/lib/clubConfig.ts` synchronisée).
+
+Limites : `config` étant lisible par `anon`, ces dates et identifiants d'étapes le sont aussi (rien
+de sensible) ; l'écriture relit puis réécrit la ligne (`updateClubConfigKey`, extrait de
+`saveClubConfigGroup`), comme les panneaux de `/admin/site` : deux écritures simultanées peuvent en
+perdre une. Une table sera préférable si l'avancement doit un jour être requêté entre clubs (S10).
+
+### 9.3 Le cadre et la liste d'étapes
+
+`FIRST_STEPS` (`src/components/firstSteps/steps.ts`) : `id`, `label`, `duration`, `isDone(state)`,
+`Component`, `Preview`, `Below`, `recap`, `final`. **Ajouter une étape = une entrée** : le fil
+d'Ariane, « Étape X sur N » (l'écran `final` n'est pas compté), la barre, la reprise (première étape
+non terminée) et le récapitulatif de l'écran final en découlent. `FirstStepsFlow` ne nomme aucune
+étape.
+
+Style réel du produit : Manrope, `brandTokens()` de `shared/`. L'aperçu reprend le téléphone du
+tunnel (`PhoneFrame` de `SignupPreview`) et lit les actus publiées du club avec la requête de la
+PWA : il montre ce que verront les adhérents, y compris « Aucune actualité ». Mobile (< 720 px) :
+l'étape d'abord, aperçu derrière « Voir l'aperçu ». « Passer à la saison » : absent jusqu'à S9.
+
+### 9.4 Étape « Première actu »
+
+Titre et texte préremplis, publiés par `saveActu` (`src/lib/actuWrites.ts`), le chemin d'`ActuForm` :
+notification comprise, sans Facebook. Une relance après un échec reprend l'actu déjà créée.
+
+Sans photo choisie, `clubPhotoForActu` **copie** `home.hero_image` dans `actu-images` : `SiteConfigPanel`
+supprime l'ancienne photo quand on la remplace, et une référence laisserait l'actu avec une image
+cassée. La copie part avec l'actu si on la supprime. Copie impossible : l'URL d'origine. Sans photo du
+club : actu sans image.
+
+### 9.5 Écran final
+
+`app-<slug>.feelike.pro`, « Copier le lien », QR code réel en SVG (`uqr` : aucune dépendance, 27 Ko
+non compressés, chunk de la page uniquement ; écrire l'encodage et sa correction d'erreurs ici
+aurait fait plus de code à maintenir pour le même résultat). « Aller au tableau de bord » pose `finished_at`. Les cartes « à découvrir »
+sont en pleine largeur sous l'étape et le téléphone, le brief demandant les deux là où la maquette
+remplace le téléphone par les cartes.
+
+### 9.6 Tests et recette
+
+`tests/first-steps.test.mjs` (dans `npm run test:club-signup`) : condition d'affichage, garde,
+reprise, étape ajoutée par une entrée, publication par le chemin partagé, image par défaut, relance,
+QR code, report et fin. Aucune opération hors code : pas de migration, pas d'Edge Function.

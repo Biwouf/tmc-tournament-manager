@@ -350,6 +350,22 @@ const postersSchema = z.object({
   team_match_backgrounds: z.array(posterBackgroundSchema).catch([]),
 });
 
+// ── onboarding.* — avancement des premiers pas d'un club self-serve (SaaS S5) ─
+/**
+ * État EXPLICITE, jamais déduit des données : une actu supprimée ne rouvre pas le parcours.
+ * Ni la vitrine ni la PWA ne le lisent, et l'écran de configuration du site ne l'écrit pas :
+ * seuls les premiers pas (`src/lib/firstSteps.ts`) l'écrivent, S8 le lira.
+ *
+ * `config` étant lisible par `anon`, ce groupe l'est aussi : des identifiants d'étapes et deux
+ * dates, rien de sensible (même raisonnement que `posters`, `20260909_club_settings_public_read`).
+ */
+const onboardingSchema = z.object({
+  completed_steps: z.array(z.string()).catch([]),
+  postponed_at: optionalText,
+  finished_at: optionalText,
+});
+export type OnboardingState = z.infer<typeof onboardingSchema>;
+
 /**
  * Schéma de LECTURE. Chaque groupe a un défaut, donc `{}` est valide et rend l'arbre complet.
  * `.catch()` sur les feuilles : une clé au mauvais type retombe sur son défaut au lieu
@@ -379,6 +395,9 @@ export const clubConfigSchema = z.object({
   posters: postersSchema
     .catch(() => postersSchema.parse({}))
     .default(() => postersSchema.parse({})),
+  onboarding: onboardingSchema
+    .catch(() => onboardingSchema.parse({}))
+    .default(() => onboardingSchema.parse({})),
 });
 
 export type ClubConfig = z.infer<typeof clubConfigSchema>;

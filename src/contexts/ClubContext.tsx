@@ -7,8 +7,8 @@ import type { ClubPlan, ClubStatus } from '../types';
 
 export type { ClubPlan, ClubStatus } from '../types';
 
-// SaaS S4 : `plan` et `trial_ends_at` (S2) en lecture seule, pour les premiers pas (S5) et le bandeau d'essai (S8).
-export type Club = { id: string; slug: string; name: string; sport: string; status: ClubStatus; plan: ClubPlan; trial_ends_at: string | null };
+// SaaS S4-S5 : `plan`, `trial_ends_at` et `created_via` (S2) en lecture seule, pour les premiers pas (S5) et le bandeau d'essai (S8).
+export type Club = { id: string; slug: string; name: string; sport: string; status: ClubStatus; plan: ClubPlan; trial_ends_at: string | null; created_via: 'console' | 'self_serve' };
 type ClubContextValue = {
   clubId: string | null;
   club: Club | null;
@@ -24,7 +24,7 @@ const ClubContext = createContext<ClubContextValue>({
   isSupport: false,
 });
 
-export const CLUB_FIELDS = 'id, slug, name, sport, status, plan, trial_ends_at';
+export const CLUB_FIELDS = 'id, slug, name, sport, status, plan, trial_ends_at, created_via';
 
 // Accès support : diagnostic explicite d’un club, y compris suspendu.
 // Sur admin.feelike.pro, AdminEntry vérifie le statut super-admin avant la résolution.
