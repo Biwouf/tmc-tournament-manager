@@ -7,7 +7,7 @@ const dir = new URL('../node_modules/.tmp/tenup-batch/', import.meta.url);
 await mkdir(dir, { recursive: true });
 const output = new URL('batch.mjs', dir);
 await build({ entryPoints: [new URL('../src/components/teamMatches/tenupBatch.ts', import.meta.url).pathname], outfile: output.pathname, bundle: true, packages: 'external', platform: 'node', format: 'esm' });
-const { tenupBatchCandidates, runTenupBatch, TENUP_BATCH_SPACING_MS } = await import(output.href);
+const { tenupBatchCandidates, tenupBatchWithoutSource, runTenupBatch, TENUP_BATCH_SPACING_MS } = await import(output.href);
 
 const NOW = Date.parse('2026-10-31T12:00:00Z');
 const day = 86_400_000;
@@ -21,6 +21,16 @@ test('candidates: Ten’Up-created, unsynced, not WO, within the period, oldest 
   ];
   assert.deepEqual(tenupBatchCandidates(entries, 7, NOW).map(e => e.rencontre.id), ['old', 'recent']);
   assert.deepEqual(tenupBatchCandidates(entries, 10, NOW).map(e => e.rencontre.id), ['out', 'old', 'recent']);
+});
+
+test('without source: no link or no side, unsynced, not WO, within the period, oldest first', () => {
+  const noLink = { tenup_url: null, tenup_side: null };
+  const entries = [
+    entry('linked', -1), entry('recent', -1, noLink), entry('old', -6, noLink), entry('noside', -2, { tenup_side: null }),
+    entry('out', -8, noLink), entry('future', 1, noLink), entry('wo', -2, { ...noLink, wo: true }),
+    entry('done', -2, { ...noLink, tenup_synced_at: '2026-10-30T10:00:00Z' }),
+  ];
+  assert.deepEqual(tenupBatchWithoutSource(entries, 7, NOW).map(e => e.rencontre.id), ['old', 'noside', 'recent']);
 });
 
 test('run: paces previews, retries once on quota, continues past failures, applies with stored side', async () => {
