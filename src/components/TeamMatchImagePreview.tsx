@@ -37,7 +37,7 @@ function formatMatchTime(t: string): string {
 
 // Couleurs de l'affiche, dérivées de `brand.color` (repli `#c8102e`, le rouge historique de
 // l'affiche, si la couleur est vide ou illisible) avec la dérivation de `lib/theme.ts`, comme
-// l'affiche de `/programmation-image`. Avec `#c8102e`, fond de date et pointillés redonnent
+// l'affiche de `/medias`. Avec `#c8102e`, fond de date et pointillés redonnent
 // à un point près `#fff5f6` et `#f5c8cf`. Posées en variables CSS sur la racine : la feuille
 // `POSTER_STYLES` reste statique.
 const POSTER_FALLBACK_COLOR = '#c8102e';

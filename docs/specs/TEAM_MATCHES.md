@@ -619,6 +619,10 @@ venir. La sélection porte sa saison : changer de saison l'invalide.
 Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localement en JPEG —
 **pas d'upload Supabase**.
 
+Le même composant est monté en pleine page dans `/medias?type=equipes` (`TeamPosterGenerator`,
+cf. `GEN_PROG.md`) : sans prop `onClose`, ni bouton de fermeture ni retour à la rencontre, et un
+aperçu complet à l'échelle 0,4. L'accès par le menu « ⋮ » et le panneau latéral est conservé.
+
 - **Source** : les rencontres à venir déjà chargées par le hook de grille (plus de requête
   dédiée), groupées par week-end (`Ce week-end` / `Week-end suivant` / `Plus tard`) avec un
   bouton « Tout prendre » par groupe.
@@ -654,14 +658,14 @@ Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localeme
   **`color`** pour la même raison que le fond. Elle peint le fond uni, le jour, l'heure (texte +
   bordure de la pastille), « Équipe n » et son tiret, et la case « Au club » ; la case
   « Déplacement » reste noire. Le fond de la colonne date et son séparateur pointillé sont
-  dérivés par `clubTint` (`lib/theme.ts`), comme l'affiche de `/programmation-image` :
+  dérivés par `clubTint` (`lib/theme.ts`), comme l'affiche de `/medias` :
   `clubTint(brand, 100, 98)` et `clubTint(brand, 69, 87)`. Repli **`#c8102e`** si la couleur est
   vide ou illisible ; ces nuances redonnent alors `#fef6f7` / `#f5c7ce` (au lieu de `#fff5f6` /
   `#f5c8cf`, écart d'un point). Les couleurs sont posées en **variables CSS** (`--poster-brand`,
   `--poster-soft`, `--poster-dash`) sur la racine `.tmc-poster` : `POSTER_STYLES` reste une
   feuille statique, et `html-to-image` les résout à l'export.
 - **Partenaires** : les logos de `config.partners` sont posés sous les cartes par
-  `PosterPartnersBand` (composant partagé avec `/programmation-image`, cf. `GEN_PROG.md`
+  `PosterPartnersBand` (composant partagé avec `/medias`, cf. `GEN_PROG.md`
   § Bandeau partenaires) : **le fond ne doit plus dessiner les partenaires**, sinon ils sortent
   en double. Même règle que les deux autres affiches : **10 au plus** (`drawPosterPartners`),
   2 rangées de 5 (6 → 3 + 3), tirage au hasard au-delà avec « Autre tirage », case
@@ -901,6 +905,7 @@ src/
     TeamRencontrePage.tsx        # Suivi d'une rencontre
   components/
     teamMatches/
+      useTeamSaisons.ts          # Saisons du club + saison retenue (partagé avec /medias)
       useTeamSeasonGrid.ts       # Chargement agrégé de la saison + dérivation des cellules
       gridTypes.ts               # CellState, Colonne, Cell, Bilan, largeurs de grille
       weekend.ts                 # Définition unique du week-end (compteur, Agenda, affiche)
@@ -917,7 +922,8 @@ src/
       TeamPhotosSection.tsx      # Section upload de photos
       poster/
         posterHelpers.ts         # rencontreToTeamMatch, MAX_POSTER_MATCHES, formatage date
-        PosterPanel.tsx          # Panneau latéral — mode « affiche »
+        PosterPanel.tsx          # Affiche : panneau latéral ou pleine page (/medias)
+        TeamPosterGenerator.tsx  # /medias?type=equipes : choix de la saison + PosterPanel
 ```
 
 ## Routes à ajouter dans `App.tsx`

@@ -24,7 +24,7 @@ const SECTIONS = [
     label: 'Outils',
     hint: 'Générateurs et planning sportif',
     items: [
-      { to: '/programmation-image', label: 'Affiche programmation', description: 'Générer une image de la programmation à afficher.', roles: ['admin', 'manager'] },
+      { to: '/medias', label: 'Génération de médias', description: 'Images des tournois (programme, résultats) et des matches par équipe.', roles: ['admin', 'manager'] },
       { to: '/tmc-planning', label: 'Gestion planning', description: 'Créer et gérer les tournois, planifier les matchs.', roles: ['admin', 'manager'] },
     ],
   },

@@ -11,7 +11,7 @@ export type AnimSlot = { /** Horaires de l'écran, sans doublon. */ times: strin
 export type AnimCard = { key: string; m: AnimMatch; time: string; s: number; e: number; top: number; impact: number };
 export type AnimImpact = { t: number; x: number; y: number; big: boolean };
 
-/** Sous-ensemble du `Match` de `/programmation-image` dont l'animation a besoin. */
+/** Sous-ensemble du `Match` de `/medias` dont l'animation a besoin. */
 export type ProgrammeMatch = {
   heure: string;
   type_tournoi: string;

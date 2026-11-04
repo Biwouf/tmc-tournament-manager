@@ -14,7 +14,8 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Déplacement des matches par glisser-déposer
 - Export du planning au format CSV (compatible Excel)
 
-### Génération d'affiches de programmation
+### Génération de médias
+- Module unique (carte **Génération de médias** de l'accueil, `/medias`) : on choisit **Tournoi** (programme à venir ou résultats) ou **Matches par équipe** (affiche des rencontres à venir, après choix de la saison). L'affiche des rencontres reste aussi accessible depuis `/team-matches`
 - Import PDF depuis les feuilles de programmation FFT/TEN'UP
 - Saisie manuelle via CSV
 - Export en image JPEG (haute qualité, ratio 2×)
@@ -72,7 +73,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Rencontres** : club adverse, date/lieu, score final (saisie manuelle ou calculé depuis le Live Score selon le format)
 - **Matches individuels** (simples/doubles) avec bascule en un clic vers le **Live Score** ; le résultat du live met à jour le gagnant et recalcule le score de la rencontre
 - **Photos** de la rencontre (bucket dédié) et bouton **« Créer une actu »** qui préremplit le formulaire d'actu avec le titre et les photos
-- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond se choisit parmi les fonds du club, ajoutés dans *Admin › Configuration du site › Affiches* ; **sans aucun fond configuré, la génération est impossible**. Les **partenaires** sont ajoutés en bas de l'affiche (mêmes règles que l'affiche de programmation : 10 max, tirage au-delà, case pour les retirer) — le fond ne doit donc plus les contenir. L'affiche reprend la **couleur principale du club** (dates, pastille d'heure, case « Au club », fond), avec des nuances dérivées pour le fond et le séparateur de la date ; rouge `#c8102e` par défaut
+- **Génération d'affiche** des rencontres à venir, depuis le panneau latéral ou le module *Génération de médias* : les rencontres du week-end courant sont présélectionnées (max 8), l'aperçu suit la sélection → affiche JPEG téléchargée localement (`affiche-rencontres-AAAA-MM-JJ.jpg`). Le fond se choisit parmi les fonds du club, ajoutés dans *Admin › Configuration du site › Affiches* ; **sans aucun fond configuré, la génération est impossible**. Les **partenaires** sont ajoutés en bas de l'affiche (mêmes règles que l'affiche de programmation : 10 max, tirage au-delà, case pour les retirer) — le fond ne doit donc plus les contenir. L'affiche reprend la **couleur principale du club** (dates, pastille d'heure, case « Au club », fond), avec des nuances dérivées pour le fond et le séparateur de la date ; rouge `#c8102e` par défaut
 
 ### Cours
 
@@ -333,7 +334,7 @@ Une fois tous les paramètres renseignés, cliquez sur "Générer le Planning" p
 
 ### Génération d'affiches de programmation
 
-Accessible depuis le menu principal → **Programmation Image**.
+Accessible depuis le menu principal → **Génération de médias** → **Tournoi**.
 
 #### 1. Import des données
 

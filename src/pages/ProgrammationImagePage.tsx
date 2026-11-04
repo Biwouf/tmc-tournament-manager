@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { toJpeg } from 'html-to-image';
 import * as pdfjsLib from 'pdfjs-dist';
 import PdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
@@ -634,7 +633,7 @@ function formatEventLabel(ev: Pick<ClubEvent, 'titre' | 'date_debut'>): string {
   return `${ev.titre} — ${dd}/${mm}/${d.getFullYear()}`;
 }
 
-export default function ProgrammationImagePage() {
+export default function ProgrammationImagePage({ hidden }: { hidden: boolean }) {
   const { clubId, club } = useClub();
   // Une PAGE monte le hook elle-même. `TeamMatchImagePreview`, lui, reçoit son fond en prop :
   // il est monté deux fois sur le même écran (brief §8).
@@ -861,19 +860,7 @@ export default function ProgrammationImagePage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto px-4 py-8">
-          <Link
-            to="/"
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            ← Accueil
-          </Link>
-          <h1 className="text-3xl font-semibold tracking-tight">Affiche programmation</h1>
-        </div>
-      </header>
-
+    <div hidden={hidden}>
       <main className="container mx-auto px-4 py-8 space-y-6">
         {/* Import PDF */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-4">

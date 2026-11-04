@@ -12,7 +12,7 @@ import AppHomePage from './pages/AppHomePage';
 import HomePage from './pages/HomePage';
 import TournamentPage from './pages/TournamentPage';
 import LoginPage from './pages/LoginPage';
-import ProgrammationImagePage from './pages/ProgrammationImagePage';
+import MediaGeneratorPage from './pages/MediaGeneratorPage';
 import EventsPage from './pages/EventsPage';
 import EventForm from './components/EventForm';
 import LiveScorePage from './pages/LiveScorePage';
@@ -153,7 +153,8 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
         <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
         <Route path="/tournament/:id" element={<RedirectTournament />} />
-        <Route path="/programmation-image" element={auth(<ProgrammationImagePage />)} />
+        <Route path="/medias" element={auth(<MediaGeneratorPage />)} />
+        <Route path="/programmation-image" element={<Navigate to="/medias" replace />} />
         <Route path="/events" element={auth(<EventsPage />)} />
         <Route path="/events/new" element={auth(<EventForm />)} />
         <Route path="/events/:id/edit" element={auth(<EventForm />)} />
