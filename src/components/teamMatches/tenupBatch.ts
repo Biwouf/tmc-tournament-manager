@@ -10,17 +10,29 @@ export const TENUP_BATCH_SPACING_MS = 21_000;
 const QUOTA_RETRY_MS = 61_000;
 
 /**
- * Rencontres créées depuis Ten'Up (lien et côté connus), jamais synchronisées,
- * jouées dans les `days` derniers jours — de la plus ancienne à la plus récente.
+ * Rencontres hors WO, jamais synchronisées, jouées dans les `days` derniers
+ * jours — de la plus ancienne à la plus récente.
  */
-export function tenupBatchCandidates(entries: RencontreEntry[], days: number, now = Date.now()) {
+function recentUnsynced(entries: RencontreEntry[], days: number, now: number) {
   const from = now - days * 86_400_000;
   return entries
     .filter(({ rencontre: r }) => {
       const t = Date.parse(r.date_heure);
-      return !!r.tenup_url && r.tenup_side != null && !r.wo && !r.tenup_synced_at && t >= from && t <= now;
+      return !r.wo && !r.tenup_synced_at && t >= from && t <= now;
     })
     .sort((a, b) => Date.parse(a.rencontre.date_heure) - Date.parse(b.rencontre.date_heure));
+}
+
+const hasTenupSource = ({ rencontre: r }: RencontreEntry) => !!r.tenup_url && r.tenup_side != null;
+
+/** Rencontres récentes importables en lot : lien et côté connus. */
+export function tenupBatchCandidates(entries: RencontreEntry[], days: number, now = Date.now()) {
+  return recentUnsynced(entries, days, now).filter(hasTenupSource);
+}
+
+/** Rencontres récentes sans lien ou sans côté : à synchroniser depuis leur page. */
+export function tenupBatchWithoutSource(entries: RencontreEntry[], days: number, now = Date.now()) {
+  return recentUnsynced(entries, days, now).filter((entry) => !hasTenupSource(entry));
 }
 
 export type TenupBatchStatus = 'pending' | 'running' | 'imported' | 'failed' | 'cancelled';

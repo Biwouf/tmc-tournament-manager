@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
@@ -9,6 +10,7 @@ import {
   TENUP_BATCH_DAYS,
   runTenupBatch,
   tenupBatchCandidates,
+  tenupBatchWithoutSource,
   type TenupBatchStatus,
 } from './tenupBatch';
 
@@ -60,6 +62,7 @@ export default function TenupBatchSync({
 
   const candidates = tenupBatchCandidates(entries, days);
   const shown: Row[] = rows ?? candidates.map((entry) => ({ entry, status: 'pending' }));
+  const withoutSource = tenupBatchWithoutSource(entries, days);
 
   const start = async () => {
     if (running || !clubId || candidates.length === 0) return;
@@ -130,11 +133,12 @@ export default function TenupBatchSync({
               derniers jours
             </label>
 
-            {shown.length === 0 ? (
+            {shown.length === 0 && withoutSource.length === 0 && (
               <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                 Aucune rencontre à synchroniser sur cette période.
               </p>
-            ) : (
+            )}
+            {shown.length > 0 && (
               <ul className="space-y-2">
                 {shown.map(({ entry: { rencontre, equipe, competition }, status, message }) => (
                   <li
@@ -158,6 +162,40 @@ export default function TenupBatchSync({
                   </li>
                 ))}
               </ul>
+            )}
+
+            {/* Masquée pendant le lot : quitter la page interromprait l'import. */}
+            {!running && withoutSource.length > 0 && (
+              <section className="mt-4">
+                <h4 className="text-sm font-semibold">
+                  À synchroniser depuis leur page ({withoutSource.length})
+                </h4>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Ces rencontres n’ont pas de lien Ten’Up : ouvrez-les pour coller celui de la feuille.
+                </p>
+                <ul className="space-y-2">
+                  {withoutSource.map(({ rencontre, equipe, competition }) => (
+                    <li key={rencontre.id} className="rounded-lg border border-border p-3 text-sm">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="font-medium">
+                          {competition.nom} · Éq. {equipe.numero} — {rencontre.club_adverse}
+                        </span>
+                        <Link
+                          to={`/team-matches/rencontre/${rencontre.id}`}
+                          className="text-xs font-semibold text-primary underline"
+                        >
+                          Ouvrir la rencontre
+                        </Link>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(rencontre.date_heure).toLocaleDateString('fr-FR', {
+                          timeZone: 'Europe/Paris',
+                        })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
