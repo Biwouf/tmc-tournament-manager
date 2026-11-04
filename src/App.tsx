@@ -4,7 +4,7 @@ import CoursesPage from './pages/CoursesPage';
 import CourseFormPage from './pages/CourseFormPage';
 import CourseTypesPage from './pages/CourseTypesPage';
 import CourseRegistrationsPage from './pages/CourseRegistrationsPage';
-import { useState, useEffect, type ReactElement } from 'react';
+import { lazy, Suspense, useState, useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -26,7 +26,7 @@ import SocialAccountsPage from './pages/SocialAccountsPage';
 import ContactMessagesPage from './pages/ContactMessagesPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import SuperAdminPage from './pages/SuperAdminPage';
-import FirstStepsPage from './pages/FirstStepsPage';
+import FirstStepsGate from './components/firstSteps/FirstStepsGate';
 import TeamMatchesPage from './pages/TeamMatchesPage';
 import TeamMatchesAdminPage from './pages/TeamMatchesAdminPage';
 import TeamEquipePage from './pages/TeamEquipePage';
@@ -36,6 +36,10 @@ import { ClubProvider, useClub, exitSupportClub } from './contexts/ClubContext';
 import { ClubRoleProvider, useClubRole } from './contexts/ClubRoleContext';
 import { useClubConfig } from './hooks/useClubConfig';
 import { useClubTheme } from './hooks/useClubTheme';
+
+// SaaS S5 — chunk à part : la librairie du QR code et la feuille des premiers pas ne pèsent pas
+// sur le reste du BO.
+const FirstStepsPage = lazy(() => import('./pages/FirstStepsPage'));
 
 function RedirectTournament() {
   const { id } = useParams();
@@ -148,8 +152,8 @@ function GuardedRoutes({ user }: { user: User | null }) {
           <Route path="/forgot-password" element={<PasswordRecoveryPage key="forgot" />} />
           <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-        <Route path="/" element={auth(<AppHomePage />)} />
-        <Route path="/premiers-pas" element={auth(<FirstStepsPage />)} />
+        <Route path="/" element={auth(<FirstStepsGate><AppHomePage /></FirstStepsGate>)} />
+        <Route path="/premiers-pas" element={auth(<Suspense fallback={null}><FirstStepsPage /></Suspense>)} />
         <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
         <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
         <Route path="/tournament/:id" element={<RedirectTournament />} />

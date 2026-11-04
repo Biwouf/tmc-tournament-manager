@@ -191,10 +191,19 @@ Un club crée son espace seul, en quatre écrans et moins de deux minutes, avec 
 - À droite, le **site et l'app du club se construisent pendant la saisie**, à ses couleurs et tels que le produit les affichera ; l'app montre des rencontres d'exemple. Sur téléphone, l'aperçu s'ouvre avec « Voir l'aperçu ».
 - Logos et photos acceptés : PNG, JPEG ou WebP. Les photos de téléphone sont réduites automatiquement avant l'envoi.
 - À la fin, un **lien de connexion** part par e-mail : le club est confirmé et l'essai démarre au clic. L'écran de confirmation permet de **renvoyer le lien** ou de corriger l'adresse e-mail. Sans clic sous 7 jours, l'inscription est effacée.
-- Le clic sur le lien ouvre **directement le back-office du nouveau club**, sans mot de passe à choisir ni club à sélectionner, sur un écran « Votre club est prêt » (les premiers pas guidés viendront le remplacer).
+- Le clic sur le lien ouvre **directement le back-office du nouveau club**, sans mot de passe à choisir ni club à sélectionner, sur ses **premiers pas** (ci-dessous).
 - Un lien **expiré ou déjà utilisé** affiche « Ce lien a expiré » avec un bouton pour en recevoir un nouveau. Si le compte s'est connecté par mot de passe sans cliquer le lien, le back-office rappelle qu'il faut ouvrir le lien reçu (et permet de le renvoyer) : seul ce clic active le club.
 - La saisie survit à un rechargement de la page (dans le même onglet).
 - **Pas encore ouvert au public** : la page affiche « Les inscriptions ouvrent bientôt » tant que la clé anti-robot et les adresses des CGU et de la politique de confidentialité ne sont pas configurées.
+
+### Premiers pas d'un nouveau club `/premiers-pas`
+
+Juste après le lien, le fondateur publie sa première actu en une minute et repart avec l'app de son club, prête à partager.
+
+- **Première actu** : un message préparé, modifiable, publié en un clic. Sans photo ajoutée, l'actu prend la photo du club. Le téléphone à côté montre l'onglet Actu de l'app, aux couleurs du club.
+- **C'est prêt** : l'adresse `app-<slug>.feelike.pro`, un bouton pour la copier, son QR code, et un aperçu de ce qu'il reste à découvrir (live score, cours, feuille de match en photo).
+- Ouvrir le back-office ramène à ces écrans, à la bonne étape, tant que le parcours n'est ni terminé (« Aller au tableau de bord ») ni reporté (« Je finirai plus tard »). Ensuite, il ne revient plus.
+- Réservé aux admins d'un club créé par inscription et en essai : les autres clubs ne voient rien.
 
 ### Comptes sociaux
 Écran *Admin › Comptes sociaux* (`/admin/social`), réservé aux **administrateurs** du club.

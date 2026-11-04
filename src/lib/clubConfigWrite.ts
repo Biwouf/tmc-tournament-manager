@@ -1244,6 +1244,22 @@ export async function saveClubConfigGroup(
   const validated = validateClubConfigGroup(group, value);
   if (!validated.valid) return { success: false, errors: validated.errors };
 
+  return updateClubConfigKey(clubId, group.key, (existing) =>
+    group.kind === 'list'
+      ? listForConfig(group.list, validated.value[group.list.key])
+      : mergeGroup(existing, configFromGroupValue(group, validated.value)),
+  );
+}
+
+/**
+ * Réécrit UNE clé racine de `config` et laisse les autres intactes. `compute` reçoit la valeur
+ * BRUTE de la clé et rend la nouvelle.
+ */
+export async function updateClubConfigKey(
+  clubId: string,
+  key: string,
+  compute: (existing: unknown) => unknown,
+): Promise<SaveResult> {
   // 1. Relire la ligne BRUTE — surtout pas l'objet rendu par `useClubConfig()`, déjà passé
   //    par le schéma permissif : une liste qu'il a ramenée à `[]` serait réécrite vide, et la
   //    donnée d'origine perdue pour de bon.
@@ -1263,10 +1279,7 @@ export async function saveClubConfigGroup(
   const next = {
     ...raw,
     version: CLUB_CONFIG_VERSION,
-    [group.key]:
-      group.kind === 'list'
-        ? listForConfig(group.list, validated.value[group.list.key])
-        : mergeGroup(raw[group.key], configFromGroupValue(group, validated.value)),
+    [key]: compute(raw[key]),
   };
 
   // 2. UPDATE, jamais `upsert` : l'INSERT est réservé au super-admin
