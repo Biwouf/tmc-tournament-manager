@@ -2,12 +2,11 @@
 // jour (story ou carré) et export MP4 dans le navigateur. La vidéo reprend EXACTEMENT les
 // réglages de l'affiche générée (matchs, club mis en valeur, partenaires tirés) : la page ne la
 // rend disponible qu'une fois l'affiche téléchargée avec les réglages courants (`ready`).
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
-import { blobToDataUrl, loadAnimationFonts } from './fonts';
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { loadAnimationFonts } from './fonts';
 import { ExportCancelled, exportMp4, pickEncoderConfig } from './exportMp4';
-import ProgrammeAnimationScene, { type AnimationAssets } from './ProgrammeAnimationScene';
 import { animationPalette } from './palette';
+import { renderFrame, type FrameAssets } from './renderFrame';
 import { MAX_RECAP_ROWS, buildTimeline, formatDateLabel, type AnimationFormat, type ProgrammeMatch } from './timeline';
 
 type Props = {
@@ -35,16 +34,33 @@ const FORMATS: { value: AnimationFormat; label: string }[] = [
 ];
 const PREVIEW_H = 560;
 
-// Images converties en data URL une fois : l'export n'a plus à les recharger à chaque image,
-// et une image d'une autre origine ne peut plus sortir vide du rendu.
-async function toDataUrl(url: string): Promise<string | null> {
+// Images décodées une fois en ImageBitmap, transférables au worker d'export. Elles passent par un
+// <img> et un canvas : un worker (et `createImageBitmap(blob)`) ne sait pas décoder un SVG. Côté
+// le plus long ramené à 512 px au plus (un SVG y est rastérisé) : le plus grand logo de la vidéo
+// fait ~160 px.
+const BITMAP_MAX = 512;
+async function toBitmap(url: string): Promise<ImageBitmap | null> {
   if (!url) return null;
+  let src = '';
   try {
     const res = await fetch(url, { mode: 'cors' });
     if (!res.ok) return null;
-    return await blobToDataUrl(await res.blob());
+    const blob = await res.blob();
+    src = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    const nw = img.naturalWidth || BITMAP_MAX, nh = img.naturalHeight || BITMAP_MAX;
+    const s = blob.type.includes('svg') ? BITMAP_MAX / Math.max(nw, nh) : Math.min(1, BITMAP_MAX / Math.max(nw, nh));
+    const c = Object.assign(document.createElement('canvas'), { width: Math.max(1, Math.round(nw * s)), height: Math.max(1, Math.round(nh * s)) });
+    const g = c.getContext('2d')!;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, c.width, c.height);
+    return await createImageBitmap(c);
   } catch {
     return null;
+  } finally {
+    if (src) URL.revokeObjectURL(src);
   }
 }
 
@@ -57,14 +73,14 @@ export default function ProgrammeAnimationSection({
   const title = editedTitle ?? defaultTitle;
   const [T, setT] = useState(0);
   const [playing, setPlaying] = useState(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const [assets, setAssets] = useState<AnimationAssets | null>(null);
-  const [fontCSS, setFontCSS] = useState<string | null>(null);
+  const [assets, setAssets] = useState<FrameAssets | null>(null);
+  const [fontsReady, setFontsReady] = useState(false);
   const [encoderOk, setEncoderOk] = useState<boolean | null>(null);
-  const [exportT, setExportT] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState<{ frame: number; frames: number } | null>(null);
   const [exportError, setExportError] = useState('');
   const cancelRef = useRef(false);
-  const exportNodeRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   /** Dernière demande d'export traitée : celle présente au montage ne déclenche rien. */
   const handledRequest = useRef(exportRequest);
@@ -77,15 +93,16 @@ export default function ProgrammeAnimationSection({
   );
 
   useEffect(() => {
-    loadAnimationFonts().then(setFontCSS, () => setFontCSS(''));
+    // Polices en échec : on dessine quand même, en police de repli.
+    loadAnimationFonts().finally(() => setFontsReady(true));
   }, []);
 
   const partnersKey = partnerLogos.join('\n');
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [l, li, ...partners] = await Promise.all([toDataUrl(logo), toDataUrl(logoInverse), ...partnersKey.split('\n').filter(Boolean).map(toDataUrl)]);
-      if (alive) setAssets({ logo: l, logoOnDark: li, partners: partners.filter((p): p is string => !!p) });
+      const [l, li, ...partners] = await Promise.all([toBitmap(logo), toBitmap(logoInverse), ...partnersKey.split('\n').filter(Boolean).map(toBitmap)]);
+      if (alive) setAssets({ logo: l, logoOnDark: li, partners: partners.filter((p): p is ImageBitmap => !!p) });
     })();
     return () => {
       alive = false;
@@ -101,7 +118,6 @@ export default function ProgrammeAnimationSection({
   }, [tl.W, tl.H]);
 
   // Lecteur : `T` avance en temps réel et boucle ; en pause pendant un export.
-  const exporting = exportT !== null;
   useEffect(() => {
     if (!playing || exporting) return;
     let raf = 0, last = performance.now();
@@ -114,27 +130,27 @@ export default function ProgrammeAnimationSection({
     return () => cancelAnimationFrame(raf);
   }, [playing, exporting, tl.total]);
 
+  // Lecteur : la même `renderFrame` que l'export, dans un canvas à la résolution de l'écran.
+  const previewW = Math.round((tl.W * PREVIEW_H) / tl.H);
+  useLayoutEffect(() => {
+    const c = canvasRef.current;
+    if (!c || !assets || !fontsReady) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(previewW * dpr), h = Math.round(PREVIEW_H * dpr);
+    if (c.width !== w || c.height !== h) Object.assign(c, { width: w, height: h });
+    const g = c.getContext('2d')!;
+    g.setTransform(w / tl.W, 0, 0, h / tl.H, 0, 0);
+    renderFrame(g, tl, T, palette, texts, assets);
+  }, [T, tl, palette, texts, assets, fontsReady, previewW]);
+
   async function handleExport() {
-    if (!assets || fontCSS === null) return;
+    if (!assets || !fontsReady) return;
     setExportError('');
     cancelRef.current = false;
     setProgress({ frame: 0, frames: Math.round(tl.total * 30) });
-    setExportT(0);
+    setExporting(true);
     try {
-      // Le nœud d'export se monte au rendu qui suit `setExportT(0)` : lancé depuis un effet
-      // (export demandé par la page), ce rendu peut arriver après la prochaine image.
-      for (let i = 0; !exportNodeRef.current && i < 100; i++) await new Promise((r) => setTimeout(r, 20));
-      if (!exportNodeRef.current) throw new Error('La scène de la vidéo n’a pas pu être préparée.');
-      const blob = await exportMp4({
-        node: exportNodeRef.current,
-        width: tl.W,
-        height: tl.H,
-        total: tl.total,
-        setT: (t) => flushSync(() => setExportT(t)),
-        fontEmbedCSS: fontCSS,
-        onProgress: (frame, frames) => setProgress({ frame, frames }),
-        isCancelled: () => cancelRef.current,
-      });
+      const blob = await exportMp4({ tl, color: palette.red, texts, assets }, (frame, frames) => setProgress({ frame, frames }), () => cancelRef.current);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -144,14 +160,14 @@ export default function ProgrammeAnimationSection({
     } catch (e) {
       if (!(e instanceof ExportCancelled)) setExportError(e instanceof Error ? e.message : 'La génération de la vidéo a échoué.');
     } finally {
-      setExportT(null);
+      setExporting(false);
       setProgress(null);
     }
   }
 
   // Export demandé par la page : on attend que l'affiche, les polices, les images et la détection
   // de l'encodeur soient prêtes, puis on le lance une fois (ou on explique pourquoi on ne peut pas).
-  const settled = ready && !!assets && fontCSS !== null && encoderOk !== null && !exporting;
+  const settled = ready && !!assets && fontsReady && encoderOk !== null && !exporting;
   const runRequestedExport = useEffectEvent(() => {
     handledRequest.current = exportRequest;
     if (!encoderOk) return; // le message « navigateur non compatible » est déjà affiché
@@ -178,9 +194,8 @@ export default function ProgrammeAnimationSection({
     );
   }
 
-  const scale = PREVIEW_H / tl.H;
   const tooManyRows = tl.nRows > MAX_RECAP_ROWS[format];
-  const canExport = !!assets && fontCSS !== null && encoderOk === true && !!title.trim() && !exporting;
+  const canExport = !!assets && fontsReady && encoderOk === true && !!title.trim() && !exporting;
 
   return (
     <div ref={rootRef} className="rounded-xl border border-border bg-card p-6 space-y-4">
@@ -215,11 +230,8 @@ export default function ProgrammeAnimationSection({
       )}
 
       <div className="flex flex-col items-start gap-3">
-        <div className="overflow-hidden rounded-lg shadow-xl" style={{ width: tl.W * scale, height: PREVIEW_H }}>
-          <div style={{ width: tl.W, height: tl.H, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
-            {assets && <ProgrammeAnimationScene tl={tl} T={T} palette={palette} texts={texts} assets={assets} />}
-          </div>
-        </div>
+        <canvas ref={canvasRef} className="rounded-lg shadow-xl" style={{ width: previewW, height: PREVIEW_H, background: palette.dark }}
+          role="img" aria-label="Aperçu de l’animation" />
         <div className="flex w-full max-w-xl items-center gap-3 text-sm">
           <button type="button" onClick={() => setPlaying((p) => !p)} disabled={exporting}
             className="rounded-lg border border-border px-3 py-1.5 font-medium disabled:opacity-40">
@@ -245,7 +257,7 @@ export default function ProgrammeAnimationSection({
           <div className="max-w-xl space-y-1">
             <progress className="w-full" value={progress.frame} max={progress.frames} />
             <p className="text-xs text-muted-foreground">
-              Image {progress.frame} / {progress.frames}. Gardez cet onglet ouvert et visible : la génération se met en pause s’il passe en arrière-plan.
+              Image {progress.frame} / {progress.frames}. Vous pouvez changer d’onglet, la génération continue ; ne fermez pas cette page.
             </p>
           </div>
         )}
@@ -253,19 +265,11 @@ export default function ProgrammeAnimationSection({
           <p className="text-sm text-destructive">Ce navigateur ne sait pas générer de vidéo. Utilisez une version récente de Chrome, Edge ou Safari.</p>
         )}
         {!exporting && encoderOk && (
-          <p className="text-xs text-muted-foreground">La vidéo est générée dans votre navigateur : comptez une à trois minutes selon l’ordinateur.</p>
+          <p className="text-xs text-muted-foreground">La vidéo est générée dans votre navigateur : comptez de quelques secondes à une minute selon l’ordinateur.</p>
         )}
         {exportError && <p className="text-sm text-destructive">{exportError}</p>}
       </div>
 
-      {/* Nœud d'export à taille réelle, hors écran, monté le temps de la génération seulement. */}
-      {exporting && assets && (
-        <div style={{ position: 'fixed', left: -20000, top: 0 }} aria-hidden="true">
-          <div ref={exportNodeRef} style={{ width: tl.W, height: tl.H }}>
-            <ProgrammeAnimationScene tl={tl} T={exportT} palette={palette} texts={texts} assets={assets} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

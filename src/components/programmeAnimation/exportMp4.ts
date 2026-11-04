@@ -1,91 +1,48 @@
-// Export MP4 entièrement dans le navigateur : on pose `T` image par image, `html-to-image`
-// rastérise la scène, `VideoEncoder` (WebCodecs) encode en H.264 et `mp4-muxer` assemble le
-// fichier. Aucun serveur : les Edge Functions ne font tourner ni Chromium ni ffmpeg.
-// Prototype du 16/10/2026 (M1 Pro) : story de 20 s en ~90 s, carré de 23 s en ~95 s ; le coût
-// est tout entier dans la rastérisation, l'encodage est quasi gratuit.
-import { toCanvas } from 'html-to-image';
-import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
+// Export MP4 entièrement dans le navigateur, sans serveur (les Edge Functions ne font tourner ni
+// Chromium ni ffmpeg). Le rendu Canvas et l'encodage (`encodeAnimation.ts`) tournent dans un
+// worker (`exportWorker.ts`) : la page reste fluide et l'export continue onglet caché.
+// Navigateur sans OffscreenCanvas / VideoEncoder / polices en worker : même boucle sur le
+// thread principal.
+import { ExportCancelled, encodeAnimation, type ExportJob, type WorkerReply } from './encodeAnimation';
 
-export const FPS = 30;
-const BITRATE = 8_000_000;
+export { ExportCancelled, pickEncoderConfig, type ExportJob } from './encodeAnimation';
+type Progress = (frame: number, frames: number) => void;
 
-/** Première configuration H.264 acceptée par le navigateur, ou `null` s'il ne sait pas encoder. */
-export async function pickEncoderConfig(width: number, height: number): Promise<VideoEncoderConfig | null> {
-  if (typeof VideoEncoder === 'undefined') return null;
-  // High 5.0 d'abord (1080 × 1920 dépasse le niveau 4.0 de certains encodeurs), puis Main et Baseline.
-  for (const codec of ['avc1.640032', 'avc1.640028', 'avc1.4d0032', 'avc1.42e032']) {
-    for (const hardwareAcceleration of ['prefer-hardware', 'no-preference'] as const) {
-      const config: VideoEncoderConfig = { codec, width, height, bitrate: BITRATE, framerate: FPS, hardwareAcceleration, avc: { format: 'avc' } };
-      try {
-        if ((await VideoEncoder.isConfigSupported(config)).supported) return config;
-      } catch {
-        // configuration refusée : on essaie la suivante
-      }
+class WorkerUnsupported extends Error {}
+
+function exportInWorker(job: ExportJob, onProgress: Progress, isCancelled: () => boolean): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL('./exportWorker.ts', import.meta.url), { type: 'module' });
+    } catch (e) {
+      return reject(new WorkerUnsupported(String(e)));
     }
-  }
-  return null;
-}
-
-export class ExportCancelled extends Error {}
-
-type ExportOptions = {
-  node: HTMLElement;
-  width: number;
-  height: number;
-  total: number;
-  /** Pose l'instant `t` et rend la scène de façon SYNCHRONE (flushSync). */
-  setT: (t: number) => void;
-  fontEmbedCSS: string;
-  onProgress: (frame: number, frames: number) => void;
-  isCancelled: () => boolean;
-};
-
-// Dans un onglet caché, Chrome bride la page : une image peut alors prendre plus de 10 s
-// (constaté au prototype). On met l'export en pause jusqu'au retour de l'onglet.
-function whenVisible(): Promise<void> {
-  if (!document.hidden) return Promise.resolve();
-  return new Promise((resolve) => {
-    const onChange = () => {
-      if (document.hidden) return;
-      document.removeEventListener('visibilitychange', onChange);
-      resolve();
+    const finish = (fn: () => void) => {
+      worker.terminate();
+      fn();
     };
-    document.addEventListener('visibilitychange', onChange);
+    worker.onerror = (e) => finish(() => reject(new WorkerUnsupported(e.message || 'worker indisponible')));
+    worker.onmessage = ({ data }: MessageEvent<WorkerReply>) => {
+      if (data.type === 'progress') {
+        if (isCancelled()) return finish(() => reject(new ExportCancelled()));
+        onProgress(data.frame, data.frames);
+      } else if (data.type === 'done') finish(() => resolve(data.buffer));
+      else if (data.type === 'unsupported') finish(() => reject(new WorkerUnsupported(data.reason)));
+      else finish(() => reject(new Error(data.message)));
+    };
+    worker.postMessage(job);
   });
 }
 
-export async function exportMp4({ node, width, height, total, setT, fontEmbedCSS, onProgress, isCancelled }: ExportOptions): Promise<Blob> {
-  const config = await pickEncoderConfig(width, height);
-  if (!config) throw new Error('Ce navigateur ne sait pas encoder de vidéo H.264.');
-
-  const muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width, height, frameRate: FPS }, fastStart: 'in-memory' });
-  let encoderError: unknown = null;
-  const encoder = new VideoEncoder({
-    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    error: (e) => {
-      encoderError = e;
-    },
-  });
-  encoder.configure(config);
-
-  const frames = Math.round(total * FPS);
+export async function exportMp4(job: ExportJob, onProgress: Progress, isCancelled: () => boolean): Promise<Blob> {
+  let buffer: ArrayBuffer;
   try {
-    for (let i = 0; i < frames; i++) {
-      if (isCancelled()) throw new ExportCancelled();
-      await whenVisible();
-      setT(i / FPS);
-      const canvas = await toCanvas(node, { width, height, pixelRatio: 1, fontEmbedCSS, cacheBust: false });
-      const frame = new VideoFrame(canvas, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
-      encoder.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
-      frame.close();
-      while (encoder.encodeQueueSize > 4) await new Promise((r) => setTimeout(r, 1));
-      if (encoderError) throw encoderError;
-      onProgress(i + 1, frames);
-    }
-    await encoder.flush();
-  } finally {
-    if (encoder.state !== 'closed') encoder.close();
+    buffer = await exportInWorker(job, onProgress, isCancelled);
+  } catch (e) {
+    if (!(e instanceof WorkerUnsupported)) throw e;
+    console.info('Export vidéo sur le thread principal :', e.message);
+    buffer = await encodeAnimation(job, onProgress, isCancelled);
   }
-  muxer.finalize();
-  return new Blob([muxer.target.buffer], { type: 'video/mp4' });
+  return new Blob([buffer], { type: 'video/mp4' });
 }

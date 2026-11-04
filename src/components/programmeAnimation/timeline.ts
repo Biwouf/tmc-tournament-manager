@@ -6,8 +6,8 @@
 export type AnimationFormat = 'story' | 'carre';
 
 export type AnimPlayer = { first: string; last: string; rank: string; club: string; home: boolean };
-export type AnimMatch = { cat: string; a: AnimPlayer; b: AnimPlayer; derby: boolean; banner: string | null };
-export type AnimSlot = { time: string; matches: AnimMatch[]; derby: boolean; cue: string };
+export type AnimMatch = { time: string; cat: string; a: AnimPlayer; b: AnimPlayer; derby: boolean; banner: string | null };
+export type AnimSlot = { /** Horaires de l'écran, sans doublon. */ times: string[]; matches: AnimMatch[]; derby: boolean; cue: string };
 export type AnimCard = { key: string; m: AnimMatch; time: string; s: number; e: number; top: number; impact: number };
 export type AnimImpact = { t: number; x: number; y: number; big: boolean };
 
@@ -53,6 +53,8 @@ export const PARTNERS_BOTTOM = 270;
 export const PARTNERS_H = 140;
 /** Au-delà, le récap déborde sur les partenaires (réduire les polices n'est pas géré). */
 export const MAX_RECAP_ROWS: Record<AnimationFormat, number> = { story: 9, carre: 8 };
+/** Deux matchs qui se suivent à cet écart au plus partagent le même groupe d'écrans. */
+const CLOSE_MINUTES = 30;
 
 // Même règle que le cartouche de l'affiche (`FEMININE_RE` de ProgrammationImagePage) :
 // simple/double dames ou libellé CSV « Femmes » / « Dames ».
@@ -96,28 +98,40 @@ function player(first: string, last: string, rank: string, club: string, homeClu
   return { first: first.trim(), last: last.trim().toUpperCase(), rank: rank.trim(), club: club.trim(), home };
 }
 
+function toMinutes(heure: string): number | null {
+  const t = /^\s*(\d{1,2})\s*[:hH]\s*(\d{2})?/.exec(heure);
+  return t ? +t[1] * 60 + +(t[2] ?? 0) : null;
+}
+
+/** `b` suit `a` de 30 min au plus ; un horaire illisible ne se regroupe qu'avec lui-même. */
+function isClose(a: string, b: string): boolean {
+  if (formatHeure(a) === formatHeure(b)) return true;
+  const ma = toMinutes(a), mb = toMinutes(b);
+  return ma !== null && mb !== null && mb >= ma && mb - ma <= CLOSE_MINUTES;
+}
+
 function toAnimMatch(m: ProgrammeMatch, homeClub: string | null): AnimMatch {
   const a = player(m.j1_prenom, m.j1_nom, m.j1_classement, m.j1_club, homeClub);
   const b = player(m.j2_prenom, m.j2_nom, m.j2_classement, m.j2_club, homeClub);
   const n = (a.home ? 1 : 0) + (b.home ? 1 : 0);
   const women = FEMININE_RE.test(m.type_tournoi);
   const banner = n === 2 ? 'DERBY · ' + (homeClub ?? '').toUpperCase() : n === 1 ? (women ? 'JOUEUSE DU CLUB' : 'JOUEUR DU CLUB') : null;
-  return { cat: m.type_tournoi.trim(), a, b, derby: n === 2, banner };
+  return { time: formatHeure(m.heure), cat: m.type_tournoi.trim(), a, b, derby: n === 2, banner };
 }
 
 /**
- * Découpage en écrans : les matchs consécutifs d'un même horaire forment un groupe, découpé en
- * écrans de 3 cartes max en story, 2 en carré, à répartition équilibrée
+ * Découpage en écrans : les matchs consécutifs d'horaires rapprochés forment un groupe (17h, 17h30
+ * et 18h s'enchaînent : chaque écart compte, pas l'écart au premier), découpé en écrans de 3 cartes max en story, 2 en carré, à répartition équilibrée
  * (carré : 3 → 2+1, 4 → 2+2, 5 → 2+2+1 ; story : 4 → 2+2, 5 → 3+2).
  */
-export function splitScreens<T>(groups: { time: string; matches: T[] }[], maxPerScreen: number) {
+export function splitScreens<T>(groups: { matches: T[] }[], maxPerScreen: number) {
   return groups.flatMap((g) => {
     const k = Math.ceil(g.matches.length / maxPerScreen);
-    const out: { time: string; matches: T[] }[] = [];
+    const out: { matches: T[] }[] = [];
     let i = 0;
     for (let s = 0; s < k; s++) {
       const n = Math.ceil((g.matches.length - i) / (k - s));
-      out.push({ time: g.time, matches: g.matches.slice(i, i + n) });
+      out.push({ matches: g.matches.slice(i, i + n) });
       i += n;
     }
     return out;
@@ -133,16 +147,15 @@ export function buildTimeline(matches: ProgrammeMatch[], homeClub: string | null
   const story = format === 'story';
   const W = 1080, H = story ? 1920 : 1080, OY = story ? 250 : 0;
 
-  const groups: { time: string; matches: AnimMatch[] }[] = [];
-  for (const m of matches) {
-    const time = formatHeure(m.heure);
-    const last = groups[groups.length - 1];
+  const groups: { matches: AnimMatch[] }[] = [];
+  matches.forEach((m, i) => {
     const am = toAnimMatch(m, homeClub);
-    if (last && last.time === time) last.matches.push(am);
-    else groups.push({ time, matches: [am] });
-  }
+    if (i > 0 && isClose(matches[i - 1].heure, m.heure)) groups[groups.length - 1].matches.push(am);
+    else groups.push({ matches: [am] });
+  });
   const slots: AnimSlot[] = splitScreens(groups, story ? 3 : 2).map((sl, i) => ({
     ...sl,
+    times: [...new Set(sl.matches.map((m) => m.time))],
     cue: 'Slot' + (i + 1),
     derby: sl.matches.some((m) => m.derby),
   }));
@@ -179,7 +192,7 @@ export function buildTimeline(matches: ProgrammeMatch[], homeClub: string | null
     const top0 = area + Math.max(0, (avail - (n * CARD_H + (n - 1) * CARD_GAP)) / 2);
     sl.matches.forEach((m, mi) => {
       const s = s0 + mi * BEAT;
-      cards.push({ key: si + '-' + mi, m, time: sl.time, s, e: e + mi * 0.06, top: top0 + mi * (CARD_H + CARD_GAP), impact: s + BEAT });
+      cards.push({ key: si + '-' + mi, m, time: m.time, s, e: e + mi * 0.06, top: top0 + mi * (CARD_H + CARD_GAP), impact: s + BEAT });
     });
   });
   const impacts = cards.map((c) => ({ t: c.impact, x: 540, y: c.top + 128, big: c.m.derby }));
