@@ -509,6 +509,63 @@
 body.has-install-banner .booking-toast {
   bottom: calc(56px + var(--install-banner-height, 190px) + 20px + env(safe-area-inset-bottom));
 }
+.booking-fab {
+  position: fixed;
+  z-index: 55;
+  right: 16px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: 0 4px 16px #0003;
+  cursor: pointer;
+}
+body.has-install-banner .booking-fab {
+  bottom: calc(56px + var(--install-banner-height, 190px) + 16px + env(safe-area-inset-bottom));
+}
+.booking-page:has(.booking-fab) {
+  padding-bottom: 80px;
+}
+.booking-create-owner {
+  margin-top: 16px;
+}
+.booking-create-owner legend {
+  font-size: 12px;
+  font-weight: 700;
+}
+.booking-create-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.booking-create-selected span {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.booking-create-members {
+  margin-top: 4px;
+}
+.booking-create-members button {
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  padding: 10px;
+  font-size: 14px;
+  border-bottom: 1px solid hsl(var(--border) / 0.7);
+}
+.booking-create-quotas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
 @keyframes booking-rise {
   from {
     transform: translateY(20px);

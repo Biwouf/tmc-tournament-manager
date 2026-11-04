@@ -76,7 +76,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 
 ### Cours
 
-- Back-office `/courses` : types de cours, séances avec quotas femmes / hommes, responsable, validation des demandes et inscriptions manuelles. Les membres demandent une place depuis l'onglet Cours de la PWA. Quand les deux quotas sont pleins, le bouton affiche « Complet » et n'est plus cliquable.
+- Back-office `/courses` : types de cours, séances avec quotas femmes / hommes, responsable, validation des demandes et inscriptions manuelles. Les membres demandent une place depuis l'onglet Cours de la PWA. Un admin peut aussi **créer un cours directement depuis la PWA** (bouton « + » en bas à droite de l'onglet Cours). Quand les deux quotas sont pleins, le bouton affiche « Complet » et n'est plus cliquable.
 - Une personne **sans compte** sur l'application (par exemple quelqu'un qui ne parvient pas à en créer un) peut être inscrite par un admin depuis la page d'inscriptions d'un cours : prénom, nom et sexe. Sa fiche est conservée pour les cours suivants ; l'inscription est confirmée directement, dans la limite du quota, sans notification.
 - **Notifications push** (PWA) : la personne qui encadre un cours est prévenue de chaque nouvelle demande, le membre de l'acceptation ou du refus de la sienne. L'activation est proposée juste après une demande et dans l'onglet Encadrement ; on peut l'activer ou la couper à tout moment depuis **Mon profil**. Sur iPhone, l'application doit être ajoutée à l'écran d'accueil. Les emails continuent d'être envoyés en parallèle.
 - **Alertes Live** (PWA) : quand on démarre un live (PWA ou BO), une case « Prévenir les abonnés du club » envoie une notification aux membres qui ont activé les alertes Live (bandeau de l'accueil des live ou Mon profil). La cloche d’un match envoie à ceux qui la touchent les fins de set, la fin du match et les nouveaux messages du fil. Réservé aux membres connectés.
@@ -117,6 +117,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Gérer les membres** depuis le même écran : liste (nom, email, rôle, statut), changement de rôle, retrait du club, et relance de l'invitation pour quelqu'un qui n'a jamais activé son compte
   - Une invitation non activée apparaît dans la liste avec le badge *Invitation en attente* — c'est l'email qui identifie la personne tant qu'elle n'a pas rempli son profil
   - **Retirer** quelqu'un coupe son accès immédiatement, mais ne supprime pas son compte : une nouvelle invitation le rattachera
+  - Dans *Demandes d'inscription*, une demande **refusée** ou dont l'accès a été **retiré** peut être **supprimée** définitivement pour alléger la liste ; le compte n'est pas supprimé et la personne pourra redéposer une demande
   - Un club doit toujours garder **au moins un administrateur** : rétrograder ou retirer le dernier est refusé
 - Un compte qui n'appartient pas au club du back-office ouvert se voit refuser l'accès avec un message explicite (et un bouton de déconnexion), au lieu d'un back-office aux listes vides
 - Inviter un email qui a déjà un compte le **rattache** au club courant, sans nouvel email
@@ -190,6 +191,8 @@ Un club crée son espace seul, en quatre écrans et moins de deux minutes, avec 
 - À droite, le **site et l'app du club se construisent pendant la saisie**, à ses couleurs et tels que le produit les affichera ; l'app montre des rencontres d'exemple. Sur téléphone, l'aperçu s'ouvre avec « Voir l'aperçu ».
 - Logos et photos acceptés : PNG, JPEG ou WebP. Les photos de téléphone sont réduites automatiquement avant l'envoi.
 - À la fin, un **lien de connexion** part par e-mail : le club est confirmé et l'essai démarre au clic. L'écran de confirmation permet de **renvoyer le lien** ou de corriger l'adresse e-mail. Sans clic sous 7 jours, l'inscription est effacée.
+- Le clic sur le lien ouvre **directement le back-office du nouveau club**, sans mot de passe à choisir ni club à sélectionner, sur un écran « Votre club est prêt » (les premiers pas guidés viendront le remplacer).
+- Un lien **expiré ou déjà utilisé** affiche « Ce lien a expiré » avec un bouton pour en recevoir un nouveau. Si le compte s'est connecté par mot de passe sans cliquer le lien, le back-office rappelle qu'il faut ouvrir le lien reçu (et permet de le renvoyer) : seul ce clic active le club.
 - La saisie survit à un rechargement de la page (dans le même onglet).
 - **Pas encore ouvert au public** : la page affiche « Les inscriptions ouvrent bientôt » tant que la clé anti-robot et les adresses des CGU et de la politique de confidentialité ne sont pas configurées.
 
@@ -468,6 +471,11 @@ Installation Supabase et vérifications : [docs/CONTACT_DELIVERY.md](docs/CONTAC
 
 ### Récupération de compte
 
+Le back-office propose aussi **« Recevoir un lien de connexion »** sur l'écran de connexion,
+pour tous les comptes : un e-mail permet d'entrer sans mot de passe (indispensable pour un
+compte né de l'inscription en ligne, qui n'en a pas). Aucun compte n'est créé pour une adresse
+inconnue, et la réponse est la même qu'il existe ou non.
+
 Le back-office et la PWA proposent « Mot de passe oublié ». Les liens sont gérés par
 Supabase Auth ; l’envoi via Brevo exige de configurer le SMTP personnalisé du projet
 (et sa limite d’emails), indépendamment de la clé API du formulaire de contact.
@@ -477,7 +485,7 @@ Configuration et recette : [ACCOUNT_RECOVERY.md](docs/ACCOUNT_RECOVERY.md).
 
 Domaine racine confirmé : **feelike.pro**, enregistré chez OVHcloud.
 Vitrine : `<club>.feelike.pro` ; PWA : `app-<club>.feelike.pro` ; BO central avec sélection
-du club après connexion : `admin.feelike.pro`. Landing marketing : `www.feelike.pro` (apex redirigé),
+du club après connexion : `admin.feelike.pro` (sans sélecteur quand le compte n'a qu'un club actif). Landing marketing : `www.feelike.pro` (apex redirigé),
 projet Vercel séparé, cf. `landing/README.md`.
 Le code ne met pas les DNS en service : suivre [la procédure OVH/Vercel](docs/DOMAINS_DELIVERY.md)
 avant de clôturer la PR13. Le domaine propre de CAC est prévu en PR14.

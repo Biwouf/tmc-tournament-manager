@@ -3,11 +3,12 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '../lib/supabase';
 import { resolveClubSlug } from '../lib/clubHost';
 import ClubUnavailable from '../components/ClubUnavailable';
-import type { ClubStatus } from '../types';
+import type { ClubPlan, ClubStatus } from '../types';
 
 export type { ClubPlan, ClubStatus } from '../types';
 
-export type Club = { id: string; slug: string; name: string; sport: string; status: ClubStatus };
+// SaaS S4 : `plan` et `trial_ends_at` (S2) en lecture seule, pour les premiers pas (S5) et le bandeau d'essai (S8).
+export type Club = { id: string; slug: string; name: string; sport: string; status: ClubStatus; plan: ClubPlan; trial_ends_at: string | null };
 type ClubContextValue = {
   clubId: string | null;
   club: Club | null;
@@ -23,7 +24,7 @@ const ClubContext = createContext<ClubContextValue>({
   isSupport: false,
 });
 
-const CLUB_FIELDS = 'id, slug, name, sport, status';
+export const CLUB_FIELDS = 'id, slug, name, sport, status, plan, trial_ends_at';
 
 // Accès support : diagnostic explicite d’un club, y compris suspendu.
 // Sur admin.feelike.pro, AdminEntry vérifie le statut super-admin avant la résolution.

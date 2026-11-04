@@ -98,7 +98,41 @@ export async function getCourseQueue(
   });
   return { ...data, received_at: Date.now() };
 }
-export const profileComplete = (p?: Profile | null) =>
+// Création d'un cours par un admin : mêmes RPC que le back-office.
+export type CourseTypeOption = {
+  id: string;
+  name: string;
+  archived_at: string | null;
+};
+export type CourseMemberOption = {
+  user_id: string;
+  prenom: string | null;
+  nom: string | null;
+};
+export const isCourseAdmin = (club: string) =>
+  courseRpc<boolean>('course_is_admin', { p_club: club });
+export function courseAdminRead<T>(club: string, kind: string, search = '', offset = 0) {
+  return courseRpc<T[]>('course_admin_read', {
+    p_club: club,
+    p_kind: kind,
+    p_target: null,
+    p_search: search,
+    p_offset: offset,
+    p_filter: '',
+  });
+}
+export async function activeCourseTypes(club: string) {
+  const all: CourseTypeOption[] = [];
+  for (let offset = 0; ; offset += 50) {
+    const page = await courseAdminRead<CourseTypeOption>(club, 'types', '', offset);
+    all.push(...page);
+    if (page.length < 50) break;
+  }
+  return all.filter((t) => !t.archived_at);
+}
+export const memberName = (m: CourseMemberOption) =>
+  `${m.prenom ?? ''} ${m.nom ?? ''}`.trim() || 'Membre sans nom';
+export const profileComplete =(p?: Profile | null) =>
   Boolean(p?.prenom?.trim() && p.nom?.trim() && p.sex);
 export const courseEnd = (c: Course) =>
   Date.parse(c.starts_at) + c.duration_minutes * 60000;
@@ -214,6 +248,7 @@ const errors: Record<string, string> = {
   REASON_REQUIRED: 'Saisissez un motif de refus entre 1 et 1000 caractères.',
   VALIDATION_ERROR: 'Vérifiez les champs saisis.',
   NOT_FOUND: 'Ce cours n’est plus disponible.',
+  OWNER_REQUIRED: 'Choisissez un responsable membre de ce club.',
 };
 export function courseError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
