@@ -123,12 +123,45 @@
 .fs-disc-lines span:nth-child(2) { width: 80%; }
 .fs-disc-lines span:nth-child(3) { width: 60%; }
 
+/* Étape « Vos équipes » (S6) */
+.fs-group { display: flex; flex-direction: column; gap: 10px; }
+.fs-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.fs-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.fs-teams { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.fs-teams li { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: var(--brand-soft); }
+.fs-teams .fs-mark { width: 22px; height: 22px; font-size: 12px; }
+.fs-team-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fs-team-name { font-weight: 800; font-size: 14.5px; overflow-wrap: anywhere; }
+.fs-team-detail { color: var(--mu); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.fs-notice { margin: 0; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; font-size: 13.5px; font-weight: 600; }
+.fs-help { color: var(--mu); font-size: 13px; }
+.fs-help summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; align-items: center; }
+.fs-help p { margin: 6px 0 0; line-height: 1.55; }
+.fs-progress { margin: 0; padding: 14px; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 14px; font-weight: 600; border-radius: 12px; background: #fcfbfa; border: 1px solid var(--line); color: #a2989a; }
+.fs-progress li { display: flex; align-items: center; gap: 10px; }
+.fs-progress li.on { color: var(--ink); }
+.fs-progress .fs-mark:not(.ok) { background: none; border: 2px solid var(--line); }
+.fs-spin { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--brand-soft); border-top-color: var(--brand-fill); animation: fs-spin 0.8s linear infinite; }
+@keyframes fs-spin { to { transform: rotate(360deg); } }
+.fs-question { margin: 0; font-weight: 700; font-size: 14px; line-height: 1.45; }
+.fs-fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fs-fieldset legend { margin-bottom: 8px; padding: 0; }
+.fs-seg { display: flex; flex-wrap: wrap; gap: 8px; }
+.fs-seg .fs-btn[aria-pressed='true'] { border: 2px solid var(--brand-fill); background: var(--brand-soft); }
+.fs-found { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border-radius: 10px; border: 2px solid var(--brand-fill); background: var(--brand-soft); }
+.fs-found .fs-link { min-height: 32px; }
+.fs-choices { display: flex; flex-direction: column; gap: 6px; }
+.fs-choice { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--line); background: #fff; font-weight: 700; font-size: 14px; cursor: pointer; overflow-wrap: anywhere; }
+.fs-choice.on { border: 2px solid var(--brand-fill); background: var(--brand-soft); }
+.fs-choice.off { color: var(--mu); cursor: not-allowed; }
+.fs-choice input { accent-color: var(--brand-fill); width: 18px; height: 18px; flex-shrink: 0; }
+
 .fs-step > * { animation: fs-rise 0.35s both; }
 .fs-pop { animation: fs-pop 0.5s both; }
 @keyframes fs-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes fs-pop { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
 @keyframes fs-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-@media (prefers-reduced-motion: reduce) { .fs-step > *, .fs-pop, .fs-disc-tag { animation: none; } .fs-bar div { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .fs-step > *, .fs-pop, .fs-disc-tag { animation: none; } .fs-spin { animation-duration: 2.4s; } .fs-bar div { transition: none; } }
 
 @media (max-width: 1099px) { .fs-discover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 860px) {

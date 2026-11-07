@@ -16,9 +16,11 @@ export function firstStepsPending(state: OnboardingState): boolean {
 
 type StepLike = { isDone: (state: OnboardingState) => boolean; final?: boolean };
 
-/** L'étape où reprendre : la première qui n'est pas terminée, sinon la dernière. */
-export function currentStepIndex(steps: StepLike[], state: OnboardingState): number {
-  const index = steps.findIndex((step) => !step.isDone(state));
+type ResumableStep = StepLike & { id: string };
+
+/** L'étape où reprendre : la première ni terminée ni passée, sinon la dernière. */
+export function currentStepIndex(steps: ResumableStep[], state: OnboardingState): number {
+  const index = steps.findIndex((step) => !step.isDone(state) && !state.skipped_steps.includes(step.id));
   return index === -1 ? steps.length - 1 : index;
 }
 
@@ -57,6 +59,15 @@ export function completeFirstStep(clubId: string | null, stepId: string): Promis
   return writeOnboarding(clubId, (current) => ({
     ...current,
     completed_steps: current.completed_steps.includes(stepId) ? current.completed_steps : [...current.completed_steps, stepId],
+    skipped_steps: current.skipped_steps.filter((id) => id !== stepId),
+  }));
+}
+
+/** « Passer cette étape » : reportée, pas terminée. La reprise la saute ; S8 la reproposera. */
+export function skipFirstStep(clubId: string | null, stepId: string): Promise<OnboardingWrite> {
+  return writeOnboarding(clubId, (current) => ({
+    ...current,
+    skipped_steps: current.skipped_steps.includes(stepId) ? current.skipped_steps : [...current.skipped_steps, stepId],
   }));
 }
 

@@ -1,6 +1,8 @@
 import type { FirstStep } from './FirstStepsFlow';
 import ActuStep from './ActuStep';
 import ActuPreview from './ActuPreview';
+import EquipesStep from './EquipesStep';
+import EquipesPreview from './EquipesPreview';
 import FinalStep, { Discover } from './FinalStep';
 
 // SaaS S5 — LA liste des premiers pas. Ajouter une étape (S6 `equipes`, S7 `affiches`) = une entrée
@@ -14,6 +16,15 @@ export const FIRST_STEPS: FirstStep[] = [
     Component: ActuStep,
     Preview: ActuPreview,
     recap: { done: 'Première actu publiée', todo: 'Première actu à publier' },
+  },
+  {
+    id: 'equipes',
+    label: 'Vos équipes',
+    duration: '1 minute par équipe',
+    isDone: (state) => state.completed_steps.includes('equipes'),
+    Component: EquipesStep,
+    Preview: EquipesPreview,
+    recap: { done: 'Vos équipes et leur calendrier', todo: 'Aucune équipe pour l’instant' },
   },
   {
     id: 'fin',
