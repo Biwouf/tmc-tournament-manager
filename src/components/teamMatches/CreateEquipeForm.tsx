@@ -10,6 +10,7 @@ import {
   type TenupPoolPreview,
 } from '../../../shared/tenupPoolClient';
 import { teamCalendar } from '../../../shared/tenupPool.mjs';
+import { clubTeamCandidates, nextTeamNumber } from './teamImport';
 
 export default function CreateEquipeForm({
   competitions,
@@ -27,13 +28,7 @@ export default function CreateEquipeForm({
   const { clubId, club } = useClub();
   const { config, loading: configLoading } = useClubConfig();
   const clubNames = [config.brand.name, club?.name ?? ''];
-  const nextNumber = (id: string) =>
-    Math.max(
-      0,
-      ...existingEquipes
-        .filter((e) => e.competition_id === id)
-        .map((e) => e.numero)
-    ) + 1;
+  const nextNumber = (id: string) => nextTeamNumber(existingEquipes, id);
   const [competitionId, setCompetitionId] = useState(defaultCompetitionId);
   const [numero, setNumero] = useState(nextNumber(defaultCompetitionId));
   const [division, setDivision] = useState('');
@@ -73,15 +68,12 @@ export default function CreateEquipeForm({
         competitionId,
         url
       );
-      const candidates = suggestedTeamIds(
+      const candidates = clubTeamCandidates(
         result,
         clubNames,
-        config.brand.city
-      ).filter(
-        (id) =>
-          !existingEquipes.some(
-            (e) => e.competition_id === competitionId && e.tenup_team_id === id
-          )
+        config.brand.city,
+        existingEquipes,
+        competitionId
       );
       setTeamId(candidates.length === 1 ? candidates[0] : '');
       setPreview(result);

@@ -361,6 +361,8 @@ const postersSchema = z.object({
  */
 const onboardingSchema = z.object({
   completed_steps: z.array(z.string()).catch([]),
+  /** Étapes passées (« Passer cette étape », S6) : reportées, pas terminées ; S8 les reproposera. */
+  skipped_steps: z.array(z.string()).catch([]),
   postponed_at: optionalText,
   finished_at: optionalText,
 });
