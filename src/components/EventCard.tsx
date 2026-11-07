@@ -49,6 +49,9 @@ export default function EventCard({ event, onDelete, onDuplicate }: Props) {
           </>
         )}
       </p>
+      {event.registration_enabled && (
+        <p className="mt-1 text-xs font-medium text-primary">Inscription en ligne</p>
+      )}
 
       <div className="mt-4 flex gap-2 pt-2">
         <Link
@@ -56,6 +59,12 @@ export default function EventCard({ event, onDelete, onDuplicate }: Props) {
           className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted"
         >
           Modifier
+        </Link>
+        <Link
+          to={`/events/${event.id}/registrations`}
+          className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+        >
+          Inscrits
         </Link>
         <button
           onClick={onDuplicate}

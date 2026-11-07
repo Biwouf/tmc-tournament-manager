@@ -15,6 +15,7 @@ import LoginPage from './pages/LoginPage';
 import MediaGeneratorPage from './pages/MediaGeneratorPage';
 import EventsPage from './pages/EventsPage';
 import EventForm from './components/EventForm';
+import EventRegistrationsPage from './pages/EventRegistrationsPage';
 import LiveScorePage from './pages/LiveScorePage';
 import LiveMatchPage from './pages/LiveMatchPage';
 import LiveMatchForm from './components/LiveMatchForm';
@@ -162,6 +163,7 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <Route path="/events" element={auth(<EventsPage />)} />
         <Route path="/events/new" element={auth(<EventForm />)} />
         <Route path="/events/:id/edit" element={auth(<EventForm />)} />
+        <Route path="/events/:id/registrations" element={auth(<EventRegistrationsPage />)} />
         <Route path="/live-score" element={auth(<LiveScorePage />)} />
         <Route path="/live-score/new" element={auth(<LiveMatchForm />)} />
         <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />

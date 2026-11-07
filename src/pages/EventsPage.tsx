@@ -80,6 +80,10 @@ export default function EventsPage() {
         date_fin: ev.date_fin,
         image_url: ev.image_url,
         prix: ev.prix,
+        registration_enabled: ev.registration_enabled,
+        registration_max_per_member: ev.registration_max_per_member,
+        registration_capacity: ev.registration_capacity,
+        registration_deadline: ev.registration_deadline,
         club_id: clubId,
       })
       .select('id')

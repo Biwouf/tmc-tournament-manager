@@ -6,6 +6,7 @@ import { editorialRehypePlugins } from '../lib/markdown';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { formatDate } from '../components/events/EventCard';
+import EventRegistration from '../components/events/EventRegistration';
 import type { ClubEvent, EventType } from '../types';
 
 const expandBlankLines = (md: string) =>
@@ -74,6 +75,7 @@ export default function EventDetailPage() {
         </div>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{event.titre}</h1>
         <p className="text-sm text-muted-foreground">{formatDate(event)}</p>
+        {clubId && <EventRegistration clubId={clubId} eventId={event.id} />}
         <div className="markdown-body text-foreground mt-2">
           <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={editorialRehypePlugins}>{expandBlankLines(event.description)}</ReactMarkdown>
         </div>
