@@ -32,7 +32,8 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Liste paginée avec toggle « à venir / passés »
 - Formulaire de création/édition avec description en Markdown (aperçu intégré)
 - Upload d'image (JPEG/PNG, max 5 Mo) stockée sur Supabase Storage
-- Actions : modifier, dupliquer, supprimer
+- Actions : modifier, dupliquer, supprimer, **inscrits**
+- **Inscriptions** (07/11/2026) : par événement, inscription en ligne activable, nombre de places max par réservation (le membre compris), jauge totale et date limite optionnelles. Dans la PWA, un membre connecté s'inscrit depuis la fiche de l'événement, seul ou avec d'autres membres (inscrits d'office) et des invités non membres (prénom + nom), modifie sa réservation ou se désinscrit jusqu'à la clôture ; il voit les places restantes. Un membre inscrit par un autre peut se retirer seul. Un admin du club voit aussi, sur la fiche PWA, la liste des inscrits, peut en ajouter et en retirer, une personne ou tout un groupe à la fois. Dans le BO, la page **Inscrits** liste les réservations, permet de retirer une personne ou une réservation entière, et d'en ajouter (même inscription fermée, sans limite par réservation, jauge respectée). Paiement hors périmètre.
 - Exposition d'un flux JSON authentifié (via client Supabase) pour une future webapp publique
 
 ### Live Score

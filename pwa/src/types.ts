@@ -12,6 +12,10 @@ export interface ClubEvent {
   date_fin: string | null;
   image_url: string | null;
   prix: number | null;
+  registration_enabled: boolean;
+  registration_max_per_member: number;
+  registration_capacity: number | null;
+  registration_deadline: string | null;
   created_at: string;
   updated_at: string;
 }
