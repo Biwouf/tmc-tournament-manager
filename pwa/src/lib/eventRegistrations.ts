@@ -13,6 +13,7 @@ export interface Member {
   nom: string;
 }
 
+// Personne sans compte : invité d'un membre ou personne saisie par un admin.
 export type Guest = { prenom: string; nom: string };
 
 export const ERRORS: Record<string, string> = {
@@ -22,7 +23,7 @@ export const ERRORS: Record<string, string> = {
   REGISTRATION_CLOSED: 'Les inscriptions sont closes.',
   NOT_MEMBER: 'Réservé aux membres du club.',
   NOT_REGISTERED: 'Vous n’êtes pas inscrit à cet événement.',
-  VALIDATION_ERROR: 'Prénom et nom obligatoires pour chaque invité.',
+  VALIDATION_ERROR: 'Prénom et nom obligatoires pour chaque personne, et au moins une personne par groupe.',
   FORBIDDEN: 'Réservé aux administrateurs du club.',
 };
 
@@ -32,3 +33,6 @@ export function errorMessage(error: { message: string; details?: string | null }
 }
 
 export const fullName = (p: { prenom: string; nom: string }) => `${p.prenom} ${p.nom}`.trim();
+
+export const cleanGuests = (guests: Guest[]) =>
+  guests.map((g) => ({ prenom: g.prenom.trim(), nom: g.nom.trim() }));

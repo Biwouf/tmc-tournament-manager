@@ -11,7 +11,7 @@ async function fixture() {
   await db.exec(`CREATE TABLE events(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),club_id uuid NOT NULL REFERENCES clubs(id),
     titre text NOT NULL,date_debut timestamptz NOT NULL,date_fin timestamptz);
     GRANT SELECT ON events TO anon,authenticated;`);
-  for (const name of ["2026110701_event_registrations.sql", "2026110702_event_admin_remove_booking.sql"])
+  for (const name of ["2026110701_event_registrations.sql", "2026110702_event_admin_remove_booking.sql", "2026110801_event_registrations_sans_compte.sql"])
     await db.exec(await readFile(new URL(`../supabase/migrations/${name}`, import.meta.url), "utf8"));
   await db.exec(`UPDATE profiles SET prenom='P'||right(id::text,3),nom='N'||right(id::text,3);
     INSERT INTO events(id,club_id,titre,date_debut,registration_enabled,registration_max_per_member,registration_capacity) VALUES
@@ -140,6 +140,41 @@ test("Admin BO : liste, ajout hors clôture et hors quota, retrait", async () =>
     // La jauge s'impose aussi à l'admin.
     await f.db.exec(`UPDATE events SET registration_capacity=1 WHERE id='${id(42)}'`);
     await assert.rejects(add(103, [104], []), /EVENT_FULL/);
+  } finally {
+    await f.db.close();
+  }
+});
+
+test("Admin : groupe sans titulaire, personnes sans compte", async () => {
+  const f = await fixture();
+  try {
+    const add = (owner, members, guests) =>
+      f.rpc(101, "event_admin_add", [id(1), id(42), owner && id(owner), members.map(id), JSON.stringify(guests)]);
+    // Personne de nommée : refusé. Un membre non admin ne peut pas créer de groupe sans titulaire.
+    await assert.rejects(add(null, [], []), /VALIDATION_ERROR/);
+    await assert.rejects(f.rpc(103, "event_admin_add", [id(1), id(42), null, [], '[{"prenom":"A","nom":"B"}]']), /FORBIDDEN/);
+    await add(null, [104], [{ prenom: "Zoé", nom: "Sanscompte" }, { prenom: "Ana", nom: "Invitée" }]);
+    // Un second groupe sans titulaire n'est pas fusionné avec le premier.
+    await add(null, [], [{ prenom: "Max", nom: "Sanscompte" }]);
+    let list = await f.rpc(101, "event_admin_bookings", [id(1), id(42)]);
+    assert.equal(list.length, 2);
+    const [group, solo] = list;
+    assert.equal(group.owner_id, null);
+    assert.deepEqual(group.participants.map((p) => [p.prenom, p.is_guest]),
+      [["P104", false], ["Ana", true], ["Zoé", true]]);
+    // Le membre avec compte voit qu'il est inscrit, sans titulaire nommé.
+    const co = await f.state(104, 42);
+    assert.deepEqual([co.booking.is_owner, co.booking.owner_name], [false, null]);
+    // Retirer le dernier participant supprime la réservation.
+    assert.deepEqual(await f.rpc(101, "event_admin_remove", [id(1), solo.participants[0].id]), { removed: "booking" });
+    assert.deepEqual(await f.rpc(101, "event_admin_remove", [id(1), group.participants[2].id]), { removed: "participant" });
+    list = await f.rpc(101, "event_admin_bookings", [id(1), id(42)]);
+    assert.deepEqual(list.map((b) => b.participants.length), [2]);
+    // Un titulaire avec compte garde ses personnes sans compte quand l'admin complète sa réservation.
+    await add(103, [], [{ prenom: "Léa", nom: "Sanscompte" }]);
+    await add(103, [], [{ prenom: "Léo", nom: "Invité" }]);
+    const mine = (await f.state(103, 42)).booking.participants;
+    assert.deepEqual(mine.map((p) => p.prenom), ["P103", "Léo", "Léa"]);
   } finally {
     await f.db.close();
   }

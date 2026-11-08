@@ -8,6 +8,7 @@ import MemberPicker from './MemberPicker';
 import {
   ERRORS,
   errorMessage,
+  cleanGuests,
   fullName,
   type Guest,
   type Member,
@@ -25,7 +26,7 @@ interface RegistrationState {
   is_admin: boolean;
   booking:
     | { id: string; is_owner: true; participants: Participant[] }
-    | { id: string; is_owner: false; owner_name: string }
+    | { id: string; is_owner: false; owner_name: string | null }
     | null;
 }
 
@@ -60,8 +61,8 @@ function BookingEditor({
   const full = places >= max;
 
   const submit = async () => {
-    const cleanGuests = guests.map((g) => ({ prenom: g.prenom.trim(), nom: g.nom.trim() }));
-    if (cleanGuests.some((g) => !g.prenom || !g.nom)) {
+    const named = cleanGuests(guests);
+    if (named.some((g) => !g.prenom || !g.nom)) {
       setError(ERRORS.VALIDATION_ERROR);
       return;
     }
@@ -71,7 +72,7 @@ function BookingEditor({
       p_club: clubId,
       p_event: eventId,
       p_members: members.map((m) => m.id),
-      p_guests: cleanGuests,
+      p_guests: named,
     });
     setSaving(false);
     if (err) setError(errorMessage(err));
@@ -267,7 +268,7 @@ export default function EventRegistration({ clubId, eventId }: { clubId: string;
   } else if (booking) {
     body = (
       <>
-        <p className="text-sm font-semibold text-green-700">Vous êtes inscrit par {booking.owner_name}</p>
+        <p className="text-sm font-semibold text-green-700">Vous êtes inscrit par {booking.owner_name ?? 'le club'}</p>
         {state.open && (
           <button
             type="button"
