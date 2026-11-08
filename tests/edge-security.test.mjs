@@ -88,7 +88,7 @@ async function handler(name, options = {}) {
   vm.runInNewContext(js, {
     // `crypto` / `TextEncoder` : `contact-form` hache l'IP du visiteur avec les API web
     // standard, présentes dans Deno mais pas dans un contexte `vm` nu.
-    exports: {}, Request, Response, AbortSignal, console, crypto, TextEncoder, URL, createClient: () => client,
+    exports: {}, Request, Response, AbortSignal, console, crypto, TextEncoder, URL, File, FormData, createClient: () => client,
     require: (name) => { if (!shared[name]) throw new Error(`Unexpected import: ${name}`); return shared[name]; },
     Webhook: class { verify(body, headers) {
       effects.push('verify-signature');
@@ -100,7 +100,15 @@ async function handler(name, options = {}) {
       effects.push(url);
       // Le corps du POST /feed porte l'`access_token` : c'est la seule façon de vérifier
       // QUEL compte a publié, et donc que chaque club utilise bien le sien (PR8).
-      if (init?.body) effects.push({ feed: JSON.parse(init.body) });
+      // (L'envoi binaire d'une story n'a pas de corps JSON.)
+      if (typeof init?.body === 'string') effects.push({ feed: JSON.parse(init.body) });
+      // Stories : ouverture puis publication sur `video_stories`, envoi du fichier sur rupload.
+      if (url.includes('/video_stories')) {
+        return Response.json(JSON.parse(init.body).upload_phase === 'start'
+          ? { video_id: 'vid', upload_url: 'https://rupload.facebook.com/video-upload/v19.0/vid' }
+          : { success: true, post_id: 'story' });
+      }
+      if (url.startsWith('https://rupload.facebook.com')) return Response.json({ success: true });
       if (url.startsWith('https://graph.facebook.com')) {
         // `/me?metadata=1` est ce qui distingue une Page d'un compte utilisateur : le double
         // rend le `metadata.type` que Graph API renverrait pour le token présenté.
@@ -125,6 +133,10 @@ async function handler(name, options = {}) {
     role: () => membershipRole,
     // `headers` remplace l'en-tête par défaut — `contact-form` doit répondre à un visiteur
     // qui n'a AUCUN `Authorization`, ce qu'on ne peut pas montrer en le laissant en place.
+    // Requête multipart (story Facebook) : le navigateur pose lui-même le `Content-Type`.
+    callForm: (form) => serve(new Request('https://function.invalid', {
+      method: 'POST', headers: { Authorization: 'Bearer test' }, body: form,
+    })),
     call: (body, headers) => serve(new Request('https://function.invalid', {
       method: 'POST',
       headers: headers ?? { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
@@ -169,6 +181,48 @@ for (const [club, token] of [['club-a', 'token-a'], ['club-b', 'token-b']]) {
     assert.equal(body.access_token, token, 'token of the actu club');
   });
 }
+// Story Facebook : même règle que la publication d'une actu, vérifiée AVANT l'envoi de la
+// vidéo à Facebook. Le `club_id` vient du formulaire : il ne doit ouvrir que les droits que
+// l'appelant a réellement dans ce club.
+const storyForm = (club = 'club-a', video = new File([new Uint8Array(1024)], 'p.mp4', { type: 'video/mp4' })) => {
+  const form = new FormData();
+  form.set('club_id', club);
+  if (video) form.set('video', video);
+  return form;
+};
+for (const [label, options, form, expected] of [
+  ['manager of the club', {}, storyForm(), 200],
+  ['admin of the club', { role: 'admin' }, storyForm(), 200],
+  ['super-admin', { role: null, superAdmin: true }, storyForm(), 200],
+  ['member', { role: 'member' }, storyForm(), 403],
+  ['non-member', { role: null }, storyForm(), 403],
+  ['manager of another club', {}, storyForm('club-b'), 403],
+  ['suspended', { status: 'suspended' }, storyForm(), 403],
+  ['club without a connected page', { credentials: {} }, storyForm(), 400],
+  ['missing video', {}, storyForm('club-a', null), 400],
+  ['not an MP4', {}, storyForm('club-a', new File(['x'], 'p.gif', { type: 'image/gif' })), 400],
+  ['anonymous', { noUser: true }, storyForm(), 401],
+]) {
+  test(`Facebook story: ${label}`, async () => {
+    const app = await handler('post-story-to-facebook', options);
+    const response = await app.callForm(form);
+    assert.equal(response.status, expected);
+    const calls = app.effects.filter(e => typeof e === 'string' && /^https:\/\/(graph|rupload)\.facebook\.com/.test(e));
+    assert.equal(calls.length, expected === 200 ? 3 : 0, 'start, upload, finish — or nothing');
+  });
+}
+
+test('Facebook story: publishes on the page of the club, with its token', async () => {
+  const app = await handler('post-story-to-facebook', { actuClub: 'club-b' });
+  const response = await app.callForm(storyForm('club-b'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { success: true, post_id: 'story', page_id: 'page-b' });
+  const graph = app.effects.filter(e => typeof e === 'string' && e.startsWith('https://graph.facebook.com'));
+  assert.deepEqual(graph, Array(2).fill('https://graph.facebook.com/v19.0/page-b/video_stories'));
+  const bodies = app.effects.filter(e => typeof e === 'object' && e.feed).map(e => e.feed);
+  assert.deepEqual(bodies.map(b => [b.upload_phase, b.access_token]), [['start', 'token-b'], ['finish', 'token-b']]);
+});
+
 for (const action of ['send', 'generate-link']) {
   test(`Invitation ${action}: existing membership keeps its admin role`, async () => {
     const app = await handler('invite-user', { role: 'admin' });

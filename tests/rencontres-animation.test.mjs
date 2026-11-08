@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRencontresTimeline, splitOpponent, dayParts, toAnimRencontre } from '../src/components/rencontresAnimation/timeline.ts';
+import { buildRencontresTimeline, buildRencontresStoryParts, splitOpponent, dayParts, toAnimRencontre } from '../src/components/rencontresAnimation/timeline.ts';
 
 let id = 0;
 const r = (date, time, opponent, location = 'home', extra = {}) => ({
@@ -71,4 +71,23 @@ test('Recap of 8 matches on 3 days stays above the bottom safe zone', () => {
   assert.equal(rows.length, 8);
   assert.ok(rows.at(-1).y + tl.recap.rowH <= 1650, `dernière ligne à ${rows.at(-1).y + tl.recap.rowH}`);
   assert.ok(tl.recap.rowH >= 80);
+});
+
+test('Facebook story: one part under 30 s, otherwise split between screens, each part a full story', () => {
+  const day = (date, n) => Array.from({ length: n }, (_, i) => r(date, '09:00', `CLUB${i} TC 1`));
+  const three = day('2026-11-08', 3);
+  assert.deepEqual(buildRencontresStoryParts(three), [buildRencontresTimeline(three)]);
+
+  // Un jour de 6 : 3 + 3 et un récap, 32 s → deux stories d'un écran, sans récap
+  const six = day('2026-11-08', 6);
+  assert.ok(buildRencontresTimeline(six).total > 30);
+  const p6 = buildRencontresStoryParts(six);
+  assert.deepEqual(p6.map((tl) => [tl.cards.length, tl.recap]), [[3, null], [3, null]]);
+
+  // Deux jours de 4 (l'affiche en compte 8 au plus) : une story par jour, chacune avec son récap
+  const eight = [...day('2026-11-14', 4), ...day('2026-11-15', 4)];
+  const p8 = buildRencontresStoryParts(eight);
+  assert.deepEqual(p8.map((tl) => tl.days.map((d) => d.date)), [['2026-11-14'], ['2026-11-15']]);
+  assert.ok(p8.every((tl) => tl.total <= 30 && tl.recap));
+  assert.equal(buildRencontresStoryParts(eight, 60).length, 1);
 });

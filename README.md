@@ -26,7 +26,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Couleurs du club** : l'affiche reprend la couleur principale du club (*Admin › Configuration du site › Identité du club › Couleur principale*), avec des nuances dérivées pour le cartouche et le fond des joueurs du club ; rouge `#c8102e` par défaut
 - **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
 - **Animation vidéo du programme** : une fois l'affiche téléchargée, une animation (story 1080×1920 ou carré 1080×1080) reprend ses matchs, son club mis en valeur et ses partenaires, aux couleurs et au logo du club ; lecteur intégré et **export MP4 généré dans le navigateur** (quelques secondes, continue onglet caché)
-- **Story animée des rencontres par équipes** : dans *Génération de médias › Matches par équipe*, une fois l'affiche générée, une story 1080×1920 « Prochaines rencontres » (une grosse date par jour, cartes club VS adversaire avec domicile/déplacement, récap si plusieurs écrans, partenaires en clôture) ; lecteur intégré et export MP4 dans le navigateur, lancé aussi automatiquement après l'affiche (case « Générer aussi la vidéo dans la foulée »)
+- **Story animée des rencontres par équipes** : dans *Génération de médias › Matches par équipe*, une fois l'affiche générée, une story 1080×1920 « Prochaines rencontres » (une grosse date par jour, cartes club VS adversaire avec domicile/déplacement, récap si plusieurs écrans, partenaires en clôture) ; lecteur intégré et export MP4 dans le navigateur, lancé aussi automatiquement après l'affiche (case « Générer aussi la vidéo dans la foulée »). **Publier en story Facebook** (admin et manager) la publie directement sur la page du club, découpée en plusieurs stories de 30 s au plus si besoin (« 1/2 » après le nom du club)
 
 ### Événements
 - Gestion des événements du club (Animations, Tournois, Sorties, Soirées)
@@ -368,6 +368,7 @@ Sous l'aperçu, la section **« Animation vidéo »** s'ouvre une fois l'affiche
 - Choisir le format : **story** (1080 × 1920, pour les stories Facebook / Instagram) ou **carré** (1080 × 1080, pour une publication)
 - Le titre est prérempli avec l'événement choisi dans « Envoyer vers Live Score », modifiable
 - **Télécharger la vidéo (MP4)** la génère dans le navigateur (Chrome, Edge ou Safari récents) en quelques secondes ; on peut changer d'onglet pendant la génération, sans fermer la page
+- En format story, **Publier en story Facebook** (admin et manager) la publie directement sur la page Facebook du club, visible 24 h. Une story est limitée à 30 s : au-delà, la vidéo est découpée entre deux écrans en plusieurs stories (« 1/2 », « 2/2 » après la date), chacune avec son récap
 
 #### 4. Basculer les matches vers Live Score
 

@@ -456,7 +456,33 @@ Durées mesurées le 31/10/2026 (Chrome, Mac Apple Silicon), story de 20,25 s (a
 
 Rendu d'une image : 0,5 à 6 ms selon l'instant ; l'encodage H.264 matériel domine.
 
-Hors périmètre : mode Résultats, musique, publication directe sur Facebook (`post-to-facebook` ne publie que des photos et des posts).
+Hors périmètre : mode Résultats, musique.
+
+### Publication en story Facebook (07/11/2026, rencontres le 08/11)
+
+En format **story**, un bouton **« Publier en story Facebook »** (admin, manager ou super-admin du club ; masqué pour
+un `member`) publie l'animation sur la page Facebook connectée dans *Admin → Comptes sociaux*. Même bouton sur la story
+des rencontres par équipes (§ suivant), avec la même logique ; seuls le découpage en écrans et l'emplacement du numéro
+de partie changent. Logique d'envoi partagée : `programmeAnimation/storyPublish.ts`. Facebook seulement (pas
+d'Instagram), vidéo seulement (pas l'affiche en story photo).
+
+- **Durée** : `STORY_MAX_SECONDS = 30` (`timeline.ts`). Meta Business Suite bloque à 30 s ; l'API en accepte 60 à 90
+  selon les pages de sa doc — on s'aligne sur la plus stricte, une constante à changer si besoin.
+- **Découpage** (`buildStoryParts`, sur `splitStoryParts` générique) : au-delà, l'animation part en plusieurs stories, **coupées entre deux écrans**, en
+  aussi peu de parties que possible puis la plus longue aussi courte que possible (programmation dynamique sur les
+  écrans ; 8 écrans d'un match → 4 + 4, pas 6 + 2). Chaque partie est une **animation complète** : intro, date suivie de
+  « · 1/2 », ses écrans, **son propre récap**, outro. Un récap de tous les matchs à la fin déborderait (9 lignes au plus
+  en story) précisément dans les cas qu'on découpe. La section annonce le découpage (« 2 parties (24 s + 20 s) ») ; le
+  lecteur montre l'animation entière, pas les parties.
+- **Ordre** : confirmation (« visible 24 h »), puis **toutes les parties sont générées** avant le premier envoi — un échec
+  d'encodage ne laisse pas une story 1/2 sans sa suite. Envoi ensuite partie par partie, dans l'ordre ; en cas d'échec
+  au milieu, le message dit combien de stories sont déjà publiées. Annuler possible pendant la génération seulement.
+- **Edge Function `post-story-to-facebook`** : `multipart/form-data` (`club_id`, `video` MP4 ≤ 100 Mo), une partie par
+  appel. Mêmes contrôles que `post-to-facebook` (club actif, admin/manager ou super-admin), **avant** tout appel à
+  Facebook ; token lu en service role dans `club_social_credentials`. Graph API `v19.0` : `/{page_id}/video_stories`
+  `upload_phase=start` → envoi binaire sur l'`upload_url` (`rupload.facebook.com`, en-têtes `offset` / `file_size`) →
+  `upload_phase=finish`. Le fichier transite par la function : le token de la page ne descend jamais dans le navigateur.
+  Tests : `npm run test:security` (autorisation, page et token du club) et `npm run test:programme-animation` (découpage).
 
 ---
 
@@ -519,6 +545,14 @@ Durées (`npm run test:rencontres-animation`) : 1 jour / 1 rencontre 12,4 s ; 1 
 Silicon, worker) : story de 34,8 s (5 rencontres sur 2 jours, 10 partenaires) en ~18 s, ~35 Mo.
 
 ---
+
+### Publication en story Facebook
+
+Même bouton que pour le tournoi (§ « Publication en story Facebook »). `buildRencontresStoryParts` coupe entre deux
+écrans (mêmes écrans que la timeline : un jour, 3 rencontres au plus) via `splitStoryParts`. La story dépasse 30 s dès
+deux écrans (récap ≈ 7 s), le découpage est donc courant : un jour de 6 → deux stories d'un écran, **sans récap** ; deux
+jours de 4 → une story par jour, chacune avec son récap. Le numéro « · 1/2 » suit le **surtitre** (nom du club) : le
+grand titre « Prochaines rencontres » n'a pas la place.
 
 ## État React (local, pas de persistance)
 
