@@ -6,7 +6,7 @@ type MediaType = 'tournoi' | 'equipes';
 
 const MEDIA_TYPES: { key: MediaType; label: string; description: string }[] = [
   { key: 'tournoi', label: 'Tournoi', description: 'Programme à venir ou résultats, depuis une feuille Ten’Up.' },
-  { key: 'equipes', label: 'Matches par équipe', description: 'Affiche des rencontres à venir.' },
+  { key: 'equipes', label: 'Matches par équipe', description: 'Affiche des rencontres à venir et sa story vidéo.' },
 ];
 
 export default function MediaGeneratorPage() {

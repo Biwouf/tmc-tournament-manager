@@ -33,6 +33,7 @@ interface FieldErrors {
   date_fin?: string;
   image?: string;
   prix?: string;
+  registration?: string;
 }
 
 export default function EventForm() {
@@ -51,6 +52,10 @@ export default function EventForm() {
   const [dateFin, setDateFin] = useState('');
   const [prix, setPrix] = useState('');
   const [notifyMembers, setNotifyMembers] = useState(true);
+  const [regEnabled, setRegEnabled] = useState(false);
+  const [regMax, setRegMax] = useState('1');
+  const [regCapacity, setRegCapacity] = useState('');
+  const [regDeadline, setRegDeadline] = useState('');
 
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -95,6 +100,10 @@ export default function EventForm() {
         setDateFin(isoToLocalInput(ev.date_fin));
         setPrix(ev.prix === null ? '' : String(ev.prix));
         setExistingImageUrl(ev.image_url);
+        setRegEnabled(ev.registration_enabled);
+        setRegMax(String(ev.registration_max_per_member));
+        setRegCapacity(ev.registration_capacity === null ? '' : String(ev.registration_capacity));
+        setRegDeadline(isoToLocalInput(ev.registration_deadline));
         setLoading(false);
       });
   }, [id, isEdit, clubId]);
@@ -136,6 +145,14 @@ export default function EventForm() {
     if (prix && (isNaN(Number(prix)) || Number(prix) < 0)) {
       errs.prix = 'Le prix doit être un nombre positif.';
     }
+    const max = Number(regMax);
+    if (!Number.isInteger(max) || max < 1 || max > 50) {
+      errs.registration = 'Le nombre de places par réservation doit être un entier entre 1 et 50.';
+    } else if (regCapacity && (!Number.isInteger(Number(regCapacity)) || Number(regCapacity) < 1)) {
+      errs.registration = 'La jauge doit être un entier supérieur ou égal à 1.';
+    } else if (regDeadline && dateDebut && new Date(regDeadline) > new Date(dateDebut)) {
+      errs.registration = "La date limite d'inscription doit précéder le début de l'événement.";
+    }
     return errs;
   };
 
@@ -172,6 +189,10 @@ export default function EventForm() {
         date_debut: localInputToIso(dateDebut),
         date_fin: dateFin ? localInputToIso(dateFin) : null,
         prix: prix === '' ? null : Number(prix),
+        registration_enabled: regEnabled,
+        registration_max_per_member: Number(regMax),
+        registration_capacity: regCapacity === '' ? null : Number(regCapacity),
+        registration_deadline: regDeadline ? localInputToIso(regDeadline) : null,
       };
 
       let targetId = id;
@@ -364,6 +385,57 @@ export default function EventForm() {
             />
             {errors.prix && <p className="mt-1 text-xs text-red-600">{errors.prix}</p>}
           </div>
+
+          {/* Inscriptions */}
+          <fieldset className="space-y-4 rounded-xl border border-border p-4">
+            <legend className="px-2 text-sm font-medium text-foreground">Inscriptions</legend>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input type="checkbox" checked={regEnabled} onChange={(e) => setRegEnabled(e.target.checked)} />
+              Inscription en ligne depuis l'application des membres
+            </label>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground">Places max par réservation</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  step="1"
+                  value={regMax}
+                  onChange={(e) => setRegMax(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Le membre compris (1 = seul).</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground">
+                  Jauge totale <span className="text-muted-foreground">(optionnel)</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={regCapacity}
+                  placeholder="Illimitée"
+                  onChange={(e) => setRegCapacity(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground">
+                  Date limite <span className="text-muted-foreground">(optionnel)</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={regDeadline}
+                  onChange={(e) => setRegDeadline(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Vide = jusqu'au début de l'événement.</p>
+              </div>
+            </div>
+            {errors.registration && <p className="text-xs text-red-600">{errors.registration}</p>}
+          </fieldset>
 
           {!isEdit && (
             <label className="flex items-center gap-2 text-sm text-foreground">

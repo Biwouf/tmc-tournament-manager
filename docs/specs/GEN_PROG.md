@@ -12,7 +12,7 @@
 | Type | URL | Contenu |
 |---|---|---|
 | **Tournoi** (défaut) | `/medias` | Cette spec : `ProgrammationImagePage`, avec sa bascule Programmation / Résultats après import |
-| **Matches par équipe** | `/medias?type=equipes` | `TeamPosterGenerator` : choix de la saison puis affiche des rencontres à venir (`PosterPanel`, cf. `TEAM_MATCHES.md`) |
+| **Matches par équipe** | `/medias?type=equipes` | `TeamPosterGenerator` : choix de la saison puis affiche des rencontres à venir (`PosterPanel`, cf. `TEAM_MATCHES.md`) et sa story animée (§ « Story animée des rencontres par équipes ») |
 
 Le type Tournoi est **masqué et non démonté** (prop `hidden`) : changer de type conserve le fichier
 importé et les réglages. La saison est mémorisée par club et partagée avec `/team-matches`
@@ -457,6 +457,66 @@ Durées mesurées le 31/10/2026 (Chrome, Mac Apple Silicon), story de 20,25 s (a
 Rendu d'une image : 0,5 à 6 ms selon l'instant ; l'encodage H.264 matériel domine.
 
 Hors périmètre : mode Résultats, musique, publication directe sur Facebook (`post-to-facebook` ne publie que des photos et des posts).
+
+---
+
+## Story animée des rencontres par équipes
+
+Portage dans le BO de la skill Claude `rencontres-equipes-animation` (v1 du 07/11/2026) : mêmes
+séquences et mêmes durées que son gabarit, rendu Canvas fonction pure du temps `T`, export par le
+**même pipeline** que l'animation du programme (worker, `VideoEncoder`, `mp4-muxer`, repli thread
+principal). Code : `src/components/rencontresAnimation/` (timeline, rendu, section) ; les
+primitives de dessin (calques d'opacité, texte, ombres, court, grain) sont importées de
+`programmeAnimation/renderFrame.ts`, et `ExportJob` porte un `kind` (`programme` | `rencontres`).
+
+### Disponibilité
+
+- Type **Matches par équipe** de `/medias` uniquement (`PosterPanel` sans `onClose`) ; pas dans le
+  panneau latéral de `/team-matches`.
+- Section active une fois **l'affiche générée** : toute nouvelle sélection (rencontres, fond,
+  partenaires) remet déjà le JPEG à zéro, donc la vidéo reprend toujours l'affiche courante.
+- Case **« Générer aussi la vidéo dans la foulée »** sous « Générer l'affiche » (cochée par défaut,
+  non enregistrée) : après la génération, le panneau incrémente `videoRequest` et la section lance
+  l'export dès qu'elle est prête.
+- **Story uniquement** (1080 × 1920), comme la skill ; pas de titre modifiable.
+- Fichier : `story-rencontres-<samedi du week-end>.mp4`.
+
+### Données
+
+| Animation | Source |
+|---|---|
+| Rencontres | `selectedMatches` de l'affiche (`TeamMatch`), par date croissante, regroupées par jour |
+| Heure | `formatHeure` (« 9h », « 14h30 ») ; pastille du jour = horaires sans doublon |
+| Catégorie | `GENRE · CATÉGORIE` en majuscules (`GENRE_LABELS`, `formatCategorie`) |
+| Équipe | `ÉQUIPE n` |
+| Adversaire | `splitOpponent(club_adverse)` : la ville en gros, le reste en sous-titre (`LAUNAGUET RACING TENNIS CLUB 1` → LAUNAGUET / RACING TENNIS CLUB 1 ; `TENNIS CLUB GRISOLLES 1` → GRISOLLES / TENNIS CLUB 1). Mots de club reconnus : TENNIS, CLUB, TC, T.C, A.S, ASPTT, ASSOCIATION, PADEL, RACING. Aucun : tout en gros |
+| Bloc du club (toujours à gauche) | `brand.city`, à défaut `brand.short_name`, puis `brand.name`, en majuscules |
+| Domicile / déplacement | `location` : bandeau bordeaux + maison « À DOMICILE · AU CLUB » ou noir + avion « DÉPLACEMENT » (icônes vectorielles) |
+| Surtitre | `brand.name` en majuscules ; titre fixe « Prochaines rencontres » |
+| Logo | en-tête et bloc du club rempli : `brand.logo_inverse`, sinon `brand.logo` dans un disque blanc ; fond clair : `brand.logo` |
+| Partenaires | logos déjà tirés pour l'affiche, **écran final seulement** (une rangée jusqu'à 5, deux au-delà), révélés colonne par colonne |
+| Couleurs | `animationPalette(brand.color)`, comme l'animation du programme |
+
+Polices : Prompt 600/700/800 **et 800 italique** (VS, « VENEZ NOUS ENCOURAGER ! »), Manrope 600,
+ajoutées au jeu embarqué de `fonts.ts`.
+
+### Séquences
+
+1. Intro 0,9 s — logo, surtitre lettre par lettre, titre.
+2. Par jour : grosse date 2,3 s (jour, numéro qui claque — « 1er » le premier du mois —, mois,
+   pastille horaires, « N RENCONTRES »), qui se range ensuite en ligne compacte sous le titre.
+3. Écrans de cartes : 3 cartes max par écran, répartition équilibrée (4 → 2+2, 5 → 3+2), cartes de
+   400 px (≤ 2) ou 320 px (3). Durée = 0,5 × (n − 1) + 1,5 + 1,5 × n + 1,5 s (~5 s de lecture
+   une fois les cartes posées, validé dans la skill). Balayage diagonal entre deux écrans.
+4. **Récap** seulement si les rencontres occupent plusieurs écrans : lignes groupées par jour,
+   badges AU CLUB / EXT. colorés en cascade, ~5 s de tenue. Lignes de 104 px, resserrées pour
+   tenir au-dessus de la zone sûre basse (y ≤ 1650) : 8 rencontres sur 3 jours tiennent.
+5. Clôture 4,2 s : logo, « VENEZ NOUS ENCOURAGER ! », pastilles « N au club » / « N en
+   déplacement », partenaires ; fondu 0,5 s.
+
+Durées (`npm run test:rencontres-animation`) : 1 jour / 1 rencontre 12,4 s ; 1 jour / 3 rencontres
+16,4 s ; 2 jours / 3 + 3 rencontres 34,2 s. Export mesuré le 07/11/2026 (Chrome, Mac Apple
+Silicon, worker) : story de 34,8 s (5 rencontres sur 2 jours, 10 partenaires) en ~18 s, ~35 Mo.
 
 ---
 

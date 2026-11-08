@@ -3,6 +3,7 @@
 // réglages de l'affiche générée (matchs, club mis en valeur, partenaires tirés) : la page ne la
 // rend disponible qu'une fois l'affiche téléchargée avec les réglages courants (`ready`).
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { toBitmap } from './bitmaps';
 import { loadAnimationFonts } from './fonts';
 import { ExportCancelled, exportMp4, pickEncoderConfig } from './exportMp4';
 import { animationPalette } from './palette';
@@ -33,36 +34,6 @@ const FORMATS: { value: AnimationFormat; label: string }[] = [
   { value: 'carre', label: 'Carré (1080 × 1080)' },
 ];
 const PREVIEW_H = 560;
-
-// Images décodées une fois en ImageBitmap, transférables au worker d'export. Elles passent par un
-// <img> et un canvas : un worker (et `createImageBitmap(blob)`) ne sait pas décoder un SVG. Côté
-// le plus long ramené à 512 px au plus (un SVG y est rastérisé) : le plus grand logo de la vidéo
-// fait ~160 px.
-const BITMAP_MAX = 512;
-async function toBitmap(url: string): Promise<ImageBitmap | null> {
-  if (!url) return null;
-  let src = '';
-  try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    src = URL.createObjectURL(blob);
-    const img = new Image();
-    img.src = src;
-    await img.decode();
-    const nw = img.naturalWidth || BITMAP_MAX, nh = img.naturalHeight || BITMAP_MAX;
-    const s = blob.type.includes('svg') ? BITMAP_MAX / Math.max(nw, nh) : Math.min(1, BITMAP_MAX / Math.max(nw, nh));
-    const c = Object.assign(document.createElement('canvas'), { width: Math.max(1, Math.round(nw * s)), height: Math.max(1, Math.round(nh * s)) });
-    const g = c.getContext('2d')!;
-    g.imageSmoothingQuality = 'high';
-    g.drawImage(img, 0, 0, c.width, c.height);
-    return await createImageBitmap(c);
-  } catch {
-    return null;
-  } finally {
-    if (src) URL.revokeObjectURL(src);
-  }
-}
 
 export default function ProgrammeAnimationSection({
   ready, matches, date, highlightedClub, partnerLogos, color, logo, logoInverse, clubName, clubSlug, defaultTitle, exportRequest,
@@ -150,7 +121,7 @@ export default function ProgrammeAnimationSection({
     setProgress({ frame: 0, frames: Math.round(tl.total * 30) });
     setExporting(true);
     try {
-      const blob = await exportMp4({ tl, color: palette.red, texts, assets }, (frame, frames) => setProgress({ frame, frames }), () => cancelRef.current);
+      const blob = await exportMp4({ kind: 'programme', tl, color: palette.red, texts, assets }, (frame, frames) => setProgress({ frame, frames }), () => cancelRef.current);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

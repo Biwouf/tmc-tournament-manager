@@ -15,6 +15,7 @@ import {
   type WeekendRange,
 } from '../weekend';
 import { MAX_POSTER_MATCHES, formatRencontreDate, rencontreToTeamMatch } from './posterHelpers';
+import RencontresAnimationSection from '../../rencontresAnimation/RencontresAnimationSection';
 
 interface Groupe {
   key: string;
@@ -23,7 +24,11 @@ interface Groupe {
   entries: RencontreEntry[];
 }
 
-/** Rencontres à venir groupées par week-end (courant, suivant, puis le reste). */
+/**
+ * Rencontres groupées par week-end : le week-end courant EN ENTIER (les rencontres déjà commencées
+ * comprises : elles sont présélectionnées, et le dimanche elles disparaissaient de la liste tout
+ * en restant cochées), puis les rencontres à venir du week-end suivant et au-delà.
+ */
 function groupByWeekend(entries: RencontreEntry[], now: Date): Groupe[] {
   const courant = currentWeekendRange(now);
   const suivant = nextWeekendRange(now);
@@ -34,7 +39,7 @@ function groupByWeekend(entries: RencontreEntry[], now: Date): Groupe[] {
       key: 'courant',
       label: `Ce week-end · ${formatWeekendLabel(courant)}`,
       range: courant,
-      entries: aVenir.filter((e) => isInRange(e.rencontre.date_heure, courant)),
+      entries: entries.filter((e) => isInRange(e.rencontre.date_heure, courant)),
     },
     {
       key: 'suivant',
@@ -96,6 +101,9 @@ export default function PosterPanel({
   );
 
   const [genStatus, setGenStatus] = useState<'idle' | 'loading' | 'done'>('idle');
+  /** « Générer aussi la vidéo » (pleine page) : coché par défaut, l'export suit la génération. */
+  const [withVideo, setWithVideo] = useState(true);
+  const [videoRequest, setVideoRequest] = useState(0);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const posterRef = useRef<HTMLDivElement>(null);
 
@@ -148,6 +156,7 @@ export default function PosterPanel({
       const url = await toJpeg(node, { quality: 0.92, pixelRatio: 2 });
       setDataUrl(url);
       setGenStatus('done');
+      if (withVideo && !onClose) setVideoRequest((n) => n + 1);
     } catch (err) {
       console.error(err);
       setGenStatus('idle');
@@ -194,6 +203,13 @@ export default function PosterPanel({
         )}
         {genBtnLabel}
       </button>
+
+      {!onClose && (
+        <label className="mt-2 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={withVideo} onChange={(e) => setWithVideo(e.target.checked)} />
+          Générer aussi la vidéo dans la foulée
+        </label>
+      )}
 
       {dataUrl && (
         <a
@@ -314,6 +330,25 @@ export default function PosterPanel({
               <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={config.brand.color} partnerLogos={posterPartnerLogos} />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Story animée : /medias uniquement, une fois l'affiche générée (toute nouvelle sélection
+          remet `dataUrl` à null, donc la vidéo suit toujours l'affiche) */}
+      {!onClose && selectedMatches.length > 0 && (
+        <div className="mt-4">
+          <RencontresAnimationSection
+            ready={genStatus === 'done' && !!dataUrl}
+            matches={selectedMatches}
+            partnerLogos={posterPartnerLogos}
+            color={config.brand.color ?? ''}
+            logo={config.brand.logo ?? ''}
+            logoInverse={config.brand.logo_inverse ?? ''}
+            clubName={config.brand.name}
+            homeName={config.brand.city || config.brand.short_name || config.brand.name}
+            fileName={`story-rencontres-${weekendFileDate(weekend)}`}
+            exportRequest={videoRequest}
+          />
         </div>
       )}
 
