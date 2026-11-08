@@ -5,6 +5,8 @@ import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
 import { animationPalette } from './palette';
 import { renderFrame, type AnimationTexts, type Ctx2D, type FrameAssets } from './renderFrame';
 import type { Timeline } from './timeline';
+import { renderRencontresFrame, type RencontresTexts } from '../rencontresAnimation/renderFrame';
+import type { RencontresTimeline } from '../rencontresAnimation/timeline';
 
 export const FPS = 30;
 const BITRATE = 8_000_000;
@@ -28,8 +30,11 @@ export async function pickEncoderConfig(width: number, height: number): Promise<
 
 export class ExportCancelled extends Error {}
 
-/** Tout ce qu'il faut pour rendre la vidéo ; clonable vers un worker (la palette est recalculée). */
-export type ExportJob = { tl: Timeline; color: string; texts: AnimationTexts; assets: FrameAssets };
+/** Tout ce qu'il faut pour rendre la vidéo ; clonable vers un worker (la palette est recalculée).
+ *  `kind` choisit la scène : programme d'un tournoi ou story des rencontres par équipes. */
+export type ExportJob =
+  | { kind: 'programme'; tl: Timeline; color: string; texts: AnimationTexts; assets: FrameAssets }
+  | { kind: 'rencontres'; tl: RencontresTimeline; color: string; texts: RencontresTexts; assets: FrameAssets };
 type Progress = (frame: number, frames: number) => void;
 
 // Rend la main à la boucle d'événements par un message (un `setTimeout` est bridé à 1 s
@@ -41,7 +46,8 @@ const yieldTask = () => new Promise<void>((resolve) => {
 });
 
 /** Rend et encode toutes les images sur le thread courant (worker ou page). */
-export async function encodeAnimation({ tl, color, texts, assets }: ExportJob, onProgress: Progress, isCancelled: () => boolean = () => false): Promise<ArrayBuffer> {
+export async function encodeAnimation(job: ExportJob, onProgress: Progress, isCancelled: () => boolean = () => false): Promise<ArrayBuffer> {
+  const { tl, color } = job;
   const { W, H } = tl;
   const config = await pickEncoderConfig(W, H);
   if (!config) throw new Error('Ce navigateur ne sait pas encoder de vidéo H.264.');
@@ -63,7 +69,8 @@ export async function encodeAnimation({ tl, color, texts, assets }: ExportJob, o
   try {
     for (let i = 0; i < frames; i++) {
       if (isCancelled()) throw new ExportCancelled();
-      renderFrame(g, tl, i / FPS, pal, texts, assets);
+      if (job.kind === 'rencontres') renderRencontresFrame(g, job.tl, i / FPS, pal, job.texts, job.assets);
+      else renderFrame(g, job.tl, i / FPS, pal, job.texts, job.assets);
       const frame = new VideoFrame(canvas, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
       encoder.encode(frame, { keyFrame: i % (FPS * 2) === 0 });
       frame.close();
