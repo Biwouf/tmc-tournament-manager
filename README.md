@@ -201,9 +201,11 @@ Un club crée son espace seul, en quatre écrans et moins de deux minutes, avec 
 
 ### Premiers pas d'un nouveau club `/premiers-pas`
 
-Juste après le lien, le fondateur publie sa première actu en une minute et repart avec l'app de son club, prête à partager.
+Juste après le lien, le fondateur publie sa première actu, ajoute ses équipes depuis TEN'UP et repart avec l'app de son club, prête à partager.
 
 - **Première actu** : un message préparé, modifiable, publié en un clic. Sans photo ajoutée, l'actu prend la photo du club. Le téléphone à côté montre l'onglet Actu de l'app, aux couleurs du club.
+- **Vos équipes** : le fondateur colle le lien TEN'UP de la poule d'une équipe. La saison (créée si besoin, septembre → août), la compétition, l'équipe, ses journées et ses rencontres sont créées en un geste, et le téléphone montre aussitôt les rencontres dans l'onglet « Matchs équipes ». L'équipe du club est reconnue dans la poule ; sinon, il la choisit dans la liste. Si TEN'UP ne dit pas le genre, le format ou le 3e set de la compétition, la question est posée sur place. Une même poule collée deux fois est signalée comme déjà présente. « Passer cette étape » la reporte (elle n'est pas comptée comme faite).
+- Pendant l'essai, un club peut faire au plus **20 lectures TEN'UP par 24 heures** (une équipe en coûte une ou deux). Les clubs abonnés et le CAC ne sont pas limités.
 - **C'est prêt** : l'adresse `app-<slug>.feelike.pro`, un bouton pour la copier, son QR code, et un aperçu de ce qu'il reste à découvrir (live score, cours, feuille de match en photo).
 - Ouvrir le back-office ramène à ces écrans, à la bonne étape, tant que le parcours n'est ni terminé (« Aller au tableau de bord ») ni reporté (« Je finirai plus tard »). Ensuite, il ne revient plus.
 - Réservé aux admins d'un club créé par inscription et en essai : les autres clubs ne voient rien.

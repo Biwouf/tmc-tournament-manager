@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { brandTokens } from '../../../shared/brandTokens.mjs';
 import { clubThemeTokens } from '../../lib/theme';
+import { seasonLabel } from '../teamMatches/teamMatchLabels';
 
 // SaaS S3 — aperçu en direct du tunnel : le site vitrine et l'écran « Matchs équipes » de la
 // PWA, dans le STYLE RÉEL du produit (pas celui de feelike.pro).
@@ -108,18 +109,14 @@ export function SitePreview({ data, mobile }: { data: PreviewData; mobile: boole
 // Rencontres d'exemple : le week-end qui vient, puis le suivant.
 const JOURS = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
 const MOIS = ['JANV', 'FÉVR', 'MARS', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
-function sampleMatches(today: Date) {
+function sampleMatches(today: Date): MatchCard[] {
   const saturday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + ((6 - today.getDay() + 7) % 7 || 7), 9);
   const at = (days: number) => new Date(saturday.getFullYear(), saturday.getMonth(), saturday.getDate() + days, 9);
   return [
-    { date: at(0), comp: 'Championnat · Messieurs Seniors', equipe: 1, journee: 2, vs: 'TC Saint-Aubin 2', home: true },
-    { date: at(1), comp: 'Championnat · Dames +35 ans', equipe: 1, journee: 3, vs: 'AS Montvallon 1', home: false },
-    { date: at(8), comp: 'Championnat · Messieurs +45 ans', equipe: 2, journee: 3, vs: 'Entente Val Fleuri 1', home: false },
+    { key: 'a', date: at(0), comp: 'Championnat · Messieurs Seniors', equipe: 1, journee: 2, vs: 'TC Saint-Aubin 2', home: true },
+    { key: 'b', date: at(1), comp: 'Championnat · Dames +35 ans', equipe: 1, journee: 3, vs: 'AS Montvallon 1', home: false },
+    { key: 'c', date: at(8), comp: 'Championnat · Messieurs +45 ans', equipe: 2, journee: 3, vs: 'Entente Val Fleuri 1', home: false },
   ];
-}
-function season(today: Date) {
-  const start = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
-  return `${start}/${start + 1}`;
 }
 
 const Icon = ({ children, strokeWidth = 1.5 }: { children: ReactNode; strokeWidth?: number }) => (
@@ -164,17 +161,19 @@ export function PhoneFrame({ data, title, tab, children }: { data: PreviewData; 
   );
 }
 
+/** Une rencontre à venir, telle que la carte de la PWA l'affiche. */
+export type MatchCard = { key: string; date: Date; comp: string; equipe: number; journee: number; vs: string; home: boolean };
+
 /** Écran « Matchs équipes » de la PWA (`MatchEquipeFilterBar`, `MatchEquipeCell` à l'état
- *  « à venir »). */
-export function AppPreview({ data }: { data: PreviewData }) {
-  const today = new Date();
-  const matches = sampleMatches(today);
+ *  « à venir »). Partagé avec l'étape « Vos équipes » des premiers pas (S6), qui y passe les
+ *  rencontres réellement créées ; `empty` remplace la liste quand il n'y en a aucune. */
+export function MatchesScreen({ data, season, matches, past = 0, empty }: { data: PreviewData; season: string; matches: MatchCard[]; past?: number; empty?: ReactNode }) {
   return (
     <PhoneFrame data={data} title="Matchs équipes" tab="Matchs équipes">
           <div className="flex flex-col gap-3 px-4 py-3">
             <div className="flex gap-2">
               <span className="flex h-[34px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm">
-                <span className="text-muted-foreground">Saison</span><span className="font-bold text-foreground">{season(today)}</span><Chevron />
+                <span className="text-muted-foreground">Saison</span><span className="font-bold text-foreground">{season}</span><Chevron />
               </span>
               <span className="flex h-[34px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-sm">
                 <span className="text-muted-foreground">Équipe</span><span className="font-bold text-foreground">Toutes</span><Chevron />
@@ -185,18 +184,19 @@ export function AppPreview({ data }: { data: PreviewData }) {
                 À venir / En cours<span className="min-w-[20px] rounded-full bg-white/20 px-1.5 text-center text-xs font-bold text-background">{matches.length}</span>
               </span>
               <span className="flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-bold text-muted-foreground">
-                Passés<span className="min-w-[20px] rounded-full bg-muted px-1.5 text-center text-xs font-bold text-muted-foreground">0</span>
+                Passés<span className="min-w-[20px] rounded-full bg-muted px-1.5 text-center text-xs font-bold text-muted-foreground">{past}</span>
               </span>
             </div>
           </div>
           <div className="flex flex-1 flex-col gap-3 px-4 pb-4">
+            {matches.length === 0 && empty}
             {matches.map(m => (
-              <div key={m.vs} className="grid overflow-hidden rounded-xl border border-border bg-card" style={{ gridTemplateColumns: '72px 1fr 58px', minHeight: 116 }}>
+              <div key={m.key} className="grid overflow-hidden rounded-xl border border-border bg-card" style={{ gridTemplateColumns: '72px 1fr 58px', minHeight: 116 }}>
                 <div className="flex flex-col items-center justify-center gap-0.5 bg-muted px-1 py-3">
                   <span className="text-[11px] font-bold tracking-wide text-primary">{JOURS[m.date.getDay()]}</span>
                   <span className="text-[30px] leading-none font-extrabold text-foreground">{m.date.getDate()}</span>
                   <span className="text-[11px] font-semibold text-foreground/70">{MOIS[m.date.getMonth()]}</span>
-                  <span className="mt-1 rounded-full border border-accent px-1.5 py-0.5 text-[11px] font-bold text-primary">09:00</span>
+                  <span className="mt-1 rounded-full border border-accent px-1.5 py-0.5 text-[11px] font-bold text-primary">{m.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div className="flex min-w-0 flex-col justify-center gap-1.5 px-3 py-3">
                   <span className="truncate text-[11px] font-bold tracking-wide text-primary uppercase">{m.comp}</span>
@@ -215,6 +215,12 @@ export function AppPreview({ data }: { data: PreviewData }) {
           </div>
     </PhoneFrame>
   );
+}
+
+/** L'aperçu du tunnel : rencontres d'exemple. */
+export function AppPreview({ data }: { data: PreviewData }) {
+  const today = new Date();
+  return <MatchesScreen data={data} season={seasonLabel(today)} matches={sampleMatches(today)} />;
 }
 
 function Chevron() {

@@ -82,6 +82,36 @@ export function inferCategorie(nom: string): string | null {
   return null;
 }
 
+/** Saison sportive d'une date : septembre → août, ex. "2026/2027" au 7 novembre 2026. */
+export function seasonLabel(date: Date): string {
+  const start = date.getMonth() >= 8 ? date.getFullYear() : date.getFullYear() - 1;
+  return `${start}/${start + 1}`;
+}
+
+/** Type déduit d'une catégorie : `jeunes` pour les tranches d'âge jeunes, sinon `adultes`. */
+export function inferType(categorie: string): TeamType {
+  return CATEGORIES_BY_TYPE.jeunes.includes(categorie) ? 'jeunes' : 'adultes';
+}
+
+// Mots du nom Ten'Up (sans accents, minuscules) → genre, par type. Un mot d'un genre que le type
+// n'admet pas (« Messieurs » en jeunes) ne déduit rien.
+const GENRE_WORDS: Record<TeamGenre, string[]> = {
+  hommes: ['messieurs', 'hommes', 'masculin', 'masculins'],
+  femmes: ['dames', 'femmes', 'feminin', 'feminine', 'feminins', 'feminines'],
+  mixte: ['mixte', 'mixtes'],
+  garcons: ['garcons'],
+  filles: ['filles'],
+};
+
+/** Genre déduit du nom de la compétition (ex. "Championnat Seniors Dames" → "femmes") ; null si
+ *  aucun mot sûr, ou si plusieurs genres sont cités. Ne devine jamais. */
+export function inferGenre(nom: string, type: TeamType): TeamGenre | null {
+  const words = new Set(nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().match(/[a-z]+/g) ?? []);
+  const found = (Object.keys(GENRE_WORDS) as TeamGenre[]).filter((g) => GENRE_WORDS[g].some((w) => words.has(w)));
+  if (found.length !== 1) return null;
+  return GENRES_BY_TYPE[type].includes(found[0]) ? found[0] : null;
+}
+
 // --- Spécification d'un format (nb de matches, points du double) ---
 
 export interface FormatSpec {

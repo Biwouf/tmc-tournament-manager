@@ -30,7 +30,8 @@ annuel, Stripe). L'humain n'intervient que pour le call de réassurance.
 | **S3** | Tunnel `admin.feelike.pro/inscription` avec aperçu en direct (§7) | livrée, fermée tant que CGU / confidentialité manquent |
 | **S4** | Activation par lien magique simplifiée, routage vers les premiers pas (§8) | livrée |
 | **S5** | Premiers pas : cadre, fil d'Ariane, première actu, écran final (§9) | livrée |
-| S6–S7 | Premiers pas : équipes, affiches | à faire |
+| **S6** | Premiers pas : vos équipes depuis un lien de poule Ten'Up, plafond Ten'Up d'essai (§10) | en revue (migration à appliquer avant merge) |
+| S7 | Premiers pas : affiches | à faire |
 | S8 | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » | à faire |
 | S9 | Abonnement Stripe, lecture seule en fin d'essai | à faire |
 | S10 | E-mails de cycle de vie, funnel super-admin | à faire |
@@ -341,8 +342,12 @@ la checklist de S8 prend le relais.
 ### 9.2 Avancement — clé `onboarding` de `club_settings.config`
 
 ```json
-{ "completed_steps": ["actu"], "postponed_at": "…", "finished_at": "…" }
+{ "completed_steps": ["actu"], "skipped_steps": ["equipes"], "postponed_at": "…", "finished_at": "…" }
 ```
+
+`skipped_steps` (S6) : étapes écartées par « Passer cette étape ». Reportées, pas terminées : la
+reprise les saute, le récapitulatif final ne les compte pas, S8 pourra les reproposer. Terminer
+une étape la retire de cette liste.
 
 État explicite, jamais déduit des données : une actu supprimée ne rouvre rien. Choisi plutôt
 qu'une table dédiée parce que la ligne existe pour chaque club, que la RLS réserve déjà l'écriture
@@ -359,7 +364,7 @@ perdre une. Une table sera préférable si l'avancement doit un jour être requ�
 `FIRST_STEPS` (`src/components/firstSteps/steps.ts`) : `id`, `label`, `duration`, `isDone(state)`,
 `Component`, `Preview`, `Below`, `recap`, `final`. **Ajouter une étape = une entrée** : le fil
 d'Ariane, « Étape X sur N » (l'écran `final` n'est pas compté), la barre, la reprise (première étape
-non terminée) et le récapitulatif de l'écran final en découlent. `FirstStepsFlow` ne nomme aucune
+ni terminée ni passée) et le récapitulatif de l'écran final en découlent. `FirstStepsFlow` ne nomme aucune
 étape.
 
 Style réel du produit : Manrope, `brandTokens()` de `shared/`. L'aperçu reprend le téléphone du
@@ -390,3 +395,84 @@ remplace le téléphone par les cartes.
 `tests/first-steps.test.mjs` (dans `npm run test:club-signup`) : condition d'affichage, garde,
 reprise, étape ajoutée par une entrée, publication par le chemin partagé, image par défaut, relance,
 QR code, report et fin. Aucune opération hors code : pas de migration, pas d'Edge Function.
+
+## 10. Vos équipes (S6)
+
+Entrée `equipes` de `FIRST_STEPS`, entre `actu` et `fin` (« Étape 2 sur 2 · 1 minute par équipe »).
+Le cadre n'est pas retouché : la reprise qui saute les étapes passées est dans `currentStepIndex`
+(`lib/firstSteps.ts`), et l'aperçu se relit à chaque équipe ajoutée par un signal propre à l'étape
+(`teamsSignal.ts`), le cadre ne le relançant qu'à la complétion.
+
+### 10.1 Parcours
+
+1. **Lien de la poule** : validé à la frappe par `normalizeTenupPoolUrl` (le lien d'un championnat
+   sans poule est refusé avec son message). Aide « Où trouver ce lien ? ». Pas de lien d'exemple.
+2. **Lecture**, trois lignes branchées sur les vraies étapes (`role="status"`, `aria-live`) :
+   - **saison** (`ensureSeason`) : l'active ; sinon celle de l'année sportive en cours
+     (septembre → août, « 2026/2027 » au 07/11/2026), activée si elle existe, créée active sinon ;
+   - **compétition** (`prepareCompetition`) : retrouvée **sans lecture** si le club a déjà ce
+     championnat dans la saison (même clé que l'index unique : lien sans `?division…`) ; sinon fiche
+     lue par `previewTenupCompetition` (1 lecture) puis créée avec les déductions du §10.2. Une
+     création qui heurte l'index unique (autre onglet, essai précédent) reprend la ligne existante ;
+   - **poule** (`readPool` : `previewTenupPool`, 1 lecture) puis `clubTeamCandidates`.
+3. **Confirmation légère** : équipe reconnue, compétition, division, nombre de rencontres
+   (journées exemptes exclues). Rien de reconnu, ou plusieurs équipes du club : la liste de la poule
+   (boutons radio, équipes déjà importées désactivées), la troisième ligne dit « à choisir ».
+4. **« Ajouter l'équipe »** → `team_equipe_create` (numéro = `nextTeamNumber`). L'équipe rejoint la
+   liste « nom · genre catégorie · division · N rencontres », le téléphone montre ses rencontres.
+5. « Suivant » (« C'est bon pour l'instant » à partir de deux équipes) termine l'étape ; il est
+   actif dès une équipe dans la saison, y compris après rechargement. **« Passer cette étape »**,
+   proposé tant qu'aucune équipe n'existe, écrit `skipped_steps` (§9.2) et passe à la suite.
+
+Échecs, toujours avec le lien conservé : message du serveur tel quel (quota par minute, plafond
+d'essai, worker indisponible, calendrier incomplet refusé par `validateTenupPool`). Aperçu expiré
+(15 min) à la création : « Relire la poule » relit la seule poule. Équipe déjà importée (même poule
+collée deux fois, ou erreur « déjà ajoutée » de la RPC) : « « X » est déjà dans vos équipes ».
+Une compétition créée puis une poule en échec n'est pas une erreur visible : elle est reprise au
+prochain essai, sans nouvelle lecture du championnat.
+
+Coût : 2 lectures pour une équipe d'un championnat nouveau, 1 pour une autre poule du même.
+
+### 10.2 Déductions (`deduceCompetition`, `teamMatchLabels.ts`)
+
+| Champ | Source | Si échec |
+|---|---|---|
+| `nom`, `tenup_url` | fiche Ten'Up, lien de la poule normalisé | — |
+| `categorie` | `inferCategorie(nom)` | `Seniors` (modifiable dans l'admin) |
+| `type` | `inferType` : `jeunes` pour une tranche d'âge jeunes, sinon `adultes` | — |
+| `genre` | `inferGenre(nom, type)` : Messieurs/Hommes/Masculin, Dames/Femmes/Féminin, Mixte, Garçons, Filles | demandé en ligne (2 ou 3 boutons selon le type) |
+| `format`, `singles_set3_format` | fiche Ten'Up | demandés en ligne (liste des formats ; set classique / super tie-break) |
+
+Le genre ne se déduit **que du nom du championnat** (décision du 07/11/2026) : la poule ne peut se
+lire qu'une fois la compétition créée, et le genre est obligatoire pour la créer. Les champs
+manquants sont donc demandés **avant** la création de la compétition et la lecture de la poule :
+rien n'est créé sans eux. `inferGenre` rend null s'il ne trouve aucun mot, s'il en trouve de deux
+genres, ou si le genre ne convient pas au type (« Messieurs » en 17/18 ans).
+
+### 10.3 Plafond d'essai (migration `2026110820_tenup_trial_cap.sql`)
+
+`team_tenup_competition_begin` (appelée aussi par `team_tenup_pool_begin`) compte désormais les
+lectures par club (`team_tenup_competition_requests.club_id`) : un club `plan = 'trial'` est limité
+à **20 lectures par 24 heures glissantes**, tous comptes confondus, après le quota existant de 3 par
+minute et par compte. Message : « Limite de l'essai atteinte : 20 lectures Ten'Up par 24 heures… ».
+Une lecture refusée ne compte pas. `internal` (le CAC) et `saison` : aucun changement, pas même un
+verrou de plus. Pas de SQLSTATE 40001 (exception par défaut, HTTP 400 par `tenup-sync`).
+
+### 10.4 Aperçu
+
+`EquipesPreview` : `MatchesScreen` (extrait de l'aperçu du tunnel, mêmes classes que
+`MatchEquipeCell`) avec les rencontres à venir de la saison active, lues comme la PWA (« à venir » :
+ni WO ni confirmée, jusqu'à la fin de son jour). Avant la première équipe : « Vos rencontres
+arrivent ici », et la saison qui sera créée.
+
+### 10.5 Tests et recette
+
+`tests/team-onboarding-client.test.mjs` (déductions sur des noms Ten'Up réels, choix de la saison,
+enchaînement saison → compétition → poule → équipe, compétition réutilisée, doublon, quota,
+plafond, poule invalide, aperçu expiré), `tests/first-steps.test.mjs` (l'étape dans le vrai cadre :
+parcours complet, équipe non reconnue, champ manquant, erreurs, report persisté et reprise),
+`tests/team-onboarding-sql.test.mjs` (plafond, PGlite : essai partagé entre admins, fenêtre
+glissante, refus non compté, `internal` et `saison` non plafonnés). Tous dans `npm run test:club-signup`.
+
+Opération hors code : appliquer `2026110820_tenup_trial_cap.sql` en prod **avant** le merge. Le
+worker Ten'Up n'est ni modifié ni redéployé.
