@@ -2,11 +2,20 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import MemberPicker from './MemberPicker';
-import { ERRORS, errorMessage, fullName, type Guest, type Member, type Participant } from '../../lib/eventRegistrations';
+import {
+  ERRORS,
+  cleanGuests,
+  errorMessage,
+  fullName,
+  type Guest,
+  type Member,
+  type Participant,
+} from '../../lib/eventRegistrations';
 
 interface Booking {
   id: string;
-  owner_id: string;
+  // null : groupe saisi par un admin, sans titulaire avec compte.
+  owner_id: string | null;
   owner_prenom: string;
   owner_nom: string;
   participants: Participant[];
@@ -14,6 +23,13 @@ interface Booking {
 
 // Admin du club : liste des inscrits, ajout manuel et retrait (mêmes RPC que la page Inscrits du BO).
 // L'ajout passe outre la clôture et le max par réservation ; la jauge s'applique.
+// Un seul champ : membres avec compte (le premier devient titulaire ; s'il a déjà une
+// réservation, les personnes la rejoignent) ou personnes sans compte (prénom + nom). Sans
+// aucun membre avec compte, le groupe n'a pas de titulaire.
+
+const isOwner = (b: Booking, p: Participant) => b.owner_id !== null && p.user_id === b.owner_id;
+const bookingLabel = (b: Booking) =>
+  b.owner_id ? fullName({ prenom: b.owner_prenom, nom: b.owner_nom }) || 'Membre sans nom' : 'Groupe ajouté par le club';
 export default function EventAdminRegistrations({
   clubId,
   eventId,
@@ -27,7 +43,6 @@ export default function EventAdminRegistrations({
 }) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [owner, setOwner] = useState<Member | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [saving, setSaving] = useState(false);
@@ -47,15 +62,14 @@ export default function EventAdminRegistrations({
 
   const reset = () => {
     setAdding(false);
-    setOwner(null);
     setMembers([]);
     setGuests([]);
   };
 
   const submit = async () => {
-    if (!owner) return;
-    const cleanGuests = guests.map((g) => ({ prenom: g.prenom.trim(), nom: g.nom.trim() }));
-    if (cleanGuests.some((g) => !g.prenom || !g.nom)) {
+    const named = cleanGuests(guests);
+    if (members.length + named.length === 0) return;
+    if (named.some((g) => !g.prenom || !g.nom)) {
       setError(ERRORS.VALIDATION_ERROR);
       return;
     }
@@ -64,9 +78,9 @@ export default function EventAdminRegistrations({
     const { error: err } = await supabase.rpc('event_admin_add', {
       p_club: clubId,
       p_event: eventId,
-      p_owner: owner.id,
-      p_members: members.map((m) => m.id),
-      p_guests: cleanGuests,
+      p_owner: members[0]?.id ?? null,
+      p_members: members.slice(1).map((m) => m.id),
+      p_guests: named,
     });
     setSaving(false);
     if (err) {
@@ -81,7 +95,7 @@ export default function EventAdminRegistrations({
   const remove = async (booking: Booking, p: Participant) => {
     const others = booking.participants.length - 1;
     const question =
-      p.user_id === booking.owner_id && others > 0
+      isOwner(booking, p) && others > 0
         ? `Retirer ${fullName(p)} annule toute sa réservation (${others} autre(s) personne(s)). Continuer ?`
         : `Retirer ${fullName(p)} ?`;
     if (!window.confirm(question)) return;
@@ -94,8 +108,8 @@ export default function EventAdminRegistrations({
   };
 
   const removeBooking = async (booking: Booking) => {
-    const owner = fullName({ prenom: booking.owner_prenom, nom: booking.owner_nom });
-    if (!window.confirm(`Supprimer toute la réservation de ${owner} (${booking.participants.length} places) ?`)) return;
+    const label = booking.owner_id ? `la réservation de ${bookingLabel(booking)}` : 'ce groupe';
+    if (!window.confirm(`Supprimer ${label} (${booking.participants.length} places) ?`)) return;
     setRemoving(booking.id);
     setRemoveError(null);
     const { error: err } = await supabase.rpc('event_admin_remove_booking', { p_club: clubId, p_booking: booking.id });
@@ -130,16 +144,36 @@ export default function EventAdminRegistrations({
       {bookings && bookings.length === 0 && <p className="text-sm text-muted-foreground">Aucune inscription.</p>}
       {bookings && bookings.length > 0 && (
         <ul className="flex flex-col gap-2">
-          {bookings.map((b) => (
-            <li key={b.id} className="rounded-lg bg-muted px-3 py-2 text-sm">
-              <div className="flex items-center gap-2">
-                <p className="font-medium">
-                  {fullName({ prenom: b.owner_prenom, nom: b.owner_nom }) || 'Membre sans nom'}
-                  {b.participants.length > 1 && (
+          {bookings.map((b) => {
+            const removeButton = (p: Participant) => (
+              <button
+                type="button"
+                disabled={removing !== null}
+                onClick={() => remove(b, p)}
+                className="ml-auto min-h-9 shrink-0 rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-medium text-red-700 disabled:opacity-50"
+              >
+                {removing === p.id ? '…' : 'Retirer'}
+              </button>
+            );
+            if (b.participants.length === 1) {
+              const [p] = b.participants;
+              return (
+                <li key={b.id} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+                  <span className="font-medium">
+                    {fullName(p) || 'Membre sans nom'}
+                    {p.is_guest && <span className="font-normal text-muted-foreground"> (sans compte)</span>}
+                  </span>
+                  {removeButton(p)}
+                </li>
+              );
+            }
+            return (
+              <li key={b.id} className="rounded-lg bg-muted px-3 py-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">
+                    {bookingLabel(b)}
                     <span className="font-normal text-muted-foreground"> · {b.participants.length} places</span>
-                  )}
-                </p>
-                {b.participants.length > 1 && (
+                  </p>
                   <button
                     type="button"
                     disabled={removing !== null}
@@ -148,28 +182,21 @@ export default function EventAdminRegistrations({
                   >
                     {removing === b.id ? '…' : 'Supprimer le groupe'}
                   </button>
-                )}
-              </div>
-              <ul className="mt-1 divide-y divide-border">
-                {b.participants.map((p) => (
-                  <li key={p.id} className="flex items-center gap-2 py-1">
-                    <span className={p.user_id === b.owner_id ? '' : 'text-muted-foreground'}>
-                      {fullName(p) || 'Membre sans nom'}
-                      {p.is_guest && ' (invité)'}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={removing !== null}
-                      onClick={() => remove(b, p)}
-                      className="ml-auto min-h-9 rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-medium text-red-700 disabled:opacity-50"
-                    >
-                      {removing === p.id ? '…' : 'Retirer'}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
+                </div>
+                <ul className="mt-1 divide-y divide-border">
+                  {b.participants.map((p) => (
+                    <li key={p.id} className="flex items-center gap-2 py-1">
+                      <span className={isOwner(b, p) ? '' : 'text-muted-foreground'}>
+                        {fullName(p) || 'Membre sans nom'}
+                        {p.is_guest && ' (sans compte)'}
+                      </span>
+                      {removeButton(p)}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -189,79 +216,59 @@ export default function EventAdminRegistrations({
         </button>
       ) : (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-          <p className="text-xs text-muted-foreground">
-            Possible même inscriptions closes, sans limite par réservation. Si le titulaire est déjà inscrit, les
-            personnes rejoignent sa réservation. La jauge reste appliquée.
-          </p>
-          {owner ? (
-            <p className="text-sm">
-              Titulaire : <strong>{fullName(owner)}</strong>{' '}
-              <button type="button" onClick={() => setOwner(null)} className="text-xs text-muted-foreground underline">
-                changer
-              </button>
-            </p>
-          ) : (
-            <MemberPicker clubId={clubId} exclude={members.map((m) => m.id)} onPick={setOwner} placeholder="Titulaire : rechercher un membre" />
+          {(members.length > 0 || guests.length > 0) && (
+            <ul className="flex flex-col gap-2 text-sm">
+              {members.map((m, i) => (
+                <li key={m.id} className="flex items-center gap-1 rounded-lg bg-muted px-3 py-2">
+                  {fullName(m)}
+                  {i === 0 && <span className="text-muted-foreground"> · titulaire</span>}
+                  <button
+                    type="button"
+                    aria-label={`Retirer ${fullName(m)}`}
+                    className="ml-auto min-h-8 px-2"
+                    onClick={() => setMembers(members.filter((x) => x.id !== m.id))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+              {guests.map((g, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <input
+                    value={g.prenom}
+                    placeholder="Prénom"
+                    aria-label="Prénom"
+                    maxLength={100}
+                    onChange={(e) => setGuests(guests.map((x, j) => (j === i ? { ...x, prenom: e.target.value } : x)))}
+                    className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3"
+                  />
+                  <input
+                    value={g.nom}
+                    placeholder="Nom"
+                    aria-label="Nom"
+                    maxLength={100}
+                    onChange={(e) => setGuests(guests.map((x, j) => (j === i ? { ...x, nom: e.target.value } : x)))}
+                    className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Retirer la personne"
+                    className="min-h-11 shrink-0 px-2"
+                    onClick={() => setGuests(guests.filter((_, j) => j !== i))}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-
-          {owner && (
-            <>
-              <ul className="flex flex-col gap-2 text-sm">
-                {members.map((m) => (
-                  <li key={m.id} className="flex items-center rounded-lg bg-muted px-3 py-2">
-                    {fullName(m)}
-                    <button
-                      type="button"
-                      aria-label={`Retirer ${fullName(m)}`}
-                      className="ml-auto min-h-8 px-2"
-                      onClick={() => setMembers(members.filter((x) => x.id !== m.id))}
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-                {guests.map((g, i) => (
-                  <li key={i} className="flex gap-2">
-                    <input
-                      value={g.prenom}
-                      placeholder="Prénom"
-                      maxLength={100}
-                      onChange={(e) => setGuests(guests.map((x, j) => (j === i ? { ...x, prenom: e.target.value } : x)))}
-                      className="min-h-11 w-full rounded-lg border border-border bg-background px-3"
-                    />
-                    <input
-                      value={g.nom}
-                      placeholder="Nom"
-                      maxLength={100}
-                      onChange={(e) => setGuests(guests.map((x, j) => (j === i ? { ...x, nom: e.target.value } : x)))}
-                      className="min-h-11 w-full rounded-lg border border-border bg-background px-3"
-                    />
-                    <button
-                      type="button"
-                      aria-label="Retirer l'invité"
-                      className="min-h-11 px-2"
-                      onClick={() => setGuests(guests.filter((_, j) => j !== i))}
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <MemberPicker
-                clubId={clubId}
-                exclude={[owner.id, ...members.map((m) => m.id)]}
-                onPick={(m) => setMembers([...members, m])}
-                placeholder="Ajouter un autre membre"
-              />
-              <button
-                type="button"
-                onClick={() => setGuests([...guests, { prenom: '', nom: '' }])}
-                className="min-h-11 rounded-lg border border-border text-sm font-medium"
-              >
-                + Ajouter une personne non membre
-              </button>
-            </>
-          )}
+          <MemberPicker
+            clubId={clubId}
+            exclude={members.map((m) => m.id)}
+            onPick={(m) => setMembers([...members, m])}
+            onPickNamed={(name) => setGuests([...guests, name])}
+            placeholder="Nom d'une personne à inscrire"
+          />
 
           {error && (
             <p role="alert" className="text-sm text-red-700">
@@ -281,7 +288,7 @@ export default function EventAdminRegistrations({
             </button>
             <button
               type="button"
-              disabled={!owner || saving}
+              disabled={members.length + guests.length === 0 || saving}
               onClick={submit}
               className="min-h-11 flex-1 rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
