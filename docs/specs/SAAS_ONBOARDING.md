@@ -449,7 +449,7 @@ manquants sont donc demandés **avant** la création de la compétition et la le
 rien n'est créé sans eux. `inferGenre` rend null s'il ne trouve aucun mot, s'il en trouve de deux
 genres, ou si le genre ne convient pas au type (« Messieurs » en 17/18 ans).
 
-### 10.3 Plafond d'essai (migration `2026110701_tenup_trial_cap.sql`)
+### 10.3 Plafond d'essai (migration `2026110820_tenup_trial_cap.sql`)
 
 `team_tenup_competition_begin` (appelée aussi par `team_tenup_pool_begin`) compte désormais les
 lectures par club (`team_tenup_competition_requests.club_id`) : un club `plan = 'trial'` est limité
@@ -474,5 +474,5 @@ parcours complet, équipe non reconnue, champ manquant, erreurs, report persist�
 `tests/team-onboarding-sql.test.mjs` (plafond, PGlite : essai partagé entre admins, fenêtre
 glissante, refus non compté, `internal` et `saison` non plafonnés). Tous dans `npm run test:club-signup`.
 
-Opération hors code : appliquer `2026110701_tenup_trial_cap.sql` en prod **avant** le merge. Le
+Opération hors code : appliquer `2026110820_tenup_trial_cap.sql` en prod **avant** le merge. Le
 worker Ten'Up n'est ni modifié ni redéployé.

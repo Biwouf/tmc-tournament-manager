@@ -1,4 +1,4 @@
-// SaaS S6 — plafond de lectures Ten'Up d'un club en essai (2026110701_tenup_trial_cap).
+// SaaS S6 — plafond de lectures Ten'Up d'un club en essai (2026110820_tenup_trial_cap).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -21,8 +21,8 @@ test('trial clubs share a 20 reads / 24 h Ten’Up cap; internal and saison club
     await db.exec(await migration('2026100101_admin_competitions'));
     // Lignes d'avant la migration : sans club.
     await db.exec(`INSERT INTO team_tenup_competition_requests(actor_id,created_at) SELECT '${id(101)}',now()-interval '2 hours' FROM generate_series(1,25)`);
-    await db.exec(await migration('2026110701_tenup_trial_cap'));
-    await db.exec(await migration('2026110701_tenup_trial_cap')); // idempotente
+    await db.exec(await migration('2026110820_tenup_trial_cap'));
+    await db.exec(await migration('2026110820_tenup_trial_cap')); // idempotente
 
     async function as(user, sql, args = []) {
       await db.exec(`BEGIN; SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${id(user)}',true);`);
