@@ -144,20 +144,75 @@ export function splitScreens<T>(groups: { matches: T[] }[], maxPerScreen: number
  * bandeau ni derby.
  */
 export function buildTimeline(matches: ProgrammeMatch[], homeClub: string | null, format: AnimationFormat): Timeline {
-  const story = format === 'story';
-  const W = 1080, H = story ? 1920 : 1080, OY = story ? 250 : 0;
+  return layoutTimeline(buildScreens(matches, homeClub, format), homeClub, format);
+}
 
+/** Écrans de l'animation, dans l'ordre de l'affiche. */
+function buildScreens(matches: ProgrammeMatch[], homeClub: string | null, format: AnimationFormat): AnimMatch[][] {
   const groups: { matches: AnimMatch[] }[] = [];
   matches.forEach((m, i) => {
     const am = toAnimMatch(m, homeClub);
     if (i > 0 && isClose(matches[i - 1].heure, m.heure)) groups[groups.length - 1].matches.push(am);
     else groups.push({ matches: [am] });
   });
-  const slots: AnimSlot[] = splitScreens(groups, story ? 3 : 2).map((sl, i) => ({
-    ...sl,
-    times: [...new Set(sl.matches.map((m) => m.time))],
+  return splitScreens(groups, format === 'story' ? 3 : 2).map((sl) => sl.matches);
+}
+
+/** Durée max d'une story Facebook : Meta Business Suite bloque à 30 s (l'API en accepte plus). */
+export const STORY_MAX_SECONDS = 30;
+
+/**
+ * Coupe `n` écrans consécutifs en parties de `maxSeconds` au plus (`duration(i, j)` : durée de
+ * la partie faite des écrans [i, j)) : aussi peu de parties que possible, puis la plus longue aussi
+ * courte que possible. Rend les bornes [début, fin) de chaque partie, dans l'ordre. Un écran seul
+ * qui ne tiendrait pas fait une partie à lui seul. Partagé par les stories tournoi et rencontres.
+ */
+export function splitStoryParts(n: number, duration: (i: number, j: number) => number, maxSeconds = STORY_MAX_SECONDS): [number, number][] {
+  if (n === 0) return [];
+  // best[j] : plus longue partie, au mieux, pour couvrir les écrans [0, j) en k parties ;
+  // cut[k][j] : premier écran de la dernière de ces k parties.
+  let best = Array.from({ length: n + 1 }, (_, j) => (j === 0 ? 0 : Infinity));
+  const cut: number[][] = [];
+  for (let k = 1; ; k++) {
+    const next = Array<number>(n + 1).fill(Infinity);
+    cut[k] = Array<number>(n + 1).fill(0);
+    for (let j = 1; j <= n; j++) {
+      for (let i = k - 1; i < j; i++) {
+        const v = Math.max(best[i], duration(i, j));
+        if (v < next[j]) [next[j], cut[k][j]] = [v, i];
+      }
+    }
+    best = next;
+    if (best[n] <= maxSeconds || k === n) {
+      const bounds = [n];
+      for (let kk = k, j = n; kk > 0; kk--) bounds.unshift((j = cut[kk][j]));
+      return bounds.slice(1).map((e, p): [number, number] => [bounds[p], e]);
+    }
+  }
+}
+
+/**
+ * Story Facebook : l'animation en une ou plusieurs parties de `maxSeconds` au plus, coupées entre
+ * deux écrans (`splitStoryParts`). Chaque partie est une animation complète (intro, date, ses
+ * écrans, son récap, outro) : un récap de tous les matchs déborderait (`MAX_RECAP_ROWS`) dans les
+ * cas mêmes qu'on découpe.
+ */
+export function buildStoryParts(matches: ProgrammeMatch[], homeClub: string | null, maxSeconds = STORY_MAX_SECONDS): Timeline[] {
+  const screens = buildScreens(matches, homeClub, 'story');
+  const part = (i: number, j: number) => layoutTimeline(screens.slice(i, j), homeClub, 'story');
+  const parts = splitStoryParts(screens.length, (i, j) => part(i, j).total, maxSeconds);
+  return parts.length ? parts.map(([i, j]) => part(i, j)) : [buildTimeline(matches, homeClub, 'story')]; // aucun match
+}
+
+function layoutTimeline(screens: AnimMatch[][], homeClub: string | null, format: AnimationFormat): Timeline {
+  const story = format === 'story';
+  const W = 1080, H = story ? 1920 : 1080, OY = story ? 250 : 0;
+
+  const slots: AnimSlot[] = screens.map((matches, i) => ({
+    matches,
+    times: [...new Set(matches.map((m) => m.time))],
     cue: 'Slot' + (i + 1),
-    derby: sl.matches.some((m) => m.derby),
+    derby: matches.some((m) => m.derby),
   }));
 
   const nRows = slots.reduce((s, sl) => s + sl.matches.length, 0);

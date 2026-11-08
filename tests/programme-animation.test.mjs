@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTimeline, splitScreens, formatHeure, formatDateLabel } from '../src/components/programmeAnimation/timeline.ts';
+import { buildTimeline, buildStoryParts, splitScreens, formatHeure, formatDateLabel, STORY_MAX_SECONDS } from '../src/components/programmeAnimation/timeline.ts';
 
 const CLUB = 'CASTELSARRASIN TENNIS CLUB';
 const m = (heure, cat, a, b) => ({
@@ -94,4 +94,26 @@ test('Labels match the poster', () => {
   assert.equal(formatHeure('19:30'), '19h30');
   assert.equal(formatHeure('09:00'), '9h');
   assert.equal(formatDateLabel('2026-10-13'), 'mardi 13 octobre');
+});
+
+test('Facebook story: one part when the animation fits in 30 s', () => {
+  const [part, ...rest] = buildStoryParts(OCT13, CLUB);
+  assert.equal(rest.length, 0);
+  assert.deepEqual(part, buildTimeline(OCT13, CLUB, 'story'));
+});
+
+test('Facebook story: split between screens into as few balanced parts as possible, each under 30 s', () => {
+  // Un match par heure : un écran chacun, 6 + 3,75 s par écran (récap compris)
+  const hourly = (n) => Array.from({ length: n }, (_, i) => m(`${String(8 + i).padStart(2, '0')}:00`, 'SM', ['A', `X${i}`, '30', 'C1'], ['B', 'Y', '30', 'C2']));
+  const sizes = (n) => buildStoryParts(hourly(n), null).map((tl) => tl.slots.length);
+  assert.equal(buildTimeline(hourly(8), null, 'story').total, 36);
+  assert.deepEqual(sizes(8), [4, 4]); // pas 6 + 2
+  assert.deepEqual(sizes(14), [4, 5, 5]);
+  const parts = buildStoryParts(hourly(14), null);
+  assert.ok(parts.every((tl) => tl.total <= STORY_MAX_SECONDS));
+  // chaque partie est autonome : ses cues repartent de Slot1, et l'ordre de l'affiche est conservé
+  assert.deepEqual(parts[1].slots.map((s) => s.cue), ['Slot1', 'Slot2', 'Slot3', 'Slot4', 'Slot5']);
+  assert.deepEqual(parts.flatMap((tl) => tl.slots.map((s) => s.matches[0].a.last)), hourly(14).map((x) => x.j1_nom.toUpperCase()));
+  // limite plus large : moins de parties
+  assert.equal(buildStoryParts(hourly(14), null, 60).length, 1);
 });

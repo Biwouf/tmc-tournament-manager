@@ -4,14 +4,16 @@
 // EXACTEMENT l'affiche générée (rencontres, partenaires tirés) : le panneau ne la rend
 // disponible qu'une fois l'affiche générée avec la sélection courante (`ready`).
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useClub } from '../../contexts/ClubContext';
 import type { TeamMatch } from '../../types';
 import { toBitmap } from '../programmeAnimation/bitmaps';
 import { ExportCancelled, exportMp4, pickEncoderConfig } from '../programmeAnimation/exportMp4';
 import { loadAnimationFonts } from '../programmeAnimation/fonts';
 import { animationPalette } from '../programmeAnimation/palette';
 import type { FrameAssets } from '../programmeAnimation/renderFrame';
+import { confirmStories, describeParts, partSuffix, publishLabel, sendStories, useCanPublishStory, type StoryResult } from '../programmeAnimation/storyPublish';
 import { renderRencontresFrame } from './renderFrame';
-import { buildRencontresTimeline } from './timeline';
+import { buildRencontresStoryParts, buildRencontresTimeline } from './timeline';
 
 type Props = {
   ready: boolean;
@@ -46,6 +48,11 @@ export default function RencontresAnimationSection({
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState<{ frame: number; frames: number } | null>(null);
   const [exportError, setExportError] = useState('');
+  /** Étape de la publication en story, affichée sous le bouton. */
+  const [storyStep, setStoryStep] = useState('');
+  const [storyResult, setStoryResult] = useState<StoryResult | null>(null);
+  const { clubId } = useClub();
+  const canPublishStory = useCanPublishStory();
   const cancelRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -53,6 +60,8 @@ export default function RencontresAnimationSection({
   const handledRequest = useRef(exportRequest);
 
   const tl = useMemo(() => buildRencontresTimeline(matches), [matches]);
+  // Story Facebook : 30 s au plus par story, au-delà la vidéo part en plusieurs parties.
+  const storyParts = useMemo(() => buildRencontresStoryParts(matches), [matches]);
   const palette = useMemo(() => animationPalette(color), [color]);
   const texts = useMemo(
     () => ({ kicker: clubName.toLocaleUpperCase('fr-FR'), title: TITLE, homeName: homeName.toLocaleUpperCase('fr-FR') }),
@@ -135,6 +144,34 @@ export default function RencontresAnimationSection({
     }
   }
 
+  async function handlePublishStory() {
+    if (!assets || !fontsReady || !clubId) return;
+    const n = storyParts.length;
+    if (!confirmStories(n)) return;
+    setExportError('');
+    setStoryResult(null);
+    cancelRef.current = false;
+    setExporting(true);
+    try {
+      // Toutes les parties sont générées avant le premier envoi (cf. storyPublish.ts).
+      const videos: Blob[] = [];
+      for (let p = 0; p < n; p++) {
+        setStoryStep(n > 1 ? `Génération de la partie ${p + 1} / ${n}…` : 'Génération de la vidéo…');
+        setProgress({ frame: 0, frames: Math.round(storyParts[p].total * 30) });
+        videos.push(await exportMp4({ kind: 'rencontres', tl: storyParts[p], color: palette.red, texts: { ...texts, kicker: texts.kicker + partSuffix(p, n) }, assets },
+          (frame, frames) => setProgress({ frame, frames }), () => cancelRef.current));
+      }
+      setProgress(null);
+      setStoryResult(await sendStories(clubId, videos, setStoryStep));
+    } catch (e) {
+      if (!(e instanceof ExportCancelled)) setStoryResult({ ok: false, message: e instanceof Error ? e.message : 'La publication de la story a échoué.' });
+    } finally {
+      setExporting(false);
+      setProgress(null);
+      setStoryStep('');
+    }
+  }
+
   // Export demandé par le panneau : on attend l'affiche, les polices, les images et la détection de
   // l'encodeur, puis on le lance une fois (ou le message « navigateur non compatible » s'affiche).
   const settled = ready && !!assets && fontsReady && encoderOk !== null && !exporting;
@@ -161,6 +198,7 @@ export default function RencontresAnimationSection({
   }
 
   const canExport = !!assets && fontsReady && encoderOk === true && !exporting;
+  const partsNote = describeParts(tl.total, storyParts.map((p) => p.total));
 
   return (
     <div ref={rootRef} className="rounded-xl border border-border bg-card p-5 space-y-4">
@@ -187,12 +225,20 @@ export default function RencontresAnimationSection({
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={handleExport} disabled={!canExport}
             className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40">
-            {exporting ? 'Génération de la vidéo…' : 'Télécharger la vidéo (MP4)'}
+            {exporting && !storyStep ? 'Génération de la vidéo…' : 'Télécharger la vidéo (MP4)'}
           </button>
-          {exporting && (
+          {canPublishStory && (
+            <button type="button" onClick={handlePublishStory} disabled={!canExport}
+              className="rounded-lg border border-primary px-5 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-40">
+              {storyStep ? 'Publication en cours…' : publishLabel(storyParts.length)}
+            </button>
+          )}
+          {exporting && progress && (
             <button type="button" onClick={() => { cancelRef.current = true; }} className="text-sm underline">Annuler</button>
           )}
         </div>
+        {partsNote && canPublishStory && !exporting && <p className="text-xs text-muted-foreground">{partsNote}</p>}
+        {storyStep && <p className="text-sm font-medium">{storyStep}</p>}
         {progress && (
           <div className="max-w-xl space-y-1">
             <progress className="w-full" value={progress.frame} max={progress.frames} />
@@ -208,6 +254,7 @@ export default function RencontresAnimationSection({
           <p className="text-xs text-muted-foreground">La vidéo est générée dans votre navigateur : comptez de quelques secondes à une minute selon l’ordinateur.</p>
         )}
         {exportError && <p className="text-sm text-destructive">{exportError}</p>}
+        {storyResult && <p className={`text-sm ${storyResult.ok ? 'text-emerald-700' : 'text-destructive'}`}>{storyResult.message}</p>}
       </div>
     </div>
   );

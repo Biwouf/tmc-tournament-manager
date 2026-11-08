@@ -5,7 +5,7 @@
 // `npm run test:rencontres-animation`.
 import type { TeamMatch } from '../../types';
 import { GENRE_LABELS, formatCategorie } from '../teamMatches/teamMatchLabels.ts';
-import { formatHeure } from '../programmeAnimation/timeline.ts';
+import { STORY_MAX_SECONDS, formatHeure, splitStoryParts } from '../programmeAnimation/timeline.ts';
 
 export type AnimOpponent = { name: string; sub: string };
 export type AnimRencontre = {
@@ -204,4 +204,30 @@ export function buildRencontresTimeline(matches: TeamMatch[]): RencontresTimelin
     { t: end + 0.55, x: 540, y: 980, big: true },
   ];
   return { W, H, OY, days, cards, wipes, recap, end, partners, outro, total, impacts, nHome, nAway: all.length - nHome };
+}
+
+/**
+ * Story Facebook : la story en une ou plusieurs parties de `maxSeconds` au plus, coupées entre
+ * deux écrans (mêmes écrans que `buildRencontresTimeline` : un jour, 3 rencontres au plus,
+ * répartition équilibrée). Chaque partie est une story complète : une partie d'un seul écran n'a
+ * pas de récap, celle de plusieurs écrans récapitule les siens.
+ */
+export function buildRencontresStoryParts(matches: TeamMatch[], maxSeconds = STORY_MAX_SECONDS): RencontresTimeline[] {
+  const days: TeamMatch[][] = [];
+  for (const tm of matches) {
+    const d = days.find((x) => x[0].date === tm.date);
+    if (d) d.push(tm);
+    else days.push([tm]);
+  }
+  const screens = days.flatMap((d) => {
+    const k = Math.ceil(d.length / MAX_PER_SCREEN), out: TeamMatch[][] = [];
+    for (let s = 0, i = 0; s < k; s++) {
+      const n = Math.ceil((d.length - i) / (k - s));
+      out.push(d.slice(i, (i += n)));
+    }
+    return out;
+  });
+  const part = (i: number, j: number) => buildRencontresTimeline(screens.slice(i, j).flat());
+  const parts = splitStoryParts(screens.length, (i, j) => part(i, j).total, maxSeconds);
+  return parts.length ? parts.map(([i, j]) => part(i, j)) : [buildRencontresTimeline(matches)];
 }

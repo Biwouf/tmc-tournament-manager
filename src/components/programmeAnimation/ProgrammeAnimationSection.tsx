@@ -3,12 +3,14 @@
 // réglages de l'affiche générée (matchs, club mis en valeur, partenaires tirés) : la page ne la
 // rend disponible qu'une fois l'affiche téléchargée avec les réglages courants (`ready`).
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useClub } from '../../contexts/ClubContext';
 import { toBitmap } from './bitmaps';
 import { loadAnimationFonts } from './fonts';
 import { ExportCancelled, exportMp4, pickEncoderConfig } from './exportMp4';
 import { animationPalette } from './palette';
 import { renderFrame, type FrameAssets } from './renderFrame';
-import { MAX_RECAP_ROWS, buildTimeline, formatDateLabel, type AnimationFormat, type ProgrammeMatch } from './timeline';
+import { confirmStories, describeParts, partSuffix, publishLabel, sendStories, useCanPublishStory, type StoryResult } from './storyPublish';
+import { MAX_RECAP_ROWS, buildStoryParts, buildTimeline, formatDateLabel, type AnimationFormat, type ProgrammeMatch } from './timeline';
 
 type Props = {
   ready: boolean;
@@ -50,6 +52,11 @@ export default function ProgrammeAnimationSection({
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState<{ frame: number; frames: number } | null>(null);
   const [exportError, setExportError] = useState('');
+  /** Étape de la publication en story, affichée sous le bouton. */
+  const [storyStep, setStoryStep] = useState('');
+  const [storyResult, setStoryResult] = useState<StoryResult | null>(null);
+  const { clubId } = useClub();
+  const canPublishStory = useCanPublishStory();
   const cancelRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -57,6 +64,8 @@ export default function ProgrammeAnimationSection({
   const handledRequest = useRef(exportRequest);
 
   const tl = useMemo(() => buildTimeline(matches, highlightedClub, format), [matches, highlightedClub, format]);
+  // Story Facebook : 30 s au plus par story, au-delà l'animation part en plusieurs parties.
+  const storyParts = useMemo(() => (format === 'story' ? buildStoryParts(matches, highlightedClub) : []), [matches, highlightedClub, format]);
   const palette = useMemo(() => animationPalette(color), [color]);
   const texts = useMemo(
     () => ({ title: title.trim(), kicker: clubName.toUpperCase(), datePrefix: 'Programme du ', dateLabel: date ? formatDateLabel(date) : '' }),
@@ -136,6 +145,34 @@ export default function ProgrammeAnimationSection({
     }
   }
 
+  async function handlePublishStory() {
+    if (!assets || !fontsReady || !clubId) return;
+    const n = storyParts.length;
+    if (!confirmStories(n)) return;
+    setExportError('');
+    setStoryResult(null);
+    cancelRef.current = false;
+    setExporting(true);
+    try {
+      // Toutes les parties sont générées avant le premier envoi (cf. storyPublish.ts).
+      const videos: Blob[] = [];
+      for (let p = 0; p < n; p++) {
+        setStoryStep(n > 1 ? `Génération de la partie ${p + 1} / ${n}…` : 'Génération de la vidéo…');
+        setProgress({ frame: 0, frames: Math.round(storyParts[p].total * 30) });
+        videos.push(await exportMp4({ kind: 'programme', tl: storyParts[p], color: palette.red, texts: { ...texts, dateLabel: texts.dateLabel + partSuffix(p, n) }, assets },
+          (frame, frames) => setProgress({ frame, frames }), () => cancelRef.current));
+      }
+      setProgress(null);
+      setStoryResult(await sendStories(clubId, videos, setStoryStep));
+    } catch (e) {
+      if (!(e instanceof ExportCancelled)) setStoryResult({ ok: false, message: e instanceof Error ? e.message : 'La publication de la story a échoué.' });
+    } finally {
+      setExporting(false);
+      setProgress(null);
+      setStoryStep('');
+    }
+  }
+
   // Export demandé par la page : on attend que l'affiche, les polices, les images et la détection
   // de l'encodeur soient prêtes, puis on le lance une fois (ou on explique pourquoi on ne peut pas).
   const settled = ready && !!assets && fontsReady && encoderOk !== null && !exporting;
@@ -167,6 +204,7 @@ export default function ProgrammeAnimationSection({
 
   const tooManyRows = tl.nRows > MAX_RECAP_ROWS[format];
   const canExport = !!assets && fontsReady && encoderOk === true && !!title.trim() && !exporting;
+  const partsNote = describeParts(tl.total, storyParts.map((p) => p.total));
 
   return (
     <div ref={rootRef} className="rounded-xl border border-border bg-card p-6 space-y-4">
@@ -218,12 +256,20 @@ export default function ProgrammeAnimationSection({
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={handleExport} disabled={!canExport}
             className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40">
-            {exporting ? 'Génération de la vidéo…' : 'Télécharger la vidéo (MP4)'}
+            {exporting && !storyStep ? 'Génération de la vidéo…' : 'Télécharger la vidéo (MP4)'}
           </button>
-          {exporting && (
+          {format === 'story' && canPublishStory && (
+            <button type="button" onClick={handlePublishStory} disabled={!canExport}
+              className="rounded-lg border border-primary px-5 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-40">
+              {storyStep ? 'Publication en cours…' : publishLabel(storyParts.length)}
+            </button>
+          )}
+          {exporting && progress && (
             <button type="button" onClick={() => { cancelRef.current = true; }} className="text-sm underline">Annuler</button>
           )}
         </div>
+        {partsNote && canPublishStory && !exporting && <p className="text-xs text-muted-foreground">{partsNote}</p>}
+        {storyStep && <p className="text-sm font-medium">{storyStep}</p>}
         {progress && (
           <div className="max-w-xl space-y-1">
             <progress className="w-full" value={progress.frame} max={progress.frames} />
@@ -239,6 +285,7 @@ export default function ProgrammeAnimationSection({
           <p className="text-xs text-muted-foreground">La vidéo est générée dans votre navigateur : comptez de quelques secondes à une minute selon l’ordinateur.</p>
         )}
         {exportError && <p className="text-sm text-destructive">{exportError}</p>}
+        {storyResult && <p className={`text-sm ${storyResult.ok ? 'text-emerald-700' : 'text-destructive'}`}>{storyResult.message}</p>}
       </div>
 
     </div>

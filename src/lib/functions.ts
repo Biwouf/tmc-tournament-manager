@@ -11,7 +11,7 @@ export type EdgeResult<T> = ({ success: true } & T) | { success: false; error: s
 
 export async function invokeEdgeFunction<T>(
   name: string,
-  body: Record<string, unknown>,
+  body: Record<string, unknown> | FormData,
   fallbackError = 'Erreur inconnue lors de l’appel au serveur.',
 ): Promise<EdgeResult<T>> {
   const { data, error: invokeErr } = await supabase.functions.invoke(name, { body });
