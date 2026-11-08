@@ -279,7 +279,9 @@ src/
 
 > Consommé par `pwa/src/pages/EventsPage.tsx` et `pwa/src/pages/EventDetailPage.tsx`.
 
-### Policy RLS à ajouter
+### Policy RLS (versionnée dans `2026110802_events_anon_select.sql`)
+
+Créée à la main en prod à l'origine, absente de la base de dev jusqu'au 08/11/2026.
 
 ```sql
 CREATE POLICY "events_anon_select"
@@ -316,7 +318,8 @@ const { data } = await supabase
 ## Inscriptions (07/11/2026)
 
 Migrations `supabase/migrations/2026110701_event_registrations.sql` et
-`2026110702_event_admin_remove_booking.sql` (suppression d'un groupe). Paiement hors périmètre ;
+`2026110702_event_admin_remove_booking.sql` (suppression d'un groupe),
+`2026110801_event_registrations_sans_compte.sql` (groupes de personnes sans compte). Paiement hors périmètre ;
 pas de liste d'attente ni de notification liée aux inscriptions.
 
 ### Réglages par événement (formulaire BO, section « Inscriptions »)
@@ -332,10 +335,15 @@ La duplication d'un événement copie ces réglages, pas les inscriptions.
 
 ### Modèle
 
-- `event_bookings` : une réservation par titulaire (membre) et événement.
+- `event_bookings` : une réservation par titulaire (membre) et événement. `owner_id` est `NULL`
+  pour un **groupe saisi par un admin sans titulaire** (personnes sans compte) ; ces groupes ne
+  sont jamais fusionnés entre eux.
 - `event_participants` : les places d'une réservation — le titulaire, d'autres membres
-  (inscrits d'office) ou des invités non membres (prénom + nom). Un membre n'occupe qu'une
-  place par événement, toutes réservations confondues.
+  (inscrits d'office) ou des personnes **sans compte** (prénom + nom, `is_guest`) : invités d'un
+  membre ou personnes saisies par un admin, sans distinction membre / extérieur (inutile tant que
+  le paiement est hors périmètre). Un membre avec compte n'occupe qu'une place par événement,
+  toutes réservations confondues.
+- Une personne sans compte ne peut pas s'inscrire elle-même : seul un admin l'inscrit.
 - Tables sans aucun droit direct : tout passe par des RPC `SECURITY DEFINER` qui verrouillent
   la ligne `events` (jauge et doublons sérialisés).
 
@@ -343,12 +351,12 @@ La duplication d'un événement copie ces réglages, pas les inscriptions.
 
 | Action | Qui | Contrôles |
 |---|---|---|
-| `event_registration_state(club, event)` | public | Renvoie réglages, `open`, `closes_at`, places prises, `is_member`, `is_admin` et la réservation de l'appelant. Un membre inscrit par un autre ne voit que le nom du titulaire. |
+| `event_registration_state(club, event)` | public | Renvoie réglages, `open`, `closes_at`, places prises, `is_member`, `is_admin` et la réservation de l'appelant. Un membre inscrit par un autre ne voit que le nom du titulaire (`owner_name` `NULL` pour un groupe sans titulaire → « inscrit par le club »). |
 | `event_member_save(club, event, members[], guests[])` | membre | Crée ou **remplace** sa réservation. Inscription ouverte, quota par réservation, jauge (ses places actuelles déduites), personnes déjà inscrites ailleurs → `ALREADY_REGISTERED` (noms en `details`). Un membre déjà inscrit par un autre ne peut pas créer sa propre réservation sans se désinscrire. |
-| `event_member_cancel(club, event)` | membre | Inscription ouverte. Titulaire → annule toute la réservation ; inscrit par un autre → retire sa seule place. |
+| `event_member_cancel(club, event)` | membre | Inscription ouverte. Titulaire → annule toute la réservation ; inscrit par un autre → retire sa seule place (le groupe vide est supprimé). |
 | `event_admin_bookings(club, event)` | admin | Liste des réservations et de leurs places. |
-| `event_admin_add(club, event, owner, members[], guests[])` | admin | **Ajoute** à la réservation du titulaire (créée si besoin). Ignore l'ouverture, la clôture et le quota par réservation ; la jauge s'applique. |
-| `event_admin_remove(club, participant)` | admin | Retire une place ; retirer le titulaire annule sa réservation. |
+| `event_admin_add(club, event, owner, members[], guests[{prenom,nom,member}])` | admin | **Ajoute** à la réservation du titulaire (créée si besoin). `owner` `NULL` → nouveau groupe sans titulaire (au moins une personne). Ignore l'ouverture, la clôture et le quota par réservation ; la jauge s'applique. |
+| `event_admin_remove(club, participant)` | admin | Retire une place ; retirer le titulaire ou la dernière personne annule la réservation. |
 | `event_admin_remove_booking(club, booking)` | admin | Supprime une réservation entière (titulaire + toutes ses places) en une fois. |
 
 Codes d'erreur : `NOT_MEMBER`, `NOT_FOUND`, `REGISTRATION_CLOSED`, `QUOTA_EXCEEDED`, `EVENT_FULL`,
@@ -358,7 +366,11 @@ Codes d'erreur : `NOT_MEMBER`, `NOT_FOUND`, `REGISTRATION_CLOSED`, `QUOTA_EXCEED
 
 - **BO** : bouton **Inscrits** sur chaque carte → `/events/:id/registrations`
   (`EventRegistrationsPage`) : compteur de places, réservations, retrait d'une personne ou
-  de toute une réservation (« Supprimer la réservation », dès 2 places), ajout manuel.
+  de toute une réservation (« Supprimer la réservation », dès 2 places), ajout manuel via un **champ
+  unique** : il propose les membres avec compte trouvés et, pour le texte saisi, « sans compte »
+  (prénom = premier mot, modifiable). Le premier membre avec compte
+  ajouté devient titulaire (sa réservation existante est complétée) ; sans aucun, le groupe
+  n'a pas de titulaire. Une réservation d'une seule place s'affiche sur une ligne, sans titre.
 - **PWA** : bloc « Inscription » sur `EventDetailPage` (`components/events/EventRegistration.tsx`) :
   places restantes (si jauge), date limite, bouton « S'inscrire » (visiteur → connexion,
   non-membre → message), éditeur de réservation (membres par recherche, invités, compteur
@@ -366,8 +378,8 @@ Codes d'erreur : `NOT_MEMBER`, `NOT_FOUND`, `REGISTRATION_CLOSED`, `QUOTA_EXCEED
 - **PWA, admin du club** (`is_admin`) : le bloc s'affiche même sans inscription en ligne ;
   bouton « Voir les inscrits (n) » (`components/events/EventAdminRegistrations.tsx`) → liste
   des réservations, retrait d'une personne (confirmation ; retirer le titulaire annule sa
-  réservation), suppression d'un groupe entier (réservations de 2 places et plus) et ajout manuel (titulaire, autres membres, invités) via les mêmes RPC admin
-  que le BO.
+  réservation), suppression d'un groupe entier (réservations de 2 places et plus) et ajout manuel
+  avec le même champ unique que le BO (`MemberPicker` avec `onPickNamed`), via les mêmes RPC admin. Une réservation d'une seule place tient sur une ligne.
 
 ### Limites connues
 
