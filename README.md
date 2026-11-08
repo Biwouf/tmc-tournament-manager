@@ -26,6 +26,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - **Couleurs du club** : l'affiche reprend la couleur principale du club (*Admin › Configuration du site › Identité du club › Couleur principale*), avec des nuances dérivées pour le cartouche et le fond des joueurs du club ; rouge `#c8102e` par défaut
 - **Basculement vers Live Score** : depuis l'aperçu, un bouton crée tous les matchs détectés dans Live Score (statut « En attente », événement lié optionnel) — plus de double saisie
 - **Animation vidéo du programme** : une fois l'affiche téléchargée, une animation (story 1080×1920 ou carré 1080×1080) reprend ses matchs, son club mis en valeur et ses partenaires, aux couleurs et au logo du club ; lecteur intégré et **export MP4 généré dans le navigateur** (quelques secondes, continue onglet caché)
+- **Story animée des rencontres par équipes** : dans *Génération de médias › Matches par équipe*, une fois l'affiche générée, une story 1080×1920 « Prochaines rencontres » (une grosse date par jour, cartes club VS adversaire avec domicile/déplacement, récap si plusieurs écrans, partenaires en clôture) ; lecteur intégré et export MP4 dans le navigateur, lancé aussi automatiquement après l'affiche (case « Générer aussi la vidéo dans la foulée »)
 
 ### Événements
 - Gestion des événements du club (Animations, Tournois, Sorties, Soirées)

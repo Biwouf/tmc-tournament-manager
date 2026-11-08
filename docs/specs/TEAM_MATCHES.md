@@ -622,10 +622,15 @@ Remplace l'ancienne `GeneratePosterModal`. L'affiche est téléchargée localeme
 Le même composant est monté en pleine page dans `/medias?type=equipes` (`TeamPosterGenerator`,
 cf. `GEN_PROG.md`) : sans prop `onClose`, ni bouton de fermeture ni retour à la rencontre, et un
 aperçu complet à l'échelle 0,4. L'accès par le menu « ⋮ » et le panneau latéral est conservé.
+En pleine page seulement, le panneau propose aussi la **story animée** des rencontres
+(`RencontresAnimationSection`, case « Générer aussi la vidéo dans la foulée ») — cf. `GEN_PROG.md`
+§ « Story animée des rencontres par équipes ».
 
 - **Source** : les rencontres à venir déjà chargées par le hook de grille (plus de requête
   dédiée), groupées par week-end (`Ce week-end` / `Week-end suivant` / `Plus tard`) avec un
-  bouton « Tout prendre » par groupe.
+  bouton « Tout prendre » par groupe. « Ce week-end » liste **tout** le week-end courant, rencontres
+  déjà commencées comprises (elles sont présélectionnées : le dimanche, elles restaient cochées
+  sans apparaître) ; les autres groupes ne gardent que les rencontres à venir.
 - **Présélection** : toutes les rencontres du week-end courant, triées par `date_heure`,
   tronquées à `MAX_POSTER_MATCHES = 8`. Au-delà de 8, le clic est ignoré ; le compteur
   affiche `n / 8 sélectionnées`.

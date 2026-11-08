@@ -25,10 +25,10 @@ export type FrameAssets = {
   partners: ImageBitmap[];
 };
 
-const INK = '#1a1416';
+export const INK = '#1a1416';
 const VS_FONT = '"Arial Black", Impact, sans-serif';
-const RAD = Math.PI / 180;
-const LH = 1.5;
+export const RAD = Math.PI / 180;
+export const LH = 1.5;
 
 /* ---------- Canvas annexes (OffscreenCanvas si dispo : worker et page) ---------- */
 type AnyCanvas = OffscreenCanvas | HTMLCanvasElement;
@@ -40,7 +40,7 @@ const ctxOf = (c: AnyCanvas) => c.getContext('2d') as Ctx2D;
 
 /* ---------- Grain : tuile de bruit générée une fois (PRNG déterministe) ---------- */
 let grainTile: AnyCanvas | null = null;
-function grain(): AnyCanvas {
+export function grain(): AnyCanvas {
   if (grainTile) return grainTile;
   const c = makeCanvas(256, 256), g = ctxOf(c), img = g.createImageData(256, 256);
   let x = 1234567;
@@ -59,7 +59,7 @@ function grain(): AnyCanvas {
    dans un calque de la taille du canvas, posé ensuite avec l'alpha. Pile de calques réutilisés. */
 const layers: AnyCanvas[] = [];
 let depth = 0;
-function withAlpha(g: Ctx2D, alpha: number, draw: (g: Ctx2D) => void) {
+export function withAlpha(g: Ctx2D, alpha: number, draw: (g: Ctx2D) => void) {
   if (alpha <= 0.001) return;
   if (alpha >= 0.999) return draw(g);
   const { width, height } = g.canvas;
@@ -84,14 +84,14 @@ function withAlpha(g: Ctx2D, alpha: number, draw: (g: Ctx2D) => void) {
 }
 
 /** Transformation CSS autour d'une origine : `translate(o) · f · translate(-o)`. */
-function around(g: Ctx2D, ox: number, oy: number, f: () => void) {
+export function around(g: Ctx2D, ox: number, oy: number, f: () => void) {
   g.translate(ox, oy);
   f();
   g.translate(-ox, -oy);
 }
 
 /** Les ombres du canvas ignorent la transformation courante : on les met à l'échelle. */
-function shadow(g: Ctx2D, color: string, blur: number, ox: number, oy: number) {
+export function shadow(g: Ctx2D, color: string, blur: number, ox: number, oy: number) {
   const m = g.getTransform(), s = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c));
   g.shadowColor = color;
   g.shadowBlur = blur * s;
@@ -99,7 +99,7 @@ function shadow(g: Ctx2D, color: string, blur: number, ox: number, oy: number) {
   g.shadowOffsetY = oy * s;
 }
 
-function rr(g: Ctx2D, x: number, y: number, w: number, h: number, r: number) {
+export function rr(g: Ctx2D, x: number, y: number, w: number, h: number, r: number) {
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   g.moveTo(x + r, y);
   g.arcTo(x + w, y, x + w, y + h, r);
@@ -108,35 +108,35 @@ function rr(g: Ctx2D, x: number, y: number, w: number, h: number, r: number) {
   g.arcTo(x, y, x + w, y, r);
   g.closePath();
 }
-function fillRR(g: Ctx2D, x: number, y: number, w: number, h: number, r: number, color: string | CanvasGradient) {
+export function fillRR(g: Ctx2D, x: number, y: number, w: number, h: number, r: number, color: string | CanvasGradient) {
   g.beginPath();
   rr(g, x, y, w, h, r);
   g.fillStyle = color;
   g.fill();
 }
-function clipRR(g: Ctx2D, x: number, y: number, w: number, h: number, r: number) {
+export function clipRR(g: Ctx2D, x: number, y: number, w: number, h: number, r: number) {
   g.beginPath();
   rr(g, x, y, w, h, r);
   g.clip();
 }
-function clipRect(g: Ctx2D, x: number, y: number, w: number, h: number) {
+export function clipRect(g: Ctx2D, x: number, y: number, w: number, h: number) {
   g.beginPath();
   g.rect(x, y, w, h);
   g.clip();
 }
 
-function drawContain(g: Ctx2D, img: ImageBitmap, x: number, y: number, w: number, h: number) {
+export function drawContain(g: Ctx2D, img: ImageBitmap, x: number, y: number, w: number, h: number) {
   const s = Math.min(w / img.width, h / img.height), dw = img.width * s, dh = img.height * s;
   g.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 }
 
 /* ---------- Texte ---------- */
-const font = (weight: number, size: number, family: string, italic = false) => `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`;
+export const font = (weight: number, size: number, family: string, italic = false) => `${italic ? 'italic ' : ''}${weight} ${size}px ${family}`;
 
 // Ascendante / descendante de la police, arrondies comme le fait la mise en page de Chrome :
 // elles placent la ligne de base dans la boîte de ligne (demi-interlignage).
 const metricsCache = new Map<string, { a: number; d: number }>();
-function metrics(g: Ctx2D, f: string) {
+export function metrics(g: Ctx2D, f: string) {
   let m = metricsCache.get(f);
   if (!m) {
     g.font = f;
@@ -150,7 +150,7 @@ function metrics(g: Ctx2D, f: string) {
   return m;
 }
 /** Ligne de base d'une ligne de texte de hauteur `lh` posée en `top`. */
-function baseline(g: Ctx2D, f: string, top: number, lh: number) {
+export function baseline(g: Ctx2D, f: string, top: number, lh: number) {
   const { a, d } = metrics(g, f);
   return top + (lh - (a + d)) / 2 + a;
 }
@@ -159,7 +159,7 @@ function baseline(g: Ctx2D, f: string, top: number, lh: number) {
 // Comme en CSS, l'espacement suit chaque caractère, y compris le dernier.
 const nativeLS = (g: Ctx2D) => 'letterSpacing' in g;
 let lsTrailing: boolean | null = null;
-function measure(g: Ctx2D, text: string, ls = 0): number {
+export function measure(g: Ctx2D, text: string, ls = 0): number {
   if (!ls) return g.measureText(text).width;
   const n = Array.from(text).length;
   if (nativeLS(g)) {
@@ -177,7 +177,7 @@ function measure(g: Ctx2D, text: string, ls = 0): number {
   for (const ch of text) w += g.measureText(ch).width;
   return w + n * ls;
 }
-function fillRun(g: Ctx2D, text: string, x: number, y: number, ls = 0, stroke = false) {
+export function fillRun(g: Ctx2D, text: string, x: number, y: number, ls = 0, stroke = false) {
   if (!ls) return stroke ? g.strokeText(text, x, y) : g.fillText(text, x, y);
   if (nativeLS(g)) {
     g.letterSpacing = `${ls}px`;
@@ -193,7 +193,7 @@ function fillRun(g: Ctx2D, text: string, x: number, y: number, ls = 0, stroke = 
   }
 }
 /** `text-overflow: ellipsis` : plus long préfixe qui tient avec « … ». */
-function ellipsize(g: Ctx2D, text: string, maxW: number, ls = 0): string {
+export function ellipsize(g: Ctx2D, text: string, maxW: number, ls = 0): string {
   if (measure(g, text, ls) <= maxW + 0.01) return text;
   const chars = Array.from(text), ell = measure(g, '…', ls);
   let lo = 0, hi = chars.length;
@@ -205,12 +205,12 @@ function ellipsize(g: Ctx2D, text: string, maxW: number, ls = 0): string {
   return chars.slice(0, lo).join('') + '…';
 }
 
-type TextOpts = {
+export type TextOpts = {
   text: string; f: string; lh: number; color: string; x: number; w: number; top: number;
   align?: 'left' | 'center' | 'right'; ls?: number; ell?: boolean;
 };
 /** Une ligne de texte dans une boîte (x, top, w, lh). Trop longue : alignée au début, comme en CSS. */
-function textLine(g: Ctx2D, o: TextOpts) {
+export function textLine(g: Ctx2D, o: TextOpts) {
   g.font = o.f;
   const ls = o.ls ?? 0, full = measure(g, o.text, ls), over = full > o.w + 0.01;
   const text = over && o.ell ? ellipsize(g, o.text, o.w, ls) : o.text;
@@ -237,10 +237,10 @@ function court(story: boolean) {
     seg([-dW - 0.9, mid], [dW + 0.9, mid], true),
   ];
 }
-const COURTS = { story: court(true), carre: court(false) };
+export const COURTS = { story: court(true), carre: court(false) };
 
 /** Dégradé radial elliptique (centre, rayons) remplissant le rectangle donné. */
-function ellipseGradient(g: Ctx2D, cx: number, cy: number, rx: number, ry: number, stops: [number, string][], rect: [number, number, number, number]) {
+export function ellipseGradient(g: Ctx2D, cx: number, cy: number, rx: number, ry: number, stops: [number, string][], rect: [number, number, number, number]) {
   g.save();
   g.translate(cx, cy);
   g.scale(1, ry / rx);
@@ -325,7 +325,7 @@ function drawVS(g: Ctx2D, f: string, fs: number, x: number, top: number, color: 
 }
 
 // Bande de reflet qui traverse un élément (p de 0 à 1) ; boîte (x, top-20) → (x+w, top+h+20)
-function shine(g: Ctx2D, p: number, x: number, top: number, h: number, w = 90, span = 640) {
+export function shine(g: Ctx2D, p: number, x: number, top: number, h: number, w = 90, span = 640) {
   if (p <= 0 || p >= 1) return;
   g.save();
   around(g, x + w / 2, top + h / 2, () => {
