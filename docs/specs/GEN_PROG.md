@@ -13,13 +13,32 @@
 |---|---|---|
 | **Tournoi** (défaut) | `/medias` | Cette spec : `ProgrammationImagePage`, avec sa bascule Programmation / Résultats après import |
 | **Matches par équipe** | `/medias?type=equipes` | `TeamPosterGenerator` : choix de la saison puis affiche des rencontres à venir (`PosterPanel`, cf. `TEAM_MATCHES.md`) et sa story animée (§ « Story animée des rencontres par équipes ») |
+| **Résultat de rencontre** | `/medias?type=resultats` | `TeamPosterGenerator` en mode `resultat` : choix de la saison puis d'une rencontre terminée (`SeasonResultPicker`), et visuel de fin de rencontre (`ResultPosterSection`, monté aussi sur la page rencontre) |
 
 Le type Tournoi est **masqué et non démonté** (prop `hidden`) : changer de type conserve le fichier
 importé et les réglages. La saison est mémorisée par club et partagée avec `/team-matches`
 (`useTeamSaisons`). `TeamPosterGenerator` monte la grille avec `key={saisonId}` : sans cela, le
 hook garderait l'ancienne saison jusqu'à sa réponse et `PosterPanel` présélectionnerait ses
-rencontres. L'action « Générer une affiche » de `/team-matches` reste disponible. Le calendrier et
-le visuel de résultat par équipe ne sont pas dans ce module.
+rencontres. L'action « Générer une affiche » de `/team-matches` reste disponible. Le calendrier n'est pas
+dans ce module.
+
+**Résultat de rencontre** (09/11/2026) : génération **en lot**. La liste (cases à cocher, « Tout
+cocher / décocher ») ne contient que les rencontres de la saison dont le score indique une rencontre
+terminée : tous les points du format attribués, `score_club + score_adverse =
+totalPointsFormat(format)` (WO compris ; un score partiel en cours de rencontre est exclu), la plus récente d'abord. Seules
+les rencontres des 7 derniers jours sont affichées d'emblée, la plus récente cochée ; les plus
+anciennes sont repliées sous « Rencontres plus anciennes (n) » (dépliées d'office, sans
+présélection, s'il n'y a aucune rencontre récente). Chaque ligne montre l'adversaire, la date,
+l'équipe et la compétition, le nombre de photos et le score coloré comme la grille de saison.
+« Tout cocher » coche les rencontres affichées. Pour chaque rencontre cochée, ses matchs sont
+chargés puis le même `ResultPosterSection` que la page rencontre est monté, aperçu ouvert, avec
+ses propres réglages (modèle, photo, cadrage, tirage des partenaires). Dès 2 rencontres cochées,
+« Tout télécharger (prêts/cochés) » enregistre les PNG déjà prêts, un fichier par rencontre, à
+400 ms d'intervalle (le navigateur peut demander une fois d'autoriser les téléchargements
+multiples). Chaque visuel : modèle « Esprit d'équipe » (photo de la
+rencontre ou image importée sur le moment, non enregistrée) ou « Résultats détaillés ». Le
+modèle « Esprit d'équipe » est présélectionné dès que la rencontre a au moins une photo envoyée
+(BO ou PWA), sinon « Résultats détaillés ».
 
 ---
 

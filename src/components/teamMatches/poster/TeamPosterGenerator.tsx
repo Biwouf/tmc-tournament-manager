@@ -2,16 +2,18 @@ import { Link } from 'react-router-dom';
 import { useTeamSaisons } from '../useTeamSaisons';
 import { useTeamSeasonGrid } from '../useTeamSeasonGrid';
 import PosterPanel from './PosterPanel';
+import SeasonResultPicker from './SeasonResultPicker';
 
 /**
  * Monté avec `key={saisonId}` : `useTeamSeasonGrid` garde les rencontres de l'ancienne saison
  * jusqu'à sa réponse, et `PosterPanel` initialise sa présélection une seule fois, au montage.
  */
-function SeasonPoster({ saisonId }: { saisonId: string }) {
+function SeasonPoster({ saisonId, mode }: { saisonId: string; mode: TeamMediaMode }) {
   const { loading, error, entries } = useTeamSeasonGrid(saisonId);
 
   if (error) return <p className="text-sm text-destructive">Erreur de chargement : {error}</p>;
   if (loading) return <p className="text-sm text-muted-foreground">Chargement des rencontres…</p>;
+  if (mode === 'resultat') return <SeasonResultPicker entries={entries} />;
   return (
     <div className="max-w-2xl rounded-xl border border-border bg-card">
       <PosterPanel entries={entries} />
@@ -19,8 +21,13 @@ function SeasonPoster({ saisonId }: { saisonId: string }) {
   );
 }
 
-/** Affiche des rencontres à venir dans `/medias` : choix de la saison, puis `PosterPanel`. */
-export default function TeamPosterGenerator() {
+type TeamMediaMode = 'affiche' | 'resultat';
+
+/**
+ * Médias des rencontres par équipe dans `/medias` : choix de la saison, puis l'affiche des
+ * rencontres à venir (`PosterPanel`) ou le visuel de fin d'une rencontre (`SeasonResultPicker`).
+ */
+export default function TeamPosterGenerator({ mode }: { mode: TeamMediaMode }) {
   const { saisons, error, ready, saisonId, selectSaison } = useTeamSaisons();
 
   return (
@@ -54,7 +61,7 @@ export default function TeamPosterGenerator() {
               ))}
             </select>
           </label>
-          <SeasonPoster key={saisonId} saisonId={saisonId} />
+          <SeasonPoster key={saisonId} saisonId={saisonId} mode={mode} />
         </>
       )}
     </main>

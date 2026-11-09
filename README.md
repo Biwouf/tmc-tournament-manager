@@ -15,7 +15,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Export du planning au format CSV (compatible Excel)
 
 ### Génération de médias
-- Module unique (carte **Génération de médias** de l'accueil, `/medias`) : on choisit **Tournoi** (programme à venir ou résultats) ou **Matches par équipe** (affiche des rencontres à venir, après choix de la saison). L'affiche des rencontres reste aussi accessible depuis `/team-matches`
+- Module unique (carte **Génération de médias** de l'accueil, `/medias`) : on choisit **Tournoi** (programme à venir ou résultats), **Matches par équipe** (affiche des rencontres à venir, après choix de la saison) ou **Résultat de rencontre** (visuels de fin de rencontre en lot, après choix de la saison puis d'une ou plusieurs rencontres terminées (tous les points du format attribués ; celles des 7 derniers jours d'abord, les plus anciennes dans un dépliant), chacune avec ses propres réglages et « Tout télécharger » pour récupérer les PNG d'un coup : modèle « Esprit d'équipe » avec une photo de la rencontre ou importée, présélectionné dès qu'une photo a été envoyée, ou « Résultats détaillés »). Le visuel de résultat reste aussi disponible sur la page de la rencontre. L'affiche des rencontres reste aussi accessible depuis `/team-matches`
 - Import PDF depuis les feuilles de programmation FFT/TEN'UP
 - Saisie manuelle via CSV
 - Export en image JPEG (haute qualité, ratio 2×)
