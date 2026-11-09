@@ -49,23 +49,26 @@ test('Model changes invalidate downloads and stale renders cannot replace the cu
   try {
     await act(async () => root.render(h(Component, props)));
     await click(button('Générer')); await wait();
-    const old = pending[0];
+    // The rencontre has photos: the team-spirit model is preselected.
+    assert.equal(pending[0].input.model, 'photo');
+    await click(document.querySelectorAll('input[type=radio]')[1]); await wait();
+    const old = pending[1];
     await click(document.querySelectorAll('input[type=radio]')[0]); await wait();
-    assert.equal(pending[1].input.model, 'photo');
-    assert.equal(pending[1].input.photo, props.rencontre.photo_urls[0]);
+    assert.equal(pending[2].input.model, 'photo');
+    assert.equal(pending[2].input.photo, props.rencontre.photo_urls[0]);
     assert.ok(document.querySelector('input[type=file]'));
     await act(async () => old.resolve('data:image/png;base64,old'));
     assert.equal(document.querySelector('a[download]'), null);
-    await act(async () => pending[1].resolve('data:image/png;base64,new'));
+    await act(async () => pending[2].resolve('data:image/png;base64,new'));
     assert.equal(document.querySelector('a[download]').href, 'data:image/png;base64,new');
     assert.equal(document.querySelector('img[alt^="Aperçu"]').src, document.querySelector('a[download]').href);
     await click(document.querySelectorAll('input[type=radio]')[1]);
     assert.equal(document.querySelector('a[download]'), null);
     await wait();
-    await act(async () => pending[2].reject(new Error('Logo inaccessible')));
+    await act(async () => pending[3].reject(new Error('Logo inaccessible')));
     assert.match(document.querySelector('[role=alert]').textContent, /Logo inaccessible/);
     await click(button('Réessayer')); await wait();
-    await act(async () => pending[3].resolve('data:image/png;base64,retry'));
+    await act(async () => pending[4].resolve('data:image/png;base64,retry'));
     assert.equal(document.querySelector('a[download]').href, 'data:image/png;base64,retry');
   } finally { await act(async () => root.unmount()); }
 });
@@ -75,8 +78,7 @@ test('Photo focus can be moved on the source image and reset; export follows the
   const root = createRoot(document.getElementById('root'));
   try {
     await act(async () => root.render(h(Component, props)));
-    await click(button('Générer'));
-    await click(document.querySelectorAll('input[type=radio]')[0]); await wait();
+    await click(button('Générer')); await wait();
     await act(async () => pending.at(-1).resolve('data:image/png;base64,initial'));
     const focus = document.querySelector('[aria-describedby=photo-focus-help]');
     focus.setPointerCapture = () => {};
@@ -91,5 +93,16 @@ test('Photo focus can be moved on the source image and reset; export follows the
     assert.equal(document.querySelector('a[download]').href, 'data:image/png;base64,focused');
     await click(button('Recentrer')); await wait();
     assert.deepEqual(pending.at(-1).input.crop, { x: 50, y: 50, zoom: 1 });
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('Without uploaded photos, the detailed results model is preselected', async () => {
+  pending.length = 0;
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () => root.render(h(Component, { ...props, rencontre: { ...props.rencontre, photo_urls: [] } })));
+    await click(button('Générer')); await wait();
+    assert.equal(pending[0].input.model, 'details');
+    assert.equal(document.querySelectorAll('input[type=radio]')[1].checked, true);
   } finally { await act(async () => root.unmount()); }
 });

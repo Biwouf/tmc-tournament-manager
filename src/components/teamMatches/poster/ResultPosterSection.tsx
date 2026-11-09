@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useClub } from '../../../contexts/ClubContext';
 import { useClubConfig } from '../../../hooks/useClubConfig';
 import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../../../lib/posterPartners';
@@ -14,12 +14,19 @@ interface Props {
   competition: TeamCompetition;
   equipe: TeamEquipe;
   etape: TeamEtape;
+  /** Aperçu ouvert d'emblée (génération en lot de `/medias`). */
+  defaultOpen?: boolean;
+  /** PNG téléchargeable courant, `null` tant qu'il n'est pas prêt ou à la fermeture de l'aperçu. */
+  onFileChange?: (file: ResultPosterFile | null) => void;
 }
+export interface ResultPosterFile { url: string; name: string }
 const button = 'rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50';
 
 export default function ResultPosterSection(props: Props) {
-  const [open, setOpen] = useState(false);
-  const result = finalResult(props.rencontre, props.lines, props.competition.format);
+  const [open, setOpen] = useState(props.defaultOpen ?? false);
+  const { rencontre, lines, competition: { format } } = props;
+  // Stable reference: the editor's render input depends on it, and the parent may re-render (batch in `/medias`).
+  const result = useMemo(() => finalResult(rencontre, lines, format), [rencontre, lines, format]);
   return <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Visuel du résultat</h2>
@@ -32,10 +39,11 @@ export default function ResultPosterSection(props: Props) {
   </section>;
 }
 
-function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, result }: Props & { result: { club: number; adverse: number } }) {
+function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, result, onFileChange }: Props & { result: { club: number; adverse: number } }) {
   const { config, loading } = useClubConfig();
   const { club } = useClub();
-  const [model, setModel] = useState<'photo' | 'details'>('details');
+  // Photos de la rencontre déjà envoyées : on part du modèle qui les met en valeur.
+  const [model, setModel] = useState<'photo' | 'details'>(rencontre.photo_urls.length > 0 ? 'photo' : 'details');
   const [photo, setPhoto] = useState(rencontre.photo_urls[0] || '');
   const [crop, setCrop] = useState({ x: 50, y: 50, zoom: 1 });
   const [uploadError, setUploadError] = useState('');
@@ -70,6 +78,11 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
   const current = rendered?.input === input && !loading && !needsPhoto;
   const url = current ? rendered?.url : undefined;
   const error = current ? rendered?.error : undefined;
+  const fileName = `resultat-${rencontre.id}-${model}.png`;
+  const downloadable = url && !uploading ? url : undefined;
+  const reportFile = useEffectEvent((file: ResultPosterFile | null) => onFileChange?.(file));
+  useEffect(() => { reportFile(downloadable ? { url: downloadable, name: fileName } : null); }, [downloadable, fileName]);
+  useEffect(() => () => reportFile(null), []);
   function choosePhoto(value: string) {
     uploadRequest.current++;
     setPhoto(value); setCrop({ x: 50, y: 50, zoom: 1 }); setUploadError(''); setUploading(false);
@@ -131,6 +144,6 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
     </p>}
     {needsPhoto ? <p role="status" className="text-sm">Choisissez ou importez une photo pour afficher ce modèle.</p> : error ? <p role="alert" className="text-sm text-red-600">{error}</p> : !url ? <p role="status" className="text-sm">Préparation de l’aperçu…</p> : <img src={url} alt={`Aperçu du résultat : ${input.clubName} ${result.club} – ${result.adverse} ${rencontre.club_adverse}`} className="mx-auto w-full max-w-md rounded-lg border" />}
     {error && <button type="button" className={button} onClick={() => { setRendered(null); setRetry(previous => previous + 1); }}>Réessayer</button>}
-    {url && !uploading && <a href={url} download={`resultat-${rencontre.id}-${model}.png`} className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Télécharger le PNG</a>}
+    {downloadable && <a href={downloadable} download={fileName} className="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Télécharger le PNG</a>}
   </div>;
 }
