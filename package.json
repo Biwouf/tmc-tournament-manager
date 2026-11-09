@@ -20,7 +20,7 @@
     "test:domains": "node --test tests/domains.test.mjs",
     "test:programme-animation": "node --experimental-strip-types --test tests/programme-animation.test.mjs",
     "test:rencontres-animation": "node --experimental-strip-types --test tests/rencontres-animation.test.mjs",
-    "test:result-poster": "node --experimental-strip-types --test tests/result-poster.test.mjs tests/result-poster-client.test.mjs",
+    "test:result-poster": "node --experimental-strip-types --test tests/result-poster.test.mjs tests/result-poster-client.test.mjs tests/result-poster-batch.test.mjs",
     "test:team-matches": "node --test tests/team-scoring-rules.test.mjs tests/team-match-commands.test.mjs tests/team-live-auto-result.test.mjs tests/team-match-client.test.mjs tests/team-captains-sql.test.mjs tests/team-photos-captains-sql.test.mjs",
     "test:team-compo": "node --experimental-strip-types --test tests/team-compo.test.mjs tests/team-compo-sql.test.mjs tests/team-compo-client.test.mjs tests/compo-scan-edge.test.mjs",
     "test:tenup": "node --test tests/tenup-worker.test.mjs tests/tenup-sql.test.mjs tests/tenup-client.test.mjs tests/tenup-edge.test.mjs tests/tenup-batch.test.mjs",
