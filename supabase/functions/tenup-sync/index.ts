@@ -1,5 +1,6 @@
 import { normalizeTenupPoolUrl, validateTenupPool } from '../../../shared/tenupPool.mjs';
 import { normalizeTenupCompetitionUrl } from '../../../shared/tenupCompetitionUrl.mjs';
+import { normalizeTenupClubUrl, validateTenupClub } from '../../../shared/tenupClub.mjs';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -54,6 +55,23 @@ Deno.serve(async req => {
       const { error: saveError } = await admin.from('team_tenup_pool_previews').update({ payload }).eq('id', id).eq('actor_id', user.id);
       if (saveError) return json(500, { error: 'Impossible de préparer le calendrier.' });
       return json(200, { id, url, ...payload });
+    }
+    if (body.kind === 'club') {
+      // Page « Matchs par équipe » du club : la liste de ses équipes (aucune écriture ici).
+      if (!uuid.test(body.club_id)) return json(400, { error: 'Requête invalide.' });
+      let url: string;
+      try { url = normalizeTenupClubUrl(body.url); } catch (err) { return json(400, { error: (err as Error).message }); }
+      const { error } = await client.rpc('team_tenup_club_begin', { p_club: body.club_id, p_url: url });
+      if (error) return json(error.code === '42501' ? 403 : 400, { error: error.message });
+      const response = await fetch(workerEndpoint, {
+        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(50_000), headers: workerHeaders,
+        body: JSON.stringify({ kind: 'club', url }),
+      });
+      if (!response.ok) return json(502, { error: 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.' });
+      const raw = await response.text();
+      if (raw.length > 200_000) return json(502, { error: 'Page du club Ten’Up trop volumineuse.' });
+      try { return json(200, validateTenupClub(JSON.parse(raw))); }
+      catch { return json(502, { error: 'Page du club Ten’Up illisible. Ajoutez vos équipes avec le lien de leur poule.' }); }
     }
     if (body.kind === 'competition') {
       if (!uuid.test(body.club_id) || !uuid.test(body.saison_id)) return json(400, { error: 'Requête invalide.' });

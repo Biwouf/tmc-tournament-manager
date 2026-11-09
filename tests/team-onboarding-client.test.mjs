@@ -150,7 +150,7 @@ test('second team of the same championship: no season, no competition read, no d
   assert.equal(prepared.competition.id, 'k1', 'found by championship, other pool');
   const reading = await io.readPool(client, 'c1', prepared.competition, POOL_URL, ['TC Alpha'], '');
   await io.createTeamFromPool(client, 'c1', 'k1', reading, '11');
-  assert.equal(client.calls.find((c) => c[0] === 'rpc')[2].p_numero, 2);
+  assert.equal(client.calls.find((c) => c[0] === 'rpc')[2].p_numero, 1, 'number read from the Ten’Up name « TC ALPHA 1 »');
   assert.deepEqual(reads(client), ['pool'], 'one Ten’Up read');
   assert.equal(client.calls.filter((c) => c[0] === 'insert').length, 0);
   // Une compétition créée entre-temps (autre onglet, essai précédent) est reprise.
@@ -193,4 +193,110 @@ test('expired preview: the creation error is returned as is, the flow offers to 
   const reading = await io.readPool(client, 'c1', competition, POOL_URL, ['TC Alpha'], '');
   client.rpcResult = { data: null, error: { message: 'Aperçu expiré ou incomplet. Relancez la lecture Ten’Up.' } };
   await assert.rejects(io.createTeamFromPool(client, 'c1', 'k1', reading, '11'), (err) => /expiré/.test(io.errorMessage(err, '')));
+});
+
+// --- S6b : import de toutes les équipes du club depuis sa page Ten'Up ---
+const club = load('src/components/teamMatches/clubImport.ts');
+const POOL2 = 'https://tenup.fft.fr/championnat/82145789?division=4&phase=1&poule=3';
+const OTHER = 'https://tenup.fft.fr/championnat/90000001?division=7&phase=1&poule=9';
+const PAGE = {
+  club: 'TC ALPHA', skipped: 0,
+  teams: [
+    { pool_url: POOL_URL, competition: 'Championnat Seniors Messieurs', team: 'TC ALPHA 1', level: 'Départemental', category: 'Senior', genre: 'Homme', dates: ['dimanche 15 novembre 2026', 'dimanche 22 novembre 2026'] },
+    { pool_url: OTHER, competition: 'Pyrénées Interclubs', team: 'TC ALPHA 1', level: 'Régional', category: 'Senior', genre: 'Femme', dates: ['dimanche 22 novembre 2026'] },
+    { pool_url: POOL2, competition: 'Championnat Seniors Messieurs', team: 'TC ALPHA 2', level: 'Départemental', category: 'Senior', genre: 'Homme', dates: ['dimanche 29 novembre 2026'] },
+  ],
+};
+
+test('club page badges: gender and category are read, the Ten’Up number is kept', () => {
+  assert.equal(io.badgeGenre('Femme', 'adultes'), 'femmes');
+  assert.equal(io.badgeGenre('Homme', 'adultes'), 'hommes');
+  assert.equal(io.badgeGenre('Homme', 'jeunes'), 'garcons');
+  assert.equal(io.badgeGenre('Femme', 'jeunes'), 'filles');
+  assert.equal(io.badgeGenre('Mixte', 'adultes'), 'mixte');
+  assert.equal(io.badgeGenre('Mixte', 'jeunes'), null);
+  assert.equal(io.badgeGenre('', 'adultes'), null);
+  assert.equal(io.badgeCategorie('Senior'), 'Seniors');
+  assert.equal(io.badgeCategorie('13/14 ans'), '13/14 ans');
+  assert.equal(io.badgeCategorie('Régional'), null);
+  // Le badge l'emporte ; le nom reste le repli.
+  const d = io.deduceCompetition({ url: 'u', nom: 'Pyrénées Interclubs', format: '3S1D2', singles_set3_format: 'normal' }, { category: 'Senior', genre: 'Femme' });
+  assert.deepEqual([d.type, d.categorie, d.genre], ['adultes', 'Seniors', 'femmes']);
+  assert.equal(io.deduceCompetition({ url: 'u', nom: 'GAN 70 MESSIEURS', format: null, singles_set3_format: null }, {}).genre, 'hommes');
+  assert.equal(io.teamNumber('CASTELSARRASIN TENNIS CLUB 4', [], 'c'), 4);
+  assert.equal(io.teamNumber('ENTENTE SANS NUMERO', [{ competition_id: 'c', numero: 2 }], 'c'), 3);
+});
+
+test('club page grouped by championship; already imported teams are flagged; pool team found by exact name', () => {
+  const competitions = [{ id: 'k1', saison_id: 's1', tenup_url: POOL_URL }];
+  const equipes = [{ id: 'e1', competition_id: 'k1', tenup_source_url: POOL_URL, tenup_team_name: 'tc  alpha 1', tenup_team_id: '11' }];
+  const groups = club.groupClubTeams(PAGE, competitions, equipes);
+  assert.deepEqual(groups.map((g) => [g.name, g.competition?.id ?? null, g.teams.map((t) => [t.team, t.imported])]), [
+    ['Championnat Seniors Messieurs', 'k1', [['TC ALPHA 1', true], ['TC ALPHA 2', false]]],
+    ['Pyrénées Interclubs', null, [['TC ALPHA 1', false]]],
+  ]);
+  assert.equal(club.poolTeamId(POOL, 'tc alpha 1'), '11');
+  assert.equal(club.poolTeamId(POOL, 'TC ALPHA 9'), null);
+  assert.equal(club.poolTeamId({ teams: [{ id: '1', name: 'X 1' }, { id: '2', name: 'x 1' }] }, 'X 1'), null, 'ambiguous');
+});
+
+test('club import: competitions reused or read with badges, pools read three at a time, teams created; quota retried; misses reported', async () => {
+  const pools = {
+    [POOL_URL]: structuredClone(POOL),
+    [POOL2]: { ...structuredClone(POOL), teams: POOL.teams.map((t) => (t.id === '11' ? { id: '21', name: 'TC ALPHA 2' } : t)),
+      rounds: POOL.rounds.map((r) => ({ ...r, matches: r.matches.map((m) => ({ ...m, url: m.url.replace('/poule/2/', '/poule/3/'), home_id: m.home_id === '11' ? '21' : m.home_id, away_id: m.away_id === '11' ? '21' : m.away_id })) })) },
+    [OTHER]: { ...structuredClone(POOL), teams: POOL.teams.map((t) => (t.id === '11' ? { id: '11', name: 'TC OMEGA 1' } : t)),
+      rounds: POOL.rounds.map((r) => ({ ...r, matches: r.matches.map((m) => ({ ...m, url: m.url.replace('/82145789/division/4/phase/1/poule/2/', '/90000001/division/7/phase/1/poule/9/') })) })) },
+  };
+  let quotaOnce = true, inFlight = 0, maxInFlight = 0;
+  const client = fakeClient({
+    saisons: [{ id: 's1', club_id: 'c1', label: '2026/2027', actif: true }],
+    competitions: [{ id: 'k1', club_id: 'c1', saison_id: 's1', nom: 'Championnat Seniors Messieurs', tenup_url: POOL_URL }],
+    invoke: async (body) => {
+      if (body.kind === 'competition') return { data: { url: body.url, nom: 'Pyrénées Interclubs', format: '3S1D2', singles_set3_format: 'normal', warnings: [] }, error: null };
+      inFlight++; maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      if (body.url === POOL2 && quotaOnce) { quotaOnce = false; return refusal('Trop de demandes Ten’Up. Réessayez dans une minute.'); }
+      return { data: { id: `p-${body.url.slice(-1)}`, url: body.url, ...pools[body.url] }, error: null };
+    },
+  });
+  const groups = club.groupClubTeams(PAGE, client.db.team_competitions, []);
+  const selection = groups.map((group) => ({ group, teams: group.teams }));
+  const prepared = await club.prepareClubCompetitions(client, 'c1', 's1', selection);
+  assert.equal(prepared[0].competition.id, 'k1', 'existing championship: no read');
+  assert.deepEqual([prepared[1].draft.genre, prepared[1].draft.categorie], ['femmes', 'Seniors'], 'gender from the « Femme » badge');
+  assert.deepEqual(reads(client), ['competition']);
+  const outcomes = {};
+  const pauses = [];
+  await club.importClubTeams(client, 'c1', 's1', prepared, (key, o) => { outcomes[key] = o; }, { pause: async (ms) => { pauses.push(ms); } });
+  const byTeam = Object.fromEntries(Object.entries(outcomes).map(([k, o]) => [k.replace(/^.*poule=(\d+)\|/, '$1 '), o]));
+  assert.deepEqual(byTeam['2 TC ALPHA 1'], { status: 'done', count: 2 });
+  assert.deepEqual(byTeam['3 TC ALPHA 2'], { status: 'done', count: 2 }, 'retried after the quota pause');
+  assert.equal(byTeam['9 TC ALPHA 1'].status, 'failed');
+  assert.match(byTeam['9 TC ALPHA 1'].message, /introuvable dans la poule/);
+  assert.deepEqual(pauses, [30_000]);
+  assert.ok(maxInFlight <= 3);
+  const created = client.calls.filter((c) => c[0] === 'rpc').map((c) => [c[2].p_competition, c[2].p_numero, c[2].p_team_id]);
+  assert.deepEqual(created.sort(), [['k1', 1, '11'], ['k1', 2, '21']], 'numbers from the Ten’Up names');
+  assert.equal(client.db.team_competitions.length, 2, 'Pyrénées Interclubs created');
+  assert.equal(client.db.team_competitions[1].genre, 'femmes');
+  // Relancé : déjà présente, sans nouvelle création.
+  client.db.team_equipes.push({ id: 'e1', club_id: 'c1', competition_id: 'k1', numero: 1, tenup_team_id: '11' });
+  const again = {};
+  await club.importClubTeams(client, 'c1', 's1', [{ teams: [groups[0].teams[0]], competition: prepared[0].competition }], (key, o) => { again[key] = o; });
+  assert.deepEqual(Object.values(again).at(-1), { status: 'already' });
+});
+
+test('club import: a championship that cannot be read or created fails alone', async () => {
+  const client = fakeClient({ invoke: (body) => body.kind === 'competition' && refusal('Limite de l’essai atteinte : 40 lectures Ten’Up par 24 heures.') });
+  const groups = club.groupClubTeams(PAGE, [], []);
+  const prepared = await club.prepareClubCompetitions(client, 'c1', 's1', groups.map((group) => ({ group, teams: group.teams })));
+  assert.ok(prepared.every((p) => /Limite de l’essai/.test(p.error)));
+  const ok = fakeClient();
+  const outcomes = {};
+  const draft = { nom: 'x', tenup_url: POOL_URL, type: 'adultes', categorie: 'Seniors', genre: null, format: '3S1D2', singles_set3_format: 'normal' };
+  await club.importClubTeams(ok, 'c1', 's1', [{ teams: [groups[0].teams[0]], draft }], (key, o) => { outcomes[key] = o; });
+  assert.match(Object.values(outcomes)[0].message, /Précisez le genre/);
+  assert.equal(ok.calls.filter((c) => c[0] === 'invoke').length, 0, 'no pool read without its competition');
 });

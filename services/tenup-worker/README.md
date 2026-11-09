@@ -29,6 +29,8 @@ Le jeton est exigé dans `Authorization: Bearer …`, y compris pour les tests H
 Le serveur accepte uniquement `POST /extract` avec `{"url":"https://tenup.fft.fr/…"}`.
 Le préremplissage des compétitions utilise le même endpoint avec
 `{"kind":"competition","url":"https://tenup.fft.fr/championnat/82678463"}`.
+L’import de toutes les équipes d’un club (S6b) utilise
+`{"kind":"club","url":"https://tenup.fft.fr/club/60820056/competitions/rencontres"}`.
 Le worker lit la fiche publique du championnat (nom, composition, points par match,
 règles des sets), sans importer les équipes, le calendrier ou les résultats.
 La fonction Supabase conserve le lien original avec ses filtres de poule, mais
@@ -216,6 +218,8 @@ La création atomique passe par `team_equipe_create`. Pour Ten’Up, le navigate
 Le calendrier public donne des dates sans heures : la date est stockée à minuit Europe/Paris pour conserver le jour exact. L’aperçu indique que les heures doivent être précisées dans les rencontres. Une journée exempte crée une étape sans rencontre. La saisie manuelle des divisions et journées reste disponible.
 
 Validation : `npm run test:team-calendar`, puis les suites compétitions/Ten’Up existantes.
+
+Le mode `club` (S6b, 09/11/2026) lit la page publique « Matchs par équipe » d’un club, `https://tenup.fft.fr/club/<id>/competitions/rencontres` (seule forme acceptée), une fois les cartes rendues (ou « Aucun résultat »). `parse-club.mjs` rend `{ club, teams, skipped }` : une entrée par équipe du club et par poule (lien de poule, championnat, nom Ten’Up, badges niveau / catégorie / genre, dates). L’équipe du club est reconnue par son nom (`<nom du h1> <n>`). Aucune écriture : l’Edge `tenup-sync` valide la réponse (`shared/tenupClub.mjs`) et la renvoie au BO, qui lit ensuite chaque poule en mode `pool`.
 
 Le lecteur de poule attend l’ouverture effective du menu après hydratation de la page, puis chaque journée complète (toutes ses cartes de rencontres). Le test `tests/tenup-pool-loading.test.mjs` simule ces délais dans Chromium. Depuis la refonte Ten’Up d’octobre 2026, une carte de rencontre jouée par forfait n’a plus de lien « Voir la rencontre » : son identifiant est relu dans le payload Next.js de la page (`self.__next_f`) à partir des deux équipes, du côté domicile et de la date ; sans correspondance unique, la poule est refusée (`tests/tenup-pool-worker.test.mjs`, fixture `tenup-pool-forfait.html`). Une rencontre dont le juge-arbitre est désigné porte un objet imbriqué (`jugeArbitre`) : le relevé accepte un niveau d’imbrication (31/10/2026). Le bandeau cookies TrustCommander bloque le défilement de la page et rend le sélecteur de journée inatteignable : le worker le refuse dès qu’il gêne une action (`#popin_tc_privacy_button`). Les erreurs techniques d’extraction sont journalisées côté worker sans corps de requête ni variables d’environnement ; la réponse publique reste générique.
 

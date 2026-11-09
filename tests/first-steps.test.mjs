@@ -69,6 +69,7 @@ const supabase = {
   functions: { async invoke(name, { body }) {
     log.push(['tenup', body.kind]);
     if (tenup.refuse) return { data: null, error: { context: new Response(JSON.stringify({ error: tenup.refuse }), { status: 400 }) } };
+    if (body.kind === 'club') return { data: tenup.club, error: null };
     if (body.kind === 'competition') return { data: { url: body.url, nom: tenup.nom ?? 'Championnat Seniors Messieurs', format: tenup.format === undefined ? '3S1D2' : tenup.format, singles_set3_format: 'super_tiebreak', warnings: [] }, error: null };
     const pool = POOL();
     if (tenup.teams) pool.teams = pool.teams.map((t, i) => ({ ...t, name: tenup.teams[i] ?? t.name }));
@@ -390,7 +391,7 @@ test('one pool link: season, competition, team and encounters created; the phone
   assert.match(text(), /TC ALPHA 1Hommes Seniors · Division 2 · 2 rencontres/);
   assert.match(text(), /vs US BETA 1/, 'phone shows the real encounters');
   assert.match(text(), /vs AS GAMMA 1/);
-  assert.match(text(), /Une autre équipe \? Lien de sa poule/);
+  assert.match(text(), /Une équipe manque \? Ajoutez-la avec le lien de sa poule/);
   assert.equal(document.getElementById('fs-pool-url').value, '');
   assert.ok(!buttonNamed('Passer cette étape'), 'skipping is offered only before the first team');
   await click('Suivant : c’est prêt →');
@@ -492,4 +493,54 @@ test('« Passer cette étape » records it as postponed, not done: resume skips 
   const steps = [{ id: 'a', isDone: s => s.completed_steps.includes('a') }, { id: 'b', isDone: () => false }, { id: 'fin', isDone: () => false, final: true }];
   assert.equal(currentStepIndex(steps, { completed_steps: ['a'], skipped_steps: [] }), 1);
   assert.equal(currentStepIndex(steps, { completed_steps: ['a'], skipped_steps: ['b'] }), 2);
+});
+
+test('club link: every team listed by championship, all ticked; import creates them, a miss is reported with a retry', async () => {
+  atTeams(); tenup.nom = 'Pyrénées Interclubs';
+  const team = (name, dates) => ({ pool_url: POOL_URL, competition: 'Pyrénées Interclubs', team: name, level: 'Départemental', category: 'Senior', genre: 'Homme', dates });
+  tenup.club = { club: 'TC ALPHA', skipped: 0, teams: [team('TC ALPHA 1', ['dimanche 15 novembre 2026', 'dimanche 22 novembre 2026']), team('TC ALPHA 3', ['dimanche 29 novembre 2026'])] };
+  const unmount = await mount(page());
+  assert.match(text(), /Collez le lien des rencontres de votre club sur TEN’UP/);
+  const club = document.getElementById('fs-club-url');
+  await act(async () => setValue(club, 'https://tenup.fft.fr/championnat/82145789')); await flush();
+  assert.match(text(), /Copiez le lien Ten’Up de votre club/);
+  await act(async () => setValue(club, 'https://tenup.fft.fr/club/60820056')); await flush();
+  await click('Trouver mes équipes');
+  assert.match(text(), /2 équipes trouvées sur TEN’UP/);
+  assert.match(text(), /Pyrénées InterclubsTC ALPHA 1Homme · Départemental · 2 rencontres à venir/);
+  const boxes = [...document.querySelectorAll('input[type="checkbox"]')];
+  assert.equal(boxes.length, 2);
+  assert.ok(boxes.every((b) => b.checked && !b.disabled));
+  assert.equal(db.team_saisons.length, 1, 'season ready');
+  assert.equal(db.team_competitions.length, 0, 'nothing created before « Importer »');
+  await act(async () => boxes[1].click()); await flush();
+  assert.ok(buttonNamed('Importer 1 équipe'));
+  await act(async () => boxes[1].click()); await flush();
+  await click('Importer 2 équipes');
+  for (let i = 0; i < 10; i++) await flush();
+  assert.deepEqual(log.filter(l => l[0] === 'tenup').map(l => l[1]), ['club', 'competition', 'pool', 'pool']);
+  assert.equal(db.team_competitions[0].genre, 'hommes', 'gender from the « Homme » badge');
+  assert.equal(db.team_equipes.length, 1);
+  assert.match(text(), /TC ALPHA 1Hommes Seniors · Division 2 · 2 rencontres/, 'created team in the step list');
+  assert.doesNotMatch(text(), /TC ALPHA 1 · Pyrénées Interclubs/, 'only failures stay in the import list');
+  assert.match(text(), /TC ALPHA 3 · Pyrénées InterclubsÉquipe introuvable dans la poule/);
+  assert.match(text(), /1 équipe importée\. 1 équipe en échec\./);
+  assert.equal(document.querySelector('.fs-progress[aria-label="Import des équipes"]').getAttribute('aria-live'), 'polite');
+  assert.match(text(), /vs US BETA 1/, 'phone shows the imported encounters');
+  await click('Réessayer les équipes en échec');
+  const again = [...document.querySelectorAll('input[type="checkbox"]')];
+  assert.deepEqual(again.map((b) => [b.checked, b.disabled]), [[true, true], [true, false]]);
+  assert.match(text(), /TC ALPHA 1 · déjà ajoutée/);
+  assert.ok(buttonNamed('Importer 1 équipe'), 'only the failed team is ticked');
+  await unmount();
+});
+
+test('club page without upcoming encounter: the pool link stays available', async () => {
+  atTeams(); tenup.club = { club: 'TC ALPHA', skipped: 0, teams: [] };
+  const unmount = await mount(page());
+  await act(async () => setValue(document.getElementById('fs-club-url'), 'https://tenup.fft.fr/club/60820056/competitions/rencontres')); await flush();
+  await click('Trouver mes équipes');
+  assert.match(text(), /Aucune rencontre à venir sur la page du club/);
+  assert.ok(document.getElementById('fs-pool-url'));
+  await unmount();
 });

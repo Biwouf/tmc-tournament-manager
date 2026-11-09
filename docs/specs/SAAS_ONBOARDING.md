@@ -30,7 +30,8 @@ annuel, Stripe). L'humain n'intervient que pour le call de réassurance.
 | **S3** | Tunnel `admin.feelike.pro/inscription` avec aperçu en direct (§7) | livrée, fermée tant que CGU / confidentialité manquent |
 | **S4** | Activation par lien magique simplifiée, routage vers les premiers pas (§8) | livrée |
 | **S5** | Premiers pas : cadre, fil d'Ariane, première actu, écran final (§9) | livrée |
-| **S6** | Premiers pas : vos équipes depuis un lien de poule Ten'Up, plafond Ten'Up d'essai (§10) | en revue (migration à appliquer avant merge) |
+| **S6** | Premiers pas : vos équipes depuis un lien de poule Ten'Up, plafond Ten'Up d'essai (§10) | livrée (#207) |
+| **S6b** | Vos équipes : toutes les équipes du club depuis la page de ses rencontres (§10.6) | en revue (migration, Edge et worker à déployer avant merge) |
 | S7 | Premiers pas : affiches | à faire |
 | S8 | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » | à faire |
 | S9 | Abonnement Stripe, lecture seule en fin d'essai | à faire |
@@ -453,7 +454,7 @@ genres, ou si le genre ne convient pas au type (« Messieurs » en 17/18 ans).
 
 `team_tenup_competition_begin` (appelée aussi par `team_tenup_pool_begin`) compte désormais les
 lectures par club (`team_tenup_competition_requests.club_id`) : un club `plan = 'trial'` est limité
-à **20 lectures par 24 heures glissantes**, tous comptes confondus, après le quota existant de 3 par
+à **20 lectures par 24 heures glissantes** (**40** depuis S6b, §10.6), tous comptes confondus, après le quota existant de 3 par
 minute et par compte. Message : « Limite de l'essai atteinte : 20 lectures Ten'Up par 24 heures… ».
 Une lecture refusée ne compte pas. `internal` (le CAC) et `saison` : aucun changement, pas même un
 verrou de plus. Pas de SQLSTATE 40001 (exception par défaut, HTTP 400 par `tenup-sync`).
@@ -476,3 +477,46 @@ glissante, refus non compté, `internal` et `saison` non plafonnés). Tous dans 
 
 Opération hors code : appliquer `2026110820_tenup_trial_cap.sql` en prod **avant** le merge. Le
 worker Ten'Up n'est ni modifié ni redéployé.
+
+### 10.6 Toutes les équipes du club (S6b, brief `SAAS_07b_import_club.md`)
+
+Entrée principale de l'étape depuis le 09/11/2026 : le lien des **rencontres du club** sur Ten'Up
+(`/club/<id>/competitions/rencontres` ; `/club/<id>` et `/club/<id>/competitions` sont ramenés à
+cette forme). Le lien d'une poule reste en repli, replié sous « Une équipe manque ? ».
+
+Parcours (`ClubImport`, logique `clubImport.ts`) :
+1. **Lecture de la page** (1 lecture, `team_tenup_club_begin`) après `ensureSeason`. Le worker
+   (`parse-club.mjs`) rend une entrée par équipe du club et par poule : lien de poule, nom du
+   championnat, nom Ten'Up exact (`<nom du club> <n>`, à domicile comme à l'extérieur), badges
+   niveau / catégorie / genre, dates à venir. Les cartes sans équipe du club ou sans lien de poule
+   sont comptées (`skipped`), pas importées.
+2. **Choix** : équipes par championnat, toutes cochées, décochables ; celles déjà importées (même
+   poule, même nom dans la compétition existante) désactivées. Rien n'est lu avant « Importer ».
+   Estimation affichée : une lecture par équipe et par championnat nouveau.
+3. **Compétitions** : existante → sans lecture ; sinon fiche lue et déduite (`deduceCompetition`
+   avec les badges : **genre du badge** « Femme / Homme / Mixte » d'abord, puis le nom ; catégorie
+   du nom, puis du badge « Senior »). Champs encore manquants (format, 3e set, genre) demandés par
+   championnat avant toute création. Un championnat illisible n'échoue que pour ses équipes.
+4. **Import** : compétitions créées, puis trois poules à la fois : lecture, équipe de la poule au
+   **nom exact** (`poolTeamId`), `team_equipe_create` avec le numéro du nom Ten'Up (« … 2 » → 2,
+   aussi pour le lien de poule depuis S6b). Progression par équipe (`aria-live`). « Trop de
+   demandes » : réessayé deux fois après 30 s. Équipe absente de la poule, ou autre échec : listée
+   avec son message, « Réessayer les équipes en échec » (les réussies passent « déjà ajoutées »).
+
+Quotas (migration `2026110920_tenup_club_import.sql`, décisions du 09/11/2026) : la lecture de la
+page ouvre pour ce compte et ce club une fenêtre de 10 minutes à **15 lectures / minute** (3 sinon) ;
+plafond d'essai **40 / 24 h** ; 5 imports de club par compte et par jour. Comptage commun dans
+`team_tenup_read_begin`, interne. `internal` et `saison` : pas de plafond journalier (inchangé).
+Coût du CAC au 09/11/2026 : 1 + 3 championnats + 8 poules = 12 lectures.
+
+Limites connues : la page ne montre que les **rencontres à venir** (une équipe dont la phase est
+finie n'apparaît pas) et 30 cartes ont été vues sans pagination visible (une limite côté Ten'Up
+n'est pas exclue) : le lien de poule couvre ces cas.
+
+Tests : `tests/tenup-club-worker.test.mjs` (fixture réelle `tests/fixtures/tenup-club.html`,
+extrait de 7 cartes), `tests/tenup-club-edge.test.mjs`, `tests/tenup-club-import-sql.test.mjs`,
+`tests/team-onboarding-client.test.mjs` et `tests/first-steps.test.mjs` (parcours dans le cadre).
+
+Opérations avant le merge : appliquer la migration, déployer l'Edge `tenup-sync`, redéployer le
+worker Ten'Up (`kind: 'club'`). Sans le worker à jour, la lecture de la page échoue avec un message
+renvoyant au lien de poule, qui reste fonctionnel.

@@ -156,6 +156,13 @@
 .fs-choice.off { color: var(--mu); cursor: not-allowed; }
 .fs-choice input { accent-color: var(--brand-fill); width: 18px; height: 18px; flex-shrink: 0; }
 
+.fs-more { border-top: 1px solid var(--line); padding-top: 12px; }
+.fs-more > summary { cursor: pointer; font-weight: 700; font-size: 13.5px; color: var(--mu); min-height: 36px; display: flex; align-items: center; }
+.fs-more > summary::before { content: '+'; display: inline-flex; width: 18px; font-weight: 800; color: var(--brand-text); }
+.fs-more[open] > summary::before { content: '−'; }
+.fs-more[open] > summary { margin-bottom: 10px; }
+.fs-choice .fs-team-body { font-weight: 700; }
+
 .fs-step > * { animation: fs-rise 0.35s both; }
 .fs-pop { animation: fs-pop 0.5s both; }
 @keyframes fs-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
