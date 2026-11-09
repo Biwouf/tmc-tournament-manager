@@ -8,11 +8,10 @@ import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../../.
 import type { RencontreEntry } from '../gridTypes';
 import {
   currentWeekendRange,
-  formatWeekendLabel,
+  formatWeekLabel,
   isInRange,
-  nextWeekendRange,
+  weekRange,
   weekendFileDate,
-  type WeekendRange,
 } from '../weekend';
 import { MAX_POSTER_MATCHES, formatRencontreDate, rencontreToTeamMatch } from './posterHelpers';
 import RencontresAnimationSection from '../../rencontresAnimation/RencontresAnimationSection';
@@ -20,40 +19,46 @@ import RencontresAnimationSection from '../../rencontresAnimation/RencontresAnim
 interface Groupe {
   key: string;
   label: string;
-  range: WeekendRange | null;
   entries: RencontreEntry[];
 }
 
 /**
- * Rencontres groupées par week-end : le week-end courant EN ENTIER (les rencontres déjà commencées
- * comprises : elles sont présélectionnées, et le dimanche elles disparaissaient de la liste tout
- * en restant cochées), puis les rencontres à venir du week-end suivant et au-delà.
+ * Rencontres de la semaine en cours : le week-end courant EN ENTIER (les rencontres déjà
+ * commencées comprises : elles sont présélectionnées, et le dimanche elles disparaissaient de la
+ * liste tout en restant cochées) plus les rencontres à venir de la semaine qui le précèdent
+ * (11 novembre…), qui tombaient sinon dans « Plus tard ».
  */
-function groupByWeekend(entries: RencontreEntry[], now: Date): Groupe[] {
-  const courant = currentWeekendRange(now);
-  const suivant = nextWeekendRange(now);
+function isCurrentWeek(iso: string, now: Date): boolean {
+  if (isInRange(iso, currentWeekendRange(now))) return true;
+  return new Date(iso) >= now && isInRange(iso, weekRange(now));
+}
+
+/**
+ * Rencontres groupées par semaine (lundi → dimanche) : la semaine courante (cf. `isCurrentWeek`),
+ * puis les rencontres à venir de la semaine suivante et au-delà.
+ */
+function groupByWeek(entries: RencontreEntry[], now: Date): Groupe[] {
+  const courante = weekRange(now);
+  const suivante = weekRange(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
   const aVenir = entries.filter((e) => new Date(e.rencontre.date_heure) >= now);
 
   const groupes: Groupe[] = [
     {
       key: 'courant',
-      label: `Ce week-end · ${formatWeekendLabel(courant)}`,
-      range: courant,
-      entries: entries.filter((e) => isInRange(e.rencontre.date_heure, courant)),
+      label: `Cette semaine · ${formatWeekLabel(courante)}`,
+      entries: entries.filter((e) => isCurrentWeek(e.rencontre.date_heure, now)),
     },
     {
       key: 'suivant',
-      label: `Week-end suivant · ${formatWeekendLabel(suivant)}`,
-      range: suivant,
-      entries: aVenir.filter((e) => isInRange(e.rencontre.date_heure, suivant)),
+      label: `Semaine suivante · ${formatWeekLabel(suivante)}`,
+      entries: aVenir.filter((e) => isInRange(e.rencontre.date_heure, suivante)),
     },
     {
       key: 'plus-tard',
       label: 'Plus tard',
-      range: null,
       entries: aVenir.filter(
         (e) =>
-          !isInRange(e.rencontre.date_heure, courant) && !isInRange(e.rencontre.date_heure, suivant)
+          !isCurrentWeek(e.rencontre.date_heure, now) && !isInRange(e.rencontre.date_heure, suivante)
       ),
     },
   ];
@@ -88,13 +93,13 @@ export default function PosterPanel({
     [showPartners, partnerLogos, partnerSeed]
   );
   const now = useMemo(() => new Date(), []);
-  const groupes = useMemo(() => groupByWeekend(entries, now), [entries, now]);
+  const groupes = useMemo(() => groupByWeek(entries, now), [entries, now]);
   const weekend = useMemo(() => currentWeekendRange(now), [now]);
 
-  // Présélection : le week-end courant, tronqué à 8, par date croissante.
+  // Présélection : la semaine courante (week-end compris), tronquée à 8, par date croissante.
   const [selectedIds, setSelectedIds] = useState<string[]>(() =>
     entries
-      .filter((e) => isInRange(e.rencontre.date_heure, weekend))
+      .filter((e) => isCurrentWeek(e.rencontre.date_heure, now))
       .sort((a, b) => a.rencontre.date_heure.localeCompare(b.rencontre.date_heure))
       .slice(0, MAX_POSTER_MATCHES)
       .map((e) => e.rencontre.id)

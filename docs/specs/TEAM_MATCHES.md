@@ -561,6 +561,12 @@ que `new Date(iso)` ramène en local). `currentWeekendRange` / `nextWeekendRange
 trois définitions divergentes feraient trois bugs. Le décalage ±1 semaine se fait en jours
 calendaires : en millisecondes, le vendredi dérive d'une heure au passage à l'heure d'été.
 
+L'affiche des rencontres (`PosterPanel`) groupe **par semaine** (lundi → dimanche, `weekRange`) :
+**Cette semaine** = le week-end courant en entier + les rencontres à venir de la semaine qui le
+précèdent (11 novembre…), présélectionnées · **Semaine suivante** · **Plus tard**. Avant le
+09/11/2026 elle groupait par week-end : une rencontre en semaine tombait dans « Plus tard » et
+n'était pas présélectionnée.
+
 #### Championnats terminés
 
 `team_competitions.terminee` (migration `20260820_team_competitions_terminee.sql`) sort une
