@@ -3,9 +3,12 @@ import { timingSafeEqual } from 'node:crypto';
 import { chromium } from 'playwright';
 import { extractTenupPage } from './parse-page.mjs';
 import { extractTenupCompetition } from './parse-competition.mjs';
+import { extractTenupClub } from './parse-club.mjs';
 import { poolDayButton, readTenupPool } from './read-pool.mjs';
 export const validPoolUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/\d+\?division=\d+&phase=\d+&poule=\d+$/.test(value);
-const validKindUrl = (kind, url) => kind === 'pool' ? validPoolUrl(url) : kind === 'competition' ? validCompetitionUrl(url) : validUrl(url);
+export const validClubUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/club\/\d+\/competitions\/rencontres$/.test(value);
+const KINDS = ['rencontre', 'competition', 'pool', 'club'];
+const validKindUrl = (kind, url) => kind === 'pool' ? validPoolUrl(url) : kind === 'competition' ? validCompetitionUrl(url) : kind === 'club' ? validClubUrl(url) : validUrl(url);
 export const validCompetitionUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/[0-9]+$/.test(value);
 
 export const validUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/\d+\/division\/\d+\/phase\/\d+\/poule\/\d+\/rencontre\/\d+$/.test(value);
@@ -29,7 +32,7 @@ export function createHandler({ token, extract }) {
       let input;
       try { input = req.body === undefined ? JSON.parse(body) : (typeof req.body === 'string' ? JSON.parse(req.body) : req.body); } catch { return reply(400, { error: 'Requête invalide.' }); }
       const kind = input?.kind ?? 'rencontre';
-      if (!input || !['rencontre', 'competition', 'pool'].includes(kind) || !validKindUrl(kind, input.url)) return reply(400, { error: 'Lien Ten’Up invalide.' });
+      if (!input || !KINDS.includes(kind) || !validKindUrl(kind, input.url)) return reply(400, { error: 'Lien Ten’Up invalide.' });
       const cached = cache.get(`${kind}:${input.url}`);
       if (cached && cached.expires > Date.now()) return reply(200, cached.data);
       if (busy) return reply(429, { error: 'Synchronisation en cours. Réessayez dans une minute.' });
@@ -46,6 +49,7 @@ export function createHandler({ token, extract }) {
         reply(502, { error: kind === 'competition'
           ? 'La fiche du championnat Ten’Up est indisponible. Réessayez plus tard ou saisissez la compétition manuellement.'
           : kind === 'pool' ? 'Le calendrier de la poule Ten’Up est indisponible. Réessayez plus tard ou créez l’équipe manuellement.'
+          : kind === 'club' ? 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.'
           : 'Ten’Up ne fournit pas de feuille complète lisible pour le moment. Réessayez plus tard ou saisissez les résultats manuellement.' });
       } finally { busy = false; }
     } catch { if (!res.headersSent) reply(400, { error: 'Requête interrompue.' }); }
@@ -53,7 +57,7 @@ export function createHandler({ token, extract }) {
 }
 
 export async function extract(url, launchOptions = {}, kind = 'rencontre') {
-  if (!['competition', 'rencontre', 'pool'].includes(kind) || !validKindUrl(kind, url)) throw new Error('Invalid Tenup URL');
+  if (!KINDS.includes(kind) || !validKindUrl(kind, url)) throw new Error('Invalid Tenup URL');
   const browser = await chromium.launch({ headless: true, chromiumSandbox: true, timeout: 5_000, ...launchOptions });
   const timeout = setTimeout(() => void browser.close(), 40_000);
   try {
@@ -74,10 +78,12 @@ export async function extract(url, launchOptions = {}, kind = 'rencontre') {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'competition') await page.locator('main p').filter({ hasText: /^Nombre de points pour un double\s*:/ }).waitFor({ timeout: 12_000 });
     else if (kind === 'pool') await poolDayButton(page).waitFor({ timeout: 12_000 });
+    // Upcoming encounters, or Ten'Up's empty state when the club has none.
+    else if (kind === 'club') await page.locator('main [data-slot="card"]').or(page.getByText('Aucun résultat', { exact: true })).first().waitFor({ timeout: 12_000 });
     else await page.getByText(/^Simple 1$/, { exact: true }).waitFor({ timeout: 12_000 });
     if (page.url() !== url) throw new Error('Unexpected destination');
     if (kind === 'pool') return await readTenupPool(page);
-    const parser = kind === 'competition' ? extractTenupCompetition : extractTenupPage;
+    const parser = kind === 'competition' ? extractTenupCompetition : kind === 'club' ? extractTenupClub : extractTenupPage;
     return await page.evaluate(`(${parser.toString()})(document)`);
   } finally { clearTimeout(timeout); await browser.close(); }
 }

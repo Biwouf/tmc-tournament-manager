@@ -4,7 +4,7 @@
 // ceux de `CreateEquipeForm`.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LiveSet3Format, TeamCompetition, TeamEquipe, TeamFormat, TeamGenre, TeamSaison, TeamType } from '../../types';
-import { inferCategorie, inferGenre, inferType, seasonLabel } from './teamMatchLabels';
+import { GENRES_BY_TYPE, inferCategorie, inferGenre, inferType, seasonLabel } from './teamMatchLabels';
 import { previewTenupCompetition } from '../../../shared/tenupCompetitionClient';
 import { previewTenupPool, suggestedTeamIds, type TenupPoolPreview } from '../../../shared/tenupPoolClient';
 import { normalizeTenupPoolUrl, teamCalendar } from '../../../shared/tenupPool.mjs';
@@ -44,14 +44,38 @@ export type CompetitionDraft = {
   singles_set3_format: LiveSet3Format | null;
 };
 
-/** Ce que l'on sait d'une compétition à partir de sa fiche Ten'Up. `genre`, `format` et
- *  `singles_set3_format` à null = à demander au fondateur, jamais devinés. */
-export function deduceCompetition(preview: { url: string; nom: string; format: TeamFormat | null; singles_set3_format: LiveSet3Format | null }): CompetitionDraft {
-  const categorie = inferCategorie(preview.nom) ?? 'Seniors';
+/** Badges d'une rencontre sur la page Ten'Up du club (S6b) : catégorie (« Senior ») et genre
+ *  (« Femme », « Homme », « Mixte »). */
+export type ClubBadges = { category?: string; genre?: string };
+
+/** Genre lu sur le badge Ten'Up, selon le type ; null si le badge est absent ou inattendu. */
+export function badgeGenre(badge: string | undefined, type: TeamType): TeamGenre | null {
+  const word = (badge ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const genre: TeamGenre | null = /^(femmes?|dames?|feminin)$/.test(word) ? (type === 'jeunes' ? 'filles' : 'femmes')
+    : /^(hommes?|messieurs|masculin)$/.test(word) ? (type === 'jeunes' ? 'garcons' : 'hommes')
+    : /^(mixtes?)$/.test(word) ? 'mixte' : null;
+  return genre && GENRES_BY_TYPE[type].includes(genre) ? genre : null;
+}
+
+/** Catégorie lue sur le badge Ten'Up (« Senior » → « Seniors », « 13/14 ans »…) ; null sinon. */
+export function badgeCategorie(badge: string | undefined): string | null {
+  if (!badge) return null;
+  return /^seniors?$/i.test(badge.trim()) ? 'Seniors' : inferCategorie(badge);
+}
+
+/** Ce que l'on sait d'une compétition à partir de sa fiche Ten'Up (et, en import de club, des
+ *  badges de ses rencontres). `genre`, `format` et `singles_set3_format` à null = à demander au
+ *  fondateur, jamais devinés. */
+export function deduceCompetition(
+  preview: { url: string; nom: string; format: TeamFormat | null; singles_set3_format: LiveSet3Format | null },
+  badges: ClubBadges = {},
+): CompetitionDraft {
+  const categorie = inferCategorie(preview.nom) ?? badgeCategorie(badges.category) ?? 'Seniors';
   const type = inferType(categorie);
   return {
     nom: preview.nom, tenup_url: preview.url, type, categorie,
-    genre: inferGenre(preview.nom, type), format: preview.format, singles_set3_format: preview.singles_set3_format,
+    genre: badgeGenre(badges.genre, type) ?? inferGenre(preview.nom, type),
+    format: preview.format, singles_set3_format: preview.singles_set3_format,
   };
 }
 
@@ -62,6 +86,13 @@ export function missingFields(draft: CompetitionDraft): ('genre' | 'format' | 's
 /** Numéro proposé pour une nouvelle équipe d'une compétition. */
 export function nextTeamNumber(equipes: Pick<TeamEquipe, 'competition_id' | 'numero'>[], competitionId: string): number {
   return Math.max(0, ...equipes.filter((e) => e.competition_id === competitionId).map((e) => e.numero)) + 1;
+}
+
+/** Numéro d'une équipe importée : celui de son nom Ten'Up (« TC ALPHA 2 » → 2), sinon le suivant
+ *  de la compétition. Le numéro est un libellé, il peut se répéter (2026100103). */
+export function teamNumber(tenupName: string, equipes: Pick<TeamEquipe, 'competition_id' | 'numero'>[], competitionId: string): number {
+  const n = Number(/\s(\d{1,3})$/.exec(tenupName.trim())?.[1]);
+  return n >= 1 && n <= 999 ? n : nextTeamNumber(equipes, competitionId);
 }
 
 /** Équipes de la poule qui semblent être celles du club et ne sont pas encore importées. */
@@ -172,7 +203,7 @@ export async function createTeamFromPool(
   const { data, error } = await client.rpc('team_equipe_create', {
     p_club: clubId,
     p_competition: competitionId,
-    p_numero: nextTeamNumber(reading.equipes, competitionId),
+    p_numero: teamNumber(reading.preview.teams.find((t) => t.id === teamId)?.name ?? '', reading.equipes, competitionId),
     p_division: reading.preview.division,
     p_journees: reading.preview.rounds.length,
     p_preview: reading.preview.id,
