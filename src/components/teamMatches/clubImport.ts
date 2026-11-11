@@ -75,11 +75,15 @@ export type TeamOutcome =
   | { status: 'failed'; message: string };
 
 const QUOTA = /Réessayez dans une minute/;
+// Le worker Ten'Up ne fait qu'une extraction à la fois : un appel qui tombe pendant une autre
+// lecture revient aussitôt en « indisponible » (502). On le relance après une courte pause.
+const BUSY = /indisponible/i;
 
 export type ImportItem = { teams: ClubTeamRow[] } & ({ competition: TeamCompetition } | { draft: CompetitionDraft });
 
-/** Crée les compétitions manquantes puis, poule par poule (trois à la fois), lit le calendrier
- *  et crée l'équipe. Un quota par minute atteint est réessayé après une pause. */
+/** Crée les compétitions manquantes puis, poule par poule (une à la fois : le worker n'extrait
+ *  qu'une page à la fois), lit le calendrier et crée l'équipe. Quota par minute atteint ou worker
+ *  occupé : réessayé après une pause. */
 export async function importClubTeams(
   client: Client, clubId: string, saisonId: string,
   prepared: ImportItem[],
@@ -114,6 +118,7 @@ export async function importClubTeams(
       } catch (err) {
         const message = errorMessage(err, 'Import impossible.');
         if (QUOTA.test(message) && attempt < 2) { await pause(30_000); continue; }
+        if (BUSY.test(message) && attempt < 2) { await pause(5_000); continue; }
         if (/déjà ajoutée/i.test(message)) return onUpdate(team.key, { status: 'already' });
         return onUpdate(team.key, { status: 'failed', message });
       }
@@ -121,5 +126,5 @@ export async function importClubTeams(
   };
   let next = 0;
   const worker = async () => { while (next < tasks.length) await run(tasks[next++]); };
-  await Promise.all(Array.from({ length: Math.min(options.concurrency ?? 3, tasks.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(options.concurrency ?? 1, tasks.length) }, worker));
 }
