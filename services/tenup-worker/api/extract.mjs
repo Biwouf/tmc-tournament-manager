@@ -8,7 +8,9 @@ export default async function vercelExtract(req, res) {
     res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify({ error: 'Service non configuré.' }));
   }
-  handler ??= createHandler({ token, extract: async (url, kind) => extract(url, {
+  // A wedged or saturated Chromium leaves orphan processes in this instance: exit once the reply
+  // is sent, so Vercel serves the next call from a fresh instance instead of failing it.
+  handler ??= createHandler({ token, onFatal: (message) => { console.error('[tenup-worker] recycling instance', { reason: message.slice(0, 200) }); process.exit(1); }, extract: async (url, kind) => extract(url, {
     executablePath: await chromium.executablePath(),
     args: chromium.args.filter(arg => arg !== '--disable-web-security'),
     // Serverless Chromium relies on the hosting platform's isolation.

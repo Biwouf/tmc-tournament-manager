@@ -23,7 +23,13 @@ export async function waitForClubCards(page, timeout = 12_000) {
   }
 }
 
-export function createHandler({ token, extract }) {
+// An extraction that never settles (Chromium wedged, `browser.close()` hanging on a saturated
+// instance) used to keep `busy` set forever: Vercel cut the request at 60 s but kept the instance,
+// which then refused every later call in 1 s (11/11/2026). The deadline always frees the lock;
+// `onFatal` lets the hosting entry point recycle a polluted instance.
+const FATAL = /ERR_INSUFFICIENT_RESOURCES|Target page, context or browser has been closed|browser has disconnected|Extraction deadline/i;
+
+export function createHandler({ token, extract, deadline = 45_000, onFatal = () => {} }) {
   if (!token || token.length < 32) throw new Error('TENUP_WORKER_TOKEN must contain at least 32 characters');
   let busy = false;
   const cache = new Map();
@@ -49,19 +55,26 @@ export function createHandler({ token, extract }) {
       if (busy) return reply(429, { error: 'Synchronisation en cours. Réessayez dans une minute.' });
       busy = true;
       try {
-        const data = await extract(input.url, kind);
+        let timer;
+        const data = await Promise.race([
+          extract(input.url, kind),
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Extraction deadline exceeded')), deadline); }),
+        ]).finally(() => clearTimeout(timer));
         for (const [key, value] of cache) if (value.expires <= Date.now()) cache.delete(key);
         if (cache.size >= 100) cache.delete(cache.keys().next().value);
         cache.set(`${kind}:${input.url}`, { data, expires: Date.now() + 60_000 });
         reply(200, data);
       } catch (error) {
         // No request body, credentials or environment values are logged.
-        console.error('[tenup-worker] extraction failed', { kind, error: error instanceof Error ? error.message.slice(0, 2000) : 'Unknown extraction error' });
+        const message = error instanceof Error ? error.message.slice(0, 2000) : 'Unknown extraction error';
+        console.error('[tenup-worker] extraction failed', { kind, error: message });
         reply(502, { error: kind === 'competition'
           ? 'La fiche du championnat Ten’Up est indisponible. Réessayez plus tard ou saisissez la compétition manuellement.'
           : kind === 'pool' ? 'Le calendrier de la poule Ten’Up est indisponible. Réessayez plus tard ou créez l’équipe manuellement.'
           : kind === 'club' ? 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.'
           : 'Ten’Up ne fournit pas de feuille complète lisible pour le moment. Réessayez plus tard ou saisissez les résultats manuellement.' });
+        // After the reply: the caller gets its answer before the instance is recycled.
+        if (FATAL.test(message)) setTimeout(() => onFatal(message), 100);
       } finally { busy = false; }
     } catch { if (!res.headersSent) reply(400, { error: 'Requête interrompue.' }); }
   };
@@ -95,7 +108,11 @@ export async function extract(url, launchOptions = {}, kind = 'rencontre') {
     if (kind === 'pool') return await readTenupPool(page);
     const parser = kind === 'competition' ? extractTenupCompetition : kind === 'club' ? extractTenupClub : extractTenupPage;
     return await page.evaluate(`(${parser.toString()})(document)`);
-  } finally { clearTimeout(timeout); await browser.close(); }
+  } finally {
+    clearTimeout(timeout);
+    // Never wait forever for a wedged browser: the handler's lock depends on this returning.
+    await Promise.race([browser.close().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 5_000))]);
+  }
 }
 
 if (process.argv[1] && import.meta.url === new URL(process.argv[1], 'file:').href) {
