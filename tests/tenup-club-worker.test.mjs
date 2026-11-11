@@ -98,3 +98,28 @@ test('worker handler: kind « club » reaches the extractor with the canonical l
   assert.equal(await request({ kind: 'pool', url }), 400);
   assert.equal(calls.length, 1);
 });
+
+test('worker handler: a wedged extraction cannot keep the lock; a saturated instance asks to be recycled', async () => {
+  const token = 'd'.repeat(32);
+  const fatal = [];
+  let hang = true;
+  const handler = createHandler({
+    token, deadline: 50, onFatal: (message) => fatal.push(message),
+    extract: async () => {
+      if (hang) return new Promise(() => {}); // ne se termine jamais
+      throw new Error('page.goto: net::ERR_INSUFFICIENT_RESOURCES at https://tenup.fft.fr/…');
+    },
+  });
+  const request = async (url) => {
+    let status;
+    await handler({ method: 'POST', url: '/extract', headers: { authorization: `Bearer ${token}` }, body: { kind: 'club', url } }, { writeHead: (code) => { status = code; }, end() {} });
+    return status;
+  };
+  assert.equal(await request('https://tenup.fft.fr/club/1/competitions/rencontres'), 502, 'deadline reached');
+  hang = false;
+  assert.equal(await request('https://tenup.fft.fr/club/2/competitions/rencontres'), 502, 'not 429: the lock was released');
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.equal(fatal.length, 2);
+  assert.match(fatal[0], /deadline/);
+  assert.match(fatal[1], /ERR_INSUFFICIENT_RESOURCES/);
+});
