@@ -125,7 +125,7 @@ export default function ClubImport({ club, onImported, onBusy }: {
         {urlError && <span id="fs-club-url-error" role="alert" className="fs-error">{urlError}</span>}
         <details className="fs-help">
           <summary>Où trouver ce lien ?</summary>
-          <p>Sur TEN’UP : la page de votre club › Compétitions › Matchs par équipe. Copiez l’adresse de la page.</p>
+          <p>Sur TEN’UP : Espace club › Les équipes de mon club. Copiez l’adresse de la page.</p>
         </details>
         <div className="fs-actions">
           <button type="button" className="fs-btn fs-btn-p" disabled={!url.trim() || Boolean(urlError)} onClick={read}>Trouver mes équipes</button>

@@ -240,7 +240,7 @@ test('club page grouped by championship; already imported teams are flagged; poo
   assert.equal(club.poolTeamId({ teams: [{ id: '1', name: 'X 1' }, { id: '2', name: 'x 1' }] }, 'X 1'), null, 'ambiguous');
 });
 
-test('club import: competitions reused or read with badges, pools read three at a time, teams created; quota retried; misses reported', async () => {
+test('club import: competitions reused or read with badges, pools read one at a time, teams created; quota and busy worker retried; misses reported', async () => {
   const pools = {
     [POOL_URL]: structuredClone(POOL),
     [POOL2]: { ...structuredClone(POOL), teams: POOL.teams.map((t) => (t.id === '11' ? { id: '21', name: 'TC ALPHA 2' } : t)),
@@ -248,7 +248,7 @@ test('club import: competitions reused or read with badges, pools read three at 
     [OTHER]: { ...structuredClone(POOL), teams: POOL.teams.map((t) => (t.id === '11' ? { id: '11', name: 'TC OMEGA 1' } : t)),
       rounds: POOL.rounds.map((r) => ({ ...r, matches: r.matches.map((m) => ({ ...m, url: m.url.replace('/82145789/division/4/phase/1/poule/2/', '/90000001/division/7/phase/1/poule/9/') })) })) },
   };
-  let quotaOnce = true, inFlight = 0, maxInFlight = 0;
+  let quotaOnce = true, busyOnce = true, inFlight = 0, maxInFlight = 0;
   const client = fakeClient({
     saisons: [{ id: 's1', club_id: 'c1', label: '2026/2027', actif: true }],
     competitions: [{ id: 'k1', club_id: 'c1', saison_id: 's1', nom: 'Championnat Seniors Messieurs', tenup_url: POOL_URL }],
@@ -258,6 +258,7 @@ test('club import: competitions reused or read with badges, pools read three at 
       await new Promise((r) => setTimeout(r, 5));
       inFlight--;
       if (body.url === POOL2 && quotaOnce) { quotaOnce = false; return refusal('Trop de demandes Ten’Up. Réessayez dans une minute.'); }
+      if (body.url === POOL_URL && busyOnce) { busyOnce = false; return refusal('Le calendrier Ten’Up est indisponible. Réessayez ou créez l’équipe manuellement.', 502); }
       return { data: { id: `p-${body.url.slice(-1)}`, url: body.url, ...pools[body.url] }, error: null };
     },
   });
@@ -271,12 +272,12 @@ test('club import: competitions reused or read with badges, pools read three at 
   const pauses = [];
   await club.importClubTeams(client, 'c1', 's1', prepared, (key, o) => { outcomes[key] = o; }, { pause: async (ms) => { pauses.push(ms); } });
   const byTeam = Object.fromEntries(Object.entries(outcomes).map(([k, o]) => [k.replace(/^.*poule=(\d+)\|/, '$1 '), o]));
-  assert.deepEqual(byTeam['2 TC ALPHA 1'], { status: 'done', count: 2 });
+  assert.deepEqual(byTeam['2 TC ALPHA 1'], { status: 'done', count: 2 }, 'retried after the busy worker');
   assert.deepEqual(byTeam['3 TC ALPHA 2'], { status: 'done', count: 2 }, 'retried after the quota pause');
   assert.equal(byTeam['9 TC ALPHA 1'].status, 'failed');
   assert.match(byTeam['9 TC ALPHA 1'].message, /introuvable dans la poule/);
-  assert.deepEqual(pauses, [30_000]);
-  assert.ok(maxInFlight <= 3);
+  assert.deepEqual(pauses.sort(), [30_000, 5_000].sort());
+  assert.equal(maxInFlight, 1, 'one pool read at a time');
   const created = client.calls.filter((c) => c[0] === 'rpc').map((c) => [c[2].p_competition, c[2].p_numero, c[2].p_team_id]);
   assert.deepEqual(created.sort(), [['k1', 1, '11'], ['k1', 2, '21']], 'numbers from the Ten’Up names');
   assert.equal(client.db.team_competitions.length, 2, 'Pyrénées Interclubs created');

@@ -7,7 +7,7 @@ export function normalizeTenupClubUrl(value) {
   try { url = new URL(value.trim()); } catch { throw new Error('Lien du club Ten’Up invalide.'); }
   const match = /^\/club\/(\d+)(?:\/competitions(?:\/rencontres)?)?\/?$/.exec(url.pathname);
   if (url.origin !== 'https://tenup.fft.fr' || url.username || url.password || !match) {
-    throw new Error('Copiez le lien Ten’Up de votre club : Compétitions › Matchs par équipe.');
+    throw new Error('Copiez le lien Ten’Up de votre club : Espace club › Les équipes de mon club.');
   }
   return `https://tenup.fft.fr/club/${match[1]}/competitions/rencontres`;
 }

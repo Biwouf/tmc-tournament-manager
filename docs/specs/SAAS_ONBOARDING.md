@@ -482,7 +482,7 @@ worker Ten'Up n'est ni modifié ni redéployé.
 
 Entrée principale de l'étape depuis le 09/11/2026 : le lien des **rencontres du club** sur Ten'Up
 (`/club/<id>/competitions/rencontres` ; `/club/<id>` et `/club/<id>/competitions` sont ramenés à
-cette forme). Le lien d'une poule reste en repli, replié sous « Une équipe manque ? ».
+cette forme). Aide affichée : « Espace club › Les équipes de mon club ». Le lien d'une poule reste en repli, replié sous « Une équipe manque ? ».
 
 Parcours (`ClubImport`, logique `clubImport.ts`) :
 1. **Lecture de la page** (1 lecture, `team_tenup_club_begin`) après `ensureSeason`. Le worker
@@ -497,10 +497,10 @@ Parcours (`ClubImport`, logique `clubImport.ts`) :
    avec les badges : **genre du badge** « Femme / Homme / Mixte » d'abord, puis le nom ; catégorie
    du nom, puis du badge « Senior »). Champs encore manquants (format, 3e set, genre) demandés par
    championnat avant toute création. Un championnat illisible n'échoue que pour ses équipes.
-4. **Import** : compétitions créées, puis trois poules à la fois : lecture, équipe de la poule au
+4. **Import** : compétitions créées, puis une poule à la fois (le worker n'extrait qu'une page à la fois : en parallèle, 6 lectures sur 7 revenaient en 502 le 11/11/2026) : lecture, équipe de la poule au
    **nom exact** (`poolTeamId`), `team_equipe_create` avec le numéro du nom Ten'Up (« … 2 » → 2,
    aussi pour le lien de poule depuis S6b). Progression par équipe (`aria-live`). « Trop de
-   demandes » : réessayé deux fois après 30 s. Équipe absente de la poule, ou autre échec : listée
+   demandes » : réessayé deux fois après 30 s ; worker occupé (« indisponible ») : deux fois après 5 s. Équipe absente de la poule, ou autre échec : listée
    avec son message, « Réessayer les équipes en échec » (les réussies passent « déjà ajoutées »).
 
 Quotas (migration `2026110920_tenup_club_import.sql`, décisions du 09/11/2026) : la lecture de la
