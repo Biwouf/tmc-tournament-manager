@@ -503,6 +503,10 @@ Parcours (`ClubImport`, logique `clubImport.ts`) :
    demandes » : réessayé deux fois après 30 s ; worker occupé (« indisponible ») : deux fois après 5 s. Équipe absente de la poule, ou autre échec : listée
    avec son message, « Réessayer les équipes en échec » (les réussies passent « déjà ajoutées »).
 
+Résultats : l'import crée le calendrier, pas les résultats (une feuille de rencontre = une lecture).
+Après un import réussi, une note renvoie à `/team-matches` › « Autres actions » › « Synchroniser Ten’Up »
+(`TenupBatchSync`, une feuille toutes les 21 s) — décision du 11/11/2026.
+
 Quotas (migration `2026110920_tenup_club_import.sql`, décisions du 09/11/2026) : la lecture de la
 page ouvre pour ce compte et ce club une fenêtre de 10 minutes à **15 lectures / minute** (3 sinon) ;
 plafond d'essai **40 / 24 h** ; 5 imports de club par compte et par jour. Comptage commun dans

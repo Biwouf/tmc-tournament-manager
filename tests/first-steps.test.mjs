@@ -525,6 +525,8 @@ test('club link: every team listed by championship, all ticked; import creates t
   assert.doesNotMatch(text(), /TC ALPHA 1 · Pyrénées Interclubs/, 'only failures stay in the import list');
   assert.match(text(), /TC ALPHA 3 · Pyrénées InterclubsÉquipe introuvable dans la poule/);
   assert.match(text(), /1 équipe importée\. 1 équipe en échec\./);
+  assert.match(text(), /Les résultats des rencontres déjà jouées ne sont pas repris ici/);
+  assert.equal([...document.querySelectorAll('a')].find((a) => a.textContent === 'Matches par équipe').getAttribute('href'), '/team-matches');
   assert.equal(document.querySelector('.fs-progress[aria-label="Import des équipes"]').getAttribute('aria-live'), 'polite');
   assert.match(text(), /vs US BETA 1/, 'phone shows the imported encounters');
   await click('Réessayer les équipes en échec');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import type { Club } from '../../contexts/ClubContext';
 import type { TeamEquipe } from '../../types';
@@ -208,6 +209,14 @@ export default function ClubImport({ club, onImported, onBusy }: {
         </ul>}
         {phase === 'done' && <>
           <p role="status" className="fs-notice">{imported ? `${plural(imported, 'équipe')} importée${imported > 1 ? 's' : ''}.` : 'Aucune nouvelle équipe importée.'}{failed.length ? ` ${plural(failed.length, 'équipe')} en échec.` : ''}</p>
+          {/* L'import crée le calendrier ; les résultats déjà joués se lisent feuille par feuille. */}
+          {imported > 0 && (
+            <p className="fs-note">
+              Les résultats des rencontres déjà jouées ne sont pas repris ici. Récupérez-les depuis{' '}
+              <Link to="/team-matches">Matches par équipe</Link>, menu « Autres actions » › « Synchroniser Ten’Up »
+              (une rencontre toutes les 20 secondes environ).
+            </p>
+          )}
           {failed.length > 0 && (
             <div className="fs-actions">
               <button type="button" className="fs-btn fs-btn-o" onClick={() => {
