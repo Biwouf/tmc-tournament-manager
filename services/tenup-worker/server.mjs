@@ -12,6 +12,17 @@ const validKindUrl = (kind, url) => kind === 'pool' ? validPoolUrl(url) : kind =
 export const validCompetitionUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/[0-9]+$/.test(value);
 
 export const validUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/\d+\/division\/\d+\/phase\/\d+\/poule\/\d+\/rencontre\/\d+$/.test(value);
+/** The club page is server-rendered with Ten'Up's empty state (« Aucun résultat »), then its
+ * encounters load client-side (~0.5 s later, 11/11/2026). Wait for the cards; accept the empty
+ * state only once that delay is over, for a club with no upcoming encounter. */
+export async function waitForClubCards(page, timeout = 12_000) {
+  try {
+    await page.locator('main [data-slot="card"]').first().waitFor({ timeout });
+  } catch {
+    await page.getByText('Aucun résultat', { exact: true }).waitFor({ timeout: 1_000 });
+  }
+}
+
 export function createHandler({ token, extract }) {
   if (!token || token.length < 32) throw new Error('TENUP_WORKER_TOKEN must contain at least 32 characters');
   let busy = false;
@@ -78,8 +89,7 @@ export async function extract(url, launchOptions = {}, kind = 'rencontre') {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'competition') await page.locator('main p').filter({ hasText: /^Nombre de points pour un double\s*:/ }).waitFor({ timeout: 12_000 });
     else if (kind === 'pool') await poolDayButton(page).waitFor({ timeout: 12_000 });
-    // Upcoming encounters, or Ten'Up's empty state when the club has none.
-    else if (kind === 'club') await page.locator('main [data-slot="card"]').or(page.getByText('Aucun résultat', { exact: true })).first().waitFor({ timeout: 12_000 });
+    else if (kind === 'club') await waitForClubCards(page);
     else await page.getByText(/^Simple 1$/, { exact: true }).waitFor({ timeout: 12_000 });
     if (page.url() !== url) throw new Error('Unexpected destination');
     if (kind === 'pool') return await readTenupPool(page);
