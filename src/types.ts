@@ -134,6 +134,17 @@ export interface ClubEvent {
   updated_at: string;
 }
 
+/** Partie d'un événement (ex. animation puis repas), table `event_sections`. */
+export interface EventSection {
+  id: string;
+  event_id: string;
+  titre: string;
+  position: number;
+  heure_debut: string | null;
+  prix: number | null;
+  capacity: number | null; // null = jauge illimitée
+}
+
 export interface ActuFocalPoint {
   x: number; // 0–100
   y: number; // 0–100

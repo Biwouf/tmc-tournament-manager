@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
-import { EVENT_TYPES, type ClubEvent, type EventType } from '../types';
+import { EVENT_TYPES, type ClubEvent, type EventSection, type EventType } from '../types';
 import {
   STORAGE_BUCKETS,
   clubPath,
@@ -26,6 +26,18 @@ function localInputToIso(value: string): string {
   return new Date(value).toISOString();
 }
 
+interface SectionDraft {
+  key: string;
+  id: string | null; // null = section pas encore enregistrée
+  titre: string;
+  heure: string; // datetime-local
+  prix: string;
+  capacity: string;
+}
+
+let draftKey = 0;
+const newDraft = (): SectionDraft => ({ key: `new-${++draftKey}`, id: null, titre: '', heure: '', prix: '', capacity: '' });
+
 interface FieldErrors {
   titre?: string;
   description?: string;
@@ -34,6 +46,7 @@ interface FieldErrors {
   image?: string;
   prix?: string;
   registration?: string;
+  sections?: string;
 }
 
 export default function EventForm() {
@@ -56,6 +69,8 @@ export default function EventForm() {
   const [regMax, setRegMax] = useState('1');
   const [regCapacity, setRegCapacity] = useState('');
   const [regDeadline, setRegDeadline] = useState('');
+  const [sections, setSections] = useState<SectionDraft[]>([]);
+  const [savedSectionIds, setSavedSectionIds] = useState<string[]>([]);
 
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -104,6 +119,23 @@ export default function EventForm() {
         setRegMax(String(ev.registration_max_per_member));
         setRegCapacity(ev.registration_capacity === null ? '' : String(ev.registration_capacity));
         setRegDeadline(isoToLocalInput(ev.registration_deadline));
+      })
+      .then(() =>
+        supabase.from('event_sections').select('*').eq('event_id', id).order('position').order('id'),
+      )
+      .then(({ data }) => {
+        const rows = (data ?? []) as EventSection[];
+        setSections(
+          rows.map((r) => ({
+            key: r.id,
+            id: r.id,
+            titre: r.titre,
+            heure: isoToLocalInput(r.heure_debut),
+            prix: r.prix === null ? '' : String(r.prix),
+            capacity: r.capacity === null ? '' : String(r.capacity),
+          })),
+        );
+        setSavedSectionIds(rows.map((r) => r.id));
         setLoading(false);
       });
   }, [id, isEdit, clubId]);
@@ -153,7 +185,61 @@ export default function EventForm() {
     } else if (regDeadline && dateDebut && new Date(regDeadline) > new Date(dateDebut)) {
       errs.registration = "La date limite d'inscription doit précéder le début de l'événement.";
     }
+    if (sections.some((sec) => !sec.titre.trim())) {
+      errs.sections = 'Chaque section doit avoir un titre.';
+    } else if (sections.some((sec) => sec.prix && (isNaN(Number(sec.prix)) || Number(sec.prix) < 0))) {
+      errs.sections = "Le prix d'une section doit être un nombre positif.";
+    } else if (
+      sections.some((sec) => sec.capacity && (!Number.isInteger(Number(sec.capacity)) || Number(sec.capacity) < 1))
+    ) {
+      errs.sections = "La jauge d'une section doit être un entier supérieur ou égal à 1.";
+    }
     return errs;
+  };
+
+  const updateSection = (key: string, patch: Partial<SectionDraft>) =>
+    setSections((list) => list.map((sec) => (sec.key === key ? { ...sec, ...patch } : sec)));
+
+  const moveSection = (index: number, delta: number) =>
+    setSections((list) => {
+      const next = [...list];
+      const [item] = next.splice(index, 1);
+      next.splice(index + delta, 0, item);
+      return next;
+    });
+
+  // Supprime d'abord les sections retirées : refusé (23503) si quelqu'un l'a choisie explicitement.
+  const deleteRemovedSections = async () => {
+    const kept = new Set(sections.map((sec) => sec.id).filter(Boolean));
+    for (const sectionId of savedSectionIds.filter((sid) => !kept.has(sid))) {
+      const { error } = await supabase.from('event_sections').delete().eq('id', sectionId).eq('club_id', clubId);
+      if (error?.code === '23503') {
+        throw new Error(
+          'Une section retirée a des inscrits qui l’ont choisie : retirez-les ou changez leurs sections avant de la supprimer.',
+        );
+      }
+      if (error) throw error;
+    }
+  };
+
+  const saveSections = async (eventId: string) => {
+    const rows = sections.map((sec, position) => ({
+      titre: sec.titre.trim(),
+      position,
+      heure_debut: sec.heure ? localInputToIso(sec.heure) : null,
+      prix: sec.prix === '' ? null : Number(sec.prix),
+      capacity: sec.capacity === '' ? null : Number(sec.capacity),
+    }));
+    for (const [i, sec] of sections.entries()) {
+      if (!sec.id) continue;
+      const { error } = await supabase.from('event_sections').update(rows[i]).eq('id', sec.id).eq('club_id', clubId);
+      if (error) throw error;
+    }
+    const inserts = sections.flatMap((sec, i) => (sec.id ? [] : [{ ...rows[i], event_id: eventId, club_id: clubId }]));
+    if (inserts.length) {
+      const { error } = await supabase.from('event_sections').insert(inserts);
+      if (error) throw error;
+    }
   };
 
   const uploadImage = async (file: File, eventId: string): Promise<string> => {
@@ -198,6 +284,7 @@ export default function EventForm() {
       let targetId = id;
 
       if (isEdit && targetId) {
+        await deleteRemovedSections();
         const { error: updateErr } = await supabase
           .from('events')
           .update(basePayload)
@@ -215,6 +302,7 @@ export default function EventForm() {
       }
 
       if (!targetId) throw new Error('Identifiant événement manquant');
+      await saveSections(targetId);
 
       // Image precedence: uploaded file > remove > keep.
       let finalImageUrl = existingImageUrl;
@@ -383,8 +471,105 @@ export default function EventForm() {
               onChange={(e) => setPrix(e.target.value)}
               className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
+            {sections.length > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Prix de l'événement complet, affiché dans la liste. Chaque section a son propre prix.
+              </p>
+            )}
             {errors.prix && <p className="mt-1 text-xs text-red-600">{errors.prix}</p>}
           </div>
+
+          {/* Sections */}
+          <fieldset className="space-y-3 rounded-xl border border-border p-4">
+            <legend className="px-2 text-sm font-medium text-foreground">Sections</legend>
+            <p className="text-xs text-muted-foreground">
+              Pour un événement en plusieurs temps (ex. animation puis repas). Chaque personne inscrite choisit
+              tout l'événement ou certaines sections. Sans section, on s'inscrit à l'événement entier.
+            </p>
+            {sections.map((sec, index) => (
+              <div key={sec.key} className="space-y-3 rounded-lg border border-border bg-background/60 p-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={sec.titre}
+                    placeholder="Titre de la section (ex. Repas)"
+                    onChange={(e) => updateSection(sec.key, { titre: e.target.value })}
+                    className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    title="Monter"
+                    disabled={index === 0}
+                    onClick={() => moveSection(index, -1)}
+                    className="rounded-lg border border-border px-2 py-1.5 text-sm text-muted-foreground transition hover:bg-muted disabled:opacity-30"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    title="Descendre"
+                    disabled={index === sections.length - 1}
+                    onClick={() => moveSection(index, 1)}
+                    className="rounded-lg border border-border px-2 py-1.5 text-sm text-muted-foreground transition hover:bg-muted disabled:opacity-30"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSections((list) => list.filter((x) => x.key !== sec.key))}
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                  >
+                    Retirer
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div>
+                    <label className="block text-xs font-medium text-foreground">
+                      Début <span className="text-muted-foreground">(optionnel)</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={sec.heure}
+                      onChange={(e) => updateSection(sec.key, { heure: e.target.value })}
+                      className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground">Prix (€)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={sec.prix}
+                      placeholder="Gratuit"
+                      onChange={(e) => updateSection(sec.key, { prix: e.target.value })}
+                      className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-foreground">Jauge</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={sec.capacity}
+                      placeholder="Illimitée"
+                      onChange={(e) => updateSection(sec.key, { capacity: e.target.value })}
+                      className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSections((list) => [...list, newDraft()])}
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            >
+              + Ajouter une section
+            </button>
+            {errors.sections && <p className="text-xs text-red-600">{errors.sections}</p>}
+          </fieldset>
 
           {/* Inscriptions */}
           <fieldset className="space-y-4 rounded-xl border border-border p-4">

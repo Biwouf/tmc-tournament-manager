@@ -10,8 +10,11 @@ async function fixture() {
   await db.exec(coursesFixtureSQL);
   await db.exec(`CREATE TABLE events(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),club_id uuid NOT NULL REFERENCES clubs(id),
     titre text NOT NULL,date_debut timestamptz NOT NULL,date_fin timestamptz);
-    GRANT SELECT ON events TO anon,authenticated;`);
-  for (const name of ["2026110701_event_registrations.sql", "2026110702_event_admin_remove_booking.sql", "2026110801_event_registrations_sans_compte.sql"])
+    GRANT SELECT ON events TO anon,authenticated;
+    CREATE FUNCTION can_manage_club_content(target uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+      SELECT EXISTS(SELECT 1 FROM club_members WHERE club_id=target AND user_id=auth.uid() AND role IN ('admin','manager')) $$;`);
+  for (const name of ["2026110701_event_registrations.sql", "2026110702_event_admin_remove_booking.sql",
+    "2026110801_event_registrations_sans_compte.sql", "2026111001_event_sections.sql"])
     await db.exec(await readFile(new URL(`../supabase/migrations/${name}`, import.meta.url), "utf8"));
   await db.exec(`UPDATE profiles SET prenom='P'||right(id::text,3),nom='N'||right(id::text,3);
     INSERT INTO events(id,club_id,titre,date_debut,registration_enabled,registration_max_per_member,registration_capacity) VALUES
@@ -34,8 +37,10 @@ async function fixture() {
   };
   const rpc = async (user, name, args) =>
     (await as(user, `SELECT ${name}(${args.map((_, i) => "$" + (i + 1)).join(",")}) result`, args)).rows[0].result;
-  const save = (user, event, members = [], guests = []) =>
-    rpc(user, "event_member_save", [id(1), id(event), members.map(id), JSON.stringify(guests)]);
+  const save = (user, event, members = [], guests = [], memberSections) =>
+    rpc(user, "event_member_save", memberSections === undefined
+      ? [id(1), id(event), members.map(id), JSON.stringify(guests)]
+      : [id(1), id(event), members.map(id), JSON.stringify(guests), JSON.stringify(memberSections)]);
   const state = (user, event = 40) => rpc(user, "event_registration_state", [id(1), id(event)]);
   return { db, as, rpc, save, state };
 }
@@ -175,6 +180,87 @@ test("Admin : groupe sans titulaire, personnes sans compte", async () => {
     await add(103, [], [{ prenom: "Léo", nom: "Invité" }]);
     const mine = (await f.state(103, 42)).booking.participants;
     assert.deepEqual(mine.map((p) => p.prenom), ["P103", "Léo", "Léa"]);
+  } finally {
+    await f.db.close();
+  }
+});
+
+// Sections : 50 = animation (jauge 2) ; 51 = repas (sans jauge). Événement 40, jauge globale 5.
+async function withSections(f) {
+  await f.db.exec(`INSERT INTO event_sections(id,club_id,event_id,titre,position,prix,capacity) VALUES
+    ('${id(50)}','${id(1)}','${id(40)}','Animation',0,10,2),
+    ('${id(51)}','${id(1)}','${id(40)}','Repas',1,20,NULL);`);
+}
+
+test("Sections : choix par personne, tout l'événement, jauge de section", async () => {
+  const f = await fixture();
+  try {
+    await withSections(f);
+    const anon = await f.state(null);
+    assert.deepEqual(anon.sections.map((s) => [s.titre, Number(s.prix), s.capacity, s.taken]),
+      [["Animation", 10, 2, 0], ["Repas", 20, null, 0]]);
+
+    // Sans précision : tout l'événement (ancienne PWA). 103 occupe une place d'animation.
+    await f.save(103, 40);
+    let st = await f.state(103);
+    assert.deepEqual(st.sections.map((s) => s.taken), [1, 1]);
+    assert.equal(st.booking.participants[0].sections, null);
+
+    // 104 : repas seul, son invitée : animation seule.
+    await f.save(104, 40, [], [{ prenom: "Ana", nom: "Invitée", sections: [id(50)] }], { [id(104)]: [id(51)] });
+    st = await f.state(104);
+    assert.deepEqual(st.sections.map((s) => s.taken), [2, 2]);
+    assert.deepEqual(st.booking.participants.map((p) => [p.prenom, p.sections]),
+      [["P104", [id(51)]], ["Ana", [id(50)]]]);
+
+    // Animation pleine (2/2) : 105 ne peut pas la prendre, mais peut s'inscrire au repas.
+    await assert.rejects(f.save(105, 40, [], [], { [id(105)]: [id(50), id(51)] }), /SECTION_FULL/);
+    await assert.rejects(f.save(105, 40), /SECTION_FULL/);
+    await f.save(105, 40, [], [], { [id(105)]: [id(51)] });
+    assert.deepEqual((await f.state(105)).sections.map((s) => s.taken), [2, 3]);
+
+    // Toutes les sections cochées = tout l'événement (rien de stocké).
+    await f.save(104, 40, [], [{ prenom: "Ana", nom: "Invitée", sections: [id(51), id(50)] }], { [id(104)]: [id(51)] });
+    st = await f.state(104);
+    assert.deepEqual(st.booking.participants.map((p) => p.sections), [[id(51)], null]);
+    assert.deepEqual(st.sections.map((s) => s.taken), [2, 4]);
+
+    // Validation : aucune section, section d'un autre événement.
+    await assert.rejects(f.save(103, 40, [], [], { [id(103)]: [] }), /SECTION_REQUIRED/);
+    await assert.rejects(f.save(103, 40, [], [], { [id(103)]: [id(99)] }), /VALIDATION_ERROR/);
+
+    // Un co-membre voit ses sections.
+    await f.rpc(104, "event_member_cancel", [id(1), id(40)]);
+    await f.save(103, 40, [104], [], { [id(104)]: [id(51)] });
+    const co = await f.state(104);
+    assert.deepEqual([co.booking.is_owner, co.booking.sections], [false, [id(51)]]);
+    // Section choisie explicitement : suppression refusée ; l'événement, lui, se supprime.
+    await assert.rejects(f.db.exec(`DELETE FROM event_sections WHERE id='${id(51)}'`), /foreign key/);
+    await f.db.exec(`DELETE FROM events WHERE id='${id(40)}'`);
+  } finally {
+    await f.db.close();
+  }
+});
+
+test("Sections : l'admin garde les sections existantes et subit la jauge", async () => {
+  const f = await fixture();
+  try {
+    await withSections(f);
+    const add = (owner, members, guests, sections) =>
+      f.rpc(101, "event_admin_add", [id(1), id(40), owner && id(owner), members.map(id), JSON.stringify(guests), JSON.stringify(sections ?? null)]);
+    await add(103, [], [{ prenom: "Zoé", nom: "Repas", sections: [id(51)] }], { [id(103)]: [id(50)] });
+    await add(103, [104], [], { [id(104)]: [id(51)] });
+    const [booking] = await f.rpc(101, "event_admin_bookings", [id(1), id(40)]);
+    assert.deepEqual(booking.participants.map((p) => [p.prenom, p.sections]),
+      [["P103", [id(50)]], ["P104", [id(51)]], ["Zoé", [id(51)]]]);
+    await add(null, [], [{ prenom: "Max", nom: "Anim", sections: [id(50)] }]);
+    await assert.rejects(add(null, [], [{ prenom: "Léo", nom: "Anim", sections: [id(50)] }]), /SECTION_FULL/);
+    // Écriture directe des sections : admin du club seulement.
+    await assert.rejects(f.as(103, `INSERT INTO event_sections(club_id,event_id,titre) VALUES('${id(1)}','${id(40)}','X')`), /row-level security/);
+    await f.as(101, `INSERT INTO event_sections(club_id,event_id,titre) VALUES('${id(1)}','${id(40)}','Apéro')`);
+    await assert.rejects(f.as(101, `INSERT INTO event_sections(club_id,event_id,titre) VALUES('${id(1)}','${id(43)}','X')`), /row-level security/);
+    assert.equal((await f.as(null, `SELECT count(*)::int n FROM event_sections`)).rows[0].n, 3);
+    await assert.rejects(f.as(103, "SELECT * FROM event_participant_sections"), /permission denied/);
   } finally {
     await f.db.close();
   }

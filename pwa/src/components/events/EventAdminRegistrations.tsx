@@ -2,14 +2,19 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import MemberPicker from './MemberPicker';
+import SectionChoice from './SectionChoice';
 import {
   ERRORS,
   cleanGuests,
   errorMessage,
   fullName,
+  inSection,
+  sectionsLabel,
+  type EventSection,
   type Guest,
   type Member,
   type Participant,
+  type SectionPick,
 } from '../../lib/eventRegistrations';
 
 interface Booking {
@@ -34,16 +39,18 @@ export default function EventAdminRegistrations({
   clubId,
   eventId,
   taken,
+  sections,
   onChange,
 }: {
   clubId: string;
   eventId: string;
   taken: number;
+  sections: EventSection[];
   onChange: () => Promise<unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<(Member & { sections: SectionPick })[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +88,9 @@ export default function EventAdminRegistrations({
       p_owner: members[0]?.id ?? null,
       p_members: members.slice(1).map((m) => m.id),
       p_guests: named,
+      ...(sections.length > 0 && {
+        p_member_sections: Object.fromEntries(members.map((m) => [m.id, m.sections])),
+      }),
     });
     setSaving(false);
     if (err) {
@@ -139,6 +149,16 @@ export default function EventAdminRegistrations({
         </button>
       </div>
 
+      {bookings && sections.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {sections
+            .map(
+              (s) =>
+                `${s.titre} : ${bookings.reduce((n, b) => n + b.participants.filter((p) => inSection(p.sections, s.id)).length, 0)}`,
+            )
+            .join(' · ')}
+        </p>
+      )}
       {isLoading && <div className="h-16 animate-pulse rounded-lg bg-muted" />}
       {isError && <p className="text-sm text-red-700">Impossible de charger les inscrits.</p>}
       {bookings && bookings.length === 0 && <p className="text-sm text-muted-foreground">Aucune inscription.</p>}
@@ -162,6 +182,12 @@ export default function EventAdminRegistrations({
                   <span className="font-medium">
                     {fullName(p) || 'Membre sans nom'}
                     {p.is_guest && <span className="font-normal text-muted-foreground"> (sans compte)</span>}
+                    {sectionsLabel(p.sections, sections) && (
+                      <span className="font-normal text-muted-foreground">
+                        {' '}
+                        · {sectionsLabel(p.sections, sections)}
+                      </span>
+                    )}
                   </span>
                   {removeButton(p)}
                 </li>
@@ -189,6 +215,7 @@ export default function EventAdminRegistrations({
                       <span className={isOwner(b, p) ? '' : 'text-muted-foreground'}>
                         {fullName(p) || 'Membre sans nom'}
                         {p.is_guest && ' (sans compte)'}
+                        {sectionsLabel(p.sections, sections) && ` · ${sectionsLabel(p.sections, sections)}`}
                       </span>
                       {removeButton(p)}
                     </li>
@@ -219,45 +246,61 @@ export default function EventAdminRegistrations({
           {(members.length > 0 || guests.length > 0) && (
             <ul className="flex flex-col gap-2 text-sm">
               {members.map((m, i) => (
-                <li key={m.id} className="flex items-center gap-1 rounded-lg bg-muted px-3 py-2">
-                  {fullName(m)}
-                  {i === 0 && <span className="text-muted-foreground"> · titulaire</span>}
-                  <button
-                    type="button"
-                    aria-label={`Retirer ${fullName(m)}`}
-                    className="ml-auto min-h-8 px-2"
-                    onClick={() => setMembers(members.filter((x) => x.id !== m.id))}
-                  >
-                    ×
-                  </button>
+                <li key={m.id} className="rounded-lg bg-muted px-3 py-2">
+                  <div className="flex items-center gap-1">
+                    {fullName(m)}
+                    {i === 0 && <span className="text-muted-foreground"> · titulaire</span>}
+                    <button
+                      type="button"
+                      aria-label={`Retirer ${fullName(m)}`}
+                      className="ml-auto min-h-8 px-2"
+                      onClick={() => setMembers(members.filter((x) => x.id !== m.id))}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <SectionChoice
+                    sections={sections}
+                    value={m.sections}
+                    onChange={(pick) => setMembers(members.map((x) => (x.id === m.id ? { ...x, sections: pick } : x)))}
+                  />
                 </li>
               ))}
               {guests.map((g, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <input
-                    value={g.prenom}
-                    placeholder="Prénom"
-                    aria-label="Prénom"
-                    maxLength={100}
-                    onChange={(e) => setGuests(guests.map((x, j) => (j === i ? { ...x, prenom: e.target.value } : x)))}
-                    className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3"
+                <li key={i} className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={g.prenom}
+                      placeholder="Prénom"
+                      aria-label="Prénom"
+                      maxLength={100}
+                      onChange={(e) =>
+                        setGuests(guests.map((x, j) => (j === i ? { ...x, prenom: e.target.value } : x)))
+                      }
+                      className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3"
+                    />
+                    <input
+                      value={g.nom}
+                      placeholder="Nom"
+                      aria-label="Nom"
+                      maxLength={100}
+                      onChange={(e) => setGuests(guests.map((x, j) => (j === i ? { ...x, nom: e.target.value } : x)))}
+                      className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Retirer la personne"
+                      className="min-h-11 shrink-0 px-2"
+                      onClick={() => setGuests(guests.filter((_, j) => j !== i))}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <SectionChoice
+                    sections={sections}
+                    value={g.sections ?? null}
+                    onChange={(pick) => setGuests(guests.map((x, j) => (j === i ? { ...x, sections: pick } : x)))}
                   />
-                  <input
-                    value={g.nom}
-                    placeholder="Nom"
-                    aria-label="Nom"
-                    maxLength={100}
-                    onChange={(e) => setGuests(guests.map((x, j) => (j === i ? { ...x, nom: e.target.value } : x)))}
-                    className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Retirer la personne"
-                    className="min-h-11 shrink-0 px-2"
-                    onClick={() => setGuests(guests.filter((_, j) => j !== i))}
-                  >
-                    ×
-                  </button>
                 </li>
               ))}
             </ul>
@@ -265,8 +308,8 @@ export default function EventAdminRegistrations({
           <MemberPicker
             clubId={clubId}
             exclude={members.map((m) => m.id)}
-            onPick={(m) => setMembers([...members, m])}
-            onPickNamed={(name) => setGuests([...guests, name])}
+            onPick={(m) => setMembers([...members, { ...m, sections: null }])}
+            onPickNamed={(name) => setGuests([...guests, { ...name, sections: null }])}
             placeholder="Nom d'une personne à inscrire"
           />
 

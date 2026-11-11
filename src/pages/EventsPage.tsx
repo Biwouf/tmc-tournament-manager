@@ -92,6 +92,16 @@ export default function EventsPage() {
       alert(`Erreur duplication : ${error?.message ?? 'inconnue'}`);
       return;
     }
+    const { data: sections } = await supabase
+      .from('event_sections')
+      .select('titre, position, heure_debut, prix, capacity')
+      .eq('event_id', ev.id);
+    if (sections?.length) {
+      const { error: secErr } = await supabase
+        .from('event_sections')
+        .insert(sections.map((s) => ({ ...s, event_id: data.id, club_id: clubId })));
+      if (secErr) alert(`Sections non copiées : ${secErr.message}`);
+    }
     navigate(`/events/${data.id}/edit`);
   };
 

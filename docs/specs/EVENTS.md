@@ -1,7 +1,7 @@
 # Spec — Module Events
 
 > Statut : prêt pour intégration
-> Dernière mise à jour : 2026-11-07
+> Dernière mise à jour : 2026-11-10
 
 ---
 
@@ -319,7 +319,8 @@ const { data } = await supabase
 
 Migrations `supabase/migrations/2026110701_event_registrations.sql` et
 `2026110702_event_admin_remove_booking.sql` (suppression d'un groupe),
-`2026110801_event_registrations_sans_compte.sql` (groupes de personnes sans compte). Paiement hors périmètre ;
+`2026110801_event_registrations_sans_compte.sql` (groupes de personnes sans compte),
+`2026111001_event_sections.sql` (sections, voir plus bas). Paiement hors périmètre ;
 pas de liste d'attente ni de notification liée aux inscriptions.
 
 ### Réglages par événement (formulaire BO, section « Inscriptions »)
@@ -380,6 +381,55 @@ Codes d'erreur : `NOT_MEMBER`, `NOT_FOUND`, `REGISTRATION_CLOSED`, `QUOTA_EXCEED
   des réservations, retrait d'une personne (confirmation ; retirer le titulaire annule sa
   réservation), suppression d'un groupe entier (réservations de 2 places et plus) et ajout manuel
   avec le même champ unique que le BO (`MemberPicker` avec `onPickNamed`), via les mêmes RPC admin. Une réservation d'une seule place tient sur une ligne.
+
+### Sections (10/11/2026)
+
+Migration `2026111001_event_sections.sql`. Un événement peut se découper en plusieurs temps
+(ex. soirée pickleball : animation avec jauge, puis repas sans jauge). Sans section, rien ne change.
+
+- **`event_sections`** : `titre`, `position` (ordre), `heure_debut` (optionnel), `prix` (optionnel,
+  vide = gratuit), `capacity` (jauge de la section, `null` = illimitée). Lecture publique (club
+  actif), écriture admin/manager (`can_manage_club_content`) avec un `event_id` du même club.
+  Édition dans le formulaire BO (bloc « Sections » : ajout, ordre ↑↓, retrait). La duplication
+  d'un événement copie ses sections.
+- **Prix** : `events.prix` reste le prix de l'événement **complet**, affiché dans les listes ;
+  il est saisi par l'admin, pas calculé. Chaque section affiche son propre prix sur la fiche PWA.
+- **Choix par personne** : table privée `event_participant_sections (participant_id, section_id)`.
+  **Aucune ligne = tout l'événement**, y compris les sections ajoutées plus tard. Cocher toutes
+  les sections revient au même (rien n'est stocké). Au moins une section par personne.
+- **Jauges** : la jauge totale `registration_capacity` s'applique toujours au nombre de
+  personnes. La jauge d'une section compte les personnes inscrites à tout l'événement et celles
+  qui l'ont choisie ; elle est contrôlée (admin compris) pour chaque section où la réservation
+  enregistrée a au moins une place → `SECTION_FULL` (titre de la section en `details`).
+- **Suppression d'une section** : refusée (23503, message dans le BO) si une personne l'a
+  choisie explicitement. Supprimer l'événement reste possible.
+- **Pas de date de clôture par section** : celle de l'événement s'applique. Les sections se
+  modifient jusqu'à la clôture via « Modifier » (contrôle de jauge à chaque fois).
+
+RPC :
+
+| RPC | Changement |
+|---|---|
+| `event_registration_state` | + `sections[]` (`id`, `titre`, `heure_debut`, `prix`, `capacity`, `taken`) ; chaque place du titulaire porte `sections` (`null` = tout) ; un inscrit par un autre reçoit ses `sections`. |
+| `event_member_save(club, event, members[], guests[], member_sections)` | `member_sections` optionnel : `{ user_id: [section ids] \| null }` (le membre lui-même compris) ; chaque invité peut porter `sections`. Absent → tout l'événement (compatibilité avec une PWA pas à jour). |
+| `event_admin_add(…, member_sections)` | Idem pour les personnes ajoutées ; les places existantes de la réservation gardent leurs sections. |
+| `event_admin_bookings` | Chaque place porte `sections`. |
+
+Nouveaux codes d'erreur : `SECTION_FULL`, `SECTION_REQUIRED` (liste vide), `VALIDATION_ERROR`
+(section d'un autre événement).
+
+Écrans :
+- **BO, page Inscrits** : filtre par section avec le compteur de chacune (`n / jauge`), badge des
+  sections choisies sur chaque personne qui ne vient pas à tout, choix des sections par personne
+  à l'ajout.
+- **PWA** : programme des sections (heure, prix, places restantes ou « complet ») dans le bloc
+  « Inscription » ; dans l'éditeur, cases à cocher par personne (vous, membres, invités). Une
+  nouvelle personne est pré-cochée sur les sections qui ont encore de la place. « Complet »
+  quand plus aucune section n'a de place. « Modifier » est proposé dès que l'événement a des
+  sections, même à 1 place par réservation. Le panneau admin affiche le compteur par section et
+  le choix par personne à l'ajout.
+- Un membre inscrit par un autre voit ses sections mais ne peut pas les changer (c'est le
+  titulaire qui gère sa réservation).
 
 ### Limites connues
 
