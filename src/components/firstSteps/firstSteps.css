@@ -195,10 +195,7 @@
 .fs-link-small { min-height: 32px; font-size: 12.5px !important; color: var(--brand-text); }
 .fs-progress-line { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--mu); }
 .fs-swatch { width: 18px; height: 18px; border-radius: 4px; background: var(--swatch); flex-shrink: 0; }
-.fs-btn-start { align-self: flex-start; }
 .fs-phone:has(.fs-poster-stage) { width: 100%; }
 .fs-poster-stage { display: flex; flex-wrap: wrap; gap: 28px; align-items: center; justify-content: center; }
 .fs-poster { width: 440px; max-width: 100%; aspect-ratio: 1414 / 2000; overflow: hidden; border-radius: 12px; box-shadow: 0 30px 80px rgba(40, 20, 20, 0.3); position: relative; animation: fs-rise 0.4s both; }
-.fs-poster-phone { width: 268px; max-width: 100%; }
 @media (prefers-reduced-motion: reduce) { .fs-poster { animation: none; } }
-.fs-poster-stage:has(.fs-poster-phone) .fs-poster { width: 400px; }

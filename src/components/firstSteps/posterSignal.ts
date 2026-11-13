@@ -10,13 +10,9 @@ export type PosterPreviewState = {
   background?: string;
   color: string;
   partnerLogos: string[];
-  /** Affiche générée : le téléphone revient, avec l'onglet Actu. */
-  generated: boolean;
-  /** Incrémenté à chaque publication en actu : le téléphone relit les actus. */
-  published: number;
 };
 
-const EMPTY: PosterPreviewState = { matches: [], color: '', partnerLogos: [], generated: false, published: 0 };
+const EMPTY: PosterPreviewState = { matches: [], color: '', partnerLogos: [] };
 let state = EMPTY;
 const listeners = new Set<() => void>();
 

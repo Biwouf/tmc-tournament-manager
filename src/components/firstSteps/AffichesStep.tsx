@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { DEFAULT_FOCAL_POINT, saveActu } from '../../lib/actuWrites';
-import { CLUB_BACKGROUND_NAME, CLUB_BACKGROUND_TITLE } from '../../lib/clubPosterBackground';
+import { CLUB_BACKGROUND_NAME } from '../../lib/clubPosterBackground';
 import type { PosterBackground } from '../../lib/clubConfig';
 import { ensureClubPosterBackground } from '../../lib/defaultPosterBackground';
 import { skipFirstStep } from '../../lib/firstSteps';
 import { drawPosterPartners, newPartnerSeed } from '../../lib/posterPartners';
-import type { TeamMatch } from '../../types';
 import TeamMatchImagePreview from '../TeamMatchImagePreview';
 import type { RencontreEntry } from '../teamMatches/gridTypes';
 import { GENRE_LABELS, formatCategorie } from '../teamMatches/teamMatchLabels';
@@ -20,8 +18,8 @@ import { setPosterPreview } from './posterSignal';
 // SaaS S7 — étape « Vos affiches » : la vraie affiche des rencontres, aux couleurs du club, sans
 // fond fourni. Le fond « Aux couleurs du club » est créé à l'entrée dans l'étape si le club n'en a
 // aucun (`ensureClubPosterBackground`) ; sélection et export sont ceux de `PosterPanel`
-// (`posterSelection.ts`), la publication celle des actus (`saveActu`). Étape terminée dès
-// l'affiche générée ; la publication est facultative.
+// (`posterSelection.ts`). Étape terminée dès l'affiche générée, qui se télécharge ensuite (pas de
+// publication en actu depuis les premiers pas, décision du 13/11/2026).
 
 const STEP_ID = 'affiches';
 
@@ -29,26 +27,6 @@ type BackgroundState =
   | { status: 'loading' }
   | { status: 'ready'; list: PosterBackground[] }
   | { status: 'error'; message: string };
-
-/** Texte de l'actu : une ligne par rencontre annoncée. */
-function posterActuText(matches: TeamMatch[]): string {
-  const lines = matches.map((m) => {
-    const [y, mo, d] = m.date.split('-').map(Number);
-    const day = new Date(y, mo - 1, d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-    const hour = m.time ? ` à ${m.time.replace(':', 'h')}` : '';
-    const where = m.location === 'home' ? 'au club' : 'à l’extérieur';
-    return `- ${day.charAt(0).toUpperCase()}${day.slice(1)}${hour} : ${GENRE_LABELS[m.gender]} ${formatCategorie(m.ageCategory)}, équipe ${m.teamNumber}, contre ${m.opponent} (${where})`;
-  });
-  return ['Venez encourager nos équipes !', '', ...lines].join('\n');
-}
-
-/** Une image `data:` (le JPEG de l'affiche) en fichier à téléverser. */
-function dataUrlToFile(dataUrl: string, name: string): File {
-  const [head, body] = dataUrl.split(',');
-  const type = /data:([^;]+)/.exec(head)?.[1] ?? 'image/jpeg';
-  const bytes = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
-  return new File([bytes], name, { type });
-}
 
 export default function AffichesStep(props: StepProps) {
   const { club, config, state, eyebrow, next, goTo } = props;
@@ -127,7 +105,7 @@ function SeasonPoster({ saisonId, empty, ...props }: SeasonProps) {
   return <Composer entries={entries} {...props} />;
 }
 
-function Composer({ club, config, state, complete, next, entries, bg, retry }: Omit<SeasonProps, 'saisonId' | 'empty'> & { entries: RencontreEntry[] }) {
+function Composer({ config, state, complete, next, entries, bg, retry }: Omit<SeasonProps, 'saisonId' | 'empty'> & { entries: RencontreEntry[] }) {
   const { groupes, weekend, selectedIds, selected, atMax, toggle, takeAll, selectedMatches } = usePosterSelection(entries);
   const list = bg.status === 'ready' ? bg.list : [];
   const [chosen, setChosen] = useState<string | null>(null);
@@ -140,68 +118,37 @@ function Composer({ club, config, state, complete, next, entries, bg, retry }: O
     () => drawPosterPartners(config.partners.map((p) => p.logo).filter(Boolean), newPartnerSeed()),
     [config.partners],
   );
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState<'generate' | 'publish' | null>(null);
+  // L'affiche générée vaut pour une sélection et un fond : toute nouvelle coche ou un autre fond
+  // l'invalide, comme dans `PosterPanel`.
+  const selectionKey = `${selectedIds.join(',')}|${background?.image ?? ''}`;
+  const [generated, setGenerated] = useState<{ key: string; url: string } | null>(null);
+  const dataUrl = generated?.key === selectionKey ? generated.url : null;
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [published, setPublished] = useState(false);
   const posterRef = useRef<HTMLDivElement>(null);
-  // Une relance après un échec reprend l'actu déjà créée au lieu d'en publier une seconde.
-  const actuId = useRef<string | undefined>(undefined);
   const done = state.completed_steps.includes(STEP_ID);
 
-  // Toute nouvelle sélection invalide l'affiche générée, comme dans `PosterPanel`.
   useEffect(() => {
-    setDataUrl(null);
-    setPublished(false);
-    actuId.current = undefined;
-  }, [selectedIds, background?.image]);
-
-  useEffect(() => {
-    setPosterPreview({ matches: selectedMatches, background: background?.image, color, partnerLogos, generated: Boolean(dataUrl) });
-  }, [selectedMatches, background?.image, color, partnerLogos, dataUrl]);
+    setPosterPreview({ matches: selectedMatches, background: background?.image, color, partnerLogos });
+  }, [selectedMatches, background?.image, color, partnerLogos]);
 
   const generate = async () => {
     if (!background || !posterRef.current) return;
-    setBusy('generate');
+    setBusy(true);
     setError(null);
     try {
-      setDataUrl(await exportPosterJpeg(posterRef.current));
+      setGenerated({ key: selectionKey, url: await exportPosterJpeg(posterRef.current) });
     } catch (err) {
       console.error('[premiers-pas] génération de l’affiche', err);
       setError('L’affiche n’a pas pu être générée. Réessayez.');
-      setBusy(null);
+      setBusy(false);
       return;
     }
     if (!done) {
       const failure = await complete();
       if (failure) setError(`Votre affiche est prête, mais l’avancement n’a pas pu être enregistré. ${failure}`);
     }
-    setBusy(null);
-  };
-
-  const publish = async () => {
-    if (!dataUrl) return;
-    setBusy('publish');
-    setError(null);
-    try {
-      await saveActu(club.id, {
-        id: actuId.current,
-        titre: CLUB_BACKGROUND_TITLE,
-        contenu: posterActuText(selectedMatches),
-        publish: true,
-        keptImages: [],
-        newImages: [{ file: dataUrlToFile(dataUrl, posterFileName(weekend)), focalPoint: DEFAULT_FOCAL_POINT, caption: '' }],
-        notify: true,
-        onCreated: (id) => { actuId.current = id; },
-      });
-      setPublished(true);
-      setPosterPreview({ published: Date.now() });
-    } catch (err) {
-      console.error('[premiers-pas] publication de l’affiche', err);
-      setError('La publication n’a pas abouti. Vérifiez votre connexion puis réessayez.');
-    } finally {
-      setBusy(null);
-    }
+    setBusy(false);
   };
 
   return <>
@@ -259,20 +206,17 @@ function Composer({ club, config, state, complete, next, entries, bg, retry }: O
 
     {!dataUrl
       ? <div className="fs-footer">
-          <button type="button" className="fs-btn fs-btn-p" disabled={!selectedMatches.length || !background || busy !== null} onClick={generate}>
-            {busy === 'generate' ? 'Génération…' : 'Générer l’affiche'}
+          <button type="button" className="fs-btn fs-btn-p" disabled={!selectedMatches.length || !background || busy} onClick={generate}>
+            {busy ? 'Génération…' : 'Générer l’affiche'}
           </button>
           {done && next && <button type="button" className="fs-btn fs-btn-o" onClick={next.go}>Terminer →</button>}
         </div>
       : <div className="fs-group" role="status">
           <span className="fs-note">Votre affiche est prête.</span>
           <div className="fs-actions">
-            <button type="button" className="fs-btn fs-btn-p" disabled={published || busy !== null} onClick={publish}>
-              {busy === 'publish' ? 'Publication…' : published ? 'Publiée en actu ✓' : 'Publier en actu'}
-            </button>
-            <a className="fs-btn fs-btn-o" href={dataUrl} download={posterFileName(weekend)}>Télécharger</a>
+            <a className="fs-btn fs-btn-p" href={dataUrl} download={posterFileName(weekend)}>Télécharger</a>
+            {next && <button type="button" className="fs-btn fs-btn-o" disabled={busy} onClick={next.go}>Terminer →</button>}
           </div>
-          {next && <button type="button" className="fs-btn fs-btn-p fs-btn-start" disabled={busy !== null} onClick={next.go}>Terminer →</button>}
         </div>}
 
     {/* Affiche hors viewport — requise pour html-to-image, comme dans `PosterPanel`. */}

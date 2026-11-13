@@ -581,7 +581,7 @@ function withTeam({ upcoming = true } = {}) {
 const settle = async () => { for (let i = 0; i < 6; i++) await flush(); };
 const configUploads = () => log.filter(l => l[0] === 'upload' && l[1] === 'content-images');
 
-test('posters: the club colours background is created once, the real poster is generated, downloaded and published as an actu', async () => {
+test('posters: the club colours background is created once, the real poster is generated and downloaded', async () => {
   atPosters(); withTeam();
   let unmount = await mount(page());
   await settle();
@@ -611,7 +611,6 @@ test('posters: the club colours background is created once, the real poster is g
   assert.ok(document.querySelector('.fs-poster .tmc-poster'), 'poster in the preview');
   assert.equal(document.querySelector('.fs-poster img').getAttribute('src'), bg.image);
   assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 1);
-  assert.ok(!document.querySelector('.fs-poster-phone'), 'no phone before generation');
   await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
   assert.match(text(), /2 \/ 8 sélectionnées/);
   assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 2);
@@ -622,21 +621,12 @@ test('posters: the club colours background is created once, the real poster is g
   const download = [...document.querySelectorAll('a')].find(a => a.textContent === 'Télécharger');
   assert.equal(download.getAttribute('href'), JPEG);
   assert.match(download.getAttribute('download'), /^affiche-rencontres-\d{4}-\d{2}-\d{2}\.jpg$/);
-  assert.ok(document.querySelector('.fs-poster-phone'), 'phone back with the Actu tab');
-  await click('Publier en actu');
-  assert.equal(db.actus.length, 1);
-  const [actu] = db.actus;
-  assert.equal(actu.titre, 'Les rencontres du week-end');
-  assert.equal(actu.published, true);
-  assert.match(actu.contenu, /contre US BETA 1 \(au club\)/);
-  assert.match(actu.contenu, /contre AS GAMMA 1 \(à l’extérieur\)/);
-  const upload = log.find(l => l[0] === 'upload' && l[1] === 'actu-images');
-  assert.ok(upload[2].startsWith(`c1/${actu.id}/`));
-  assert.equal(upload[3], 'image/jpeg');
-  assert.match(actu.image_urls[0], /actu-images\/c1\//);
-  assert.deepEqual(log.filter(l => l[0] === 'rpc').at(-1), ['rpc', 'content_push_announce', { p_club: 'c1', p_kind: 'actu', p_id: actu.id }]);
-  assert.ok(buttonNamed('Publiée en actu ✓').disabled);
-  assert.match(document.querySelector('.fs-poster-phone').textContent, /Les rencontres du week-end/, 'the phone shows the actu');
+  assert.ok(!buttonNamed('Publier en actu'), 'no actu from the first steps');
+  assert.equal(db.actus.length, 0);
+  // Une nouvelle coche invalide l'affiche générée.
+  await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
+  assert.ok(![...document.querySelectorAll('a')].some(a => a.textContent === 'Télécharger'), 'stale poster dropped');
+  await click('Générer l’affiche');
   await click('Terminer →');
   assert.match(text(), /Votre app est prête/);
   assert.match(text(), /Affiche du week-end prête/);
