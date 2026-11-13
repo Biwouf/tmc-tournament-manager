@@ -30,29 +30,29 @@ test('Card data: time, category tag, team and home/away', () => {
   assert.deepEqual(m, { time: '9h', comp: 'Thénégal', tag: 'FEMMES · +35 ANS', team: 'ÉQUIPE 3', opp: { name: 'MOISSAC', sub: 'TENNIS CLUB 1' }, home: false });
 });
 
-test('Durations match the skill: 1 day / 1 match ≈ 12 s, 1 day / 3 matches ≈ 16 s, no recap on one screen', () => {
+test('Durations: 1 day / 1 match ≈ 11 s, 1 day / 3 matches ≈ 14 s, no recap on one screen', () => {
   const one = buildRencontresTimeline([r('2026-11-08', '09:00', 'A TC 1')]);
-  assert.equal(one.total.toFixed(1), '12.4');
+  assert.equal(one.total.toFixed(1), '11.4');
   assert.equal(one.recap, null);
   assert.deepEqual([one.W, one.H], [1080, 1920]);
   assert.equal(one.cards[0].CH, 400);
 
   const three = buildRencontresTimeline([r('2026-11-08', '09:00', 'A TC 1'), r('2026-11-08', '09:00', 'B TC 1', 'away'), r('2026-11-08', '14:00', 'C TC 1', 'away')]);
-  assert.equal(three.total.toFixed(1), '16.4');
+  assert.equal(three.total.toFixed(1), '14.4');
   assert.equal(three.recap, null);
   assert.deepEqual(three.cards.map((c) => c.CH), [320, 320, 320]);
   assert.equal(three.days[0].hours, '9h · 14h');
   assert.deepEqual([three.nHome, three.nAway], [1, 2]);
 });
 
-// Même formule que le gabarit de la skill (0,9 + 2 × (2,3 + 8,5) + récap 6,5 + clôture 4,7)
-test('2 days / 6 matches: one screen per day, recap, 34.2 s', () => {
+// 0,9 + 2 × (2,3 + 6,5) + récap 6,5 + clôture 4,7
+test('2 days / 6 matches: one screen per day, recap, 30.2 s', () => {
   const sat = ['09:00', '09:00', '14:00'].map((t, i) => r('2026-11-07', t, `S${i} TC 1`, i % 2 ? 'away' : 'home'));
   const sun = ['09:00', '09:00', '09:00'].map((t, i) => r('2026-11-08', t, `D${i} TC 1`));
   const tl = buildRencontresTimeline([...sat, ...sun]);
   assert.deepEqual(tl.days.map((d) => [d.label, d.matches.length]), [['Samedi 7 novembre', 3], ['Dimanche 8 novembre', 3]]);
   assert.ok(tl.recap);
-  assert.equal(tl.total.toFixed(1), '34.2');
+  assert.equal(tl.total.toFixed(1), '30.2');
   // balayages : changement de jour, récap, écran final
   assert.equal(tl.wipes.length, 3);
 });
@@ -78,10 +78,14 @@ test('Facebook story: one part under 30 s, otherwise split between screens, each
   const three = day('2026-11-08', 3);
   assert.deepEqual(buildRencontresStoryParts(three), [buildRencontresTimeline(three)]);
 
-  // Un jour de 6 : 3 + 3 et un récap, 32 s → deux stories d'un écran, sans récap
+  // Un jour de 6 : 3 + 3 et un récap, 28,2 s → une seule story
   const six = day('2026-11-08', 6);
-  assert.ok(buildRencontresTimeline(six).total > 30);
-  const p6 = buildRencontresStoryParts(six);
+  assert.deepEqual(buildRencontresStoryParts(six), [buildRencontresTimeline(six)]);
+
+  // Deux jours de 3 : un écran par jour et un récap, 30,2 s → une story par jour, sans récap
+  const twoDays = [...day('2026-11-07', 3), ...day('2026-11-08', 3)];
+  assert.ok(buildRencontresTimeline(twoDays).total > 30);
+  const p6 = buildRencontresStoryParts(twoDays);
   assert.deepEqual(p6.map((tl) => [tl.cards.length, tl.recap]), [[3, null], [3, null]]);
 
   // Deux jours de 4 (l'affiche en compte 8 au plus) : une story par jour, chacune avec son récap
