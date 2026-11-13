@@ -59,6 +59,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Actions sur la liste : modifier, publier, dépublier, supprimer
 - **Publication simultanée sur la page Facebook du club**, en cochant l'option au moment de publier (avec un mode *debug* qui crée un post caché, visible des seuls administrateurs de la page). Nécessite qu'une page soit connectée — voir *Comptes sociaux*.
 - Table `actus` exposée en lecture publique au rôle `anon` (préparation PWA, uniquement les actus publiées)
+- **Générer une actu depuis des rencontres** (admins) : cocher des rencontres par équipe jouées, ajouter une note facultative, générer le texte par IA (Claude), l'ajuster (plus court, plus sérieux, consigne libre), puis créer un brouillon d'actu avec les photos des rencontres. Les avertissements signalent toute incohérence (ex. score global qui ne colle pas aux matchs) ; 30 générations par mois et par club. Seuls les prénoms des joueurs sont transmis.
 
 ### Matches par équipe
 - Gestion des **rencontres interclubs** du club (back-office), indépendamment des événements

@@ -20,6 +20,7 @@ import LiveScorePage from './pages/LiveScorePage';
 import LiveMatchPage from './pages/LiveMatchPage';
 import LiveMatchForm from './components/LiveMatchForm';
 import ActusPage from './pages/ActusPage';
+import ActuGeneratePage from './pages/ActuGeneratePage';
 import ActuForm from './components/ActuForm';
 import MembersPage from './pages/MembersPage';
 import SiteConfigPage from './pages/SiteConfigPage';
@@ -169,6 +170,7 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />
         <Route path="/actus" element={auth(<ActusPage />)} />
         <Route path="/actus/new" element={auth(<ActuForm />)} />
+        <Route path="/actus/generer" element={auth(adminOnly(<ActuGeneratePage />))} />
         <Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
         <Route path="/team-matches" element={auth(<TeamMatchesPage />)} />
         <Route path="/team-matches/admin" element={auth(<TeamMatchesAdminPage />)} />

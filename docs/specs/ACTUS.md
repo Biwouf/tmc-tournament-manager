@@ -429,6 +429,141 @@ supabase/
 
 ---
 
+## Génération depuis des rencontres (11/11/2026)
+
+Un **administrateur** du club (rôle `admin`, ou super-admin en support — pas les managers ni les
+capitaines) génère le titre et le texte d'une actu à partir de rencontres par équipe déjà en
+base, puis crée un **brouillon** d'actu avec les visuels et photos des rencontres.
+
+### Parcours — `ActuGeneratePage.tsx` (`/actus/generer`, `adminOnly`)
+
+1. Bouton « Générer depuis des rencontres » sur `/actus` (visible des seuls admins).
+2. Choix de la saison, puis des rencontres **jouées** (score saisi), 12 au plus ; celles des
+   7 derniers jours sont cochées d'emblée. Pour chaque rencontre cochée : **note** (300 car.) et
+   **contexte de classement** (200 car.) facultatifs, **non conservés** en base.
+3. **Images de l'actu** (`components/ActuGenerateImages.tsx`) : pour chaque rencontre cochée
+   terminée qui a des photos, un visuel **« Esprit d'équipe »** (même rendu que `/medias`,
+   `renderResultPoster` modèle `photo`, cadrage centré, partenaires tirés une fois pour la page ;
+   choix de la photo du visuel si la rencontre en a plusieurs), puis les photos des rencontres.
+   Chaque image a **deux cases indépendantes** : **« À la une »** (galerie en tête de l'actu,
+   dans l'ordre affiché) et **« Dans le texte »** (après le paragraphe qui raconte sa
+   rencontre). Les deux, l'une, ou aucune (image retirée). Par défaut : visuels dans le texte,
+   photos à la une. Un visuel qui ne se rend pas est signalé et écarté. Rien de tout cela
+   n'est envoyé à l'IA.
+4. Longueur (courte / normale), ton (familial et fun / sérieux), consigne libre (500 car.).
+   Aperçu repliable des données envoyées à l'IA (`buildPostFacts`, le même module que la
+   fonction : l'aperçu montre exactement ce qui part).
+5. Résultat : **avertissements en tête** (encadré « À vérifier avant de publier »), titre et
+   texte modifiables, boutons **Copier**, **Plus court**, **Plus sérieux** (régénération à partir
+   du texte courant) et **Régénérer avec la consigne**. Chaque régénération consomme le quota ;
+   les générations restantes du mois sont affichées.
+6. **Créer le brouillon d'actu** (bouton actif une fois les visuels rendus) : `saveActu` (non
+   publié, sans notification) avec le texte tel quel (`remark-breaks` garde les retours à la
+   ligne partout). Images **« Dans le texte »** : visuels en JPEG, photos copiées, envoyés
+   dans `content-images/<club>/inline/` (comme une image insérée depuis l'éditeur) et insérés
+   en `![](url)` juste après le paragraphe qui raconte leur rencontre : chaque fait porte un
+   repère (`ref` : `R1`, `R2`…), Claude rend le texte paragraphe par paragraphe en citant les
+   repères racontés, la fonction en tire `anchors`. Le BO retrouve ce paragraphe tel quel, ou
+   par sa ligne la plus longue s'il a été retouché ; à défaut, le premier qui cite
+   l'adversaire, puis l'avant-dernier paragraphe (avant le remerciement)
+   (`lib/actuInlineImages.ts`, testé). Images **« À la une »** : galerie de l'actu, visuels en
+   JPEG, photos **copiées** dans `actu-images` (`clubPhotoForActu`), légendes vides — un humain
+   les écrit. `post-to-facebook` publie aussi les images du texte. Ouvre ensuite
+   `/actus/:id/edit`. La publication (et Facebook) se fait
+   depuis le formulaire, comme toute actu.
+
+### Faits envoyés — `shared/teamPostFacts.mjs`
+
+`buildPostFacts({ rencontres, extras })` rend `{ facts, warnings }`. Par rencontre : libellé
+d'équipe (« Messieurs +35 ans (équipe 2) »), `jeunes`, compétition, division, journée/stade,
+date (jour et mois, heure de Paris), domicile/extérieur, adversaire, score global, résultat
+(victoire/nul/défaite), forfait, matchs (simples d'abord : type, **prénoms** du club, score,
+vainqueur, forfait/abandon), note, contexte.
+
+- **Minimisation** : seuls les prénoms des joueurs du club partent — ni nom de famille, ni
+  classement, ni joueur adverse, ni identifiant, ni photo. Les mots tout en majuscules sont
+  retirés du prénom (un import Ten'Up peut y mettre « Jean DUPONT »).
+- **Contrôles en code** (`warnings`) : score global absent ; score global différent de la somme
+  des matchs quand tous sont renseignés (points du double selon le format, table
+  `FORMAT_POINTS` vérifiée contre `FORMAT_SPECS` par test) ; matchs incomplets ; vainqueur sans
+  score ; joueur sans prénom.
+
+### Edge Function `generate-post`
+
+`POST { club_id, rencontre_ids (1–12), extras?, length: 'short'|'normal', tone: 'fun'|'serious', consigne?, previous? }`
+→ `{ success: true, titre, text, anchors, warnings, remaining }` ou `{ success: false, error }`.
+`anchors` : pour chaque rencontre (id), le paragraphe qui la raconte.
+
+1. JWT obligatoire (401), secret `ANTHROPIC_API_KEY` présent (503), corps valide (400/413).
+2. `post_gen_check(club, POST_GEN_GLOBAL_DAILY_LIMIT)` **avant tout appel payant** : 403 si
+   l'appelant n'est pas admin du club actif, 429 avec le message SQL si un plafond est atteint.
+3. Faits **relus en base** avec le jeton de l'appelant, filtrés par `club_id` : une rencontre
+   d'un autre club donne 404, rien de ce que le client affirme sur les résultats n'est cru.
+4. `claude-haiku-5-5`, `max_tokens` 4000, réflexion désactivée (ses tokens tronquaient le texte), effort `low`, sortie structurée
+   `{ titre, paragraphes: [{ texte, rencontres }], warnings }`, timeout 30 s, une seule relance SDK. Prompt système figé dans
+   `supabase/functions/generate-post/prompt.ts` (règles ci-dessous + exemples few-shot).
+5. Réponse inexploitable (refus du modèle, troncature, JSON invalide) → 502, **non comptée**.
+   Sinon `post_gen_record` (tokens) puis réponse ; avertissements du code d'abord, puis ceux
+   du modèle (10 au plus).
+6. Erreurs : timeout → 504, API saturée (429/529) → 503, autre → 502 ; jamais de détail
+   technique ni de secret dans la réponse.
+7. Logs (une ligne JSON) : `club_id`, statut, nombre de rencontres, tokens, latence. **Jamais**
+   de texte, de prénom ni d'adversaire.
+
+Règles de rédaction du prompt : français, troisième personne (publié sous le nom du club), pas
+de blague interne ni de ton intime, emojis 🟢 / 🟡 / 🔴 / 🎾, fidélité stricte (aucun score,
+prénom, résultat ou enjeu inventé ; champ null = inconnu), incohérence ou note vague → neutre
+dans le texte + avertissement, jamais de santé ni de blessure, équipe jeunes = prénoms seuls
+sans âge ni détail, rencontres d'une même équipe regroupées, sections « Les dames » /
+« Les messieurs », remerciement final aux joueurs et supporters, texte brut sans Markdown.
+La consigne du club ne peut pas lever ces règles.
+
+⚠️ **Exemples few-shot à fournir** : `prompt.ts` contient trois emplacements
+`[À REMPLACER …]` à remplir avec de vraies publications du club avant la mise en service.
+
+### Quota — migration `2026111302_post_generation.sql`
+
+- `clubs.post_gen_monthly_limit` (défaut **30**, modifiable par club en SQL).
+- Table `post_generations` (club, auteur, tokens, date) : RLS sans policy ni GRANT, écrite et
+  lue par les seules fonctions `SECURITY DEFINER`. Aucun contenu conservé.
+- `post_gen_check(p_club, p_global_daily_limit)` : admin du club actif, coupe-circuit global
+  (générations de tous les clubs sur 24 h glissantes ≥ limite → `PT429`), puis plafond mensuel
+  du club (mois calendaire, heure de Paris → `PT429`). Rend les générations restantes.
+- `post_gen_record(p_club, p_input_tokens, p_output_tokens)` : appelée après un appel réussi.
+  Deux générations simultanées peuvent dépasser le plafond d'une unité chacune (accepté).
+
+### Déploiement
+
+```bash
+supabase db push                                    # migration 2026111302 AVANT la function
+supabase secrets set POST_GEN_GLOBAL_DAILY_LIMIT=300  # facultatif (300 par défaut)
+supabase functions deploy generate-post
+```
+
+`ANTHROPIC_API_KEY` est déjà posé pour `compo-scan` ; sinon
+`supabase secrets set ANTHROPIC_API_KEY=…` (jamais dans le repo ni dans `.env.local` du front).
+En local : `supabase functions serve generate-post --env-file supabase/.env.local` (fichier
+non versionné contenant `ANTHROPIC_API_KEY`). Tests sans service externe :
+`npm run test:post-generation`.
+
+### Confidentialité (à reporter dans la politique quand elle sera rédigée)
+
+> Pour aider les administrateurs à rédiger les actualités des rencontres par équipe, feelike
+> peut transmettre à Anthropic (sous-traitant, API Claude) les informations strictement
+> nécessaires : nom des équipes et des clubs adverses, dates, scores, et **prénoms** des
+> joueurs du club — jamais de nom de famille, d'adresse e-mail, d'identifiant ni de photo.
+> Le texte généré n'est pas conservé par feelike, sauf si l'administrateur l'enregistre dans
+> une actualité. Seul un compteur d'usage (club, date, volume) est conservé pour appliquer les
+> quotas.
+
+## Espacement des paragraphes (13/11/2026)
+
+Une ligne vide dans l'éditeur crée un nouveau paragraphe Markdown. Le reset CSS de Tailwind
+met les marges des `<p>` à zéro et `.markdown-body` ne les rétablissait pas : dans la PWA (et
+l'aperçu du BO), les paragraphes se suivaient sans espace, comme de simples retours à la
+ligne. Règle `.markdown-body > * + * { margin-top: 1em }` dans `pwa/src/index.css` et
+`src/index.css`, alignée sur `.news-content` de la vitrine, qui espaçait déjà ses paragraphes.
+
 ## Évolutions futures
 
 - Republication / suppression d'un post Facebook existant.
