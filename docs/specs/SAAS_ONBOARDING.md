@@ -460,6 +460,21 @@ minute et par compte. Message : « Limite de l'essai atteinte : 20 lectures Ten'
 Une lecture refusée ne compte pas. `internal` (le CAC) et `saison` : aucun changement, pas même un
 verrou de plus. Pas de SQLSTATE 40001 (exception par défaut, HTTP 400 par `tenup-sync`).
 
+**Lectures en échec** (migration `2026111320_tenup_failed_reads.sql`, incident du 13/11/2026 : worker
+verrouillé, chaque lecture en 502, plafond d'un club neuf épuisé par les relances sans rien lire).
+Quand le worker ou l'Edge échoue après le contrôle SQL (réponse en erreur, délai dépassé, réponse
+trop volumineuse ou illisible, aperçu de poule impossible à enregistrer), `tenup-sync` marque la
+lecture `failed` via `team_tenup_read_failed(actor, club, club_import)`, réservée à `service_role`
+(la dernière lecture comptée de ce compte pour ce club, des 2 dernières minutes). Une lecture marquée
+sort du quota par minute et du plafond d'essai ; une lecture non marquée (Edge interrompue) reste
+comptée. Garde-fou contre les échecs en boucle : compteur à part, aux mêmes valeurs — par compte et
+par minute autant d'échecs que de lectures permises (« Ten'Up ne répond pas : trop de lectures en
+échec. Réessayez dans une minute. »), et pour un club `trial` 40 échecs par 24 h (« Limite de
+l'essai atteinte : 40 lectures Ten'Up en échec par 24 heures… »). Au pire, deux fois le plafond.
+Les feuilles de rencontre (`team_tenup_begin`) ont leur propre compteur : non concernées.
+Tests : `tests/tenup-failed-reads-sql.test.mjs`, et les tests Edge `tenup-club-edge`, `tenup-pool-edge`,
+`competition-tenup-edge`. Mise en service : appliquer la migration, puis redéployer `tenup-sync`.
+
 ### 10.4 Aperçu
 
 `EquipesPreview` : `MatchesScreen` (extrait de l'aperçu du tunnel, mêmes classes que
@@ -511,7 +526,9 @@ Après un import réussi, une note renvoie à `/team-matches` › « Autres acti
 Quotas (migration `2026110920_tenup_club_import.sql`, décisions du 09/11/2026) : la lecture de la
 page ouvre pour ce compte et ce club une fenêtre de 10 minutes à **15 lectures / minute** (3 sinon) ;
 plafond d'essai **40 / 24 h** ; 5 imports de club par compte et par jour. Comptage commun dans
-`team_tenup_read_begin`, interne. `internal` et `saison` : pas de plafond journalier (inchangé).
+`team_tenup_read_begin`, interne. Depuis le 13/11/2026 (§10.3), seules les lectures réussies comptent :
+les relances « indisponible » ne consomment plus le plafond, et une page club en échec rend aussi son
+import de club (`p_club_import`). `internal` et `saison` : pas de plafond journalier (inchangé).
 Coût du CAC au 09/11/2026 : 1 + 3 championnats + 8 poules = 12 lectures.
 
 Limites connues : la page ne montre que les **rencontres à venir** (une équipe dont la phase est

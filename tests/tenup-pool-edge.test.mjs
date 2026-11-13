@@ -41,7 +41,9 @@ test('pool edge authorizes first, stores only validated worker data and never cr
   let handler,
     fetched = 0,
     denied = false,
-    stored = [];
+    workerStatus = 200,
+    stored = [],
+    marks = [];
   const url =
     'https://tenup.fft.fr/championnat/82678463?division=144146&phase=233672&poule=513524';
   const body = {
@@ -70,6 +72,10 @@ test('pool edge authorizes first, stores only validated worker data and never cr
   globalThis.__poolApi = (_url, key) =>
     key === 'SUPABASE_SERVICE_ROLE_KEY'
       ? {
+          rpc: async (name, args) => {
+            marks.push([name, args]);
+            return { data: true, error: null };
+          },
           from: (table) => {
             assert.equal(table, 'team_tenup_pool_previews');
             return {
@@ -122,7 +128,7 @@ test('pool edge authorizes first, stores only validated worker data and never cr
       'TENUP_WORKER_BYPASS_TOKEN'
     );
     assert.deepEqual(JSON.parse(options.body), { kind: 'pool', url });
-    return Response.json(payload);
+    return Response.json(payload, { status: workerStatus });
   };
   const request = (value = body, auth = true) =>
     new Request('https://edge.example', {
@@ -147,10 +153,21 @@ test('pool edge authorizes first, stores only validated worker data and never cr
     assert.equal(r.status, 200);
     assert.deepEqual(await r.json(), { id: 'snapshot', url, ...payload });
     assert.deepEqual(stored, [{ payload }]);
+    assert.equal(marks.length, 0, 'refused or successful reads are not marked');
     payload.rounds[0].matches.pop();
     r = await handler(request());
     assert.equal(r.status, 502);
     assert.equal(stored.length, 1, 'partial snapshots are not stored');
+    const mark = [
+      'team_tenup_read_failed',
+      { p_actor: 'actor', p_club: body.club_id, p_club_import: false },
+    ];
+    assert.deepEqual(marks, [mark], 'an unreadable pool is not counted');
+    workerStatus = 502;
+    r = await handler(request());
+    assert.equal(r.status, 502);
+    assert.match((await r.json()).error, /indisponible/);
+    assert.deepEqual(marks, [mark, mark], 'a worker failure is not counted');
   } finally {
     globalThis.fetch = previous.fetch;
     if (previous.Deno === undefined) delete globalThis.Deno;

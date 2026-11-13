@@ -12,6 +12,21 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers });
   if (req.method !== 'POST') return json(405, { error: 'Méthode non autorisée.' });
+  // Lecture comptée par le contrôle SQL (`team_tenup_read_begin`). Si le worker ou l'Edge échoue
+  // ensuite, elle est marquée en échec : elle ne compte plus dans le quota ni le plafond d'essai,
+  // seulement dans le garde-fou des échecs. Sans ce marquage, elle reste comptée.
+  let read: { actor: string; club: string; clubImport: boolean } | null = null;
+  const failed = async (status: number, error: string) => {
+    const counted = read;
+    read = null;
+    if (counted) {
+      try {
+        const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+        await admin.rpc('team_tenup_read_failed', { p_actor: counted.actor, p_club: counted.club, p_club_import: counted.clubImport });
+      } catch { /* la lecture reste comptée */ }
+    }
+    return json(status, { error });
+  };
   try {
     const authorization = req.headers.get('Authorization');
     if (!authorization?.startsWith('Bearer ')) return json(401, { error: 'Connexion requise.' });
@@ -41,19 +56,20 @@ Deno.serve(async req => {
       try { url = normalizeTenupPoolUrl(body.url); } catch { return json(400, { error: 'Copiez le lien Ten’Up complet de la poule.' }); }
       const { data: id, error } = await client.rpc('team_tenup_pool_begin', { p_club: body.club_id, p_competition: body.competition_id, p_url: url });
       if (error) return json(error.code === '42501' ? 403 : 400, { error: error.message });
+      read = { actor: user.id, club: body.club_id, clubImport: false };
       const response = await fetch(workerEndpoint, {
         method: 'POST', redirect: 'error', signal: AbortSignal.timeout(50_000), headers: workerHeaders,
         body: JSON.stringify({ kind: 'pool', url }),
       });
-      if (!response.ok) return json(502, { error: 'Le calendrier Ten’Up est indisponible. Réessayez ou créez l’équipe manuellement.' });
+      if (!response.ok) return failed(502, 'Le calendrier Ten’Up est indisponible. Réessayez ou créez l’équipe manuellement.');
       const raw = await response.text();
-      if (raw.length > 200_000) return json(502, { error: 'Calendrier Ten’Up trop volumineux.' });
+      if (raw.length > 200_000) return failed(502, 'Calendrier Ten’Up trop volumineux.');
       let payload;
       try { payload = validateTenupPool(JSON.parse(raw), url); }
-      catch { return json(502, { error: 'Calendrier Ten’Up incomplet ou illisible. Aucune équipe créée.' }); }
+      catch { return failed(502, 'Calendrier Ten’Up incomplet ou illisible. Aucune équipe créée.'); }
       const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
       const { error: saveError } = await admin.from('team_tenup_pool_previews').update({ payload }).eq('id', id).eq('actor_id', user.id);
-      if (saveError) return json(500, { error: 'Impossible de préparer le calendrier.' });
+      if (saveError) return failed(500, 'Impossible de préparer le calendrier.');
       return json(200, { id, url, ...payload });
     }
     if (body.kind === 'club') {
@@ -63,15 +79,16 @@ Deno.serve(async req => {
       try { url = normalizeTenupClubUrl(body.url); } catch (err) { return json(400, { error: (err as Error).message }); }
       const { error } = await client.rpc('team_tenup_club_begin', { p_club: body.club_id, p_url: url });
       if (error) return json(error.code === '42501' ? 403 : 400, { error: error.message });
+      read = { actor: user.id, club: body.club_id, clubImport: true };
       const response = await fetch(workerEndpoint, {
         method: 'POST', redirect: 'error', signal: AbortSignal.timeout(50_000), headers: workerHeaders,
         body: JSON.stringify({ kind: 'club', url }),
       });
-      if (!response.ok) return json(502, { error: 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.' });
+      if (!response.ok) return failed(502, 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.');
       const raw = await response.text();
-      if (raw.length > 200_000) return json(502, { error: 'Page du club Ten’Up trop volumineuse.' });
+      if (raw.length > 200_000) return failed(502, 'Page du club Ten’Up trop volumineuse.');
       try { return json(200, validateTenupClub(JSON.parse(raw))); }
-      catch { return json(502, { error: 'Page du club Ten’Up illisible. Ajoutez vos équipes avec le lien de leur poule.' }); }
+      catch { return failed(502, 'Page du club Ten’Up illisible. Ajoutez vos équipes avec le lien de leur poule.'); }
     }
     if (body.kind === 'competition') {
       if (!uuid.test(body.club_id) || !uuid.test(body.saison_id)) return json(400, { error: 'Requête invalide.' });
@@ -80,6 +97,7 @@ Deno.serve(async req => {
       catch { return json(400, { error: 'Lien de championnat Ten’Up invalide.' }); }
       const { error } = await client.rpc('team_tenup_competition_begin', { p_club: body.club_id, p_saison: body.saison_id, p_url: url });
       if (error) return json(error.code === '42501' ? 403 : 400, { error: error.message });
+      read = { actor: user.id, club: body.club_id, clubImport: false };
       // Name and rules live on the championship sheet. The pool filters can be
       // stale (Ten'Up returns 500); they are preserved as the administrator's link.
       const response = await fetch(workerEndpoint, {
@@ -87,16 +105,16 @@ Deno.serve(async req => {
         headers: workerHeaders,
         body: JSON.stringify({ kind: 'competition', url: url.split('?')[0] }),
       });
-      if (!response.ok) return json(502, { error: 'La fiche du championnat Ten’Up est indisponible. Réessayez plus tard ou saisissez la compétition manuellement.' });
+      if (!response.ok) return failed(502, 'La fiche du championnat Ten’Up est indisponible. Réessayez plus tard ou saisissez la compétition manuellement.');
       const raw = await response.text();
-      if (raw.length > 10_000) return json(502, { error: 'Fiche du championnat Ten’Up illisible.' });
+      if (raw.length > 10_000) return failed(502, 'Fiche du championnat Ten’Up illisible.');
       const payload = JSON.parse(raw);
       if (!payload || typeof payload.nom !== 'string' || !payload.nom.trim() || payload.nom.length > 160 ||
           ![null, '2S1D', '3S1D', '3S1D2', '4S1D2', '4S2D'].includes(payload.format) ||
           ![null, 'normal', 'super_tiebreak'].includes(payload.singles_set3_format) ||
           !Array.isArray(payload.warnings) || payload.warnings.length > 10 ||
           payload.warnings.some((warning: unknown) => typeof warning !== 'string' || warning.length > 500)) {
-        return json(502, { error: 'Fiche du championnat Ten’Up illisible.' });
+        return failed(502, 'Fiche du championnat Ten’Up illisible.');
       }
       // Editable draft only: no privileged write, no teams/calendar/results created.
       return json(200, { url, nom: payload.nom.trim(), format: payload.format, singles_set3_format: payload.singles_set3_format, warnings: payload.warnings });
@@ -121,6 +139,6 @@ Deno.serve(async req => {
     if (saveError) return json(500, { error: 'Impossible de préparer l’aperçu.' });
     return json(200, { id: preview.id, url, ...payload });
   } catch {
-    return json(502, { error: 'Synchronisation indisponible. Réessayez plus tard ; aucun résultat n’a été modifié.' });
+    return failed(502, 'Synchronisation indisponible. Réessayez plus tard ; aucun résultat n’a été modifié.');
   }
 });

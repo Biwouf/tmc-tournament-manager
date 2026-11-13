@@ -1,4 +1,5 @@
 // S6b — Edge tenup-sync, kind « club » : autorisation SQL d'abord, lien canonique, réponse validée, aucune écriture.
+// Lecture en échec (worker, réponse) : rendue via `team_tenup_read_failed`, import de club compris.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
@@ -20,17 +21,18 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   });
   const canonical = 'https://tenup.fft.fr/club/60820056/competitions/rencontres';
   const club = extractTenupClub(new JSDOM(await readFile(new URL('./fixtures/tenup-club.html', import.meta.url), 'utf8')).window.document);
-  let handler, fetched = 0, rpcError = null, payload = club, admin = 0;
-  const rpcs = [];
+  let handler, fetched = 0, rpcError = null, payload = club, workerStatus = 200;
+  const rpcs = [], marks = [];
   globalThis.Deno = { serve: (fn) => (handler = fn), env: { get: (key) => (key === 'TENUP_WORKER_URL' ? 'https://worker.example/api/extract' : key) } };
   globalThis.__clubApi = (_url, key) => {
-    if (key === 'SUPABASE_SERVICE_ROLE_KEY') { admin++; return {}; }
+    // Clé service : uniquement pour rendre une lecture en échec, jamais pour écrire.
+    if (key === 'SUPABASE_SERVICE_ROLE_KEY') return { rpc: async (name, args) => { marks.push([name, args]); return { data: true, error: null }; } };
     return {
       auth: { getUser: async () => ({ data: { user: { id: 'actor' } }, error: null }) },
       rpc: async (name, args) => { rpcs.push([name, args]); return { data: true, error: rpcError }; },
     };
   };
-  globalThis.fetch = async (_endpoint, options) => { fetched++; assert.deepEqual(JSON.parse(options.body), { kind: 'club', url: canonical }); return Response.json(payload); };
+  globalThis.fetch = async (_endpoint, options) => { fetched++; assert.deepEqual(JSON.parse(options.body), { kind: 'club', url: canonical }); return Response.json(payload, { status: workerStatus }); };
   const request = (body) => new Request('https://edge.example', { method: 'POST', headers: { Authorization: 'Bearer token' }, body: JSON.stringify(body) });
   const clubId = '00000000-0000-0000-0000-000000000001';
   await import(out.href);
@@ -39,6 +41,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   assert.equal(res.status, 200);
   assert.deepEqual(rpcs[0], ['team_tenup_club_begin', { p_club: clubId, p_url: canonical }]);
   assert.equal((await res.json()).teams.length, 6);
+  assert.equal(marks.length, 0, 'a successful read stays counted');
   // Refus SQL (droits, quota, plafond) : aucune lecture facturée.
   rpcError = { code: '42501', message: 'Administration du club requise.' };
   res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));
@@ -48,6 +51,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /Limite de l’essai/);
   assert.equal(fetched, 1);
+  assert.equal(marks.length, 0, 'a read refused by SQL was never counted');
   rpcError = null;
   // Lien invalide ou club mal formé : refusé sans SQL ni lecture.
   const before = rpcs.length;
@@ -58,5 +62,16 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   payload = { ...club, teams: [{ ...club.teams[0], pool_url: 'https://evil.test/x' }] };
   res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));
   assert.equal(res.status, 502);
-  assert.equal(admin, 0, 'no privileged client: nothing is written');
+  const mark = ['team_tenup_read_failed', { p_actor: 'actor', p_club: clubId, p_club_import: true }];
+  assert.deepEqual(marks, [mark], 'an unreadable page is not counted');
+  // Worker verrouillé ou en erreur : la lecture est rendue, le message reste « indisponible ».
+  payload = club; workerStatus = 502;
+  res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));
+  assert.equal(res.status, 502);
+  assert.match((await res.json()).error, /indisponible/);
+  assert.deepEqual(marks, [mark, mark]);
+  // Worker injoignable (exception) : rendue aussi.
+  globalThis.fetch = async () => { throw new Error('timeout'); };
+  assert.equal((await handler(request({ kind: 'club', club_id: clubId, url: canonical }))).status, 502);
+  assert.deepEqual(marks, [mark, mark, mark]);
 });
