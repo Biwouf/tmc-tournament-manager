@@ -7,12 +7,12 @@ test('championship edge authorizes before extraction, ignores client draft and n
  const out=new URL('edge.mjs',dir);
  await build({entryPoints:[new URL('../supabase/functions/tenup-sync/index.ts',import.meta.url).pathname],outfile:out.pathname,bundle:true,platform:'node',format:'esm',plugins:[{name:'supabase-mock',setup(b){b.onResolve({filter:/^https:/},()=>({path:'supabase',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export const createClient=(...args)=>globalThis.__competitionClient(...args);'}));}}]});
  const previous={fetch:globalThis.fetch,Deno:globalThis.Deno,client:globalThis.__competitionClient};
- let handler,denied=false,authError=false,fetched=0,configured=true,payload={nom:'Challenge féminin',format:'3S1D2',singles_set3_format:'normal',warnings:[]};
+ let handler,denied=false,authError=false,fetched=0,configured=true,marks=[],payload={nom:'Challenge féminin',format:'3S1D2',singles_set3_format:'normal',warnings:[]};
  let workerEndpoint='https://worker.example', expectedWorkerUrl='https://worker.example/extract', bypassToken;
  const url='https://tenup.fft.fr/championnat/82678463?division=144146&phase=233672&poule=513524';
  const body={kind:'competition',club_id:'00000000-0000-0000-0000-000000000001',saison_id:'00000000-0000-0000-0000-000000000010',url,nom:'Client malicious',payload:{nom:'Client malicious'}};
  globalThis.Deno={serve:fn=>{handler=fn},env:{get:key=>key==='TENUP_WORKER_URL'?(configured?workerEndpoint:undefined):key==='TENUP_WORKER_TOKEN'?'secret-not-for-client':key==='TENUP_WORKER_BYPASS_TOKEN'?bypassToken:key}};
- globalThis.__competitionClient=(_url,key)=>{assert.notEqual(key,'SUPABASE_SERVICE_ROLE_KEY');return {auth:{getUser:async()=>({data:{user:authError?null:{id:'actor'}},error:authError})},rpc:async(name,args)=>{assert.equal(name,'team_tenup_competition_begin');assert.deepEqual(args,{p_club:body.club_id,p_saison:body.saison_id,p_url:url});return {data:true,error:denied?{code:'42501',message:'Administration requise.'}:null}},from:()=>{assert.fail('no records should be created by prefill');}}};
+ globalThis.__competitionClient=(_url,key)=>{if(key==='SUPABASE_SERVICE_ROLE_KEY')return {rpc:async(name,args)=>{marks.push([name,args]);return {data:true,error:null}}};return {auth:{getUser:async()=>({data:{user:authError?null:{id:'actor'}},error:authError})},rpc:async(name,args)=>{assert.equal(name,'team_tenup_competition_begin');assert.deepEqual(args,{p_club:body.club_id,p_saison:body.saison_id,p_url:url});return {data:true,error:denied?{code:'42501',message:'Administration requise.'}:null}},from:()=>{assert.fail('no records should be created by prefill');}}};
  globalThis.fetch=async(url,options)=>{fetched++;assert.equal(String(url),expectedWorkerUrl);assert.equal(options.headers['x-vercel-protection-bypass'],bypassToken);assert.deepEqual(JSON.parse(options.body),{kind:'competition',url:'https://tenup.fft.fr/championnat/82678463'});assert.equal(options.headers.Authorization,'Bearer secret-not-for-client');return Response.json(payload)};
  const request=(value=body,auth=true)=>new Request('https://edge.example',{method:'POST',headers:auth?{Authorization:'Bearer user-token'}:{},body:JSON.stringify(value)});
  try {
@@ -27,9 +27,12 @@ test('championship edge authorizes before extraction, ignores client draft and n
   workerEndpoint='https://worker.example/api/extract';expectedWorkerUrl=workerEndpoint;bypassToken='server-only-vercel-bypass';
   const direct=await handler(request());assert.equal(direct.status,200);
   const directBody=await direct.text();assert.equal(directBody.includes(bypassToken),false);assert.equal(directBody.includes('secret-not-for-client'),false);
+  assert.equal(marks.length,0,'refused or successful reads are not marked');
+  const mark=['team_tenup_read_failed',{p_actor:'actor',p_club:body.club_id,p_club_import:false}];
   payload={nom:'Error page',format:'nonsense',singles_set3_format:null,warnings:[]};assert.equal((await handler(request())).status,502);
   globalThis.fetch=async()=>{throw new Error('private network information');};
   const failed=await handler(request());assert.equal(failed.status,502);assert.equal((await failed.text()).includes('private network information'),false);
+  assert.deepEqual(marks,[mark,mark],'failed reads are not counted');
  }finally{
   globalThis.fetch=previous.fetch;
   for(const [name,value]of [['Deno',previous.Deno],['__competitionClient',previous.client]]) {if(value===undefined)delete globalThis[name];else globalThis[name]=value;}
