@@ -3,6 +3,8 @@ import ActuStep from './ActuStep';
 import ActuPreview from './ActuPreview';
 import EquipesStep from './EquipesStep';
 import EquipesPreview from './EquipesPreview';
+import AffichesStep from './AffichesStep';
+import AffichesPreview from './AffichesPreview';
 import FinalStep, { Discover } from './FinalStep';
 
 // SaaS S5 — LA liste des premiers pas. Ajouter une étape (S6 `equipes`, S7 `affiches`) = une entrée
@@ -25,6 +27,15 @@ export const FIRST_STEPS: FirstStep[] = [
     Component: EquipesStep,
     Preview: EquipesPreview,
     recap: { done: 'Vos équipes et leur calendrier', todo: 'Aucune équipe pour l’instant' },
+  },
+  {
+    id: 'affiches',
+    label: 'Vos affiches',
+    duration: '1 minute',
+    isDone: (state) => state.completed_steps.includes('affiches'),
+    Component: AffichesStep,
+    Preview: AffichesPreview,
+    recap: { done: 'Affiche du week-end prête', todo: 'Affiche du week-end à générer' },
   },
   {
     id: 'fin',

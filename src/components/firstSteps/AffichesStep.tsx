@@ -1,0 +1,285 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
+import { DEFAULT_FOCAL_POINT, saveActu } from '../../lib/actuWrites';
+import { CLUB_BACKGROUND_NAME, CLUB_BACKGROUND_TITLE } from '../../lib/clubPosterBackground';
+import type { PosterBackground } from '../../lib/clubConfig';
+import { ensureClubPosterBackground } from '../../lib/defaultPosterBackground';
+import { skipFirstStep } from '../../lib/firstSteps';
+import { drawPosterPartners, newPartnerSeed } from '../../lib/posterPartners';
+import type { TeamMatch } from '../../types';
+import TeamMatchImagePreview from '../TeamMatchImagePreview';
+import type { RencontreEntry } from '../teamMatches/gridTypes';
+import { GENRE_LABELS, formatCategorie } from '../teamMatches/teamMatchLabels';
+import { MAX_POSTER_MATCHES, formatRencontreDate } from '../teamMatches/poster/posterHelpers';
+import { exportPosterJpeg, groupByWeek, posterFileName, usePosterSelection } from '../teamMatches/poster/posterSelection';
+import { useTeamSaisons } from '../teamMatches/useTeamSaisons';
+import { useTeamSeasonGrid } from '../teamMatches/useTeamSeasonGrid';
+import type { StepProps } from './FirstStepsFlow';
+import { setPosterPreview } from './posterSignal';
+
+// SaaS S7 — étape « Vos affiches » : la vraie affiche des rencontres, aux couleurs du club, sans
+// fond fourni. Le fond « Aux couleurs du club » est créé à l'entrée dans l'étape si le club n'en a
+// aucun (`ensureClubPosterBackground`) ; sélection et export sont ceux de `PosterPanel`
+// (`posterSelection.ts`), la publication celle des actus (`saveActu`). Étape terminée dès
+// l'affiche générée ; la publication est facultative.
+
+const STEP_ID = 'affiches';
+
+type BackgroundState =
+  | { status: 'loading' }
+  | { status: 'ready'; list: PosterBackground[] }
+  | { status: 'error'; message: string };
+
+/** Texte de l'actu : une ligne par rencontre annoncée. */
+function posterActuText(matches: TeamMatch[]): string {
+  const lines = matches.map((m) => {
+    const [y, mo, d] = m.date.split('-').map(Number);
+    const day = new Date(y, mo - 1, d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const hour = m.time ? ` à ${m.time.replace(':', 'h')}` : '';
+    const where = m.location === 'home' ? 'au club' : 'à l’extérieur';
+    return `- ${day.charAt(0).toUpperCase()}${day.slice(1)}${hour} : ${GENRE_LABELS[m.gender]} ${formatCategorie(m.ageCategory)}, équipe ${m.teamNumber}, contre ${m.opponent} (${where})`;
+  });
+  return ['Venez encourager nos équipes !', '', ...lines].join('\n');
+}
+
+/** Une image `data:` (le JPEG de l'affiche) en fichier à téléverser. */
+function dataUrlToFile(dataUrl: string, name: string): File {
+  const [head, body] = dataUrl.split(',');
+  const type = /data:([^;]+)/.exec(head)?.[1] ?? 'image/jpeg';
+  const bytes = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
+  return new File([bytes], name, { type });
+}
+
+export default function AffichesStep(props: StepProps) {
+  const { club, config, state, eyebrow, next, goTo } = props;
+  const { saisons, ready, error: saisonsError, saisonId } = useTeamSaisons();
+  const [bg, setBg] = useState<BackgroundState>({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+  const [skipError, setSkipError] = useState<string | null>(null);
+  const done = state.completed_steps.includes(STEP_ID);
+
+  // Le fond par défaut, à la première entrée dans l'étape (sans effet si la liste n'est pas vide).
+  useEffect(() => {
+    let active = true;
+    ensureClubPosterBackground(club, { name: config.brand.name || club.name, color: config.brand.color, logo: config.brand.logo || null }).then(
+      ({ backgrounds }) => { if (active) setBg({ status: 'ready', list: backgrounds }); },
+      (err: unknown) => {
+        console.error('[premiers-pas] fond aux couleurs du club', err);
+        if (active) setBg({ status: 'error', message: 'Le fond aux couleurs du club n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.' });
+      },
+    );
+    return () => { active = false; };
+  }, [club, config.brand.name, config.brand.color, config.brand.logo, attempt]);
+
+  useEffect(() => () => setPosterPreview(null), []);
+
+  const skip = async () => {
+    if (!next) return;
+    setLeaving(true);
+    const result = await skipFirstStep(club.id, STEP_ID);
+    setLeaving(false);
+    if (result.error !== undefined) { setSkipError(result.error); return; }
+    next.go();
+  };
+
+  const empty = (message: string, toTeams: boolean) => <>
+    <p className="fs-notice" role="status">{message}</p>
+    {toTeams && <button type="button" className="fs-btn fs-btn-o fs-btn-small" onClick={() => goTo('equipes')}>Ajouter une équipe</button>}
+    {skipError && <p role="alert" className="fs-error">{skipError}</p>}
+    {next && !done && (
+      <div className="fs-footer">
+        <button type="button" className="fs-link" disabled={leaving} onClick={skip}>Passer cette étape</button>
+      </div>
+    )}
+    {next && done && <div className="fs-footer"><button type="button" className="fs-btn fs-btn-p" onClick={next.go}>Terminer →</button></div>}
+  </>;
+
+  let body;
+  if (saisonsError) body = <p role="alert" className="fs-error">Les rencontres n’ont pas pu être chargées. {saisonsError}</p>;
+  else if (!ready) body = <div className="h-32 animate-pulse rounded-xl bg-muted" />;
+  else if (!saisons.length || !saisonId) body = empty('Ajoutez d’abord une équipe : l’affiche annonce ses prochaines rencontres.', true);
+  else body = <SeasonPoster key={saisonId} saisonId={saisonId} {...props} bg={bg} retry={() => { setBg({ status: 'loading' }); setAttempt((n) => n + 1); }} empty={empty} />;
+
+  return <>
+    <span className={done ? 'fs-chip fs-chip-fill fs-pop' : 'fs-eyebrow'}>{done ? 'Étape terminée' : eyebrow}</span>
+    <h2 className="fs-h" tabIndex={-1}>Annoncez le week-end comme un tournoi.</h2>
+    <p className="fs-lede">L’affiche des prochaines rencontres, aux couleurs du club. À publier en actu, sur Facebook ou au club-house.</p>
+    {body}
+  </>;
+}
+
+type SeasonProps = StepProps & {
+  saisonId: string;
+  bg: BackgroundState;
+  retry: () => void;
+  empty: (message: string, toTeams: boolean) => ReactNode;
+};
+
+function SeasonPoster({ saisonId, empty, ...props }: SeasonProps) {
+  const { loading, error, blocks, entries } = useTeamSeasonGrid(saisonId);
+  const teams = blocks.reduce((n, b) => n + b.equipes.length, 0);
+  const upcoming = useMemo(() => groupByWeek(entries, new Date()).length > 0, [entries]);
+  if (error) return <p role="alert" className="fs-error">Les rencontres n’ont pas pu être chargées. {error}</p>;
+  if (loading) return <div className="h-32 animate-pulse rounded-xl bg-muted" />;
+  if (!teams) return empty('Ajoutez d’abord une équipe : l’affiche annonce ses prochaines rencontres.', true);
+  if (!upcoming) return empty('Aucune rencontre à venir pour vos équipes. L’affiche se prépare dès qu’une rencontre est programmée.', false);
+  return <Composer entries={entries} {...props} />;
+}
+
+function Composer({ club, config, state, complete, next, entries, bg, retry }: Omit<SeasonProps, 'saisonId' | 'empty'> & { entries: RencontreEntry[] }) {
+  const { groupes, weekend, selectedIds, selected, atMax, toggle, takeAll, selectedMatches } = usePosterSelection(entries);
+  const list = bg.status === 'ready' ? bg.list : [];
+  const [chosen, setChosen] = useState<string | null>(null);
+  const background = list.find((b) => b.image === chosen)
+    ?? list.find((b) => b.name === CLUB_BACKGROUND_NAME)
+    ?? list[0];
+  const color = config.brand.color ?? '';
+  // Partenaires : la règle de `PosterPanel` (10 au plus, tirage fixé pour que l'aperçu soit l'export).
+  const partnerLogos = useMemo(
+    () => drawPosterPartners(config.partners.map((p) => p.logo).filter(Boolean), newPartnerSeed()),
+    [config.partners],
+  );
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'generate' | 'publish' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [published, setPublished] = useState(false);
+  const posterRef = useRef<HTMLDivElement>(null);
+  // Une relance après un échec reprend l'actu déjà créée au lieu d'en publier une seconde.
+  const actuId = useRef<string | undefined>(undefined);
+  const done = state.completed_steps.includes(STEP_ID);
+
+  // Toute nouvelle sélection invalide l'affiche générée, comme dans `PosterPanel`.
+  useEffect(() => {
+    setDataUrl(null);
+    setPublished(false);
+    actuId.current = undefined;
+  }, [selectedIds, background?.image]);
+
+  useEffect(() => {
+    setPosterPreview({ matches: selectedMatches, background: background?.image, color, partnerLogos, generated: Boolean(dataUrl) });
+  }, [selectedMatches, background?.image, color, partnerLogos, dataUrl]);
+
+  const generate = async () => {
+    if (!background || !posterRef.current) return;
+    setBusy('generate');
+    setError(null);
+    try {
+      setDataUrl(await exportPosterJpeg(posterRef.current));
+    } catch (err) {
+      console.error('[premiers-pas] génération de l’affiche', err);
+      setError('L’affiche n’a pas pu être générée. Réessayez.');
+      setBusy(null);
+      return;
+    }
+    if (!done) {
+      const failure = await complete();
+      if (failure) setError(`Votre affiche est prête, mais l’avancement n’a pas pu être enregistré. ${failure}`);
+    }
+    setBusy(null);
+  };
+
+  const publish = async () => {
+    if (!dataUrl) return;
+    setBusy('publish');
+    setError(null);
+    try {
+      await saveActu(club.id, {
+        id: actuId.current,
+        titre: CLUB_BACKGROUND_TITLE,
+        contenu: posterActuText(selectedMatches),
+        publish: true,
+        keptImages: [],
+        newImages: [{ file: dataUrlToFile(dataUrl, posterFileName(weekend)), focalPoint: DEFAULT_FOCAL_POINT, caption: '' }],
+        notify: true,
+        onCreated: (id) => { actuId.current = id; },
+      });
+      setPublished(true);
+      setPosterPreview({ published: Date.now() });
+    } catch (err) {
+      console.error('[premiers-pas] publication de l’affiche', err);
+      setError('La publication n’a pas abouti. Vérifiez votre connexion puis réessayez.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return <>
+    <fieldset className="fs-fieldset">
+      <legend className="fs-label">Rencontres à annoncer</legend>
+      <p className="fs-note" aria-live="polite">{selectedIds.length} / {MAX_POSTER_MATCHES} sélectionnées</p>
+      {groupes.map((groupe) => (
+        <div key={groupe.key} className="fs-group">
+          <div className="fs-poster-group">
+            <span className="fs-note">{groupe.label}</span>
+            {groupe.entries.some((e) => !selected.has(e.rencontre.id)) && !atMax && (
+              <button type="button" className="fs-link fs-link-small" onClick={() => takeAll(groupe)}>Tout prendre</button>
+            )}
+          </div>
+          <div className="fs-choices">
+            {groupe.entries.map((e) => {
+              const on = selected.has(e.rencontre.id);
+              const off = !on && atMax;
+              return (
+                <label key={e.rencontre.id} className={`fs-choice${on ? ' on' : ''}${off ? ' off' : ''}`}>
+                  <input type="checkbox" checked={on} disabled={off} onChange={() => toggle(e.rencontre.id)} />
+                  <span className="fs-team-body">
+                    <span className="fs-team-name">{GENRE_LABELS[e.competition.genre]} {formatCategorie(e.competition.categorie)} {e.equipe.numero} · vs {e.rencontre.club_adverse}</span>
+                    <span className="fs-team-detail">{formatRencontreDate(e.rencontre.date_heure)} · {e.rencontre.domicile ? 'au club' : 'à l’extérieur'}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </fieldset>
+
+    <fieldset className="fs-fieldset">
+      <legend className="fs-label">Fond de l’affiche</legend>
+      {bg.status === 'loading' && <p className="fs-progress-line" role="status"><span className="fs-spin" aria-hidden="true" />Préparation du fond aux couleurs du club…</p>}
+      {bg.status === 'error' && <>
+        <p role="alert" className="fs-error">{bg.message}</p>
+        <button type="button" className="fs-btn fs-btn-o fs-btn-small" onClick={retry}>Réessayer</button>
+      </>}
+      {bg.status === 'ready' && (
+        <div className="fs-seg">
+          {list.map((item) => (
+            <button key={item.image} type="button" className="fs-btn fs-btn-o" aria-pressed={item.image === background?.image} onClick={() => setChosen(item.image)}>
+              {item.name === CLUB_BACKGROUND_NAME
+                ? <><span aria-hidden="true" className="fs-swatch" style={{ '--swatch': 'var(--brand-fill)' } as CSSProperties} />Couleurs du club</>
+                : item.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </fieldset>
+
+    {error && <p role="alert" className="fs-error">{error}</p>}
+
+    {!dataUrl
+      ? <div className="fs-footer">
+          <button type="button" className="fs-btn fs-btn-p" disabled={!selectedMatches.length || !background || busy !== null} onClick={generate}>
+            {busy === 'generate' ? 'Génération…' : 'Générer l’affiche'}
+          </button>
+          {done && next && <button type="button" className="fs-btn fs-btn-o" onClick={next.go}>Terminer →</button>}
+        </div>
+      : <div className="fs-group" role="status">
+          <span className="fs-note">Votre affiche est prête.</span>
+          <div className="fs-actions">
+            <button type="button" className="fs-btn fs-btn-p" disabled={published || busy !== null} onClick={publish}>
+              {busy === 'publish' ? 'Publication…' : published ? 'Publiée en actu ✓' : 'Publier en actu'}
+            </button>
+            <a className="fs-btn fs-btn-o" href={dataUrl} download={posterFileName(weekend)}>Télécharger</a>
+          </div>
+          {next && <button type="button" className="fs-btn fs-btn-p fs-btn-start" disabled={busy !== null} onClick={next.go}>Terminer →</button>}
+        </div>}
+
+    {/* Affiche hors viewport — requise pour html-to-image, comme dans `PosterPanel`. */}
+    <div style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }} aria-hidden>
+      <div ref={posterRef}>
+        <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={color} partnerLogos={partnerLogos} />
+      </div>
+    </div>
+  </>;
+}

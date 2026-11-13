@@ -1,69 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { toJpeg } from 'html-to-image';
 import { useClubConfig } from '../../../hooks/useClubConfig';
-import type { TeamMatch } from '../../../types';
 import TeamMatchImagePreview from '../../TeamMatchImagePreview';
 import PosterBackgroundPicker, { PosterBackgroundEmpty } from '../../PosterBackgroundPicker';
 import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../../../lib/posterPartners';
 import type { RencontreEntry } from '../gridTypes';
-import {
-  currentWeekendRange,
-  formatWeekLabel,
-  isInRange,
-  weekRange,
-  weekendFileDate,
-} from '../weekend';
-import { MAX_POSTER_MATCHES, formatRencontreDate, rencontreToTeamMatch } from './posterHelpers';
+import { weekendFileDate } from '../weekend';
+import { MAX_POSTER_MATCHES, formatRencontreDate } from './posterHelpers';
+import { exportPosterJpeg, posterFileName, usePosterSelection } from './posterSelection';
 import RencontresAnimationSection from '../../rencontresAnimation/RencontresAnimationSection';
-
-interface Groupe {
-  key: string;
-  label: string;
-  entries: RencontreEntry[];
-}
-
-/**
- * Rencontres de la semaine en cours : le week-end courant EN ENTIER (les rencontres déjà
- * commencées comprises : elles sont présélectionnées, et le dimanche elles disparaissaient de la
- * liste tout en restant cochées) plus les rencontres à venir de la semaine qui le précèdent
- * (11 novembre…), qui tombaient sinon dans « Plus tard ».
- */
-function isCurrentWeek(iso: string, now: Date): boolean {
-  if (isInRange(iso, currentWeekendRange(now))) return true;
-  return new Date(iso) >= now && isInRange(iso, weekRange(now));
-}
-
-/**
- * Rencontres groupées par semaine (lundi → dimanche) : la semaine courante (cf. `isCurrentWeek`),
- * puis les rencontres à venir de la semaine suivante et au-delà.
- */
-function groupByWeek(entries: RencontreEntry[], now: Date): Groupe[] {
-  const courante = weekRange(now);
-  const suivante = weekRange(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7));
-  const aVenir = entries.filter((e) => new Date(e.rencontre.date_heure) >= now);
-
-  const groupes: Groupe[] = [
-    {
-      key: 'courant',
-      label: `Cette semaine · ${formatWeekLabel(courante)}`,
-      entries: entries.filter((e) => isCurrentWeek(e.rencontre.date_heure, now)),
-    },
-    {
-      key: 'suivant',
-      label: `Semaine suivante · ${formatWeekLabel(suivante)}`,
-      entries: aVenir.filter((e) => isInRange(e.rencontre.date_heure, suivante)),
-    },
-    {
-      key: 'plus-tard',
-      label: 'Plus tard',
-      entries: aVenir.filter(
-        (e) =>
-          !isCurrentWeek(e.rencontre.date_heure, now) && !isInRange(e.rencontre.date_heure, suivante)
-      ),
-    },
-  ];
-  return groupes.filter((g) => g.entries.length > 0);
-}
 
 /** Sans `onClose`, le panneau est monté en pleine page (`/medias`) : aperçu agrandi, rien à fermer. */
 export default function PosterPanel({
@@ -92,18 +36,9 @@ export default function PosterPanel({
     () => (showPartners ? drawPosterPartners(partnerLogos, partnerSeed) : []),
     [showPartners, partnerLogos, partnerSeed]
   );
-  const now = useMemo(() => new Date(), []);
-  const groupes = useMemo(() => groupByWeek(entries, now), [entries, now]);
-  const weekend = useMemo(() => currentWeekendRange(now), [now]);
-
-  // Présélection : la semaine courante (week-end compris), tronquée à 8, par date croissante.
-  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
-    entries
-      .filter((e) => isCurrentWeek(e.rencontre.date_heure, now))
-      .sort((a, b) => a.rencontre.date_heure.localeCompare(b.rencontre.date_heure))
-      .slice(0, MAX_POSTER_MATCHES)
-      .map((e) => e.rencontre.id)
-  );
+  // Regroupement par semaine, présélection et coches : partagés avec les premiers pas (S7).
+  const { groupes, weekend, selectedIds, selected, atMax, toggle, takeAll, selectedMatches } =
+    usePosterSelection(entries);
 
   const [genStatus, setGenStatus] = useState<'idle' | 'loading' | 'done'>('idle');
   /** « Générer aussi la vidéo » (pleine page) : coché par défaut, l'export suit la génération. */
@@ -119,37 +54,6 @@ export default function PosterPanel({
     setDataUrl(null);
   }, [selectedIds, backgroundIndex, posterPartnerLogos]);
 
-  const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const atMax = selectedIds.length >= MAX_POSTER_MATCHES;
-
-  const toggle = (id: string) =>
-    setSelectedIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      // Au-delà de MAX_POSTER_MATCHES le clic est ignoré.
-      return prev.length >= MAX_POSTER_MATCHES ? prev : [...prev, id];
-    });
-
-  const takeAll = (groupe: Groupe) =>
-    setSelectedIds((prev) => {
-      const next = [...prev];
-      for (const e of groupe.entries) {
-        if (next.length >= MAX_POSTER_MATCHES) break;
-        if (!next.includes(e.rencontre.id)) next.push(e.rencontre.id);
-      }
-      return next;
-    });
-
-  const selectedMatches = useMemo<TeamMatch[]>(
-    () =>
-      entries
-        .filter((e) => selected.has(e.rencontre.id))
-        .sort((a, b) => a.rencontre.date_heure.localeCompare(b.rencontre.date_heure))
-        .map((e) => rencontreToTeamMatch(e.rencontre, e.equipe, e.competition)),
-    [entries, selected]
-  );
-
-  // toJpeg reste déclenché par une action explicite : à pixelRatio 2 sur une
-  // A4, l'appeler à chaque coche ferait ramer le panneau.
   const handleGenerate = async () => {
     // Sans fond, on ne génère pas — le bouton est déjà désactivé, cette garde tient si l'état
     // change entre le rendu et le clic.
@@ -158,7 +62,7 @@ export default function PosterPanel({
     try {
       const node = posterRef.current;
       if (!node) throw new Error('Aperçu non monté');
-      const url = await toJpeg(node, { quality: 0.92, pixelRatio: 2 });
+      const url = await exportPosterJpeg(node);
       setDataUrl(url);
       setGenStatus('done');
       if (withVideo && !onClose) setVideoRequest((n) => n + 1);
@@ -168,7 +72,7 @@ export default function PosterPanel({
     }
   };
 
-  const fileName = `affiche-rencontres-${weekendFileDate(weekend)}.jpg`;
+  const fileName = posterFileName(weekend);
   const genBtnLabel =
     genStatus === 'loading' ? 'Génération…' : genStatus === 'done' ? 'Régénérer' : "Générer l'affiche";
 

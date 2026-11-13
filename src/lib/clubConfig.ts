@@ -341,6 +341,14 @@ export type PosterBackground = z.infer<typeof posterBackgroundSchema>;
  * jamais ; c'est l'écran qui décide qu'on ne génère pas. Toujours aucun défaut pointant sur
  * `/tmcs_pentecote.png`, qui réinstallerait l'identité de CAC en dur dans le code.
  *
+ * Le défaut d'un club self-serve (SaaS S7) n'est PAS un repli dans le rendu : c'est un vrai fond,
+ * « Aux couleurs du club », dessiné dans le navigateur (`lib/clubPosterBackground.ts` : en-tête
+ * avec logo ou initiales, titre et nom ; dégradé et lignes de court, donc pas un aplat), téléversé
+ * comme un fond ajouté à la main et inscrit dans `team_match_backgrounds` par les premiers pas
+ * (`lib/defaultPosterBackground.ts`), seulement si la liste est vide et jamais pour un club
+ * `internal`. Une liste vide reste donc un refus de générer ; le club garde, supprime ou remplace
+ * ce fond depuis « Configuration du site › Affiches ».
+ *
  * ⚠️ Le fond n'est pas un décor : les textes des deux affiches sont écrits en position absolue
  * à des coordonnées FIGÉES. Les proportions attendues et les zones à laisser libres sont
  * portées par les specs d'écriture, qui les contrôlent avant l'upload.
