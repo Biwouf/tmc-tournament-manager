@@ -254,6 +254,11 @@ body.has-install-banner .pwa-content {
 
 /* ─── Rendu Markdown (ActuDetailPage, EventDetailPage) ─────────────────── */
 @layer components {
+  /* Le reset Tailwind met les marges des <p> à zéro : sans cette règle, une ligne vide du BO
+     (nouveau paragraphe) ne se voyait pas. Même règle que `.news-content` de la vitrine. */
+  .markdown-body > * + * {
+    margin-top: 1em;
+  }
   .markdown-body ul {
     list-style: disc;
     padding-left: 1.5rem;

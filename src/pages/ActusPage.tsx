@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
+import { useClubRole } from '../contexts/ClubRoleContext';
 import type { Actu } from '../types';
 import { STORAGE_BUCKETS, extractStoragePath } from '../lib/storage';
 
@@ -13,6 +14,7 @@ function formatDate(iso: string): string {
 
 export default function ActusPage() {
   const { clubId } = useClub();
+  const { role, isSuperAdmin } = useClubRole();
   const [actus, setActus] = useState<Actu[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
@@ -103,7 +105,15 @@ export default function ActusPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex justify-end">
+        <div className="mb-6 flex flex-wrap justify-end gap-2">
+          {(isSuperAdmin || role === 'admin') && (
+            <Link
+              to="/actus/generer"
+              className="rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-medium shadow-sm transition hover:bg-muted"
+            >
+              Générer depuis des rencontres
+            </Link>
+          )}
           <Link
             to="/actus/new"
             className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
