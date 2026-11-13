@@ -118,7 +118,8 @@ test('worker handler: a wedged extraction cannot keep the lock; a saturated inst
   assert.equal(await request('https://tenup.fft.fr/club/1/competitions/rencontres'), 502, 'deadline reached');
   hang = false;
   assert.equal(await request('https://tenup.fft.fr/club/2/competitions/rencontres'), 502, 'not 429: the lock was released');
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  // Asked as soon as the reply is sent, never via a timer: Vercel freezes the instance after the
+  // reply, and a timer then fired during the next call and killed it (13/11/2026).
   assert.equal(fatal.length, 2);
   assert.match(fatal[0], /deadline/);
   assert.match(fatal[1], /ERR_INSUFFICIENT_RESOURCES/);

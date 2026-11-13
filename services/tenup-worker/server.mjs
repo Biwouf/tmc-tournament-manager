@@ -73,8 +73,10 @@ export function createHandler({ token, extract, deadline = 45_000, onFatal = () 
           : kind === 'pool' ? 'Le calendrier de la poule Ten’Up est indisponible. Réessayez plus tard ou créez l’équipe manuellement.'
           : kind === 'club' ? 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.'
           : 'Ten’Up ne fournit pas de feuille complète lisible pour le moment. Réessayez plus tard ou saisissez les résultats manuellement.' });
-        // After the reply: the caller gets its answer before the instance is recycled.
-        if (FATAL.test(message)) setTimeout(() => onFatal(message), 100);
+        // After the reply: the caller gets its answer before the instance is recycled. No timer
+        // here: Vercel freezes the instance once the reply is sent, so a timer only fired at the
+        // start of the next call and killed it (13/11/2026). The entry point decides when to exit.
+        if (FATAL.test(message)) onFatal(message);
       } finally { busy = false; }
     } catch { if (!res.headersSent) reply(400, { error: 'Requête interrompue.' }); }
   };

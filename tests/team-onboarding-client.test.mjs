@@ -276,7 +276,7 @@ test('club import: competitions reused or read with badges, pools read one at a 
   assert.deepEqual(byTeam['3 TC ALPHA 2'], { status: 'done', count: 2 }, 'retried after the quota pause');
   assert.equal(byTeam['9 TC ALPHA 1'].status, 'failed');
   assert.match(byTeam['9 TC ALPHA 1'].message, /introuvable dans la poule/);
-  assert.deepEqual(pauses.sort(), [30_000, 5_000].sort());
+  assert.deepEqual(pauses.sort(), [30_000, 15_000].sort());
   assert.equal(maxInFlight, 1, 'one pool read at a time');
   const created = client.calls.filter((c) => c[0] === 'rpc').map((c) => [c[2].p_competition, c[2].p_numero, c[2].p_team_id]);
   assert.deepEqual(created.sort(), [['k1', 1, '11'], ['k1', 2, '21']], 'numbers from the Ten’Up names');
