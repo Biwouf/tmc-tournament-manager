@@ -45,6 +45,14 @@ test('reads an abandonment marker as a retirement of that side; the winner shows
   assert.throws(()=>parse(page),/incomplète/);
  }
 });
+test('reads a forfeit marker as a walkover by that side; neither side shows games', () => {
+ // Observed November 2026: the forfeiting side holds only a circled "F"; the winner has no cell.
+ const line=parse(html(match('Simple',1)+match('Double',1,[],['F']))).lines[1];
+ assert.equal(line.forfeited,'b');assert.deepEqual(line.sets,[]);assert.equal(line.retired,undefined);
+ assert.equal(parse(html()).lines[1].forfeited,undefined);
+ for(const double of [match('Double',1,['F'],['F']),match('Double',1,[6],['F']),match('Double',1,['A'],['F']),match('Double',1,[],['F',6]),match('Double',1,[],['F<sup>1</sup>'])])
+  assert.throws(()=>parse(html(match('Simple',1)+double)),/incomplète/);
+});
 test('does not confuse tie-break annotations with games; reads a super tie-break as third set', () => {
  assert.deepEqual(parse(html(match('Simple',1,[6,4,2],[1,6,10]))).lines[0].sets,[{a:6,b:1},{a:4,b:6},{a:2,b:10}]);
  const source=html(match('Simple',1,[7,6],[6,3])).replace('<span>7</span>','<span>7<sup>7</sup></span>').replace('<span>6</span><span>3</span>','<span>6<sup>5</sup></span><span>3</span>');

@@ -39,7 +39,10 @@ export function extractTenupPage(document) {
       // Abandonment (observed October 2026): the retiring side ends with a lone
       // "A" marker after the games both sides share; the winner has no marker.
       const retired = cells.length > 0 && text(cells.at(-1)) === 'A' && !cells.at(-1).children.length;
-      const sets = (retired ? cells.slice(0, -1) : cells).map(cell => {
+      // Forfeit (observed November 2026): the forfeiting side holds a lone "F"
+      // marker and no games; the winner has no cell at all.
+      const forfeited = cells.length === 1 && text(cells[0]) === 'F' && !cells[0].children.length;
+      const sets = forfeited ? [] : (retired ? cells.slice(0, -1) : cells).map(cell => {
         const value = [...cell.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
         if (!/^\d+$/.test(value)) return fail();
         // A tie-break annotation is separate from games; don't merge 7 and 5 into 75.
@@ -55,13 +58,15 @@ export function extractTenupPage(document) {
         const split = /^(.*?)\s+([\p{Lu}\p{M}'’ -]+)$/u.exec(name);
         return { prenom: split?.[1] || name, nom: split?.[2] || '', classement: rankings[i] };
       });
-      return { players, sets, retired };
+      return { players, sets, retired, forfeited };
     });
     const retired = sides[0].retired ? 'a' : sides[1].retired ? 'b' : null;
-    if (sides[0].sets.length !== sides[1].sets.length || (sides[0].retired && sides[1].retired) || (!retired && sides[0].sets.length < 2)) return fail();
+    const forfeited = sides[0].forfeited ? 'a' : sides[1].forfeited ? 'b' : null;
+    if (sides[0].sets.length !== sides[1].sets.length || (sides[0].retired && sides[1].retired) || (sides[0].forfeited && sides[1].forfeited) ||
+      (forfeited && (retired || sides[0].sets.length)) || (!retired && !forfeited && sides[0].sets.length < 2)) return fail();
     return { match_type: match[1].toLowerCase(), slot: Number(match[2]),
       players_a: sides[0].players, players_b: sides[1].players,
-      ...(retired ? { retired } : {}),
+      ...(retired ? { retired } : {}), ...(forfeited ? { forfeited } : {}),
       sets: sides[0].sets.map((s, i) => ({ a: s.games, b: sides[1].sets[i].games,
         ...(s.tb !== null && sides[1].sets[i].tb !== null ? { tb_a: s.tb, tb_b: sides[1].sets[i].tb } : {}) })) };
   });
