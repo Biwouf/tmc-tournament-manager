@@ -5,8 +5,8 @@ import type { StepPreviewProps } from './FirstStepsFlow';
 import { usePosterPreview } from './posterSignal';
 
 // SaaS S7 — aperçu de l'étape « Vos affiches » (maquette `Stepper.dc.html`) : l'affiche réelle
-// (`TeamMatchImagePreview`, le rendu exporté) à la place du téléphone ; une fois l'affiche générée,
-// le téléphone revient avec l'onglet Actu, où l'affiche apparaît si elle est publiée.
+// (`TeamMatchImagePreview`, le rendu exporté) à la place du téléphone. Sans rencontre cochée :
+// l'onglet Actu, comme les autres étapes.
 
 const POSTER_W = 1414;
 
@@ -33,12 +33,7 @@ function ScaledPoster() {
 }
 
 export default function AffichesPreview(props: StepPreviewProps) {
-  const { matches, generated, published } = usePosterPreview();
+  const { matches } = usePosterPreview();
   if (!matches.length) return <ActuPreview {...props} />;
-  return (
-    <div className="fs-poster-stage">
-      <ScaledPoster />
-      {generated && <div className="fs-poster-phone"><ActuPreview {...props} version={props.version + published} /></div>}
-    </div>
-  );
+  return <div className="fs-poster-stage"><ScaledPoster /></div>;
 }

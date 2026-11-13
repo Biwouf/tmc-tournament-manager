@@ -530,7 +530,7 @@ renvoyant au lien de poule, qui reste fonctionnel.
 
 Entrée `affiches` de `FIRST_STEPS`, entre `equipes` et `fin` (« Étape 3 sur 3 · 1 minute »). Le
 fondateur génère la vraie affiche des rencontres (`TeamMatchImagePreview`, rendu inchangé) sans
-avoir fourni de fond, puis la télécharge ou la publie en actu.
+avoir fourni de fond, puis la télécharge.
 
 ### 11.1 Fond « Aux couleurs du club » (décision 1 du 13/11/2026)
 
@@ -568,16 +568,16 @@ autres :
 3. **« Générer l'affiche »** : `exportPosterJpeg` (export de `PosterPanel`) sur le nœud hors
    viewport, partenaires tirés comme dans le panneau. L'étape est **terminée** dès l'affiche
    générée (décision 4). Toute nouvelle coche ou un autre fond invalide l'affiche.
-4. **Après génération** : « Publier en actu » (facultatif, `saveActu` : titre « Les rencontres du
-   week-end », une ligne par rencontre, image JPEG dans `actu-images`, notification ; une relance
-   reprend l'actu créée), « Télécharger » (`affiche-rencontres-<samedi>.jpg`), « Terminer → ».
+4. **Après génération** : « Télécharger » (`affiche-rencontres-<samedi>.jpg`) et « Terminer → ».
+   Pas de « Publier en actu » : retiré à la recette du 13/11/2026, jugé peu utile dans les
+   premiers pas (le brief et la maquette le proposaient).
 5. Sans équipe : « Ajoutez d'abord une équipe », bouton vers l'étape équipes, « Passer cette
    étape ». Équipes sans rencontre à venir : message, « Passer cette étape ». Le report passe par
    `skipFirstStep` (§9.2). Récapitulatif final : « Affiche du week-end prête / à générer ».
 
-Aperçu (`AffichesPreview`) : l'affiche réelle, mise à l'échelle de sa boîte (440 px, 400 px à côté
-du téléphone, pleine largeur sur mobile), à la place du téléphone ; après génération, le téléphone
-revient avec l'onglet Actu, relu à chaque publication. Étape et aperçu partagent leur état par
+Aperçu (`AffichesPreview`) : l'affiche réelle, mise à l'échelle de sa boîte (440 px,
+pleine largeur sur mobile), à la place du téléphone ; sans rencontre cochée, l'onglet Actu. Étape
+et aperçu partagent leur état par
 `posterSignal.ts`, comme `teamsSignal.ts` en S6.
 
 Limite connue (rendu `TeamMatchImagePreview`, inchangé) : sur une couleur claire (`#e8c547`), le
@@ -589,7 +589,7 @@ jour, l'heure et « Au club » des cartes sont écrits dans la couleur du club e
 contraste du titre ≥ 4,5:1 pour `#e8c547`, `#3a9a5c`, `#1d3f8f`, texte limité à l'en-tête, logo ou
 initiales, pas un aplat), idempotence de la création (appels simultanés, liste non vide, `internal`,
 fond ajouté entre-temps, échec), sélection partagée avec `PosterPanel`, parcours complet dans le
-cadre (création, aperçu, génération = complétion, téléchargement, publication, rechargement sans
+cadre (création, aperçu, génération = complétion, téléchargement, affiche invalidée par une nouvelle coche, rechargement sans
 second fond), états sans équipe et sans rencontre, report persisté, échec du fond et relance.
 Contrôle visuel fait sur 1, 4 et 8 rencontres, avec et sans partenaires, avec et sans logo, pour
 les trois couleurs, en desktop et à 390 px.
