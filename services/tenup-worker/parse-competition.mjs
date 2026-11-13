@@ -25,7 +25,9 @@ export function extractTenupCompetition(document) {
   if (/^1 - 3 sets à 6 jeux$/.test(simple)) singles_set3_format = 'normal';
   else if (/2 sets à 6 jeux.*3(?:ème|e) set = SJD à 10 (?:pts|points)/.test(simple)) singles_set3_format = 'super_tiebreak';
   if (!singles_set3_format) warnings.push('La règle du troisième set des simples doit être renseignée manuellement.');
-  if (!/^4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 (?:pts|points)$/.test(value('Double'))) {
+  // FFT n°4 (point décisif) or n°2 (advantages, GAN seniors+ November 2026): the app scores
+  // neither deciding points nor advantages, only the super tie-break third set matters.
+  if (!/^(?:4 - 2 sets à 6 jeux ; pt décisif|2 - 2 sets à 6 jeux) ; 3ème set = SJD à 10 (?:pts|points)$/.test(value('Double'))) {
     warnings.push('La règle des doubles Ten’Up diffère de celle de l’application (super tie-break). Vérifiez la compatibilité avant de créer.');
     format = null;
   }

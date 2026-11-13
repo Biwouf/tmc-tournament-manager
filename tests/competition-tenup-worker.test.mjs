@@ -29,6 +29,10 @@ test('public championship prefill reads name and rules; unknown rules require ma
  // Some championships spell the super tie-break "10 points" (GAN 35, October 2026).
  const points=parse(html.replace('1 - 3 sets à 6 jeux','2 - 2 sets à 6 jeux ; 3ème set = SJD à 10 points').replace('SJD à 10 pts</p>','SJD à 10 points</p>'));
  assert.equal(points.singles_set3_format,'super_tiebreak');assert.equal(points.format,'3S1D2');assert.deepEqual(points.warnings,[]);
+ // Doubles in FFT format n°2, without deciding point (GAN 65 Messieurs, November 2026).
+ const advantages=parse(html.replace('1 - 3 sets à 6 jeux','2 - 2 sets à 6 jeux ; 3ème set = SJD à 10 points').replace('4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 pts','2 - 2 sets à 6 jeux ; 3ème set = SJD à 10 points').replace('2 points','1 point'));
+ assert.equal(advantages.format,'3S1D');assert.equal(advantages.singles_set3_format,'super_tiebreak');assert.deepEqual(advantages.warnings,[]);
+ assert.equal(parse(html.replace('4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 pts','2 - 3 sets à 6 jeux')).format,null);
  const unsupported=parse(html.replace('3 simples','5 simples').replace('1 - 3 sets à 6 jeux','Format inconnu'));
  assert.equal(unsupported.format,null);assert.equal(unsupported.singles_set3_format,null);assert.equal(unsupported.warnings.length,2);
  assert.equal(parse(html.replace('égalité : </span>Non','égalité : </span>Oui')).format,null);
