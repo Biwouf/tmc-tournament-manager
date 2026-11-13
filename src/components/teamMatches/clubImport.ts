@@ -76,8 +76,10 @@ export type TeamOutcome =
 
 const QUOTA = /Réessayez dans une minute/;
 // Le worker Ten'Up ne fait qu'une extraction à la fois : un appel qui tombe pendant une autre
-// lecture revient aussitôt en « indisponible » (502). On le relance après une courte pause.
+// lecture revient aussitôt en « indisponible » (502). Une instance saturée en renvoie aussi et
+// se recycle : la pause laisse à Vercel le temps d'en servir une neuve avant la relance.
 const BUSY = /indisponible/i;
+const BUSY_PAUSE = 15_000;
 
 export type ImportItem = { teams: ClubTeamRow[] } & ({ competition: TeamCompetition } | { draft: CompetitionDraft });
 
@@ -118,7 +120,7 @@ export async function importClubTeams(
       } catch (err) {
         const message = errorMessage(err, 'Import impossible.');
         if (QUOTA.test(message) && attempt < 2) { await pause(30_000); continue; }
-        if (BUSY.test(message) && attempt < 2) { await pause(5_000); continue; }
+        if (BUSY.test(message) && attempt < 2) { await pause(BUSY_PAUSE); continue; }
         if (/déjà ajoutée/i.test(message)) return onUpdate(team.key, { status: 'already' });
         return onUpdate(team.key, { status: 'failed', message });
       }
