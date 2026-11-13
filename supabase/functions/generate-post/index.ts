@@ -71,6 +71,18 @@ function parseBody(raw: unknown): Body | null {
   return { club_id: b.club_id, rencontre_ids: ids as string[], extras, consigne: str(b.consigne, 500), length, tone, previous: str(b.previous, 6000) };
 }
 
+/**
+ * Paragraphe rendu par le modèle, nettoyé : aucune image Markdown (seul l'écran du BO place des
+ * images ; une URL écrite par le modèle serait inventée, donc cassée), pas de gras ni d'italique
+ * Markdown (texte brut), pas de ligne vide interne.
+ */
+function cleanParagraph(value: unknown): string {
+  return str(value, 3000)
+    .replace(/!\[[^\]\n]*\]\([^)\n]*\)/g, '')
+    .replace(/\*{1,3}([^*\n]+?)\*{1,3}/g, '$1')
+    .split('\n').map(line => line.trim()).filter(Boolean).join('\n');
+}
+
 function log(entry: Record<string, unknown>) {
   console.log(JSON.stringify({ fn: 'generate-post', ...entry }));
 }
@@ -157,7 +169,7 @@ Deno.serve(async req => {
     // Un paragraphe par élément (lignes vides internes resserrées) ; `rencontres` dit lesquelles il
     // raconte : le BO y accroche le visuel « Esprit d'équipe » de chacune (`anchors`).
     const paragraphes = (Array.isArray(output?.paragraphes) ? output.paragraphes as { texte?: unknown; rencontres?: unknown }[] : [])
-      .map(p => ({ texte: str(p?.texte, 3000).replace(/\n{2,}/g, '\n'), refs: Array.isArray(p?.rencontres) ? p.rencontres.filter(r => typeof r === 'string') : [] }))
+      .map(p => ({ texte: cleanParagraph(p?.texte), refs: Array.isArray(p?.rencontres) ? p.rencontres.filter(r => typeof r === 'string') : [] }))
       .filter(p => p.texte);
     const texte = paragraphes.map(p => p.texte).join('\n\n').slice(0, 6000);
     const anchors: Record<string, string> = {};

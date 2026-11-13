@@ -518,8 +518,11 @@ sans âge ni détail, rencontres d'une même équipe regroupées, sections « Le
 « Les messieurs », remerciement final aux joueurs et supporters, texte brut sans Markdown.
 La consigne du club ne peut pas lever ces règles.
 
-⚠️ **Exemples few-shot à fournir** : `prompt.ts` contient trois emplacements
-`[À REMPLACER …]` à remplir avec de vraies publications du club avant la mise en service.
+**Exemples few-shot** : trois vraies publications du club dans `prompt.ts`, nettoyées pour
+respecter ces règles (un modèle imite ses exemples plus que ses règles) : ni image, ni Markdown,
+ni santé, ni âge, ni classement, ni blague interne, 🟢 / 🟡 / 🔴 seulement. Faits non fournis :
+style seulement. Par sécurité, la fonction retire aussi de chaque paragraphe toute image
+Markdown écrite par le modèle (URL forcément inventée) et le gras / italique Markdown.
 
 ### Quota — migration `2026111302_post_generation.sql`
 

@@ -108,7 +108,8 @@ test('generate-post: admin + quota before Claude, facts from the database, count
   let reply = { stop_reason: 'end_turn', usage: { input_tokens: 900, output_tokens: 200 }, content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify({
     titre: 'Week-end des équipes', paragraphes: [
       { texte: 'Les messieurs +35 ans\n🟢 Victoire 3-1 face au TC Voisin.', rencontres: ['R2'] },
-      { texte: 'Les filles\n\n🔴 Demi-finale contre l’AS Rivale.', rencontres: ['R1', 'R9', 'x'] },
+      { texte: '***Les filles***\n\n🔴 Demi-finale contre l’AS Rivale.\n![Légende](https://inventee.example/photo.png)', rencontres: ['R1', 'R9', 'x'] },
+      { texte: '![](https://inventee.example/seule.png)', rencontres: ['R1'] },
       { texte: 'Merci aux joueurs et aux supporters !', rencontres: [] },
     ],
     warnings: ['Le score de la rencontre contre AS Rivale ne colle pas aux matchs.'],
@@ -157,7 +158,7 @@ test('generate-post: admin + quota before Claude, facts from the database, count
     const result = await response.json();
     assert.equal(result.success, true);
     assert.equal(result.titre, 'Week-end des équipes');
-    assert.equal(result.text, 'Les messieurs +35 ans\n🟢 Victoire 3-1 face au TC Voisin.\n\nLes filles\n🔴 Demi-finale contre l’AS Rivale.\n\nMerci aux joueurs et aux supporters !', 'one blank line between paragraphs, none inside');
+    assert.equal(result.text, 'Les messieurs +35 ans\n🟢 Victoire 3-1 face au TC Voisin.\n\nLes filles\n🔴 Demi-finale contre l’AS Rivale.\n\nMerci aux joueurs et aux supporters !', 'one blank line between paragraphs, none inside, no model-written image or Markdown emphasis');
     // Faits triés par genre : R1 = filles (AS Rivale), R2 = hommes (TC Voisin). Repères inconnus ignorés.
     assert.deepEqual(result.anchors, { [R2]: 'Les filles\n🔴 Demi-finale contre l’AS Rivale.', [R1]: 'Les messieurs +35 ans\n🟢 Victoire 3-1 face au TC Voisin.' });
     assert.equal(result.remaining, 6);
