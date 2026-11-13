@@ -551,16 +551,17 @@ ajoutées au jeu embarqué de `fonts.ts`.
 2. Par jour : grosse date 2,3 s (jour, numéro qui claque — « 1er » le premier du mois —, mois,
    pastille horaires, « N RENCONTRES »), qui se range ensuite en ligne compacte sous le titre.
 3. Écrans de cartes : 3 cartes max par écran, répartition équilibrée (4 → 2+2, 5 → 3+2), cartes de
-   400 px (≤ 2) ou 320 px (3). Durée = 0,5 × (n − 1) + 1,5 + 1,5 × n + 1,5 s (~5 s de lecture
-   une fois les cartes posées, validé dans la skill). Balayage diagonal entre deux écrans.
+   400 px (≤ 2) ou 320 px (3). Durée = 0,5 × (n − 1) + 1,5 + n + 1 s, soit 1,65 s + 1 s par
+   carte de tenue une fois la dernière carte retournée (raccourcie le 13/11/2026 : la skill
+   tenait 1,5 × n + 1,5 s, jugé trop long). Balayage diagonal entre deux écrans.
 4. **Récap** seulement si les rencontres occupent plusieurs écrans : lignes groupées par jour,
    badges AU CLUB / EXT. colorés en cascade, ~5 s de tenue. Lignes de 104 px, resserrées pour
    tenir au-dessus de la zone sûre basse (y ≤ 1650) : 8 rencontres sur 3 jours tiennent.
 5. Clôture 4,2 s : logo, « VENEZ NOUS ENCOURAGER ! », pastilles « N au club » / « N en
    déplacement », partenaires ; fondu 0,5 s.
 
-Durées (`npm run test:rencontres-animation`) : 1 jour / 1 rencontre 12,4 s ; 1 jour / 3 rencontres
-16,4 s ; 2 jours / 3 + 3 rencontres 34,2 s. Export mesuré le 07/11/2026 (Chrome, Mac Apple
+Durées (`npm run test:rencontres-animation`) : 1 jour / 1 rencontre 11,4 s ; 1 jour / 3 rencontres
+14,4 s ; 1 jour / 6 rencontres 28,2 s (une seule story) ; 2 jours / 3 + 3 rencontres 30,2 s. Export mesuré le 07/11/2026 (Chrome, Mac Apple
 Silicon, worker) : story de 34,8 s (5 rencontres sur 2 jours, 10 partenaires) en ~18 s, ~35 Mo.
 
 ---

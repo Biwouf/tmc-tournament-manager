@@ -1,6 +1,6 @@
 // Calcul pur de la story « Prochaines rencontres » (matches par équipes) : regroupement par jour,
 // découpage en écrans, cues, durée, placement des cartes et du récap. Portage de la skill Claude
-// `rencontres-equipes-animation` (v1 du 07/11/2026) : mêmes séquences, mêmes durées. Story
+// `rencontres-equipes-animation` (v1 du 07/11/2026) : mêmes séquences, tenue des écrans de cartes raccourcie le 13/11. Story
 // uniquement (1080 × 1920), comme la skill. Aucune dépendance au DOM ni à React — testé par
 // `npm run test:rencontres-animation`.
 import type { TeamMatch } from '../../types';
@@ -161,8 +161,9 @@ export function buildRencontresTimeline(matches: TeamMatch[]): RencontresTimelin
         t += 0.3;
       }
       const CH = n >= 3 ? 320 : 400, top0 = AREA_TOP + (AREA_BOTTOM - AREA_TOP - (n * CH + (n - 1) * GAP)) / 2;
-      // ~5 s de lecture une fois toutes les cartes posées (validé dans la skill : ne pas raccourcir)
-      const dur = (n - 1) * BEAT + 1.5 + 1.5 * n + 1.5, end = t + dur;
+      // Tenue une fois la dernière carte retournée : 1,65 s + 1 s par carte (2,65 s à 1 carte,
+      // 4,65 s à 3). Raccourcie le 13/11/2026 (la skill tenait 2 s de plus par écran à 3 cartes).
+      const dur = (n - 1) * BEAT + 1.5 + 1.0 * n + 1.0, end = t + dur;
       ms.forEach((m, mi) => {
         const st = t + mi * BEAT;
         cards.push({ key: cards.length, m, s: st, impact: st + 0.6, flip: st + 0.85, top: top0 + mi * (CH + GAP), CH, side: mi % 2 ? 'R' : 'L', out: end - 0.4 + mi * 0.06 });
