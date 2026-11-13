@@ -32,7 +32,7 @@ annuel, Stripe). L'humain n'intervient que pour le call de réassurance.
 | **S5** | Premiers pas : cadre, fil d'Ariane, première actu, écran final (§9) | livrée |
 | **S6** | Premiers pas : vos équipes depuis un lien de poule Ten'Up, plafond Ten'Up d'essai (§10) | livrée (#207) |
 | **S6b** | Vos équipes : toutes les équipes du club depuis la page de ses rencontres (§10.6) | en revue (migration, Edge et worker à déployer avant merge) |
-| S7 | Premiers pas : affiches | à faire |
+| **S7** | Premiers pas : vos affiches, fond « Aux couleurs du club » (§11) | en revue |
 | S8 | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » | à faire |
 | S9 | Abonnement Stripe, lecture seule en fin d'essai | à faire |
 | S10 | E-mails de cycle de vie, funnel super-admin | à faire |
@@ -366,7 +366,8 @@ perdre une. Une table sera préférable si l'avancement doit un jour être requ�
 `Component`, `Preview`, `Below`, `recap`, `final`. **Ajouter une étape = une entrée** : le fil
 d'Ariane, « Étape X sur N » (l'écran `final` n'est pas compté), la barre, la reprise (première étape
 ni terminée ni passée) et le récapitulatif de l'écran final en découlent. `FirstStepsFlow` ne nomme aucune
-étape.
+étape. Depuis S7, `StepProps.goTo(id)` ouvre une autre étape de la liste (lien « Ajouter une
+équipe » de l'étape affiches).
 
 Style réel du produit : Manrope, `brandTokens()` de `shared/`. L'aperçu reprend le téléphone du
 tunnel (`PhoneFrame` de `SignupPreview`) et lit les actus publiées du club avec la requête de la
@@ -524,3 +525,74 @@ extrait de 7 cartes), `tests/tenup-club-edge.test.mjs`, `tests/tenup-club-import
 Opérations avant le merge : appliquer la migration, déployer l'Edge `tenup-sync`, redéployer le
 worker Ten'Up (`kind: 'club'`). Sans le worker à jour, la lecture de la page échoue avec un message
 renvoyant au lien de poule, qui reste fonctionnel.
+
+## 11. Vos affiches (S7, brief `SAAS_08_S7_affiches.md`)
+
+Entrée `affiches` de `FIRST_STEPS`, entre `equipes` et `fin` (« Étape 3 sur 3 · 1 minute »). Le
+fondateur génère la vraie affiche des rencontres (`TeamMatchImagePreview`, rendu inchangé) sans
+avoir fourni de fond, puis la télécharge ou la publie en actu.
+
+### 11.1 Fond « Aux couleurs du club » (décision 1 du 13/11/2026)
+
+Un club neuf n'a aucun fond, et la génération est refusée sans fond (règle PR7, `postersSchema`).
+Plutôt qu'un rendu spécial sans fond, l'étape **crée un vrai fond** et l'enregistre comme les
+autres :
+
+- **Dessin** (`lib/clubPosterBackground.ts`, canvas 1414 × 2000, PNG) : en-tête de 0 à 245 px
+  sur `--brand-fill` (pastille blanche avec le logo, sinon initiales cerclées ; « Les rencontres
+  du week-end » ; nom du club, réduit puis coupé s'il est long ; filet), texte en
+  `--brand-foreground` (≥ 4,5:1, tokens `brandTokens` de `shared/`). En dessous, aucun texte :
+  dégradé de `--brand-fill` vers la même teinte à 78 % de luminosité, lignes d'un court de double
+  à 9 % d'opacité, pour que le fond ne soit pas un aplat. Zones libres : cartes de 245 à 1720 px
+  (marges de 60 px), partenaires à partir de 1760 px. Logo chargé en CORS ; illisible → initiales.
+- **Enregistrement** (`lib/defaultPosterBackground.ts`) : téléversé par `uploadConfigImage` (même
+  bucket et même dossier `content-images/<club_id>/config/` que « Configuration du site ›
+  Affiches »), inscrit dans `posters.team_match_backgrounds` sous le nom « Aux couleurs du club ».
+  Le club le garde, le supprime ou en ajoute d'autres depuis cet écran.
+- **Quand** : à chaque entrée dans l'étape, mais **seulement si la liste est vide** (relue en
+  base, puis relue dans l'écriture : un fond ajouté entre-temps l'emporte et l'image en trop est
+  supprimée), **jamais pour un club `internal`**. Recharger ou revenir à l'étape ne crée donc pas
+  de second fond ; un club qui l'a supprimé et revient à l'étape en reçoit un nouveau, la liste
+  étant de nouveau vide. Appels simultanés dans un onglet : une seule promesse par club.
+- Clubs existants sans fond : rien d'automatique (décision 3) ; S8 pourra proposer le générateur.
+
+### 11.2 Parcours
+
+1. **Rencontres à annoncer** : la sélection de `PosterPanel`, extraite dans
+   `teamMatches/poster/posterSelection.ts` (semaine courante présélectionnée, 8 au plus, semaine
+   suivante puis « Plus tard », « Tout prendre »), saison retenue par `useTeamSaisons`, rencontres
+   lues par `useTeamSeasonGrid`. Carte : « Hommes Seniors 1 · vs adversaire / date · au club ».
+2. **Fond de l'affiche** : « Couleurs du club » sélectionné ; les autres fonds du club, s'il en a,
+   par leur nom. Pas de « Votre propre fond » (décision 2). Échec de préparation : message et
+   « Réessayer » ; sans fond, « Générer l'affiche » reste désactivé.
+3. **« Générer l'affiche »** : `exportPosterJpeg` (export de `PosterPanel`) sur le nœud hors
+   viewport, partenaires tirés comme dans le panneau. L'étape est **terminée** dès l'affiche
+   générée (décision 4). Toute nouvelle coche ou un autre fond invalide l'affiche.
+4. **Après génération** : « Publier en actu » (facultatif, `saveActu` : titre « Les rencontres du
+   week-end », une ligne par rencontre, image JPEG dans `actu-images`, notification ; une relance
+   reprend l'actu créée), « Télécharger » (`affiche-rencontres-<samedi>.jpg`), « Terminer → ».
+5. Sans équipe : « Ajoutez d'abord une équipe », bouton vers l'étape équipes, « Passer cette
+   étape ». Équipes sans rencontre à venir : message, « Passer cette étape ». Le report passe par
+   `skipFirstStep` (§9.2). Récapitulatif final : « Affiche du week-end prête / à générer ».
+
+Aperçu (`AffichesPreview`) : l'affiche réelle, mise à l'échelle de sa boîte (440 px, 400 px à côté
+du téléphone, pleine largeur sur mobile), à la place du téléphone ; après génération, le téléphone
+revient avec l'onglet Actu, relu à chaque publication. Étape et aperçu partagent leur état par
+`posterSignal.ts`, comme `teamsSignal.ts` en S6.
+
+Limite connue (rendu `TeamMatchImagePreview`, inchangé) : sur une couleur claire (`#e8c547`), le
+jour, l'heure et « Au club » des cartes sont écrits dans la couleur du club et peu lisibles.
+
+### 11.3 Tests et recette
+
+`tests/first-steps.test.mjs` (`npm run test:club-signup`) : dessin du fond (dimensions, couleur,
+contraste du titre ≥ 4,5:1 pour `#e8c547`, `#3a9a5c`, `#1d3f8f`, texte limité à l'en-tête, logo ou
+initiales, pas un aplat), idempotence de la création (appels simultanés, liste non vide, `internal`,
+fond ajouté entre-temps, échec), sélection partagée avec `PosterPanel`, parcours complet dans le
+cadre (création, aperçu, génération = complétion, téléchargement, publication, rechargement sans
+second fond), états sans équipe et sans rencontre, report persisté, échec du fond et relance.
+Contrôle visuel fait sur 1, 4 et 8 rencontres, avec et sans partenaires, avec et sans logo, pour
+les trois couleurs, en desktop et à 390 px.
+
+Aucune opération hors code : pas de migration, pas d'Edge Function. Le bucket `content-images` et
+ses policies (`20260822_config_storage_tenant.sql`) servent déjà aux fonds.

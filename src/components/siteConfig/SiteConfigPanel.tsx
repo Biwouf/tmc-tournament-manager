@@ -10,8 +10,7 @@
 // autres, et l'UPDATE ne touche qu'une clé racine — deux onglets ouverts sur deux panneaux
 // différents ne s'écrasent plus (brief §5, §7).
 import { useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import { STORAGE_BUCKETS, clubPath, extractStoragePath, sanitizeFilename } from '../../lib/storage';
+import { deleteConfigImage, uploadConfigImage } from '../../lib/configImages';
 import {
   asFocal,
   focalKey,
@@ -26,12 +25,6 @@ import {
   type ListSpec,
 } from '../../lib/clubConfigWrite';
 import { BoolField, ImageField, ScalarField } from './SiteConfigFields';
-
-// Décision brief §8, voie (a) : le bucket générique existant, sous `<club_id>/config/…`.
-// Zéro migration — c'est ce qui garde PR6b déployable par un simple push. Un bucket dédié
-// serait plus lisible, mais PR7-bis le créera quand elle aura elle-même besoin d'y mettre les
-// logos et les icônes PWA.
-const BUCKET = STORAGE_BUCKETS.contentImages;
 
 /** Chemin d'un champ image dans l'état du panneau : `logo` ou `infra_teaser.1.image`. */
 type PendingFiles = Record<string, File>;
@@ -89,24 +82,6 @@ function withPendingImages(value: GroupValue, files: PendingFiles): GroupValue {
   return Object.keys(files).reduce((acc, path) => setAtPath(acc, path, PENDING_IMAGE), value);
 }
 
-// `clubPath()` est obligatoire : les policies Storage lisent le premier segment via
-// `can_write_club_object(name)`, donc un chemin construit à la main serait refusé par la RLS.
-// Le chemin porte l'horodatage ET le champ visé : trois images d'une même liste enregistrées
-// ensemble ne peuvent pas se télescoper à la milliseconde près.
-async function uploadConfigImage(clubId: string, path: string, file: File): Promise<string> {
-  const key = clubPath(
-    clubId,
-    'config',
-    `${Date.now()}-${sanitizeFilename(path)}-${sanitizeFilename(file.name)}`,
-  );
-  const { error } = await supabase.storage.from(BUCKET).upload(key, file, {
-    contentType: file.type,
-    cacheControl: '3600',
-  });
-  if (error) throw error;
-  return supabase.storage.from(BUCKET).getPublicUrl(key).data.publicUrl;
-}
-
 /** Un sous-titre s'ouvre quand la `section` de la spec change ; un item qui n'en porte pas
  *  reste sous la section en cours. */
 function withHeadings(items: ItemSpec[]): { item: ItemSpec; heading: string | null }[] {
@@ -134,15 +109,6 @@ function isFilled(group: GroupSpec, value: GroupValue): boolean {
       ? ((value[item.key] as ListEntry[] | undefined) ?? []).length > 0
       : typeof value[item.key] === 'string' && value[item.key] !== '',
   );
-}
-
-async function deleteConfigImage(publicUrl: string) {
-  const key = extractStoragePath(BUCKET, publicUrl);
-  if (!key) return;
-  const { error } = await supabase.storage.from(BUCKET).remove([key]);
-  // L'écriture est déjà passée : un orphelin dans le bucket ne justifie pas d'annoncer un
-  // échec d'enregistrement qui n'a pas eu lieu.
-  if (error) console.error('[SiteConfig] suppression de l’ancienne image impossible', error);
 }
 
 export default function SiteConfigPanel({

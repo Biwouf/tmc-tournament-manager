@@ -26,8 +26,11 @@ const cac = { ...self, id: 'c2', slug: 'cac', name: 'CAC', plan: 'internal', cre
 function reset(config = {}) {
   db = { club_settings: [{ club_id: 'c1', config: { brand: { name: 'TC Alpha', color: '#1d3f8f' }, home: { hero_image: HERO }, ...config } }], actus: [],
     team_saisons: [], team_competitions: [], team_equipes: [], team_etapes: [], team_rencontres: [] };
-  log = []; failUpload = false; refuseConfig = false; clipboard = null; tenup = {};
+  log = []; failUpload = false; refuseConfig = false; clipboard = null; tenup = {}; poster = {};
 }
+// S7 : le dessin du fond (canvas) et l'export JPEG (html-to-image) n'existent pas sous jsdom.
+let poster = {};
+const JPEG = 'data:image/jpeg;base64,' + Buffer.from('jpeg-affiche').toString('base64');
 // Ten'Up simulé (Edge `tenup-sync`) et création d'équipe (`team_equipe_create`).
 let tenup = {};
 const POOL_URL = 'https://tenup.fft.fr/championnat/82145789?division=4&phase=1&poule=2';
@@ -81,17 +84,20 @@ const supabase = {
     async remove(paths) { log.push(['remove', bucket, paths]); return { error: null }; },
   }) },
   from(table) {
-    let filters = [], write = null, single = false;
+    let filters = [], write = null, single = false, columns = '';
     const rows = () => (db[table] || []).filter(row => filters.every(f => f(row)));
+    // `useTeamSeasonGrid` lit compétitions → équipes → journées → rencontres en une requête imbriquée.
+    const nested = (comp) => ({ ...comp, team_equipes: db.team_equipes.filter(e => e.competition_id === comp.id).map(e => ({ ...e,
+      team_etapes: db.team_etapes.filter(et => et.equipe_id === e.id).map(et => ({ ...et, team_rencontres: db.team_rencontres.filter(r => r.etape_id === et.id) })) })) });
     const q = {
-      select() { return q; }, order() { return q; }, limit() { return q; },
+      select(cols = '') { columns = cols; return q; }, order() { return q; }, limit() { return q; },
       eq(key, value) { filters.push(row => row[key] === value); return q; },
       in(key, values) { filters.push(row => values.includes(row[key])); return q; },
       maybeSingle() { single = true; return q; }, single() { single = true; return q; },
       insert(payload) { log.push(['insert', table, payload]); write = () => { const row = { id: `a${db[table].length + 1}`, ...payload }; db[table].push(row); return [row]; }; return q; },
       update(payload) { log.push(['update', table, payload]); write = () => { if (table === 'club_settings' && refuseConfig) return []; const found = rows(); found.forEach(row => Object.assign(row, payload)); return found; }; return q; },
       then(resolve) {
-        const data = write ? write() : rows();
+        const data = write ? write() : columns.includes('team_equipes(') ? rows().map(nested) : rows();
         resolve({ data: single ? data[0] ?? null : data, error: null });
       },
     };
@@ -110,11 +116,20 @@ function load(relative) {
     const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
     const require = (name) => {
       if (name.endsWith('.css') || name.startsWith('@fontsource')) return {};
+      if (name === 'html-to-image') return { toJpeg: async () => { log.push(['jpeg']); return JPEG; } };
       if (!name.startsWith('.')) return req(name);
       const p = resolve(dirname(file), name);
       return read([p, `${p}.ts`, `${p}.tsx`].find(existsSync));
     };
     vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: file })(require, mod, mod.exports);
+    if (file.endsWith('/lib/clubPosterBackground.ts')) {
+      mod.exports.renderClubPosterBackground = async (brand) => {
+        log.push(['render', brand]);
+        await poster.duringRender?.();
+        if (poster.failRender) throw new Error('canvas');
+        return new Blob(['png'], { type: 'image/png' });
+      };
+    }
     return mod.exports;
   }
   return read(resolve(base, relative));
@@ -206,7 +221,7 @@ test('adding a step is one entry: breadcrumb, counter, progress and resume follo
   const Flow = load('src/components/firstSteps/FirstStepsFlow.tsx').default;
   const { FIRST_STEPS } = load('src/components/firstSteps/steps.ts');
   const { parseClubConfig } = load('src/lib/clubConfig.ts');
-  assert.deepEqual(FIRST_STEPS.map(s => s.id), ['actu', 'equipes', 'fin']);
+  assert.deepEqual(FIRST_STEPS.map(s => s.id), ['actu', 'equipes', 'affiches', 'fin']);
   const stub = (id) => ({ id, label: id === 'equipes' ? 'Vos équipes' : 'Vos affiches', isDone: (st) => st.completed_steps.includes(id),
     Component: ({ next, eyebrow }) => h("h2", { tabIndex: -1 }, `${eyebrow} ECRAN ${id} → ${next?.label}`), Preview: () => h('p', null, `APERCU ${id}`) });
   const steps = [FIRST_STEPS[0], stub('equipes'), stub('affiches'), FIRST_STEPS.at(-1)];
@@ -229,7 +244,7 @@ test('adding a step is one entry: breadcrumb, counter, progress and resume follo
 test('one click publishes the prefilled actu through the shared path, with the club photo copied into the actu bucket', async () => {
   reset(); heroResponse();
   const unmount = await mount(page());
-  assert.match(text(), /Étape 1 sur 2/);
+  assert.match(text(), /Étape 1 sur 3/);
   assert.match(text(), /Essai · 30 jours restants/);
   assert.match(text(), /Aucune actualité/);
   assert.equal(document.querySelector('input.fs-input').value, 'Le club a sa nouvelle app !');
@@ -255,7 +270,7 @@ test('one click publishes the prefilled actu through the shared path, with the c
   assert.equal(db.club_settings[0].config.brand.name, 'TC Alpha', 'other config keys kept');
   assert.equal(document.activeElement.tagName, 'H2');
   await click('Suivant : vos équipes →');
-  assert.match(text(), /Étape 2 sur 2 · 1 minute par équipe/);
+  assert.match(text(), /Étape 2 sur 3 · 1 minute par équipe/);
   assert.match(text(), /Vos équipes, sans rien ressaisir/);
   assert.match(text(), /Vos rencontres arrivent ici/);
   await unmount();
@@ -301,12 +316,13 @@ test('a retry after a failure does not publish a second actu', async () => {
 });
 
 test('reload resumes at the right step; final screen: real QR code, copy, dashboard ends the course', async () => {
-  reset({ onboarding: { completed_steps: ['actu', 'equipes'] } });
+  reset({ onboarding: { completed_steps: ['actu', 'equipes', 'affiches'] } });
   db.actus.push({ id: 'a1', club_id: 'c1', published: true, titre: 'Déjà publiée', contenu: 'x', image_urls: [], image_focal_points: [], published_at: '2026-11-04T10:00:00Z' });
   const unmount = await mount(page());
   assert.match(text(), /Votre app est prête/);
   assert.match(text(), /Première actu publiée/);
   assert.match(text(), /Vos équipes et leur calendrier/);
+  assert.match(text(), /Affiche du week-end prête/);
   assert.match(text(), /Déjà publiée/);
   assert.match(text(), /app-tc-alpha\.feelike\.pro/);
   const qr = document.querySelector('svg[role="img"]');
@@ -366,9 +382,9 @@ const atTeams = () => reset({ onboarding: { completed_steps: ['actu'] } });
 test('one pool link: season, competition, team and encounters created; the phone shows them; Suivant completes the step', async () => {
   atTeams();
   const unmount = await mount(page());
-  assert.match(text(), /Étape 2 sur 2 · 1 minute par équipe/);
+  assert.match(text(), /Étape 2 sur 3 · 1 minute par équipe/);
   assert.match(text(), /Vos rencontres arrivent ici/);
-  assert.equal(isDisabled('Suivant : c’est prêt →'), true, 'no team yet');
+  assert.equal(isDisabled('Suivant : vos affiches →'), true, 'no team yet');
   await paste('https://tenup.fft.fr/championnat/82145789');
   assert.match(text(), /Copiez le lien Ten’Up de la poule/, 'instant validation');
   assert.equal(isDisabled('Lire la poule'), true);
@@ -394,10 +410,10 @@ test('one pool link: season, competition, team and encounters created; the phone
   assert.match(text(), /Une équipe manque \? Ajoutez-la avec le lien de sa poule/);
   assert.equal(document.getElementById('fs-pool-url').value, '');
   assert.ok(!buttonNamed('Passer cette étape'), 'skipping is offered only before the first team');
-  await click('Suivant : c’est prêt →');
+  await click('Suivant : vos affiches →');
   assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes']);
-  assert.match(text(), /Votre app est prête/);
-  assert.match(text(), /Vos équipes et leur calendrier/);
+  assert.match(text(), /Annoncez le week-end comme un tournoi/);
+  assert.match(text(), /Étape 3 sur 3/);
   await unmount();
 });
 
@@ -477,15 +493,15 @@ test('« Passer cette étape » records it as postponed, not done: resume skips 
   await click('Passer cette étape');
   assert.deepEqual(db.club_settings[0].config.onboarding.skipped_steps, ['equipes']);
   assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu']);
-  assert.match(text(), /Votre app est prête/);
-  assert.match(text(), /Aucune équipe pour l’instant/);
+  assert.match(text(), /Annoncez le week-end comme un tournoi/);
+  assert.match(text(), /Ajoutez d’abord une équipe/);
   await unmount();
   unmount = await mount(page());
-  assert.match(text(), /Votre app est prête/, 'reload does not bring the skipped step back');
+  assert.match(text(), /Annoncez le week-end comme un tournoi/, 'reload does not bring the skipped step back');
   // Revenue par le fil d'Ariane, une équipe ajoutée la termine et retire le report.
   await click('✓Vos équipes');
   await paste(POOL_URL); await click('Lire la poule'); await click('Ajouter l’équipe');
-  await click('Suivant : c’est prêt →');
+  await click('Suivant : vos affiches →');
   assert.deepEqual(db.club_settings[0].config.onboarding.skipped_steps, []);
   assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes']);
   await unmount();
@@ -545,4 +561,253 @@ test('club page without upcoming encounter: the pool link stays available', asyn
   assert.match(text(), /Aucune rencontre à venir sur la page du club/);
   assert.ok(document.getElementById('fs-pool-url'));
   await unmount();
+});
+
+// --- S7 : étape « Vos affiches » et fond aux couleurs du club ---
+const atPosters = () => reset({ onboarding: { completed_steps: ['actu', 'equipes'] } });
+const soon = () => new Date(Date.now() + 60_000).toISOString();
+/** Une équipe dans la saison active : une rencontre imminente au club, une la semaine suivante. */
+function withTeam({ upcoming = true } = {}) {
+  db.team_saisons.push({ id: 's1', club_id: 'c1', label: season(), actif: true, created_at: '2026-09-01' });
+  db.team_competitions.push({ id: 'k1', club_id: 'c1', saison_id: 's1', nom: 'Championnat Seniors Messieurs', type: 'adultes', genre: 'hommes', categorie: 'Seniors', terminee: false, created_at: '' });
+  db.team_equipes.push({ id: 'e1', club_id: 'c1', competition_id: 'k1', numero: 1, division: 'D2', nb_journees_poule: 2, created_at: '' });
+  const dates = upcoming ? [soon(), new Date(Date.now() + 8 * 86_400_000).toISOString()] : ['2026-10-04T08:00:00Z', '2026-10-11T08:00:00Z'];
+  [['US BETA 1', true], ['AS GAMMA 1', false]].forEach(([adv, home], i) => {
+    db.team_etapes.push({ id: `j${i + 1}`, club_id: 'c1', equipe_id: 'e1', phase: 'poule', numero_journee: i + 1, stade_finale: null });
+    db.team_rencontres.push({ id: `r${i + 1}`, club_id: 'c1', etape_id: `j${i + 1}`, date_heure: dates[i], domicile: home, wo: false, club_adverse: adv,
+      score_club: upcoming ? null : 3, score_adverse: upcoming ? null : 1 });
+  });
+}
+const settle = async () => { for (let i = 0; i < 6; i++) await flush(); };
+const configUploads = () => log.filter(l => l[0] === 'upload' && l[1] === 'content-images');
+
+test('posters: the club colours background is created once, the real poster is generated, downloaded and published as an actu', async () => {
+  atPosters(); withTeam();
+  let unmount = await mount(page());
+  await settle();
+  assert.match(text(), /Étape 3 sur 3 · 1 minute/);
+  assert.match(text(), /Annoncez le week-end comme un tournoi/);
+  // Fond « Aux couleurs du club » : un fond normal, rangé comme ceux de la configuration du site.
+  const list = () => db.club_settings[0].config.posters.team_match_backgrounds;
+  assert.equal(list().length, 1);
+  const [bg] = list();
+  assert.equal(bg.name, 'Aux couleurs du club');
+  assert.equal(configUploads().length, 1);
+  const [, , path, type] = configUploads()[0];
+  assert.match(path, /^c1\/config\/\d+-team-match-backgrounds\.0\.image-aux-couleurs-du-club\.png$/, 'same folder as « Configuration du site › Affiches »');
+  assert.equal(type, 'image/png');
+  assert.equal(bg.image, `https://x.supabase.co/storage/v1/object/public/content-images/${path}`);
+  assert.deepEqual(log.find(l => l[0] === 'render')[1], { name: 'TC Alpha', color: '#1d3f8f', logo: null });
+  assert.equal(db.club_settings[0].config.brand.name, 'TC Alpha', 'other config keys kept');
+  // Sélection de PosterPanel : la semaine courante présélectionnée, la suivante proposée.
+  assert.match(text(), /1 \/ 8 sélectionnées/);
+  assert.match(text(), /Hommes Seniors 1 · vs US BETA 1/);
+  assert.match(text(), /Hommes Seniors 1 · vs AS GAMMA 1/);
+  assert.match(text(), /Semaine suivante/);
+  assert.deepEqual([...document.querySelectorAll('.fs-choice input')].map(b => b.checked), [true, false]);
+  assert.equal(buttonNamed('Couleurs du club').getAttribute('aria-pressed'), 'true');
+  assert.ok(!document.body.textContent.includes('Votre propre fond'), 'decision 2: no own background here');
+  // Aperçu : la vraie affiche, sur le fond créé.
+  assert.ok(document.querySelector('.fs-poster .tmc-poster'), 'poster in the preview');
+  assert.equal(document.querySelector('.fs-poster img').getAttribute('src'), bg.image);
+  assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 1);
+  assert.ok(!document.querySelector('.fs-poster-phone'), 'no phone before generation');
+  await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
+  assert.match(text(), /2 \/ 8 sélectionnées/);
+  assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 2);
+  await click('Générer l’affiche');
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes', 'affiches'], 'done once generated');
+  assert.match(text(), /Étape terminée/);
+  assert.match(text(), /Votre affiche est prête/);
+  const download = [...document.querySelectorAll('a')].find(a => a.textContent === 'Télécharger');
+  assert.equal(download.getAttribute('href'), JPEG);
+  assert.match(download.getAttribute('download'), /^affiche-rencontres-\d{4}-\d{2}-\d{2}\.jpg$/);
+  assert.ok(document.querySelector('.fs-poster-phone'), 'phone back with the Actu tab');
+  await click('Publier en actu');
+  assert.equal(db.actus.length, 1);
+  const [actu] = db.actus;
+  assert.equal(actu.titre, 'Les rencontres du week-end');
+  assert.equal(actu.published, true);
+  assert.match(actu.contenu, /contre US BETA 1 \(au club\)/);
+  assert.match(actu.contenu, /contre AS GAMMA 1 \(à l’extérieur\)/);
+  const upload = log.find(l => l[0] === 'upload' && l[1] === 'actu-images');
+  assert.ok(upload[2].startsWith(`c1/${actu.id}/`));
+  assert.equal(upload[3], 'image/jpeg');
+  assert.match(actu.image_urls[0], /actu-images\/c1\//);
+  assert.deepEqual(log.filter(l => l[0] === 'rpc').at(-1), ['rpc', 'content_push_announce', { p_club: 'c1', p_kind: 'actu', p_id: actu.id }]);
+  assert.ok(buttonNamed('Publiée en actu ✓').disabled);
+  assert.match(document.querySelector('.fs-poster-phone').textContent, /Les rencontres du week-end/, 'the phone shows the actu');
+  await click('Terminer →');
+  assert.match(text(), /Votre app est prête/);
+  assert.match(text(), /Affiche du week-end prête/);
+  await unmount();
+  // Recharger puis revenir à l'étape : aucun second fond.
+  unmount = await mount(page());
+  await click('✓Vos affiches');
+  await settle();
+  assert.equal(list().length, 1);
+  assert.equal(configUploads().length, 1);
+  assert.equal(log.filter(l => l[0] === 'render').length, 1);
+  assert.match(text(), /Étape terminée/);
+  await unmount();
+});
+
+test('default background: created once even when asked twice, never over an existing list, never for an internal club; a background added meanwhile wins', async () => {
+  const { ensureClubPosterBackground: ensure } = load('src/lib/defaultPosterBackground.ts');
+  const brand = { name: 'TC Alpha', color: '#1d3f8f', logo: null };
+  const renders = () => log.filter(l => l[0] === 'render').length;
+  reset();
+  const [a, b] = await Promise.all([ensure(self, brand), ensure(self, brand)]);
+  assert.equal(renders(), 1);
+  assert.equal(a, b);
+  assert.equal(a.created, true);
+  assert.deepEqual(db.club_settings[0].config.posters.team_match_backgrounds.map(x => x.name), ['Aux couleurs du club']);
+  const again = await ensure(self, brand);
+  assert.equal(again.created, false);
+  assert.equal(renders(), 1);
+  assert.equal(db.club_settings[0].config.posters.team_match_backgrounds.length, 1);
+
+  const own = [{ name: 'Saison 2026-2027', image: 'https://x/own.png' }];
+  reset({ posters: { team_match_backgrounds: own, tmc_backgrounds: [] } });
+  assert.deepEqual(await ensure(self, brand), { backgrounds: own, created: false });
+  assert.equal(renders(), 0);
+
+  reset();
+  const internal = await ensure({ ...self, plan: 'internal' }, brand);
+  assert.equal(internal.created, false);
+  assert.equal(renders(), 0);
+  assert.equal(db.club_settings[0].config.posters, undefined, 'internal club untouched');
+  assert.equal(log.filter(l => l[0] === 'update').length, 0);
+
+  reset();
+  const other = [{ name: 'Ajouté ailleurs', image: 'https://x/other.png' }];
+  poster.duringRender = () => { db.club_settings[0].config.posters = { team_match_backgrounds: other }; };
+  const raced = await ensure(self, brand);
+  assert.equal(raced.created, false);
+  assert.deepEqual(raced.backgrounds, other);
+  assert.deepEqual(db.club_settings[0].config.posters.team_match_backgrounds, other);
+  const [uploaded] = configUploads();
+  assert.deepEqual(log.find(l => l[0] === 'remove'), ['remove', 'content-images', [uploaded[2]]], 'orphan removed');
+
+  reset(); poster.failRender = true;
+  await assert.rejects(ensure(self, brand));
+  assert.equal(db.club_settings[0].config.posters, undefined);
+});
+
+test('posters without team or without upcoming encounter: a clear message and « Passer cette étape », recorded like S6', async () => {
+  atPosters();
+  let unmount = await mount(page());
+  await settle();
+  assert.match(text(), /Ajoutez d’abord une équipe/);
+  assert.ok(!buttonNamed('Générer l’affiche'));
+  await click('Ajouter une équipe');
+  assert.match(text(), /Vos équipes, sans rien ressaisir/, 'link to the teams step');
+  await unmount();
+  unmount = await mount(page());
+  await settle();
+  await click('Passer cette étape');
+  assert.deepEqual(db.club_settings[0].config.onboarding.skipped_steps, ['affiches']);
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes']);
+  assert.match(text(), /Votre app est prête/);
+  assert.match(text(), /Affiche du week-end à générer/);
+  await unmount();
+  unmount = await mount(page());
+  assert.match(text(), /Votre app est prête/, 'reload does not bring the skipped step back');
+  await unmount();
+
+  atPosters(); withTeam({ upcoming: false });
+  unmount = await mount(page());
+  await settle();
+  assert.match(text(), /Aucune rencontre à venir pour vos équipes/);
+  assert.ok(buttonNamed('Passer cette étape'));
+  assert.ok(!buttonNamed('Générer l’affiche'));
+  await unmount();
+});
+
+test('a failed background shows a retry; the step cannot generate without a background', async () => {
+  atPosters(); withTeam(); poster.failRender = true;
+  const unmount = await mount(page());
+  await settle();
+  assert.match(text(), /Le fond aux couleurs du club n’a pas pu être préparé/);
+  assert.equal(buttonNamed('Générer l’affiche').disabled, true);
+  poster.failRender = false;
+  await click('Réessayer');
+  await settle();
+  assert.equal(buttonNamed('Générer l’affiche').disabled, false);
+  assert.equal(db.club_settings[0].config.posters.team_match_backgrounds.length, 1);
+  await unmount();
+});
+
+test('poster selection is shared with PosterPanel: current week preselected, sorted, capped at 8', () => {
+  const { initialPosterSelection, groupByWeek } = load('src/components/teamMatches/poster/posterSelection.ts');
+  const now = new Date();
+  const entry = (id, offsetMs) => ({ rencontre: { id, date_heure: new Date(now.getTime() + offsetMs).toISOString() } });
+  const entries = Array.from({ length: 10 }, (_, i) => entry(`r${i}`, (10 - i) * 1000 + 60_000));
+  entries.push(entry('later', 30 * 86_400_000));
+  assert.deepEqual(initialPosterSelection(entries, now), ['r9', 'r8', 'r7', 'r6', 'r5', 'r4', 'r3', 'r2']);
+  assert.deepEqual(groupByWeek(entries, now).map(g => g.key), ['courant', 'plus-tard']);
+  const panel = readFileSync(resolve(base, 'src/components/teamMatches/poster/PosterPanel.tsx'), 'utf8');
+  assert.match(panel, /usePosterSelection\(entries\)/);
+  assert.doesNotMatch(panel, /function groupByWeek|toJpeg\(/, 'not copied');
+});
+
+// Contraste WCAG d'après les chaînes `hsl(h s% l%)` des tokens.
+function hslLuminance(css) {
+  const [h, s, l] = css.match(/[\d.]+/g).map(Number);
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n) => { const k = (n + h / 30) % 12; return l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+  const lin = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [f(0), f(8), f(4)].map(lin);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+const contrast = (x, y) => { const [a, b] = [hslLuminance(x), hslLuminance(y)].sort((m, n) => n - m); return (a + 0.05) / (b + 0.05); };
+
+test('background drawing: 1414 × 2000, club colour, readable header (≥ 4.5:1), text only in the header, not a flat colour, logo or initials', () => {
+  const bgLib = load('src/lib/clubPosterBackground.ts');
+  const { drawClubPosterBackground: draw, clubBackgroundPalette, clubInitials, BACKGROUND_W, BACKGROUND_H, BACKGROUND_HEADER_H } = bgLib;
+  assert.deepEqual([BACKGROUND_W, BACKGROUND_H, BACKGROUND_HEADER_H], [1414, 2000, 245]);
+  const spec = load('src/lib/clubConfigWrite.ts').CLUB_CONFIG_GROUPS.find(g => g.key === 'posters').items.find(i => i.key === 'team_match_backgrounds');
+  assert.deepEqual(spec.fields.find(f => f.key === 'image').dimensions, { width: 1414, height: 2000 }, 'same template as the upload check');
+  assert.equal(clubInitials('TC Saint-Aubin'), 'TSA');
+  assert.equal(clubInitials('Association sportive de la Ville'), 'ASV');
+  const inks = {};
+  for (const color of ['#e8c547', '#3a9a5c', '#1d3f8f']) {
+    for (const logo of [null, { width: 300, height: 200 }]) {
+      const calls = [];
+      const ctx = {
+        fillStyle: '', strokeStyle: '', lineWidth: 1, font: '', textAlign: 'left', textBaseline: 'alphabetic', globalAlpha: 1,
+        measureText(t) { return { width: t.length * Number(/(\d+)px/.exec(this.font)[1]) * 0.55 }; },
+        createLinearGradient: () => { const g = { stops: [], addColorStop: (o, c) => g.stops.push(c) }; calls.push(['gradient', g]); return g; },
+        fillRect(...a) { calls.push(['fillRect', this.fillStyle, ...a]); },
+        strokeRect(...a) { calls.push(['strokeRect', ...a]); },
+        fillText(t, x, y) { calls.push(['text', t, x, y, this.fillStyle, this.globalAlpha, this.font]); },
+        drawImage(...a) { calls.push(['image', ...a]); },
+        stroke() { calls.push(['stroke', this.strokeStyle, this.globalAlpha]); },
+        stack: [],
+        save() { this.stack.push([this.fillStyle, this.strokeStyle, this.lineWidth, this.font, this.textAlign, this.textBaseline, this.globalAlpha]); },
+        restore() { [this.fillStyle, this.strokeStyle, this.lineWidth, this.font, this.textAlign, this.textBaseline, this.globalAlpha] = this.stack.pop(); },
+        beginPath() {}, moveTo() {}, lineTo() {}, arc() {}, fill() {}, clip() {},
+      };
+      draw(ctx, { name: 'TC Alpha', color, logo });
+      const palette = clubBackgroundPalette(color);
+      inks[color] = palette.ink;
+      assert.deepEqual(calls[0], ['fillRect', palette.fill, 0, 0, 1414, 2000], `${color}: whole page in the club colour`);
+      assert.ok(calls.some(c => c[0] === 'gradient' && c[1].stops.length === 2 && c[1].stops[0] !== c[1].stops[1]), 'gradient');
+      assert.ok(calls.filter(c => c[0] === 'stroke' || c[0] === 'strokeRect').length >= 3, 'court lines: not a flat colour');
+      const texts = calls.filter(c => c[0] === 'text');
+      assert.ok(texts.every(([, , , y]) => y < BACKGROUND_HEADER_H), `${color}: text only in the header`);
+      const title = texts.find(c => c[1] === 'Les rencontres du week-end');
+      assert.ok(title, 'title');
+      assert.ok(title[2] >= 60 && title[2] + title[1].length * Number(/(\d+)px/.exec(title[6])[1]) * 0.55 <= 1354, 'inside the 60 px margins');
+      assert.ok(texts.some(c => c[1] === 'TC Alpha'), 'club name');
+      for (const t of texts) {
+        assert.equal(t[4], palette.ink);
+        assert.equal(t[5], 1, 'full opacity');
+        assert.ok(contrast(palette.ink, palette.fill) >= 4.5, `${color}: ${contrast(palette.ink, palette.fill).toFixed(2)}`);
+      }
+      assert.equal(calls.filter(c => c[0] === 'image').length, logo ? 1 : 0);
+      assert.equal(texts.some(c => c[1] === 'TA'), !logo, 'initials without a logo');
+    }
+  }
+  assert.notEqual(inks['#e8c547'], inks['#1d3f8f'], 'dark ink on a light colour, white on a dark one');
 });

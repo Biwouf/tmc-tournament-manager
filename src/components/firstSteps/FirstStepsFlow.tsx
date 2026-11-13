@@ -17,6 +17,8 @@ export type StepProps = {
   complete: () => Promise<string | null>;
   /** Étape suivante, si elle existe. */
   next?: { label: string; go: () => void };
+  /** Ouvre une autre étape de la liste par son `id` (« Ajoutez d'abord une équipe »). */
+  goTo: (id: string) => void;
   /** Marque le parcours terminé et mène au tableau de bord ; rend le message d'erreur, sinon null. */
   finish: () => Promise<string | null>;
   steps: FirstStep[];
@@ -145,6 +147,7 @@ export default function FirstStepsFlow({ club, config, steps }: { club: Club; co
               eyebrow={`Étape ${progress.number} sur ${progress.total}${step.duration ? ` · ${step.duration}` : ''}`}
               complete={complete}
               next={nextStep && { label: lowerFirst(nextStep.label), go: () => setIndex(index + 1) }}
+              goTo={(id) => { const target = steps.findIndex((item) => item.id === id); if (target !== -1) setIndex(target); }}
               finish={() => leave(finishFirstSteps)}
             />
             {!step.final && (

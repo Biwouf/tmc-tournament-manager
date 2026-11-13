@@ -638,14 +638,16 @@ En pleine page seulement, le panneau propose aussi la **story animée** des renc
   déjà commencées comprises (elles sont présélectionnées : le dimanche, elles restaient cochées
   sans apparaître) ; les autres groupes ne gardent que les rencontres à venir.
 - **Présélection** : toutes les rencontres du week-end courant, triées par `date_heure`,
-  tronquées à `MAX_POSTER_MATCHES = 8`. Au-delà de 8, le clic est ignoré ; le compteur
+  tronquées à `MAX_POSTER_MATCHES = 8`.
+  Regroupement, présélection, coches et export vivent dans `poster/posterSelection.ts` depuis
+  S7 : l'étape « Vos affiches » des premiers pas les réutilise. Au-delà de 8, le clic est ignoré ; le compteur
   affiche `n / 8 sélectionnées`.
 - **Conversion** : `rencontreToTeamMatch()` (dans `components/teamMatches/poster/posterHelpers.ts`)
   mappe chaque rencontre en `TeamMatch` — genre déduit de `competition.genre`, type de
   `competition.categorie` (affichée via `formatCategorie`), `teamNumber = numero` (sans plafond),
   `location` selon `domicile`, date/heure locales.
 - **Rendu** : `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`)
-  → `html-to-image#toJpeg` (q=0.92, pixelRatio 2), plus un aperçu A4 mis à l'échelle dans le
+  → `html-to-image#toJpeg` (q=0.92, pixelRatio 2, `exportPosterJpeg`), plus un aperçu A4 mis à l'échelle dans le
   panneau. L'aperçu suit chaque coche (c'est du DOM React), mais **`toJpeg` n'est déclenché
   que par le bouton** : à `pixelRatio: 2` sur une A4, l'appeler à chaque coche ferait ramer
   le panneau.
@@ -665,6 +667,11 @@ En pleine page seulement, le panneau propose aussi la **story animée** des renc
   `object-fit`** : une image aux mauvaises proportions y serait **étirée en silence**. ⚠️ L'`<img>` porte **`crossOrigin="anonymous"`** :
   le fond vient du Storage, donc d'une autre origine, et sans cet attribut le **JPEG exporté**
   sortirait sans fond alors que l'aperçu resterait parfait.
+  **Fond par défaut (SaaS S7)** : un club self-serve reçoit dans ses premiers pas un fond
+  « Aux couleurs du club », dessiné dans le navigateur (`lib/clubPosterBackground.ts` : en-tête
+  0 → 245 px avec logo ou initiales, titre et nom ; dégradé et lignes de court sans texte en
+  dessous) et inscrit dans cette liste comme un fond normal, seulement si elle est vide et jamais
+  pour un club `internal` (`SAAS_ONBOARDING.md` §11). Aucun cas particulier dans le rendu.
 - **Couleur de l'affiche** : `config.brand.color`, lue par `PosterPanel` et passée en prop
   **`color`** pour la même raison que le fond. Elle peint le fond uni, le jour, l'heure (texte +
   bordure de la pastille), « Équipe n » et son tiret, et la case « Au club » ; la case
