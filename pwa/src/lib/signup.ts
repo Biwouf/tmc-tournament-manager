@@ -1,13 +1,12 @@
 import { TENNIS_RANKINGS } from '../../../shared/tennisRankings';
 export { TENNIS_RANKINGS };
-export type SignupFields = { prenom: string; nom: string; email: string; sex: string; classement: string; password: string; confirm: string };
+export type SignupFields = { prenom: string; nom: string; email: string; sex: string; classement: string; password: string };
 export const signupReturnTo = (value: string | null) => value && /^\/cours(?:\?|$)/.test(value) ? value : '/actu';
 export function validateSignup(f: SignupFields): string | null {
   if (!f.prenom.trim() || !f.nom.trim() || f.prenom.trim().length > 100 || f.nom.trim().length > 100 || !f.email.trim()) return 'Renseignez votre prénom, nom et email.';
   if (!['female', 'male'].includes(f.sex)) return 'Choisissez votre sexe.';
   if (f.classement && !TENNIS_RANKINGS.some(r => r === f.classement)) return 'Choisissez un classement dans la liste.';
   if (f.password.length < 8) return 'Choisissez un mot de passe d’au moins 8 caractères.';
-  if (f.password !== f.confirm) return 'Les mots de passe ne correspondent pas.';
   return null;
 }
 export function signupError(error: unknown): string {

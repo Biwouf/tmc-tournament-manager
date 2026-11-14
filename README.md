@@ -97,7 +97,7 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
   - Ajout manuel d'un double : les joueurs ayant déjà joué un simple dans la rencontre (club et adversaires) se cochent en tête d'écran, les deux en deux taps sans défiler ; un autre joueur se saisit à la main
   - Les **admins et gestionnaires** du club voient un bouton **« Changer la date »** sous la date de la rencontre (date et heure). La synchronisation Ten'Up se fait uniquement depuis le back-office
 - **Live** : suivi du live score. Sans aucun match, l'écran explique où s'ouvriront les lives et montre les rencontres par équipes du week-end
-- **Connexion / inscription** : logo et nom du club sur la connexion, messages d'erreur en français, bouton « Créer mon compte » toujours visible en bas de l'inscription
+- **Connexion / inscription** : logo et nom du club sur la connexion, messages d'erreur en français, bouton « Créer mon compte » toujours visible en bas de l'inscription (au-dessus du clavier sur iPhone), un seul champ mot de passe avec bouton pour l'afficher
 - Les noms de clubs reçus tout en capitales (Ten'Up) s'affichent en casse normale (« Association Tennis Montauban A.T.M 2 »), sigles et numéros conservés
 - Thème : fond légèrement chaud et textes secondaires plus contrastés (PWA)
 
