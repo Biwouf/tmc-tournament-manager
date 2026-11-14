@@ -248,6 +248,8 @@ test('publish: confirmation, RPC, then the item is done; the card leaves when ev
   assert.equal(document.querySelector('[aria-live="polite"]').textContent, '3 / 4 éléments faits');
   await click('Publier le site');
   assert.match(document.querySelector('[role="dialog"]').textContent, /visible des moteurs de recherche/);
+  const preview = document.querySelector('[role="dialog"] a[target="_blank"]');
+  assert.equal(preview.getAttribute('href'), 'https://tc-alpha.feelike.pro', 'the site can be checked before publishing');
   rpcError = 'Réservé aux administrateurs du club.';
   await click('Publier');
   assert.match(document.querySelector('[role="alert"]').textContent, /Réservé/);

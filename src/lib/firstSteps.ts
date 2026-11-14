@@ -58,6 +58,11 @@ export function clubAppHost(slug: string): string {
   return `app-${slug}.feelike.pro`;
 }
 
+/** Adresse du site vitrine d'un club self-serve (servi en `noindex` tant qu'il n'est pas publié). */
+export function clubSiteHost(slug: string): string {
+  return `${slug}.feelike.pro`;
+}
+
 export type OnboardingWrite = { state: OnboardingState; error?: undefined } | { state?: undefined; error: string };
 
 async function writeOnboarding(clubId: string | null, change: (current: OnboardingState) => OnboardingState): Promise<OnboardingWrite> {

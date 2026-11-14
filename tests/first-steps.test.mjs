@@ -171,12 +171,13 @@ test('display condition: self-serve trial club, admin, outside support; pending 
 });
 
 test('trial chip, app address', () => {
-  const { trialLabel, clubAppHost } = load('src/lib/firstSteps.ts');
+  const { trialLabel, clubAppHost, clubSiteHost } = load('src/lib/firstSteps.ts');
   const now = new Date('2026-11-04T10:00:00Z');
   assert.equal(trialLabel('2026-12-04T10:00:00Z', now), 'Essai · 30 jours restants');
   assert.equal(trialLabel('2026-11-05T09:00:00Z', now), 'Essai · 1 jour restant');
   assert.equal(trialLabel('2026-11-01T09:00:00Z', now), 'Essai terminé');
   assert.equal(clubAppHost('tc-alpha'), 'app-tc-alpha.feelike.pro');
+  assert.equal(clubSiteHost('tc-alpha'), 'tc-alpha.feelike.pro');
 });
 
 test('dashboard gate: only a pending self-serve club is sent to the first steps; an internal club reads nothing more', async () => {

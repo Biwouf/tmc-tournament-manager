@@ -3,6 +3,7 @@ import { siteGaps } from '../../../shared/siteReadiness.mjs';
 import type { Club } from '../../contexts/ClubContext';
 import { useSitePublication } from '../../hooks/useSitePublication';
 import type { ClubConfig } from '../../lib/clubConfig';
+import { clubSiteHost } from '../../lib/firstSteps';
 
 // SaaS S8 — état de publication du site d'un club self-serve, et la dépublication (la publication
 // se fait aussi depuis la checklist du tableau de bord). `config` : la dernière enregistrée.
@@ -43,6 +44,10 @@ export default function SitePublication({ club, config }: { club: Club; config: 
         </p>
         {error && <p role="alert" className="m-0 mt-1 text-sm text-destructive">{error}</p>}
       </div>
+      {/* Le site est en ligne même non publié (servi en `noindex`) : on peut le relire avant. */}
+      <a href={`https://${clubSiteHost(club.slug)}`} target="_blank" rel="noopener noreferrer" className={`${button} inline-flex items-center border border-border bg-card text-card-foreground hover:bg-muted`}>
+        {published ? 'Voir le site' : 'Aperçu du site'}<span className="sr-only"> (nouvel onglet)</span><span aria-hidden> ↗</span>
+      </a>
       {published
         ? <button type="button" disabled={busy} onClick={() => change(false)} className={`${button} border border-border bg-card text-card-foreground hover:bg-muted`}>Dépublier</button>
         : <button type="button" disabled={busy || gaps.length > 0} onClick={() => change(true)} className={`${button} bg-primary text-primary-foreground hover:brightness-95`}>Publier le site</button>}

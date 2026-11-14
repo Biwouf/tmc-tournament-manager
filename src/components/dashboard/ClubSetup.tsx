@@ -6,7 +6,7 @@ import { useClubRole } from '../../contexts/ClubRoleContext';
 import { useSitePublication } from '../../hooks/useSitePublication';
 import type { ClubConfig } from '../../lib/clubConfig';
 import { listClubMembers } from '../../lib/clubMembers';
-import { clubAppHost, markAppShared } from '../../lib/firstSteps';
+import { clubAppHost, clubSiteHost, markAppShared } from '../../lib/firstSteps';
 import {
   checklistComplete, checklistItems, checklistProgress, eligibleForChecklist, firstStepPath,
   passwordState, trialBanner, type ChecklistItem,
@@ -163,6 +163,11 @@ function Eligible({ club, config, reloadConfig }: { club: Club; config: ClubConf
           <p className="mb-4 text-sm text-muted-foreground">
             Votre site devient visible des moteurs de recherche : Google pourra le proposer à ceux qui
             cherchent un club. Vous pourrez le dépublier à tout moment depuis « Configuration du site ».
+          </p>
+          <p className="mb-4 text-sm">
+            <a href={`https://${clubSiteHost(club.slug)}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">
+              Voir le site avant de le publier<span className="sr-only"> (nouvel onglet)</span><span aria-hidden> ↗</span>
+            </a>
           </p>
           {!config.settings.search_indexing && (
             <p className="mb-4 text-sm text-amber-800">
