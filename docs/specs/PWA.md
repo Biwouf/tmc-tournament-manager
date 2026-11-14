@@ -227,14 +227,15 @@ Compat : les anciennes URLs `/actus` et `/evenements` redirigent vers `/actu?tab
 **Source de données** : tables `team_saisons`, `team_competitions`, `team_equipes`, `team_etapes`, `team_rencontres` (exposées en lecture `anon` par la migration `20260611_team_matches_pwa_read.sql`). **`team_match_lines` (joueurs nominatifs) n'est jamais requêté côté PWA.**
 
 **Page (`MatchesEquipesPage.tsx`)** : rencontres à venir / passées des équipes du club, filtrables par saison et par équipe.
-- État local (pas de routing) : `saisonId` (défaut = saison active), `equipeId` (défaut = toutes), `upcomingTab` (`upcoming` / `past`).
+- Filtres dans l'URL (14/11/2026) : `?saison=` (défaut = saison active), `?equipe=` (défaut = toutes), `?periode=passes` (défaut = À venir). Le Retour depuis une fiche rencontre retrouve la liste filtrée.
 - Trois queries React Query indépendantes : saisons (cache long), compétitions + équipes de la saison, rencontres (2 round-trips : `team_etapes` puis `team_rencontres`, jointure côté client via `etape_id → equipe_id → competition_id`).
-- Filtrage à venir / passés côté client : une rencontre reste « à venir » tant qu'elle n'est pas terminée — passée seulement si WO, résultat confirmé (`confirmed_at`) ou minuit du jour de la rencontre dépassé ; une rencontre en live reste toujours à venir. Passés triés DESC.
-- `MatchEquipeFilterBar` : chips Saison + Équipe (le chip Équipe passe en accent si filtré) + segmented À venir / Passés avec compteurs.
+- Filtrage à venir / passés côté client : une rencontre reste « à venir » tant qu'elle n'est pas terminée — passée seulement si WO, résultat confirmé (`confirmed_at`) ou minuit du jour de la rencontre dépassé ; une rencontre en live reste à venir le jour de la rencontre (un live jamais clos ne la retient pas au-delà). Liste groupée par jour (en-tête figé, plus d'espace avant un jour qu'avant une compétition) puis par compétition ; jours croissants dans À venir, décroissants dans Passés ; heure croissante dans une section.
+- `MatchEquipeFilterBar` : commandes texte Saison + Équipe sur une ligne, segmented À venir / Passés avec compteurs. Rouge de marque réservé à l'état actif et au direct.
+- `CalendarExport` : icône **Calendrier** dans le header, à gauche du profil (connecté uniquement) ; exporte la saison et l'équipe filtrées, rappelées en sous-titre de l'aperçu « Exporter le calendrier ».
 - `MatchEquipeFilterSheet` : bottom sheet ouvert au clic sur un chip (liste d'options + check sur l'option active).
-- `MatchEquipeCell` : cellule rencontre en deux états — `upcoming` (date + contexte + lieu 🏠/✈️, ou colonne « En attente » une fois l'heure de début passée) et `past` (date atone + contexte + colonne résultat vert/rouge/jaune + score). Phase finale → badge `1/4`, `1/2`, `Finale` au lieu de `JOURNÉE n`.
-- `labels.ts` : helpers `formatGenre`, `formatCategorie`, `competitionShortLabel`.
-- États vides : "Aucune saison disponible.", "Aucune rencontre à venir." / "Aucune rencontre passée.".
+- `MatchEquipeCell` : ligne de liste (maquette A2) — pastille maison (au club) ou avion (déplacement) + barre latérale, adversaire en entier, « Équipe N · 9h » (heure en gras si ≠ 9h). À droite : « En direct » + score pour un live, « Provisoire » / « En attente » pour une rencontre commencée, score + Victoire / Défaite / Nul dans Passés (méta « Journée n » ou stade final).
+- `labels.ts` : helpers `formatGenre`, `formatCategorie`, `competitionShortLabel`, `competitionLabel` (nom complet, suffixe genre + catégorie seulement s'il manque ; liste et sélecteur d'équipe).
+- États vides : "Aucune saison disponible.", "Aucune rencontre à venir ou en cours." / "Aucune rencontre passée.". Chargement : squelette de la liste. Échec : « Impossible de charger les rencontres » + Réessayer (bandeau discret si seule l'actualisation échoue).
 
 > Hors scope v1 : page détail d'une rencontre, édition/création (reste BO), exposition des joueurs.
 

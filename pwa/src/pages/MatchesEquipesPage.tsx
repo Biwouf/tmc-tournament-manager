@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { clubTopic } from '../lib/liveChannel';
@@ -17,22 +18,35 @@ import MatchEquipeFilterSheet, {
   type SheetOption,
 } from '../components/matchesEquipes/MatchEquipeFilterSheet';
 import MatchEquipeList, {
+  MatchEquipeListSkeleton,
   type EnrichedRencontre,
 } from '../components/matchesEquipes/MatchEquipeList';
-import { competitionShortLabel } from '../components/matchesEquipes/labels';
+import { competitionLabel, competitionShortLabel } from '../components/matchesEquipes/labels';
 import CalendarExport from '../components/matchesEquipes/CalendarExport';
 import { useAuth } from '../hooks/useAuth';
+import '../components/matchesEquipes/matchesEquipes.css';
 
 export default function MatchesEquipesPage() {
   const { clubId } = useClub();
   const { user } = useAuth();
-  const [saisonId, setSaisonId] = useState<string | null>(null); // null = défaut (saison active)
-  const [equipeId, setEquipeId] = useState<string | null>(null); // null = "Toutes les équipes"
-  const [upcomingTab, setUpcomingTab] = useState<'upcoming' | 'past'>('upcoming');
+  // Filtres dans l'URL : le Retour depuis une fiche rencontre les retrouve.
+  const [params, setParams] = useSearchParams();
+  const saisonId = params.get('saison'); // null = défaut (saison active)
+  const equipeId = params.get('equipe'); // null = "Toutes les équipes"
+  const upcomingTab: 'upcoming' | 'past' = params.get('periode') === 'passes' ? 'past' : 'upcoming';
+  const setFilters = (next: { saison?: string | null; equipe?: string | null; periode?: 'upcoming' | 'past' }) =>
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      const put = (k: string, v: string | null) => (v ? p.set(k, v) : p.delete(k));
+      if (next.saison !== undefined) put('saison', next.saison);
+      if (next.equipe !== undefined) put('equipe', next.equipe);
+      if (next.periode !== undefined) put('periode', next.periode === 'past' ? 'passes' : null);
+      return p;
+    }, { replace: true });
   const [openSheet, setOpenSheet] = useState<'saison' | 'equipe' | null>(null);
 
   // 1) Saisons (rare, cache long)
-  const { data: saisons } = useQuery({
+  const saisonsQuery = useQuery({
     queryKey: ['team-saisons', clubId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,11 +59,12 @@ export default function MatchesEquipesPage() {
     },
     staleTime: 5 * 60_000,
   });
+  const saisons = saisonsQuery.data;
   const activeSaison = saisons?.find((s) => s.actif) ?? saisons?.[0];
   const currentSaisonId = saisonId ?? activeSaison?.id ?? null;
 
   // 2) Compétitions + équipes de la saison sélectionnée
-  const { data: equipesCtx } = useQuery({
+  const equipesQuery = useQuery({
     queryKey: ['team-equipes', currentSaisonId, clubId],
     enabled: !!currentSaisonId,
     queryFn: async () => {
@@ -73,6 +88,7 @@ export default function MatchesEquipesPage() {
     },
     staleTime: 60_000,
   });
+  const equipesCtx = equipesQuery.data;
 
   // Broadcast `live:club:<id>` : une rencontre ou un match d'équipe a changé ('team'), ou un live
   // lié vient de démarrer ou de s'arrêter ('live' dont le statut ne correspond plus à l'affichage).
@@ -91,15 +107,12 @@ export default function MatchesEquipesPage() {
     }, 250);
   });
   // 3) Rencontres de la saison + équipe sélectionnée
-  const {
-    data: rencontres,
-    isFetching,
-    dataUpdatedAt,
-    refetch,
-  } = useQuery({
+  const rencontresQuery = useQuery({
     queryKey: ['team-rencontres', currentSaisonId, equipeId, clubId],
     staleTime: 0,
     refetchInterval: subscribed ? LIVE_SAFETY_POLL : 15_000,
+    // Changer d'équipe garde la liste affichée jusqu'à l'arrivée de la nouvelle.
+    placeholderData: keepPreviousData,
     enabled: !!currentSaisonId && !!equipesCtx,
     queryFn: async (): Promise<EnrichedRencontre[]> => {
       const equipeIds = equipeId ? [equipeId] : equipesCtx!.equipes.map((e) => e.id);
@@ -136,33 +149,32 @@ export default function MatchesEquipesPage() {
     },
   });
 
+  const { data: rencontres, isFetching, dataUpdatedAt, refetch } = rencontresQuery;
   useEffect(() => {
     rencontresRef.current = rencontres;
   }, [rencontres]);
 
   // Filtrage à venir / passés (côté client) : une rencontre commencée reste « à venir »
-  // (en attente) jusqu'à confirmation du résultat ou WO, au plus tard jusqu'à minuit.
+  // (en attente) jusqu'à confirmation du résultat ou WO, au plus tard jusqu'à minuit. Un live
+  // ne compte que le jour de la rencontre : un live jamais clos ne la retient pas indéfiniment
+  // dans « À venir » (même fenêtre que l'export du calendrier).
+  const [mountedAt] = useState(Date.now);
   const { upcoming, past } = useMemo(() => {
     // Re-evaluate dates on every refresh, even when the server rows are unchanged.
-    const now = new Date(dataUpdatedAt);
+    // Pendant le chargement d'une autre équipe, keepPreviousData expose dataUpdatedAt = 0 :
+    // sans repli, 1970 ferait passer les rencontres jouées dans « À venir ».
+    const now = new Date(dataUpdatedAt || mountedAt);
     const all = (rencontres ?? []).map((x) => {
       const start = new Date(x.rencontre.date_heure);
       const endOfDay = new Date(start);
       endOfDay.setHours(24, 0, 0, 0);
       const done = x.rencontre.wo || !!x.rencontre.confirmed_at || now >= endOfDay;
-      return { ...x, isPast: !x.isLive && done, isPending: !x.isLive && !done && start < now };
+      const isLive = x.isLive && now < endOfDay;
+      return { ...x, isLive, isPast: !isLive && done, isPending: !isLive && !done && start < now };
     });
-    const upcoming = all
-      .filter((x) => !x.isPast)
-      .sort((a, b) => Number(b.isLive) - Number(a.isLive) || +new Date(a.rencontre.date_heure) - +new Date(b.rencontre.date_heure));
-    const past = all
-      .filter((x) => x.isPast)
-      .sort(
-        (a, b) =>
-          +new Date(b.rencontre.date_heure) - +new Date(a.rencontre.date_heure),
-      );
-    return { upcoming, past };
-  }, [rencontres, dataUpdatedAt]);
+    // Tri et regroupement par jour / compétition : MatchEquipeList.
+    return { upcoming: all.filter((x) => !x.isPast), past: all.filter((x) => x.isPast) };
+  }, [rencontres, dataUpdatedAt, mountedAt]);
 
   // Libellés chips
   const currentSaison = saisons?.find((s) => s.id === currentSaisonId);
@@ -172,7 +184,7 @@ export default function MatchesEquipesPage() {
     ? equipesCtx?.competitions.find((c) => c.id === selectedEquipe.competition_id)
     : undefined;
   const equipeLabel = selectedEquipe && selectedComp
-    ? `${competitionShortLabel(selectedComp)} #${selectedEquipe.numero}`
+    ? `${competitionShortLabel(selectedComp)} · Éq. ${selectedEquipe.numero}`
     : 'Toutes';
 
   // Options du bottom sheet
@@ -187,7 +199,7 @@ export default function MatchesEquipesPage() {
         if (!c) continue;
         opts.push({
           id: e.id,
-          label: `${c.nom} · ${competitionShortLabel(c)} · Équipe ${e.numero}`,
+          label: `${competitionLabel(c)} · Équipe ${e.numero}`,
         });
       }
       return opts;
@@ -197,32 +209,61 @@ export default function MatchesEquipesPage() {
 
   const items = upcomingTab === 'upcoming' ? upcoming : past;
 
+  // Première requête en échec sans donnée à montrer : écran d'erreur. Une actualisation qui
+  // échoue sur une liste déjà affichée ne laisse qu'un bandeau discret.
+  const failed = [saisonsQuery, equipesQuery, rencontresQuery].find((q) => q.isError && !q.data);
+  const loading = !failed && (saisonsQuery.isPending || (!!currentSaisonId && (equipesQuery.isPending || rencontresQuery.isPending)));
+  const retry = () => {
+    for (const q of [saisonsQuery, equipesQuery, rencontresQuery]) if (q.isError) void q.refetch();
+  };
+
   if (saisons && saisons.length === 0) {
-    return <div className="p-6 text-center text-muted-foreground">Aucune saison disponible.</div>;
+    return <div className="me-page"><p className="me-empty">Aucune saison disponible.</p></div>;
   }
 
   return (
-    <>
+    <div className="me-page">
       {user && equipesCtx && currentSaison && (
         <CalendarExport
           saisonLabel={currentSaison.label}
+          scopeLabel={`Saison ${currentSaison.label} · ${equipeId ? equipeLabel : 'Toutes les équipes'}`}
           competitions={equipesCtx.competitions}
-          equipes={equipesCtx.equipes}
+          equipes={equipeId ? equipesCtx.equipes.filter((e) => e.id === equipeId) : equipesCtx.equipes}
         />
       )}
-      <PullToRefreshWrapper onRefresh={async () => void (await refetch())} isRefreshing={isFetching}>
+      <PullToRefreshWrapper onRefresh={async () => void (await refetch())} isRefreshing={isFetching && !loading}>
         <MatchEquipeFilterBar
           saisonLabel={saisonLabel}
           equipeLabel={equipeLabel}
-          equipeActive={equipeId !== null}
           onOpenSaison={() => setOpenSheet('saison')}
           onOpenEquipe={() => setOpenSheet('equipe')}
           upcomingTab={upcomingTab}
-          onUpcomingTabChange={setUpcomingTab}
-          upcomingCount={upcoming.length}
-          pastCount={past.length}
+          onUpcomingTabChange={(periode) => setFilters({ periode })}
+          upcomingCount={rencontres ? upcoming.length : undefined}
+          pastCount={rencontres ? past.length : undefined}
         />
-        <MatchEquipeList items={items} state={upcomingTab} />
+        {failed ? (
+          <div className="me-error" role="alert">
+            <div className="icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></svg>
+            </div>
+            <h2>Impossible de charger les rencontres</h2>
+            <p>Vérifiez votre connexion, puis réessayez.</p>
+            <button type="button" onClick={retry}>Réessayer</button>
+          </div>
+        ) : loading ? (
+          <MatchEquipeListSkeleton />
+        ) : (
+          <>
+            {rencontresQuery.isError && (
+              <p className="me-stale" role="status">
+                Actualisation impossible, la liste n’est peut-être plus à jour.{' '}
+                <button type="button" onClick={() => void refetch()}>Réessayer</button>
+              </p>
+            )}
+            <MatchEquipeList items={items} state={upcomingTab} />
+          </>
+        )}
       </PullToRefreshWrapper>
 
       {openSheet && (
@@ -232,15 +273,14 @@ export default function MatchesEquipesPage() {
           selectedId={openSheet === 'saison' ? currentSaisonId : equipeId}
           onSelect={(id) => {
             if (openSheet === 'saison') {
-              setSaisonId(id);
-              setEquipeId(null); // reset équipe quand on change de saison
+              setFilters({ saison: id, equipe: null }); // reset équipe quand on change de saison
             } else {
-              setEquipeId(id);
+              setFilters({ equipe: id });
             }
           }}
           onClose={() => setOpenSheet(null)}
         />
       )}
-    </>
+    </div>
   );
 }

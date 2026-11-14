@@ -31,3 +31,12 @@ export function formatCategorie(c: TeamCategorie): string {
 export function competitionShortLabel(c: Pick<TeamCompetition, 'genre' | 'categorie'>): string {
   return `${formatGenre(c.genre)} ${formatCategorie(c.categorie)}`;
 }
+
+// Nom complet, jamais tronqué. Genre + catégorie ajoutés seulement si le nom ne porte pas
+// déjà la catégorie (« Challenge d'hiver – Seniors messieurs » se suffit).
+export function competitionLabel(comp: Pick<TeamCompetition, 'nom' | 'genre' | 'categorie'>): string {
+  const plain = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return plain(comp.nom).includes(plain(formatCategorie(comp.categorie)))
+    ? comp.nom
+    : `${comp.nom} · ${competitionShortLabel(comp)}`;
+}

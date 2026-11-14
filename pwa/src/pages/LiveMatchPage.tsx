@@ -145,7 +145,7 @@ function LiveMatchScreen({
   const scoreError = savingError ?? live.error;
   const blocked = saving || !live.confirmed || !!scoreError || !canAnimate;
   const login = () =>
-    navigate('/login', { state: { from: location.pathname } });
+    navigate('/login', { state: fromHere(location) });
   useEffect(() => {
     const viewport = window.visualViewport;
     const resize = () => {

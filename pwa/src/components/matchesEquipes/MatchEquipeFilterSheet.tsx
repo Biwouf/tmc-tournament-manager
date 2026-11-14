@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { useDialogFocus } from './useDialogFocus';
 export interface SheetOption {
   id: string | null;
   label: string;
@@ -12,11 +14,15 @@ interface Props {
 }
 
 export default function MatchEquipeFilterSheet({ title, options, selectedId, onSelect, onClose }: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+  useDialogFocus(ref, onClose);
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end" role="dialog" aria-modal="true">
+    // Au-dessus de la bannière d'installation (z-index 60).
+    <div ref={ref} className="fixed inset-0 z-[70] flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <button
         type="button"
         aria-label="Fermer"
+        tabIndex={-1}
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
       />
@@ -34,7 +40,7 @@ export default function MatchEquipeFilterSheet({ title, options, selectedId, onS
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
+            className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground active:bg-muted"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
               <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
