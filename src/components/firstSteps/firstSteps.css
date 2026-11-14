@@ -69,6 +69,11 @@
 .fs-btn-p { background: var(--brand-fill); color: var(--brand-foreground); }
 .fs-btn-p:hover:not(:disabled) { background: var(--brand-dark); }
 .fs-btn-o { background: #fff; color: var(--ink); border: 1px solid var(--edge); }
+/* Un lien en forme de bouton (« Télécharger » l'affiche) : `.fs a` est plus spécifique que
+   `.fs-btn-p` et écrivait le texte en `--brand-text` sur `--brand-fill`, donc invisible. */
+.fs a.fs-btn { text-decoration: none; }
+.fs a.fs-btn-p, .fs a.fs-btn-p:hover { color: var(--brand-foreground); }
+.fs a.fs-btn-o, .fs a.fs-btn-o:hover { color: var(--ink); }
 .fs-btn-small { min-height: 38px; font-size: 13px !important; align-self: flex-start; }
 .fs-link { min-height: 44px; padding: 0; border: 0; background: none; color: var(--mu); font-weight: 600 !important; font-size: 13px !important; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .fs-photo { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
