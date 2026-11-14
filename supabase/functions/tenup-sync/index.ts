@@ -87,8 +87,16 @@ Deno.serve(async req => {
       if (!response.ok) return failed(502, 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.');
       const raw = await response.text();
       if (raw.length > 200_000) return failed(502, 'Page du club Ten’Up trop volumineuse.');
-      try { return json(200, validateTenupClub(JSON.parse(raw))); }
+      let page;
+      try { page = validateTenupClub(JSON.parse(raw)); }
       catch { return failed(502, 'Page du club Ten’Up illisible. Ajoutez vos équipes avec le lien de leur poule.'); }
+      // S8b : l'identifiant Ten'Up du club est gardé dès l'import des équipes (pas pour un club
+      // `internal`), pour la lecture du profil qui préremplira son site. Un échec n'empêche pas l'import.
+      try {
+        const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+        await admin.from('clubs').update({ tenup_club_id: /\/club\/(\d+)\//.exec(url)![1] }).eq('id', body.club_id).neq('plan', 'internal');
+      } catch { /* l'admin pourra coller le lien dans `/admin/site` */ }
+      return json(200, page);
     }
     if (body.kind === 'competition') {
       if (!uuid.test(body.club_id) || !uuid.test(body.saison_id)) return json(400, { error: 'Requête invalide.' });

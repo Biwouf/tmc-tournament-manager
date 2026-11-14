@@ -10,6 +10,7 @@ import {
 } from '../teamMatches/clubImport';
 import { isTenupClubUrl, normalizeTenupClubUrl } from '../../../shared/tenupClub.mjs';
 import { previewTenupClub } from '../../../shared/tenupClubClient';
+import { startTenupSiteBackground } from '../../lib/tenupSiteClient';
 import DraftFields from './DraftFields';
 
 // SaaS S6b — toutes les équipes du club depuis la page Ten'Up de ses rencontres : lecture de la
@@ -84,6 +85,9 @@ export default function ClubImport({ club, onImported, onBusy }: {
     });
     onImported();
     setPhase('done');
+    // SaaS S8b : le worker est libre, le profil du club est lu en tâche de fond pour préremplir son
+    // site (`/admin/site`). Pas avant : il ne lit qu'une page à la fois et l'import aurait échoué.
+    if (club.plan !== 'internal') void startTenupSiteBackground(supabase, club.id);
   };
 
   const start = async () => {
