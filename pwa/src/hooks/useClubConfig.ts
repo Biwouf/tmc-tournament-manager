@@ -8,6 +8,8 @@ type ClubConfig = {
     color?: string;
     color_secondary?: string;
     color_accent?: string;
+    /** Nom court (« CAC ») : `short_name` du manifest. */
+    short_name?: string;
   };
 };
 
@@ -26,6 +28,7 @@ function parseConfig(raw: unknown): ClubConfig {
       color: str(brand.color),
       color_secondary: str(brand.color_secondary),
       color_accent: str(brand.color_accent),
+      short_name: str(brand.short_name),
     },
   };
 }

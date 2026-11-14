@@ -26,6 +26,8 @@ import { useClubConfig } from './hooks/useClubConfig';
 import { applyClubTheme } from './lib/theme';
 import { hideSplash, rememberSplashBrand } from './lib/splash';
 import { reconcileCoursePush } from './lib/coursePush';
+import { buildAppIcons } from './lib/appIcons';
+import OfflineNotice from './components/layout/OfflineNotice';
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -91,46 +93,75 @@ function AppShell() {
   useEffect(() => {
     if (!club) return;
     const name = club.name || 'Application du club';
+    // Nom sous l'icône de l'écran d'accueil : le « Nom court » du club s'il est saisi.
+    const shortName = config.brand.short_name || name;
     const logo = config.brand.logo || '/icons/club.svg';
     const absoluteLogo = new URL(logo, window.location.href).href;
+    const color = config.brand.color || '#e51828';
     document.title = name;
-    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute('content', config.brand.color || '#e51828');
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', color);
+    document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-title"]')?.setAttribute('content', shortName);
 
     // Icônes de l'ONGLET et de l'écran d'accueil iOS. Le manifest ci-dessous ne couvre que
-    // l'installation Android : sans ces deux lignes, un club configuré gardait le logo CAC
+    // l'installation Android : sans ces liens, un club configuré gardait l'icône par défaut
     // dans son onglet et sur son écran d'accueil iOS. Les liens sont REMPLACÉS et non modifiés
     // — changer `href` en place laisse Safari sur l'icône déjà en cache — et perdent leur
     // `type`, rien n'imposant que le logo du club soit un PNG.
     // ⚠️ Même geste dans `src/App.tsx` (BO), pour le seul `rel="icon"`.
-    for (const rel of ['icon', 'apple-touch-icon']) {
+    const setLink = (rel: string, href: string) => {
       const link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
-      if (!link) continue;
+      if (!link) return;
       const next = link.cloneNode() as HTMLLinkElement;
       next.removeAttribute('type');
-      next.href = absoluteLogo;
+      next.href = href;
       link.replaceWith(next);
-    }
+    };
+    setLink('icon', absoluteLogo);
+    setLink('apple-touch-icon', absoluteLogo);
 
+    // Pas de manifest en dev (vite-plugin-pwa ne l'injecte qu'au build) : l'icône iOS suit quand même.
     const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-    if (!manifest) return;
-    const blob = new Blob([JSON.stringify({
-      name,
-      short_name: name,
-      description: `L'application de ${name}`,
-      theme_color: config.brand.color || '#e51828',
-      // Fond du splash natif Android, aligné sur le splash HTML.
-      background_color: config.brand.color || '#ffffff',
-      display: 'standalone',
-      start_url: `${window.location.origin}/`,
-      icons: [
-        { src: absoluteLogo, sizes: config.brand.logo ? '192x192' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
-        { src: absoluteLogo, sizes: config.brand.logo ? '512x512' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
-      ],
-    })], { type: 'application/manifest+json' });
-    const url = URL.createObjectURL(blob);
-    manifest.href = url;
-    return () => URL.revokeObjectURL(url);
+    let url: string | null = null;
+    let cancelled = false;
+    const publish = (icons: { src: string; sizes: string; type: string; purpose?: string }[]) => {
+      if (!manifest) return;
+      const next = URL.createObjectURL(new Blob([JSON.stringify({
+        id: '/',
+        name,
+        short_name: shortName,
+        description: `L'application de ${name}`,
+        lang: 'fr',
+        theme_color: color,
+        // Fond du splash natif Android, aligné sur le splash HTML.
+        background_color: config.brand.color || '#ffffff',
+        display: 'standalone',
+        start_url: `${window.location.origin}/`,
+        scope: `${window.location.origin}/`,
+        icons,
+      })], { type: 'application/manifest+json' }));
+      manifest.href = next;
+      if (url) URL.revokeObjectURL(url);
+      url = next;
+    };
+    // D'abord le logo brut (tailles annoncées, comme avant), puis les icônes carrées dès
+    // qu'elles sont dessinées : quelques millisecondes, bien avant toute invite d'installation.
+    publish([
+      { src: absoluteLogo, sizes: config.brand.logo ? '192x192' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
+      { src: absoluteLogo, sizes: config.brand.logo ? '512x512' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
+    ]);
+    void buildAppIcons(absoluteLogo).then(icons => {
+      if (cancelled || !icons) return;
+      publish([
+        { src: icons.any192, sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: icons.any512, sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: icons.maskable512, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ]);
+      setLink('apple-touch-icon', icons.apple180);
+    });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
   }, [club, config]);
   if (clubLoading) return null;
 
@@ -139,6 +170,7 @@ function AppShell() {
       {!immersive && <AppHeader />}
       <main className={`pwa-content${immersive ? ' live-immersive' : ''}${authScreen ? ' no-bottom-nav' : ''}`}>
         {!immersive && <UpdateBanner />}
+        {!immersive && <OfflineNotice />}
         {!immersive && <SignupNotice />}
         <Routes>
           <Route path="/inscription" element={<SignupPage />} />

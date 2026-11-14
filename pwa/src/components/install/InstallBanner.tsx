@@ -47,7 +47,7 @@ export default function InstallBanner() {
       aria-labelledby="install-banner-title"
     >
       <div className="install-banner__card">
-        <img src={config.brand.logo || '/logo.png'} alt="" className="install-banner__logo" />
+        <img src={config.brand.logo || '/icons/club.svg'} alt="" className="install-banner__logo" />
         <div className="install-banner__text">
           <h2 id="install-banner-title" className="install-banner__title">
             Installez l’application
