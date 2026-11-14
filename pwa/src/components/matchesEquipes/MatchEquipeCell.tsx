@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
+import { fromHere } from '../layout/useGoBack';
 
 interface Props {
   rencontre: TeamRencontre;
@@ -105,7 +106,7 @@ export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLiv
   return (
     <Link
       to={`/matches-equipes/${rencontre.id}`}
-      state={{ from: `${location.pathname}${location.search}` }}
+      state={fromHere(location)}
       aria-label={label}
       className={`me-row${away ? ' away' : ''}`}
     >

@@ -1,6 +1,6 @@
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import MatchEquipeCell from './MatchEquipeCell';
-import { competitionShortLabel, formatCategorie } from './labels';
+import { competitionLabel } from './labels';
 
 export interface EnrichedRencontre {
   rencontre: TeamRencontre;
@@ -18,15 +18,6 @@ interface Props {
 
 interface CompGroup { comp: TeamCompetition; items: EnrichedRencontre[] }
 interface DayGroup { key: string; date: Date; count: number; comps: CompGroup[] }
-
-// Nom complet, jamais tronqué. Genre + catégorie ajoutés seulement si le nom ne porte pas
-// déjà la catégorie (« Challenge d'hiver – Seniors messieurs » se suffit).
-function competitionLabel(comp: TeamCompetition): string {
-  const plain = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return plain(comp.nom).includes(plain(formatCategorie(comp.categorie)))
-    ? comp.nom
-    : `${comp.nom} · ${competitionShortLabel(comp)}`;
-}
 
 const time = (x: EnrichedRencontre) => +new Date(x.rencontre.date_heure);
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { clubTopic } from '../lib/liveChannel';
@@ -21,7 +21,7 @@ import MatchEquipeList, {
   MatchEquipeListSkeleton,
   type EnrichedRencontre,
 } from '../components/matchesEquipes/MatchEquipeList';
-import { competitionShortLabel } from '../components/matchesEquipes/labels';
+import { competitionLabel, competitionShortLabel } from '../components/matchesEquipes/labels';
 import CalendarExport from '../components/matchesEquipes/CalendarExport';
 import { useAuth } from '../hooks/useAuth';
 import '../components/matchesEquipes/matchesEquipes.css';
@@ -111,6 +111,8 @@ export default function MatchesEquipesPage() {
     queryKey: ['team-rencontres', currentSaisonId, equipeId, clubId],
     staleTime: 0,
     refetchInterval: subscribed ? LIVE_SAFETY_POLL : 15_000,
+    // Changer d'équipe garde la liste affichée jusqu'à l'arrivée de la nouvelle.
+    placeholderData: keepPreviousData,
     enabled: !!currentSaisonId && !!equipesCtx,
     queryFn: async (): Promise<EnrichedRencontre[]> => {
       const equipeIds = equipeId ? [equipeId] : equipesCtx!.equipes.map((e) => e.id);
@@ -153,7 +155,9 @@ export default function MatchesEquipesPage() {
   }, [rencontres]);
 
   // Filtrage à venir / passés (côté client) : une rencontre commencée reste « à venir »
-  // (en attente) jusqu'à confirmation du résultat ou WO, au plus tard jusqu'à minuit.
+  // (en attente) jusqu'à confirmation du résultat ou WO, au plus tard jusqu'à minuit. Un live
+  // ne compte que le jour de la rencontre : un live jamais clos ne la retient pas indéfiniment
+  // dans « À venir » (même fenêtre que l'export du calendrier).
   const { upcoming, past } = useMemo(() => {
     // Re-evaluate dates on every refresh, even when the server rows are unchanged.
     const now = new Date(dataUpdatedAt);
@@ -162,7 +166,8 @@ export default function MatchesEquipesPage() {
       const endOfDay = new Date(start);
       endOfDay.setHours(24, 0, 0, 0);
       const done = x.rencontre.wo || !!x.rencontre.confirmed_at || now >= endOfDay;
-      return { ...x, isPast: !x.isLive && done, isPending: !x.isLive && !done && start < now };
+      const isLive = x.isLive && now < endOfDay;
+      return { ...x, isLive, isPast: !isLive && done, isPending: !isLive && !done && start < now };
     });
     // Tri et regroupement par jour / compétition : MatchEquipeList.
     return { upcoming: all.filter((x) => !x.isPast), past: all.filter((x) => x.isPast) };
@@ -191,7 +196,7 @@ export default function MatchesEquipesPage() {
         if (!c) continue;
         opts.push({
           id: e.id,
-          label: `${c.nom} · ${competitionShortLabel(c)} · Équipe ${e.numero}`,
+          label: `${competitionLabel(c)} · Équipe ${e.numero}`,
         });
       }
       return opts;

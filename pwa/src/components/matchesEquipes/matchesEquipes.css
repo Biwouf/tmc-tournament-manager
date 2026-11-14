@@ -14,47 +14,51 @@
   background: var(--me-canvas);
 }
 
-/* Barre de filtres : commandes texte discrètes, Calendrier à droite. */
+/* Barre de filtres : commandes texte discrètes, Calendrier à droite. Si une équipe au nom
+   long ne laisse pas la place, Calendrier passe à la ligne plutôt que de rogner les filtres. */
 .me-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 2px;
-  padding: 4px 8px 0;
+  column-gap: 0;
+  padding: 4px 10px 0;
 }
 .me-tool,
 .me-cal {
   min-height: 44px;
-  padding: 0 8px;
+  padding: 0 6px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 13px;
   font-weight: 650;
   line-height: 1.2;
   color: hsl(var(--foreground));
 }
-.me-tool { min-width: 0; }
+.me-tool { min-width: 0; max-width: 100%; }
+.me-tool:first-child { flex: none; }
 .me-tool .lbl { font-size: 12px; font-weight: 600; color: var(--me-muted); }
 .me-tool .val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.me-tool svg { width: 12px; height: 12px; flex: none; color: var(--me-muted); }
+.me-tool svg { width: 10px; height: 10px; flex: none; color: var(--me-muted); }
 .me-cal { margin-left: auto; flex: none; white-space: nowrap; }
 .me-cal svg { width: 18px; height: 18px; flex: none; }
 .me-tool:active,
 .me-cal:active { opacity: 0.6; }
 .me-cal:disabled { opacity: 0.5; }
 
-/* Segmented control : piste grise, onglet actif blanc. 38 + 2×3 = 44 px de cible. */
+/* Segmented control : piste grise, onglet actif blanc. Cible de 44 px, pastille visible
+   de 38 px dessinée par ::before. */
 .me-seg {
   display: flex;
   margin: 4px 16px 0;
-  padding: 3px;
   border-radius: 10px;
   background: hsl(355 10% 91%);
 }
 .me-seg button {
+  position: relative;
+  isolation: isolate;
   flex: 1;
-  min-height: 38px;
-  border-radius: 8px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -63,9 +67,14 @@
   font-weight: 650;
   color: var(--me-muted);
 }
-.me-seg button[aria-selected="true"] {
+.me-seg button[aria-selected="true"] { color: hsl(var(--foreground)); }
+.me-seg button[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  z-index: -1;
+  border-radius: 8px;
   background: hsl(var(--card));
-  color: hsl(var(--foreground));
   box-shadow: 0 0.5px 1px rgba(40, 20, 20, 0.12), 0 1px 3px rgba(40, 20, 20, 0.06);
 }
 .me-count {

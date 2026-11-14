@@ -3,6 +3,7 @@ import { toBlob } from 'html-to-image';
 import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
+import { useDialogFocus } from './useDialogFocus';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import { competitionShortLabel } from './labels';
 import { buildTeamCalendar, type CalendarRencontre, type TeamCalendar } from '../../../../shared/teamCalendar';
@@ -100,6 +101,9 @@ export default function CalendarExport({
   const file = state.step === 'ready' ? new File([state.blob], fileName, { type: 'image/png' }) : null;
   const canShare = !!file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
   const close = () => setState({ step: 'idle' });
+  const dialogOpen = state.step === 'ready' || state.step === 'empty' || state.step === 'error';
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef, close, dialogOpen);
 
   const share = async () => {
     if (!file) return;
@@ -144,12 +148,13 @@ export default function CalendarExport({
         </div>
       )}
 
-      {(state.step === 'ready' || state.step === 'empty' || state.step === 'error') && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-black/85" role="dialog" aria-modal="true"
+      {dialogOpen && (
+        // Au-dessus de la bannière d'installation (z-index 60).
+        <div ref={dialogRef} className="fixed inset-0 z-[70] flex flex-col bg-black/85" role="dialog" aria-modal="true"
           aria-label="Calendrier des rencontres">
           <div className="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3 text-white">
             <span className="text-[15px] font-bold">Calendrier des rencontres</span>
-            <button type="button" onClick={close} className="h-9 px-2 text-sm font-semibold active:opacity-70">
+            <button type="button" onClick={close} className="min-h-11 min-w-11 px-2 text-sm font-semibold active:opacity-70">
               Fermer
             </button>
           </div>
