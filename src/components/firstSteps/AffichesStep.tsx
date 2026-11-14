@@ -12,6 +12,8 @@ import { MAX_POSTER_MATCHES, formatRencontreDate } from '../teamMatches/poster/p
 import { exportPosterJpeg, groupByWeek, posterFileName, usePosterSelection } from '../teamMatches/poster/posterSelection';
 import { useTeamSaisons } from '../teamMatches/useTeamSaisons';
 import { useTeamSeasonGrid } from '../teamMatches/useTeamSeasonGrid';
+import { weekendFileDate } from '../teamMatches/weekend';
+import { useRencontresVideo, type RencontresVideoInput } from '../rencontresAnimation/useRencontresVideo';
 import type { StepProps } from './FirstStepsFlow';
 import { setPosterPreview } from './posterSignal';
 
@@ -19,7 +21,8 @@ import { setPosterPreview } from './posterSignal';
 // fond fourni. Le fond « Aux couleurs du club » est créé à l'entrée dans l'étape si le club n'en a
 // aucun (`ensureClubPosterBackground`) ; sélection et export sont ceux de `PosterPanel`
 // (`posterSelection.ts`). Étape terminée dès l'affiche générée, qui se télécharge ensuite (pas de
-// publication en actu depuis les premiers pas, décision du 13/11/2026).
+// publication en actu depuis les premiers pas, décision du 13/11/2026). Depuis S7b, la story vidéo
+// de `/medias` se télécharge aussi, par le même moteur (`useRencontresVideo`), sans publication Facebook.
 
 const STEP_ID = 'affiches';
 
@@ -105,7 +108,7 @@ function SeasonPoster({ saisonId, empty, ...props }: SeasonProps) {
   return <Composer entries={entries} {...props} />;
 }
 
-function Composer({ config, state, complete, next, entries, bg, retry }: Omit<SeasonProps, 'saisonId' | 'empty'> & { entries: RencontreEntry[] }) {
+function Composer({ club, config, state, complete, next, entries, bg, retry }: Omit<SeasonProps, 'saisonId' | 'empty'> & { entries: RencontreEntry[] }) {
   const { groupes, weekend, selectedIds, selected, atMax, toggle, takeAll, selectedMatches } = usePosterSelection(entries);
   const list = bg.status === 'ready' ? bg.list : [];
   const [chosen, setChosen] = useState<string | null>(null);
@@ -204,17 +207,29 @@ function Composer({ config, state, complete, next, entries, bg, retry }: Omit<Se
 
     {error && <p role="alert" className="fs-error">{error}</p>}
 
+    {/* Barre d'actions collée en bas de l'écran : avec 7 ou 8 rencontres cochées, « Télécharger »
+        tombait sous la liste, hors écran (recette du 14/11/2026). */}
     {!dataUrl
-      ? <div className="fs-footer">
+      ? <div className="fs-footer fs-sticky">
           <button type="button" className="fs-btn fs-btn-p" disabled={!selectedMatches.length || !background || busy} onClick={generate}>
             {busy ? 'Génération…' : 'Générer l’affiche'}
           </button>
           {done && next && <button type="button" className="fs-btn fs-btn-o" onClick={next.go}>Terminer →</button>}
         </div>
-      : <div className="fs-group" role="status">
+      : <div className="fs-group fs-sticky" role="status">
           <span className="fs-note">Votre affiche est prête.</span>
           <div className="fs-actions">
             <a className="fs-btn fs-btn-p" href={dataUrl} download={posterFileName(weekend)}>Télécharger</a>
+            <StoryDownload
+              matches={selectedMatches}
+              partnerLogos={partnerLogos}
+              color={color}
+              logo={config.brand.logo ?? ''}
+              logoInverse={config.brand.logo_inverse ?? ''}
+              clubName={config.brand.name || club.name}
+              homeName={config.brand.city || config.brand.short_name || config.brand.name || club.name}
+              fileName={`story-rencontres-${weekendFileDate(weekend)}`}
+            />
             {next && <button type="button" className="fs-btn fs-btn-o" disabled={busy} onClick={next.go}>Terminer →</button>}
           </div>
         </div>}
@@ -225,5 +240,25 @@ function Composer({ config, state, complete, next, entries, bg, retry }: Omit<Se
         <TeamMatchImagePreview matches={selectedMatches} background={background?.image} color={color} partnerLogos={partnerLogos} />
       </div>
     </div>
+  </>;
+}
+
+/** Story vidéo des rencontres de l'affiche, montée une fois l'affiche générée : le moteur de
+ *  `/medias` (`useRencontresVideo`), en téléchargement seul. */
+function StoryDownload({ fileName, ...input }: RencontresVideoInput & { fileName: string }) {
+  const video = useRencontresVideo(input);
+  if (video.encoderOk === false) return <p className="fs-note fs-wide">Ce navigateur ne sait pas générer la vidéo : utilisez une version récente de Chrome, Edge ou Safari.</p>;
+  return <>
+    <button type="button" className="fs-btn fs-btn-o" disabled={!video.canExport} onClick={() => video.download(fileName)}>
+      {video.exporting ? 'Vidéo en cours…' : 'Télécharger la vidéo (story)'}
+    </button>
+    {video.progress && (
+      <div className="fs-wide fs-video-progress">
+        <progress value={video.progress.frame} max={video.progress.frames} aria-label="Génération de la vidéo" />
+        <span className="fs-note">Image {video.progress.frame} / {video.progress.frames}. Ne fermez pas cette page.</span>
+        <button type="button" className="fs-link fs-link-small" onClick={video.cancel}>Annuler</button>
+      </div>
+    )}
+    {video.exportError && <p role="alert" className="fs-error fs-wide">{video.exportError}</p>}
   </>;
 }

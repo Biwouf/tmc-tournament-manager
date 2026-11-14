@@ -105,8 +105,9 @@ export default function EquipesStep({ club, config, eyebrow, complete, next }: S
     {error && <p role="alert" className="fs-error">{error}</p>}
 
     <div className="fs-footer">
+      {hasTeams && <p className="fs-ready" role="status">{teams!.length > 1 ? `Vos ${teams!.length} équipes sont prêtes.` : 'Votre équipe est prête.'}</p>}
       <button type="button" className="fs-btn fs-btn-p" disabled={!hasTeams || busy || leaving} onClick={goNext}>
-        {teams && teams.length > 1 ? 'C’est bon pour l’instant →' : `Suivant : ${next?.label ?? 'la suite'} →`}
+        {`Suivant : ${next?.label ?? 'la suite'} →`}
       </button>
       {!hasTeams && next && <button type="button" className="fs-link" disabled={busy || leaving} onClick={skip}>Passer cette étape</button>}
     </div>

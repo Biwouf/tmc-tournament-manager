@@ -3,30 +3,15 @@
 // programme de tournoi (`ProgrammeAnimationSection`, même worker d'export). La vidéo reprend
 // EXACTEMENT l'affiche générée (rencontres, partenaires tirés) : le panneau ne la rend
 // disponible qu'une fois l'affiche générée avec la sélection courante (`ready`).
-import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { useClub } from '../../contexts/ClubContext';
-import type { TeamMatch } from '../../types';
-import { toBitmap } from '../programmeAnimation/bitmaps';
-import { ExportCancelled, exportMp4, pickEncoderConfig } from '../programmeAnimation/exportMp4';
-import { loadAnimationFonts } from '../programmeAnimation/fonts';
-import { animationPalette } from '../programmeAnimation/palette';
-import type { FrameAssets } from '../programmeAnimation/renderFrame';
+import { ExportCancelled } from '../programmeAnimation/exportMp4';
 import { confirmStories, describeParts, partSuffix, publishLabel, sendStories, useCanPublishStory, type StoryResult } from '../programmeAnimation/storyPublish';
 import { renderRencontresFrame } from './renderFrame';
-import { buildRencontresStoryParts, buildRencontresTimeline } from './timeline';
+import { useRencontresVideo, type RencontresVideoInput } from './useRencontresVideo';
 
-type Props = {
+type Props = RencontresVideoInput & {
   ready: boolean;
-  /** Rencontres de l'affiche, par date croissante. */
-  matches: TeamMatch[];
-  /** Logos déjà tirés pour l'affiche ; vide si les partenaires y sont masqués. */
-  partnerLogos: string[];
-  color: string;
-  logo: string;
-  logoInverse: string;
-  clubName: string;
-  /** Nom posé dans le bloc du club sur chaque carte (la ville du club). */
-  homeName: string;
   /** Nom du fichier téléchargé, sans extension. */
   fileName: string;
   /** Incrémenté par le panneau pour lancer l'export dès que la section est prête
@@ -34,64 +19,22 @@ type Props = {
   exportRequest: number;
 };
 
-const TITLE = 'Prochaines rencontres';
 const PREVIEW_H = 560;
 
-export default function RencontresAnimationSection({
-  ready, matches, partnerLogos, color, logo, logoInverse, clubName, homeName, fileName, exportRequest,
-}: Props) {
+export default function RencontresAnimationSection({ ready, fileName, exportRequest, ...input }: Props) {
+  const video = useRencontresVideo(input);
+  const { tl, storyParts, palette, texts, assets, fontsReady, encoderOk, exporting, progress, exportError, canExport } = video;
   const [T, setT] = useState(0);
   const [playing, setPlaying] = useState(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const [assets, setAssets] = useState<FrameAssets | null>(null);
-  const [fontsReady, setFontsReady] = useState(false);
-  const [encoderOk, setEncoderOk] = useState<boolean | null>(null);
-  const [exporting, setExporting] = useState(false);
-  const [progress, setProgress] = useState<{ frame: number; frames: number } | null>(null);
-  const [exportError, setExportError] = useState('');
   /** Étape de la publication en story, affichée sous le bouton. */
   const [storyStep, setStoryStep] = useState('');
   const [storyResult, setStoryResult] = useState<StoryResult | null>(null);
   const { clubId } = useClub();
   const canPublishStory = useCanPublishStory();
-  const cancelRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   /** Dernière demande d'export traitée : celle présente au montage ne déclenche rien. */
   const handledRequest = useRef(exportRequest);
-
-  const tl = useMemo(() => buildRencontresTimeline(matches), [matches]);
-  // Story Facebook : 30 s au plus par story, au-delà la vidéo part en plusieurs parties.
-  const storyParts = useMemo(() => buildRencontresStoryParts(matches), [matches]);
-  const palette = useMemo(() => animationPalette(color), [color]);
-  const texts = useMemo(
-    () => ({ kicker: clubName.toLocaleUpperCase('fr-FR'), title: TITLE, homeName: homeName.toLocaleUpperCase('fr-FR') }),
-    [clubName, homeName],
-  );
-
-  useEffect(() => {
-    // Polices en échec : on dessine quand même, en police de repli.
-    loadAnimationFonts().finally(() => setFontsReady(true));
-  }, []);
-
-  const partnersKey = partnerLogos.join('\n');
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const [l, li, ...partners] = await Promise.all([toBitmap(logo), toBitmap(logoInverse), ...partnersKey.split('\n').filter(Boolean).map(toBitmap)]);
-      if (alive) setAssets({ logo: l, logoOnDark: li, partners: partners.filter((p): p is ImageBitmap => !!p) });
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [logo, logoInverse, partnersKey]);
-
-  useEffect(() => {
-    let alive = true;
-    pickEncoderConfig(tl.W, tl.H).then((c) => alive && setEncoderOk(!!c));
-    return () => {
-      alive = false;
-    };
-  }, [tl.W, tl.H]);
 
   // Lecteur : `T` avance en temps réel et boucle ; en pause pendant un export.
   useEffect(() => {
@@ -122,54 +65,29 @@ export default function RencontresAnimationSection({
     renderRencontresFrame(g, tl, T, palette, texts, assets);
   }, [T, tl, palette, texts, assets, fontsReady, previewW, ready]);
 
-  async function handleExport() {
-    if (!assets || !fontsReady) return;
-    setExportError('');
-    cancelRef.current = false;
-    setProgress({ frame: 0, frames: Math.round(tl.total * 30) });
-    setExporting(true);
-    try {
-      const blob = await exportMp4({ kind: 'rencontres', tl, color: palette.red, texts, assets }, (frame, frames) => setProgress({ frame, frames }), () => cancelRef.current);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${fileName}.mp4`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (e) {
-      if (!(e instanceof ExportCancelled)) setExportError(e instanceof Error ? e.message : 'La génération de la vidéo a échoué.');
-    } finally {
-      setExporting(false);
-      setProgress(null);
-    }
-  }
+  const handleExport = () => video.download(fileName);
 
   async function handlePublishStory() {
     if (!assets || !fontsReady || !clubId) return;
     const n = storyParts.length;
     if (!confirmStories(n)) return;
-    setExportError('');
+    video.setExportError('');
     setStoryResult(null);
-    cancelRef.current = false;
-    setExporting(true);
-    try {
-      // Toutes les parties sont générées avant le premier envoi (cf. storyPublish.ts).
-      const videos: Blob[] = [];
-      for (let p = 0; p < n; p++) {
-        setStoryStep(n > 1 ? `Génération de la partie ${p + 1} / ${n}…` : 'Génération de la vidéo…');
-        setProgress({ frame: 0, frames: Math.round(storyParts[p].total * 30) });
-        videos.push(await exportMp4({ kind: 'rencontres', tl: storyParts[p], color: palette.red, texts: { ...texts, kicker: texts.kicker + partSuffix(p, n) }, assets },
-          (frame, frames) => setProgress({ frame, frames }), () => cancelRef.current));
+    await video.run(async () => {
+      try {
+        // Toutes les parties sont générées avant le premier envoi (cf. storyPublish.ts).
+        const videos: Blob[] = [];
+        for (let p = 0; p < n; p++) {
+          setStoryStep(n > 1 ? `Génération de la partie ${p + 1} / ${n}…` : 'Génération de la vidéo…');
+          videos.push(await video.encode(storyParts[p], partSuffix(p, n)));
+        }
+        setStoryResult(await sendStories(clubId, videos, setStoryStep));
+      } catch (e) {
+        if (!(e instanceof ExportCancelled)) setStoryResult({ ok: false, message: e instanceof Error ? e.message : 'La publication de la story a échoué.' });
+      } finally {
+        setStoryStep('');
       }
-      setProgress(null);
-      setStoryResult(await sendStories(clubId, videos, setStoryStep));
-    } catch (e) {
-      if (!(e instanceof ExportCancelled)) setStoryResult({ ok: false, message: e instanceof Error ? e.message : 'La publication de la story a échoué.' });
-    } finally {
-      setExporting(false);
-      setProgress(null);
-      setStoryStep('');
-    }
+    });
   }
 
   // Export demandé par le panneau : on attend l'affiche, les polices, les images et la détection de
@@ -197,7 +115,6 @@ export default function RencontresAnimationSection({
     );
   }
 
-  const canExport = !!assets && fontsReady && encoderOk === true && !exporting;
   const partsNote = describeParts(tl.total, storyParts.map((p) => p.total));
 
   return (
@@ -234,7 +151,7 @@ export default function RencontresAnimationSection({
             </button>
           )}
           {exporting && progress && (
-            <button type="button" onClick={() => { cancelRef.current = true; }} className="text-sm underline">Annuler</button>
+            <button type="button" onClick={video.cancel} className="text-sm underline">Annuler</button>
           )}
         </div>
         {partsNote && canPublishStory && !exporting && <p className="text-xs text-muted-foreground">{partsNote}</p>}

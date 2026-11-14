@@ -422,8 +422,9 @@ Le cadre n'est pas retouché : la reprise qui saute les étapes passées est dan
    (boutons radio, équipes déjà importées désactivées), la troisième ligne dit « à choisir ».
 4. **« Ajouter l'équipe »** → `team_equipe_create` (numéro = `nextTeamNumber`). L'équipe rejoint la
    liste « nom · genre catégorie · division · N rencontres », le téléphone montre ses rencontres.
-5. « Suivant » (« C'est bon pour l'instant » à partir de deux équipes) termine l'étape ; il est
-   actif dès une équipe dans la saison, y compris après rechargement. **« Passer cette étape »**,
+5. « Suivant : vos affiches → » termine l'étape ; il est actif dès une équipe dans la saison, y compris
+   après rechargement. Au-dessus, « Vos N équipes sont prêtes. » (« Votre équipe est prête. ») depuis
+   S7b : « C'est bon pour l'instant », affiché à partir de deux équipes, sonnait comme un pis-aller. **« Passer cette étape »**,
    proposé tant qu'aucune équipe n'existe, écrit `skipped_steps` (§9.2) et passe à la suite.
 
 Échecs, toujours avec le lien conservé : message du serveur tel quel (quota par minute, plafond
@@ -585,7 +586,11 @@ autres :
 3. **« Générer l'affiche »** : `exportPosterJpeg` (export de `PosterPanel`) sur le nœud hors
    viewport, partenaires tirés comme dans le panneau. L'étape est **terminée** dès l'affiche
    générée (décision 4). Toute nouvelle coche ou un autre fond invalide l'affiche.
-4. **Après génération** : « Télécharger » (`affiche-rencontres-<samedi>.jpg`) et « Terminer → ».
+4. **Après génération** : « Télécharger » (`affiche-rencontres-<samedi>.jpg`), « Télécharger la vidéo
+   (story) » (`story-rencontres-<samedi>.mp4`, 1080 × 1920, progression et « Annuler » ; moteur
+   `useRencontresVideo` partagé avec `/medias`, pas de publication Facebook) et « Terminer → ». Depuis
+   S7b, les boutons de génération et de téléchargement sont dans une **barre collée en bas de l'écran**
+   (`.fs-sticky`) : avec 7 rencontres cochées, « Télécharger » tombait hors écran.
    Pas de « Publier en actu » : retiré à la recette du 13/11/2026, jugé peu utile dans les
    premiers pas (le brief et la maquette le proposaient).
 5. Sans équipe : « Ajoutez d'abord une équipe », bouton vers l'étape équipes, « Passer cette
@@ -597,7 +602,11 @@ pleine largeur sur mobile), à la place du téléphone ; sans rencontre cochée,
 et aperçu partagent leur état par
 `posterSignal.ts`, comme `teamsSignal.ts` en S6.
 
-Limite connue (rendu `TeamMatchImagePreview`, inchangé) : sur une couleur claire (`#e8c547`), le
+Correctifs du rendu en S7b (libellé sans répétition, pastille d'heure entière, cartes jusqu'en bas sans
+partenaires) : `TEAM_MATCHES.md` § PosterPanel. Restent à décider (brief S7b §4) : regrouper les
+rencontres par jour, et l'heure par défaut 9 h que Ten'Up ne fournit pas.
+
+Limite connue (rendu `TeamMatchImagePreview`) : sur une couleur claire (`#e8c547`), le
 jour, l'heure et « Au club » des cartes sont écrits dans la couleur du club et peu lisibles.
 
 ### 11.3 Tests et recette

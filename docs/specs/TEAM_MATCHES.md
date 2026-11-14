@@ -630,7 +630,9 @@ cf. `GEN_PROG.md`) : sans prop `onClose`, ni bouton de fermeture ni retour à la
 aperçu complet à l'échelle 0,4. L'accès par le menu « ⋮ » et le panneau latéral est conservé.
 En pleine page seulement, le panneau propose aussi la **story animée** des rencontres
 (`RencontresAnimationSection`, case « Générer aussi la vidéo dans la foulée ») — cf. `GEN_PROG.md`
-§ « Story animée des rencontres par équipes ».
+§ « Story animée des rencontres par équipes ». Depuis S7b, son moteur (polices, logos, encodeur,
+export) est le hook `useRencontresVideo`, que l'étape « Vos affiches » des premiers pas réutilise
+pour son bouton « Télécharger la vidéo (story) ».
 
 - **Source** : les rencontres à venir déjà chargées par le hook de grille (plus de requête
   dédiée), groupées par week-end (`Ce week-end` / `Week-end suivant` / `Plus tard`) avec un
@@ -646,6 +648,17 @@ En pleine page seulement, le panneau propose aussi la **story animée** des renc
   mappe chaque rencontre en `TeamMatch` — genre déduit de `competition.genre`, type de
   `competition.categorie` (affichée via `formatCategorie`), `teamNumber = numero` (sans plafond),
   `location` selon `domicile`, date/heure locales.
+- **Libellé de compétition** (S7b, 14/11/2026) : `posterCompetitionLabel(nom, genre, categorie)`
+  (`teamMatchLabels.ts`) écrit « nom - genre - catégorie » **sans répéter ce que le nom Ten'Up dit
+  déjà** : casse, accents et pluriel ignorés, synonymes de `GENRE_WORDS` (Dames = Femmes, Messieurs =
+  Hommes, Féminin…) ; une catégorie jeunes est reconnue par sa paire (`15/16`, `15-16`), une catégorie
+  vétérans par son âge en nombre isolé (`GAN 45 DAMES`), les autres par leurs mots. « GAN 45 DAMES
+  (MPY) » reste tel quel, « Pyrénées Interclubs » devient « Pyrénées Interclubs - Hommes - Seniors ».
+  Catégorie vide : omise.
+- **Hauteur des cartes** (S7b) : avec partenaires, les cartes s'arrêtent à y = 1720 ; **sans
+  partenaires, à y = 1940** (60 px du bas), pour ne pas laisser 280 px vides. La colonne date des
+  cartes compactes (≥ 5 rencontres) est resserrée (padding 6 px, écart 4 px, jour en 60 px) : à 8
+  rencontres avec partenaires (cartes de 165 px), la pastille d'heure était coupée de 31 px.
 - **Rendu** : `TeamMatchImagePreview` monté hors viewport (`position: fixed; left: -99999`)
   → `html-to-image#toJpeg` (q=0.92, pixelRatio 2, `exportPosterJpeg`), plus un aperçu A4 mis à l'échelle dans le
   panneau. L'aperçu suit chaque coche (c'est du DOM React), mais **`toJpeg` n'est déclenché

@@ -52,6 +52,29 @@ test('genre, type and category from real Ten’Up championship names; never a gu
   assert.deepEqual(io.missingFields(missing), ['genre', 'format', 'singles_set3_format']);
 });
 
+test('poster competition label: what the Ten’Up name already says is not repeated (S7b)', () => {
+  const label = labels.posterCompetitionLabel;
+  // Cas de la recette du 14/11/2026 (TC Moissac).
+  assert.equal(label('Challenge Départemental 15/16 - 17/18 ans Filles', 'filles', '15/16 ans'), 'Challenge Départemental 15/16 - 17/18 ans Filles');
+  assert.equal(label('Challenge Départemental 15/16 - 17/18 ans Filles', 'filles', '17/18 ans'), 'Challenge Départemental 15/16 - 17/18 ans Filles');
+  assert.equal(label('GAN 45 DAMES (MPY)', 'femmes', '+45 ans'), 'GAN 45 DAMES (MPY)');
+  assert.equal(label('Challenge Féminin Max Espiaut de Valence d\'Agen', 'femmes', 'Seniors'), 'Challenge Féminin Max Espiaut de Valence d\'Agen - Seniors');
+  assert.equal(label('Challenge d\'Hiver Codep - Seniors Messieurs', 'hommes', 'Seniors'), 'Challenge d\'Hiver Codep - Seniors Messieurs');
+  assert.equal(label('Challenge d\'Hiver Codep - Seniors Dames', 'femmes', 'Seniors'), 'Challenge d\'Hiver Codep - Seniors Dames');
+  // Cas du CAC : nom sans genre ni catégorie, codes historiques traduits.
+  assert.equal(label('Pyrénées Interclubs', 'hommes', 'seniors'), 'Pyrénées Interclubs - Hommes - Seniors');
+  assert.equal(label('Pyrénées Interclubs', 'garcons', '15_16'), 'Pyrénées Interclubs - Garçons - 15/16 ans');
+  assert.equal(label('Pyrénées Interclubs', 'hommes', '35_ans'), 'Pyrénées Interclubs - Hommes - +35 ans');
+  assert.equal(label('GAN 70 MESSIEURS', 'hommes', '+70 ans'), 'GAN 70 MESSIEURS');
+  assert.equal(label('GAN 35 Dames', 'femmes', '+35 ans'), 'GAN 35 Dames');
+  // Ce que le nom ne dit pas reste ajouté ; un autre âge ou un autre genre ne compte pas.
+  assert.equal(label('GAN 45 DAMES', 'femmes', '+35 ans'), 'GAN 45 DAMES - +35 ans');
+  assert.equal(label('Coupe 2045 Dames', 'femmes', '+45 ans'), 'Coupe 2045 Dames - +45 ans');
+  assert.equal(label('Championnat Seniors Dames', 'mixte', 'Seniors'), 'Championnat Seniors Dames - Mixte');
+  assert.equal(label('Coupe des Garçons', 'garcons', '13/14 ans'), 'Coupe des Garçons - 13/14 ans');
+  assert.equal(label('Championnat', 'hommes', ''), 'Championnat - Hommes');
+});
+
 test('season: active reused, otherwise this sporting year (September → August), activated or created', () => {
   assert.equal(labels.seasonLabel(new Date(2026, 10, 7)), '2026/2027');
   assert.equal(labels.seasonLabel(new Date(2027, 7, 31)), '2026/2027');

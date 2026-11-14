@@ -1,5 +1,5 @@
 import type { TeamMatch } from '../types';
-import { formatCategorie, GENRE_LABELS } from './teamMatches/teamMatchLabels';
+import { posterCompetitionLabel } from './teamMatches/teamMatchLabels';
 import { clubTint, hexToHsl } from '../lib/theme';
 import PosterPartnersBand from './PosterPartnersBand';
 
@@ -169,11 +169,11 @@ const POSTER_STYLES = `
 
 /* Mode compact */
 .tmc-poster .va-cell.compact { grid-template-columns: 200px 1fr 240px; }
-.tmc-poster .va-cell.compact .va-date { padding: 16px; }
-.tmc-poster .va-cell.compact .va-date .num   { font-size: 64px; }
+.tmc-poster .va-cell.compact .va-date { padding: 6px 16px; gap: 4px; }
 .tmc-poster .va-cell.compact .va-date .day   { font-size: 28px; }
 .tmc-poster .va-cell.compact .va-date .month { font-size: 20px; }
-.tmc-poster .va-cell.compact .va-date .time  { font-size: 18px; padding: 3px 12px; }
+.tmc-poster .va-cell.compact .va-date .num   { font-size: 60px; line-height: 0.9; }
+.tmc-poster .va-cell.compact .va-date .time  { font-size: 18px; padding: 2px 12px; margin-top: 4px; }
 
 .tmc-poster .va-cell.compact .va-body { padding: 16px 24px; gap: 6px; }
 .tmc-poster .va-cell.compact .va-body .category { font-size: 28px; }
@@ -209,7 +209,7 @@ function MatchCell({ match, size }: { match: TeamMatch; size: SizeClass }) {
         <div className="time">{formatMatchTime(match.time)}</div>
       </div>
       <div className="va-body">
-        <div className="category">{match.competitionName} - {GENRE_LABELS[match.gender]} - {formatCategorie(match.ageCategory)}</div>
+        <div className="category">{posterCompetitionLabel(match.competitionName, match.gender, match.ageCategory)}</div>
         <div className="team-no">Équipe {match.teamNumber}</div>
         <div className="vs-line">
           <span className="vs">vs</span>
@@ -262,7 +262,8 @@ export default function TeamMatchImagePreview({ matches, background, color = '',
       )}
       <div style={{
         position: 'absolute',
-        top: CONTENT_TOP, bottom: POSTER_H - CONTENT_BOTTOM,
+        // Sans partenaires, les cartes descendent jusqu'à 60 px du bas (plus de grand vide, S7b).
+        top: CONTENT_TOP, bottom: partnerLogos.length > 0 ? POSTER_H - CONTENT_BOTTOM : CONTENT_PAD_X,
         left: CONTENT_PAD_X, right: CONTENT_PAD_X,
         display: 'flex', flexDirection: 'column',
         justifyContent: justify, gap, zIndex: 2,

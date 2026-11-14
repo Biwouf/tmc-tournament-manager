@@ -112,6 +112,39 @@ export function inferGenre(nom: string, type: TeamType): TeamGenre | null {
   return GENRES_BY_TYPE[type].includes(found[0]) ? found[0] : null;
 }
 
+// Affiche des rencontres (S7b) : le nom Ten'Up dit souvent déjà le genre et la catégorie
+// (« GAN 45 DAMES », « … 17/18 ans Filles ») ; l'affiche ne les répète pas.
+const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const stems = (text: string) => new Set((fold(text).match(/[a-z]+/g) ?? []).map((w) => w.replace(/s$/, '')));
+
+function nameSaysGenre(nom: string, genre: TeamGenre): boolean {
+  const words = stems(nom);
+  return (GENRE_WORDS[genre] ?? []).some((w) => words.has(w.replace(/s$/, '')));
+}
+
+function nameSaysCategorie(nom: string, label: string): boolean {
+  const name = fold(nom);
+  const youth = /^(\d+)\/(\d+) ans$/.exec(label);
+  if (youth) return new RegExp(`(^|[^0-9])${youth[1]}\\s*[/-]\\s*${youth[2]}(?![0-9])`).test(name);
+  const veteran = /^\+(\d+) ans$/.exec(label);
+  if (veteran) return new RegExp(`(^|[^0-9])\\+?\\s?${veteran[1]}(?![0-9])`).test(name);
+  const words = stems(name);
+  const wanted = [...stems(label)];
+  return wanted.length > 0 && wanted.every((w) => words.has(w));
+}
+
+/** Libellé de compétition d'une carte d'affiche : « nom - genre - catégorie », sans répéter ce que
+ *  le nom dit déjà (casse, accents, pluriel et synonymes ignorés : Dames = Femmes, Messieurs =
+ *  Hommes, Féminin…). Ex. « GAN 45 DAMES (MPY) », « Pyrénées Interclubs - Hommes - Seniors ». */
+export function posterCompetitionLabel(nom: string, genre: TeamGenre, categorie: TeamCategorie): string {
+  const cat = formatCategorie(categorie ?? '').trim();
+  return [
+    nom,
+    nameSaysGenre(nom, genre) ? '' : GENRE_LABELS[genre] ?? '',
+    !cat || nameSaysCategorie(nom, cat) ? '' : cat,
+  ].filter(Boolean).join(' - ');
+}
+
 // --- Spécification d'un format (nb de matches, points du double) ---
 
 export interface FormatSpec {
