@@ -363,7 +363,7 @@ perdre une. Une table sera préférable si l'avancement doit un jour être requ�
 ### 9.3 Le cadre et la liste d'étapes
 
 `FIRST_STEPS` (`src/components/firstSteps/steps.ts`) : `id`, `label`, `duration`, `isDone(state)`,
-`Component`, `Preview`, `Below`, `recap`, `final`. **Ajouter une étape = une entrée** : le fil
+`Component`, `Preview`, `Side`, `recap`, `final`. **Ajouter une étape = une entrée** : le fil
 d'Ariane, « Étape X sur N » (l'écran `final` n'est pas compté), la barre, la reprise (première étape
 ni terminée ni passée) et le récapitulatif de l'écran final en découlent. `FirstStepsFlow` ne nomme aucune
 étape. Depuis S7, `StepProps.goTo(id)` ouvre une autre étape de la liste (lien « Ajouter une
@@ -389,8 +389,10 @@ club : actu sans image.
 `app-<slug>.feelike.pro`, « Copier le lien », QR code réel en SVG (`uqr` : aucune dépendance, 27 Ko
 non compressés, chunk de la page uniquement ; écrire l'encodage et sa correction d'erreurs ici
 aurait fait plus de code à maintenir pour le même résultat). « Aller au tableau de bord » pose `finished_at`. Les cartes « à découvrir »
-sont en pleine largeur sous l'étape et le téléphone, le brief demandant les deux là où la maquette
-remplace le téléphone par les cartes.
+(`Discover`, entrée `Side` de l'étape) **remplacent le téléphone** à droite de l'étape, en 2 × 2,
+comme sur la maquette. Jusqu'au 14/11/2026 elles étaient en pleine largeur sous l'étape et le
+téléphone, comme le demandait le brief : on ne les voyait qu'en défilant. Le QR code montre déjà
+l'app. Sous 860 px, elles passent sous l'étape.
 
 ### 9.6 Tests et recette
 
