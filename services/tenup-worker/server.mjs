@@ -65,9 +65,9 @@ export function createHandler({ token, extract, deadline = 45_000, onFatal = () 
         cache.set(`${kind}:${input.url}`, { data, expires: Date.now() + 60_000 });
         reply(200, data);
       } catch (error) {
-        // No request body, credentials or environment values are logged.
+        // Only the public Ten'Up URL is logged: no credentials or environment values.
         const message = error instanceof Error ? error.message.slice(0, 2000) : 'Unknown extraction error';
-        console.error('[tenup-worker] extraction failed', { kind, error: message });
+        console.error('[tenup-worker] extraction failed', { kind, url: input.url, error: message });
         reply(502, { error: kind === 'competition'
           ? 'La fiche du championnat Ten’Up est indisponible. Réessayez plus tard ou saisissez la compétition manuellement.'
           : kind === 'pool' ? 'Le calendrier de la poule Ten’Up est indisponible. Réessayez plus tard ou créez l’équipe manuellement.'
@@ -84,9 +84,14 @@ export function createHandler({ token, extract, deadline = 45_000, onFatal = () 
 
 export async function extract(url, launchOptions = {}, kind = 'rencontre') {
   if (!KINDS.includes(kind) || !validKindUrl(kind, url)) throw new Error('Invalid Tenup URL');
-  const browser = await chromium.launch({ headless: true, chromiumSandbox: true, timeout: 5_000, ...launchOptions });
-  const timeout = setTimeout(() => void browser.close(), 40_000);
+  // A browser server exposes `kill()`: each read ends with Chromium's process group killed and
+  // its profile removed, even when `close()` hangs. Leftovers of earlier reads saturated the
+  // instance after a few pools (ERR_INSUFFICIENT_RESOURCES on a fresh launch, 14/11/2026).
+  const server = await chromium.launchServer({ headless: true, chromiumSandbox: true, timeout: 5_000, ...launchOptions });
+  const timeout = setTimeout(() => void server.kill().catch(() => {}), 40_000);
+  let browser;
   try {
+    browser = await chromium.connect(server.wsEndpoint(), { timeout: 5_000 });
     const context = await browser.newContext({ locale: 'fr-FR', serviceWorkers: 'block', acceptDownloads: false });
     // Restrict every outgoing request, including redirects, to FFT and its queue.
     await context.route('**/*', route => {
@@ -113,7 +118,8 @@ export async function extract(url, launchOptions = {}, kind = 'rencontre') {
   } finally {
     clearTimeout(timeout);
     // Never wait forever for a wedged browser: the handler's lock depends on this returning.
-    await Promise.race([browser.close().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 5_000))]);
+    if (browser) await Promise.race([browser.close().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 5_000))]);
+    await Promise.race([server.kill().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 5_000))]);
   }
 }
 

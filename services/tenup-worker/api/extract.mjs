@@ -15,9 +15,12 @@ export default async function vercelExtract(req, res) {
   // is sent, so Vercel serves the next call from a fresh instance instead of failing it.
   // `waitUntil` keeps the instance running after the reply; without it the exit only ran when
   // the next call thawed the instance, and killed that call (13/11/2026).
+  // The promise must settle: Fluid compute stops a process only once its invocations are done,
+  // and a pending one kept the instance alive until the 60 s timeout, serving the next reads
+  // with the same saturated Chromium (14/11/2026).
   handler ??= createHandler({ token, onFatal: (message) => {
     console.error('[tenup-worker] recycling instance', { reason: message.slice(0, 200) });
-    waitUntil(new Promise(() => setTimeout(() => process.exit(1), 100)));
+    waitUntil(new Promise((resolve) => setTimeout(() => { resolve(); process.exit(1); }, 100)));
   }, extract: async (url, kind) => extract(url, {
     executablePath: await chromium.executablePath(),
     args: chromium.args.filter(arg => arg !== '--disable-web-security'),
