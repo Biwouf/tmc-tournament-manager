@@ -1,13 +1,12 @@
 import { TENNIS_RANKINGS } from '../../../shared/tennisRankings';
 export { TENNIS_RANKINGS };
-export type SignupFields = { prenom: string; nom: string; email: string; sex: string; classement: string; password: string; confirm: string };
+export type SignupFields = { prenom: string; nom: string; email: string; sex: string; classement: string; password: string };
 export const signupReturnTo = (value: string | null) => value && /^\/cours(?:\?|$)/.test(value) ? value : '/actu';
 export function validateSignup(f: SignupFields): string | null {
   if (!f.prenom.trim() || !f.nom.trim() || f.prenom.trim().length > 100 || f.nom.trim().length > 100 || !f.email.trim()) return 'Renseignez votre prénom, nom et email.';
   if (!['female', 'male'].includes(f.sex)) return 'Choisissez votre sexe.';
   if (f.classement && !TENNIS_RANKINGS.some(r => r === f.classement)) return 'Choisissez un classement dans la liste.';
   if (f.password.length < 8) return 'Choisissez un mot de passe d’au moins 8 caractères.';
-  if (f.password !== f.confirm) return 'Les mots de passe ne correspondent pas.';
   return null;
 }
 export function signupError(error: unknown): string {
@@ -18,5 +17,14 @@ export function signupError(error: unknown): string {
   if (e?.message?.includes('CLUB_UNAVAILABLE')) return 'Ce club n’accepte pas d’inscriptions pour le moment.';
   if (e?.code === 'signup_disabled') return 'Les inscriptions sont actuellement fermées. Contactez le club.';
   if (e?.code === 'email_address_invalid') return 'Vérifiez votre adresse email.';
+  return 'Connexion impossible. Vérifiez votre connexion internet puis réessayez.';
+}
+
+/** Erreur de connexion en français ; jamais le message brut de Supabase. */
+export function loginError(error: unknown): string {
+  const e = error as { code?: string; status?: number; message?: string };
+  if (e?.code === 'invalid_credentials' || /invalid login credentials/i.test(e?.message ?? '')) return 'Email ou mot de passe incorrect.';
+  if (e?.code === 'email_not_confirmed' || /email not confirmed/i.test(e?.message ?? '')) return 'Votre adresse email n’est pas encore confirmée. Ouvrez le lien reçu par email, puis réessayez.';
+  if (e?.status === 429) return 'Trop de tentatives. Patientez quelques minutes avant de réessayer.';
   return 'Connexion impossible. Vérifiez votre connexion internet puis réessayez.';
 }

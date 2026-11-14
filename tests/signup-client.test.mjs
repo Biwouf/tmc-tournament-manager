@@ -32,14 +32,14 @@ function fixture() {
  async mount(path='/inscription'){await act(async()=>{root=createRoot(document.getElementById('root'));root.render(h(MemoryRouter,{initialEntries:[path]},h(Page)));});},
  async close(){await act(async()=>root.unmount());},
  async change(id,value){const el=document.getElementById('signup-'+id);await act(async()=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))].onChange({target:{value}}));},
- async fill(){for(const [key,value]of Object.entries({prenom:' Alice ',nom:' Dupont ',email:'alice@example.test',sex:'female',password:'password123',confirm:'password123',classement:'3/6'}))await this.change(key,value);},
+ async fill(){for(const [key,value]of Object.entries({prenom:' Alice ',nom:' Dupont ',email:'alice@example.test',sex:'female',password:'password123',classement:'3/6'}))await this.change(key,value);},
  async submit(){await act(async()=>document.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));}
  };
 }
 test('signup client: validation before network, single submission, signUp → RPC → navigation',async()=>{
  const f=fixture();await f.mount('/inscription?returnTo=%2Fcours%3Fview%3Dmine');try {
   await f.submit();assert.equal(f.calls.length,0);await f.fill();
-  await f.change('confirm','wrong');await f.submit();assert.equal(f.calls.length,0);assert.match(document.body.textContent,/ne correspondent pas/);await f.change('confirm','password123');
+  await f.change('password','short');await f.submit();assert.equal(f.calls.length,0);assert.match(document.body.textContent,/au moins 8 caractères/);await f.change('password','password123');
   let release;f.pending=new Promise(r=>{release=r;});await f.submit();await f.submit();assert.equal(f.calls.length,1);assert.equal(document.querySelector('form').getAttribute('aria-busy'),'true');
   await act(async()=>{release();});assert.deepEqual(f.calls.map(x=>x[0]),['signup','rpc','invalidate']);assert.equal(f.calls[0][1].options.data.club_signup.prenom,'Alice');assert.equal(f.calls[1][2].p_classement,'3/6');assert.equal(f.destination,'/cours?view=mine');
  }finally{await f.close();}

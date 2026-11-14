@@ -14,6 +14,7 @@ export default function PasswordInput({ id, className = '', disabled, ...props }
       <button
         type="button"
         aria-label={action}
+        aria-pressed={visible}
         aria-controls={inputId}
         title={action}
         disabled={disabled}

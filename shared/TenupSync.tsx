@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { formatClubName } from './formatClubName';
 
 type Player = { prenom: string; nom: string | null; classement: string };
 type SourceLine = { match_type: 'simple' | 'double'; slot: number; players_a: Player[]; players_b: Player[]; sets: { a: number; b: number }[]; retired?: 'a' | 'b'; forfeited?: 'a' | 'b' };
@@ -65,7 +66,7 @@ export default function TenupSync(props: TenupSyncProps) {
       {preview && <div className="space-y-3">
         <h3 className="font-semibold">{preview.teams[0]} — {preview.teams[1]}</h3>
         <p className="text-sm">Ten’Up : {preview.date.split('-').reverse().join('/')} · Score {preview.scores.join(' – ')}</p>
-        <p className="text-sm">Votre rencontre : {props.clubName} — {props.opponent} · {new Date(props.date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}</p>
+        <p className="text-sm">Votre rencontre : {formatClubName(props.clubName)} — {formatClubName(props.opponent)} · {new Date(props.date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}</p>
         {dateMismatch && <p role="alert" className="text-sm text-amber-800">Les dates diffèrent : la date Ten’Up remplacera celle de la rencontre (heure conservée). Vérifiez qu’il s’agit bien de la bonne rencontre.</p>}
         <fieldset disabled={busy || props.sourceSide != null} className="space-y-2"><legend className="mb-2 text-sm font-semibold">Quelle équipe représente votre club ?</legend>
           {preview.teams.map((team, index) => <label key={index} className="flex min-h-11 items-center gap-3 rounded-lg border border-border p-3 text-sm">

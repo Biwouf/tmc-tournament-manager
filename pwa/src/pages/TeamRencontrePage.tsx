@@ -5,6 +5,7 @@ import TeamPlayers from '../components/teamMatches/TeamPlayers';
 import { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { fromHere } from '../components/layout/useGoBack';
+import { formatClubName } from '../../../shared/formatClubName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clubTopic } from '../lib/liveChannel';
 import { LIVE_SAFETY_POLL, useLiveTopic } from '../hooks/useLiveTopic';
@@ -106,8 +107,8 @@ export default function TeamRencontrePage() {
   const heroAdverse = lines.length ? total.adverse : rencontre.score_adverse;
   const inPlay = lives.some(m => m.status === 'live');
   const heroIssue = inPlay ? null : scoreIssue(heroClub, heroAdverse, rencontre.wo);
-  const usMuted = heroIssue === 'lose' ? ' text-[hsl(355_10%_38%)]' : '';
-  const themMuted = heroIssue === 'win' ? ' text-[hsl(355_10%_38%)]' : '';
+  const usMuted = heroIssue === 'lose' ? ' text-muted-foreground' : '';
+  const themMuted = heroIssue === 'win' ? ' text-muted-foreground' : '';
   // La fiche reste ouverte pendant le live : relire les révisions au moment du clic.
   const revisions = async () => {
     if (!selection) return null;
@@ -130,13 +131,19 @@ export default function TeamRencontrePage() {
     if (!base) return;
     if (await action.run('resolve_rule', { ...base, set3_format: rule })) close();
   };
+  const manage = canEdit && !rencontre.wo;
+  const login = <Link to="/login" state={fromHere(location)} className="flex min-h-12 w-full items-center justify-center rounded-xl border border-border bg-card px-4 text-[15px] font-semibold">Se connecter pour suivre la rencontre</Link>;
+  const photoButton = freeSimples.length > 0 && competition.singles_set3_format
+    && <button onClick={() => setComposing(true)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">Photographier la compo</button>;
+  const manualButton = lines.length < expected
+    && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl border border-border bg-card p-3 font-semibold">Ajouter un match manuellement</button>;
   return <div className="tr-page space-y-5 p-4">
     <section className="rounded-2xl border border-border bg-card p-5">
-      <p className="text-xs font-semibold uppercase text-[hsl(355_10%_38%)]">{competition.nom} · Équipe {equipe.numero}</p>
-      <h1 className="mt-2 text-2xl font-bold">{club?.name ?? 'Notre club'} – {rencontre.club_adverse}</h1>
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{competition.nom} · Équipe {equipe.numero}</p>
+      <h1 className="mt-2 text-2xl font-bold">{club?.name ? formatClubName(club.name) : 'Notre club'} – {formatClubName(rencontre.club_adverse)}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{new Date(rencontre.date_heure).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} · {rencontre.domicile ? 'Au club' : 'À l’extérieur'}</p>
       {/* Une rencontre confirmée ne se replanifie plus par ce raccourci. */}
-      {canReschedule.data && !rencontre.confirmed_at && <button onClick={() => { setDateError(''); setDateDraft(toLocalInput(rencontre.date_heure)); }} className="-ml-1 mt-1 min-h-11 px-1 text-sm font-semibold text-primary underline-offset-2 active:underline">Changer la date</button>}
+      {canReschedule.data && !rencontre.confirmed_at && <button onClick={() => { setDateError(''); setDateDraft(toLocalInput(rencontre.date_heure)); }} className="-ml-1 mt-1 min-h-11 px-1 text-sm font-semibold text-primary underline underline-offset-2 active:opacity-60">Changer la date</button>}
       {/* Pas de « – – – » tant que rien n'est joué : seul « En attente » s'affiche. */}
       {(rencontre.wo || heroClub != null) && <div className="mt-4 text-center text-[40px] font-bold leading-none tracking-tight tabular-nums">
         {rencontre.wo ? 'WO' : <><span className={usMuted}>{heroClub}</span> – <span className={themMuted}>{heroAdverse ?? '–'}</span></>}
@@ -145,16 +152,23 @@ export default function TeamRencontrePage() {
         {heroIssue && <ResultChip issue={heroIssue} size="lg" />}
         {inPlay
           ? <span className="me-res live">En direct</span>
-          : <p className="text-xs font-[650] text-[hsl(355_10%_38%)]">{!heroIssue ? 'En attente' : rencontre.confirmed_at ? 'Rencontre confirmée' : 'Provisoire'}</p>}
+          : <p className="text-xs font-[650] text-muted-foreground">{!heroIssue ? 'En attente' : rencontre.confirmed_at ? 'Rencontre confirmée' : 'Provisoire'}</p>}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">{spec.simples} simples · {spec.doubles} double{spec.doubles > 1 ? 's' : ''}{spec.doublePoints > 1 ? ' · double à 2 points' : ''}</p>
       <p className="mt-1 text-xs text-muted-foreground">3e set des simples : {competition.singles_set3_format === 'super_tiebreak' ? 'super tie-break' : competition.singles_set3_format === 'normal' ? 'set classique' : 'à configurer'} · doubles : super tie-break</p>
     </section>
     {query.isError && <p role="alert" className="text-sm text-amber-800">Actualisation impossible. Les données affichées peuvent avoir changé. <button onClick={() => void query.refetch()} className="underline">Réessayer</button></p>}
-    {!user && <Link to="/login" state={{ from: `/matches-equipes/${id}` }} className="block rounded-xl border border-border p-3 text-center text-primary">Se connecter pour gérer les matchs</Link>}
+    {!user && lines.length > 0 && login}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Matchs</h2><span className="text-xs text-muted-foreground">{completed}/{expected} résultats validés</span></div>
-    {lines.length === 0 && <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Aucun match créé. Ajoutez les joueurs de la rencontre pour commencer.</p>}
+    {/* Aucun match : le membre voit comment commencer, l'invité ce qui viendra (maquettes rencontre-membre / -invite). */}
+    {lines.length === 0 && <div className="space-y-3 rounded-xl border border-dashed border-border p-5 text-center">
+      <h3 className="font-bold">{manage ? 'Aucun match pour l’instant' : 'Compositions à venir'}</h3>
+      <p className="text-sm text-muted-foreground">{manage
+        ? 'Photographiez la feuille de composition, ou ajoutez les joueurs à la main.'
+        : 'Les joueurs et les scores s’afficheront ici dès qu’ils seront saisis par le club.'}</p>
+      {manage ? <>{photoButton}{manualButton}</> : !user && login}
+    </div>}
     <div className="space-y-3">{lines.map(line => {
       const live = lives.find(m => m.id === line.live_match_id);
       const score = line.result_kind === 'wo' ? 'WO' : live && !line.confirmed_at ? setsLabel(liveSets(live)) : line.score;
@@ -167,21 +181,21 @@ export default function TeamRencontrePage() {
         <div className="mb-3 flex items-center justify-between gap-2"><h3 className="font-semibold">{lineLabel(line)}</h3>
           <span className="flex items-center gap-2">
             {onAir ? <span className="me-res live">En direct</span>
-              : issue ? <>{note && <span className="text-xs font-[650] text-[hsl(355_10%_38%)]">{note}</span>}<ResultChip issue={issue} /></>
-              : <span className="text-xs font-[650] text-[hsl(355_10%_38%)]">En attente de score</span>}
+              : issue ? <>{note && <span className="text-xs font-[650] text-muted-foreground">{note}</span>}<ResultChip issue={issue} /></>
+              : <span className="text-xs font-[650] text-muted-foreground">En attente de score</span>}
           </span>
         </div>
         <p className="flex flex-wrap items-center gap-2 text-sm font-medium"><TeamPlayers players={line.joueurs_club} />{isClubPerformance(line, live) && <PerformanceBadge />}</p><p className="mt-1 text-sm text-muted-foreground"><TeamPlayers players={line.joueurs_adverse} /></p>
         {(score || (canEdit && !rencontre.wo)) && <div className="mt-2 flex min-h-11 items-center justify-between gap-3">
           {score && <p className="text-lg font-semibold tabular-nums">{score}</p>}
           {canEdit && !rencontre.wo && <button onClick={() => { action.clearError(); setSelection({ line, live, mode: 'actions' }); }}
-            className="-mr-2 ml-auto min-h-11 shrink-0 px-2 text-sm font-semibold text-[hsl(355_10%_38%)] underline underline-offset-2 active:opacity-60">{line.confirmed_at ? 'Modifier le résultat' : 'Gérer le match'}</button>}
+            className="-mr-2 ml-auto min-h-11 shrink-0 px-2 text-sm font-semibold text-muted-foreground underline underline-offset-2 active:opacity-60">{line.confirmed_at ? 'Modifier le résultat' : 'Gérer le match'}</button>}
         </div>}
       </article>;
     })}</div>
-    {canEdit && !rencontre.wo && <>
-      {freeSimples.length > 0 && competition.singles_set3_format && <button onClick={() => setComposing(true)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">Prendre en photo la compo</button>}
-      {lines.length < expected && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl border border-primary p-3 font-semibold text-primary">Ajouter match manuellement</button>}
+    {manage && lines.length > 0 && <>
+      {photoButton}
+      {manualButton}
       {!rencontre.confirmed_at && ready && <p className="text-sm font-medium">Tous les résultats sont saisis. Vérifiez les scores puis confirmez la rencontre.</p>}
       {!rencontre.confirmed_at && <button disabled={!ready} onClick={() => setRecap({ revision: rencontre.revision, lines })}
         className={`min-h-12 w-full rounded-xl border border-primary p-3 font-semibold disabled:opacity-40 ${ready ? 'bg-primary text-primary-foreground' : 'text-primary'}`}>Vérifier et confirmer la rencontre</button>}

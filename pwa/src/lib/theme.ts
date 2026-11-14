@@ -98,14 +98,16 @@ function readableOn(background: Hsl, ink: Hsl): Hsl {
  * qui choisit un gris (`#333333`, saturation nulle, teinte arbitrairement 0) récolterait des
  * bordures rosées.
  */
+// Thème v2 de la PWA (14/11/2026) : `--muted`, `--muted-foreground`, `--border` et `--input`
+// diffèrent désormais de la copie du BO, volontairement (cf. `pwa/src/index.css`).
 const NEUTRALS: Record<string, [saturation: number, lightness: number]> = {
   '--foreground': [20, 15],
   '--card-foreground': [20, 15],
   '--popover-foreground': [20, 15],
-  '--muted': [70, 94],
-  '--muted-foreground': [20, 45],
-  '--border': [50, 88],
-  '--input': [50, 88],
+  '--muted': [16, 93],
+  '--muted-foreground': [10, 38],
+  '--border': [12, 88],
+  '--input': [12, 88],
   // Bas du dégradé de `body` (BO uniquement) — la PWA reçoit le token sans l'utiliser.
   '--background-tint': [60, 97],
 };

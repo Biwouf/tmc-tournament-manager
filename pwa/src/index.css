@@ -1,9 +1,12 @@
 @import "tailwindcss";
 @source "../../shared";
 
-/* ─── Tokens — identiques au BO ─────────────────────────────────────────── */
+/* ─── Tokens ─────────────────────────────────────────────────────────────── */
+/* Thème v2 (brief UX PWA, PR4, 14/11/2026) : fond chaud, gris de texte plus sombre (méta
+   lisibles), bordures et fonds atténués moins rosés. Le BO garde ses valeurs. Les neutres
+   suivent la teinte du club via `lib/theme.ts` (NEUTRALS), aux mêmes saturation/luminosité. */
 :root {
-  --background: 0 0% 99%;
+  --background: 30 10% 97%;
   --foreground: 355 20% 15%;
   --card: 0 0% 100%;
   --card-foreground: 355 20% 15%;
@@ -11,13 +14,22 @@
   --primary-foreground: 0 0% 100%;
   --secondary: 355 80% 73%;        /* #f1818a */
   --secondary-foreground: 355 20% 15%;
-  --muted: 355 70% 94%;
-  --muted-foreground: 355 20% 45%;
+  --muted: 355 16% 93%;
+  --muted-foreground: 355 10% 38%;
   --accent: 355 75% 88%;           /* #f9c9cd */
   --accent-foreground: 355 60% 35%;
-  --border: 355 50% 88%;
+  --border: 355 12% 88%;
   --ring: 355 81% 50%;
   --radius: 0.8rem;
+
+  /* Issues V / D / N : couleurs de SENS, hors thème du club. Défaite en rouge atténué,
+     jamais le rouge de marque (réservé au direct et aux actions). Contrastes AA. */
+  --win-fg: #1f7a3a;
+  --win-bg: #e7f3ea;
+  --loss-fg: #b42318;
+  --loss-bg: #fdeceb;
+  --draw-fg: #5c5553;
+  --draw-bg: #f1efee;
 }
 
 @theme inline {

@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { LiveMatch } from '../types';
 import MatchCard from '../components/matches/MatchCard';
+import LiveEmptyState from '../components/matches/LiveEmptyState';
 import { LivePushBanner } from '../components/live/LivePush';
 import { followToastText } from '../lib/liveFollows';
 import { useAuth } from '../hooks/useAuth';
@@ -141,7 +142,7 @@ export default function MatchesPage() {
       )}
 
       {!isLoading && matches?.length === 0 && (
-        <p className="text-center text-muted-foreground py-8">Aucun match à afficher.</p>
+        <LiveEmptyState clubId={clubId} />
       )}
 
       {liveMatches.length > 0 && (
