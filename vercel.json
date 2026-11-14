@@ -1,3 +1,4 @@
 {
+  "ignoreCommand": "bash scripts/vercel-ignore-build.sh . ':!pwa' ':!web' ':!landing' ':!services' ':!docs' ':!tools' ':!*.md'",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
