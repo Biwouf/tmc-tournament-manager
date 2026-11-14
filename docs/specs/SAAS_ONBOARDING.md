@@ -651,7 +651,7 @@ ensuite. Pas de bouton tant que S9 n'existe pas (décision 5). La pastille des p
 
 | Élément | Fait quand… | Action |
 |---|---|---|
-| Compléter votre site | `siteGaps(config)` vide (même règle que la vitrine, hors `search_indexing`) ; sinon « Il manque : … » | → `/admin/site` |
+| Compléter votre site | `siteGaps(config)` vide (même règle que la vitrine, hors `search_indexing`) ; sinon « Il manque : … » | → `/admin/site` (prérempli depuis Ten'Up depuis S8b, §13) |
 | Publier le site | `clubs.site_published` | Bouton désactivé tant que le site n'est pas complet ; fenêtre de confirmation ; RPC `club_set_site_published` |
 | Inviter votre bureau | un **autre admin**, ou une invitation pas encore acceptée (`club-members`, statut `pending`) | → `/admin/members` |
 | Partager l'app aux adhérents | `onboarding.app_shared_at` | Fenêtre (chunk à part) : QR code et copie de l'écran final (`QrCode`, `useCopy`), message prêt à coller ; l'ouvrir pose la date |
@@ -715,3 +715,115 @@ Recette locale : `/etc/hosts` (`admin.feelike.pro` → `127.0.0.1`) et
 Mise en service : appliquer `2026111401_club_site_publish.sql` en prod **avant** le merge (sans
 elle, « Publier » échoue avec un message ; le reste de la carte fonctionne). Pas d'Edge Function,
 pas de variable.
+
+## 13. Remplir le site depuis Ten'Up (S8b, brief `SAAS_10_S8b_site_depuis_tenup.md`)
+
+« Compléter votre site » (§12.3) devient une relecture : `/admin/site` propose, en tête, le site
+prérempli depuis la page publique du club sur Ten'Up. Décisions du 14/11/2026 : entrée unique
+`/admin/site` ; tout coché par défaut sauf anomalies ; lecture hors plafond d'essai, une par club et
+par 24 h ; identifiant Ten'Up gardé dès l'import des équipes ; titre d'accueil par défaut ; rien
+pour un club `internal`. Deux arbitrages complémentaires du même jour : la lecture en tâche de fond
+part **à la fin de l'import des équipes**, pas dès la lecture de la page du club (le worker ne lit
+qu'une page à la fois : elle aurait fait échouer les poules) ; une lecture **en échec ne compte
+pas** dans la limite de 24 h, mais 3 échecs par club et par 24 h bloquent.
+
+### 13.1 Lecture (worker, Edge `tenup-site`)
+
+- **Worker** `kind: 'club-profile'`, URL `https://tenup.fft.fr/club/<id>` seulement. Une session
+  Chromium, quatre pages : « Le club » (obligatoire), `/equipe`, `/offres`, la première
+  installation. Une sous-page en échec est marquée `failed`, les autres restent lues.
+  Détails et relevé : `services/tenup-worker/README.md` › Profil du club.
+- **Ce qui est lu** : JSON-LD `SportsActivityLocation` (adresse, téléphone, e-mail, logo, bandeau,
+  sports) — plus fiable que le texte de l'en-tête, où rue, code postal et ville sont collés —,
+  liens Facebook / Instagram de l'en-tête, **équipe dirigeante** (ni enseignants ni bénévoles),
+  offres (type, titre, année « (2027) », description, prix « Tarif unique à » / « À partir de » ;
+  la condition « À partir de 18 ans » n'est pas un prix), terrains par sport et surface.
+- **Edge `tenup-site`** : `{ club_id, url }` (lien collé, tout onglet ramené à la racine, autre
+  hôte refusé) ou `{ club_id, background: true }` (identifiant enregistré, réponse 202, lecture
+  dans `EdgeRuntime.waitUntil`). Contrôle SQL `club_tenup_site_begin` avec le JWT de l'admin, puis
+  worker, `validateTenupClubProfile`, copie du logo et du bandeau dans
+  `content-images/<club>/config/` (hôte `cmsclub.fft.fr` seulement, signature PNG / JPEG / WebP,
+  ≤ 5 Mo ; non recompressées : Ten'Up les sert déjà en WebP de 8 à 75 Ko), proposition écrite par
+  la clé service. Les images de la proposition précédente non enregistrée sont supprimées. Une
+  image illisible est signalée (`image_errors`), le reste de la lecture est gardé. Aucune écriture
+  dans `club_settings`, aucun journal du contenu lu.
+- **Déclencheurs** : `tenup-sync` enregistre `clubs.tenup_club_id` à la réussite de la page club
+  (S6b) ; `ClubImport` appelle `startTenupSiteBackground` une fois la dernière poule importée
+  (réussie ou non), sans attendre ni afficher d'erreur. La lecture au premier plan enregistre aussi
+  l'identifiant à sa réussite.
+
+### 13.2 Données (migration `2026111402_tenup_site_profile.sql`)
+
+| Objet | Rôle |
+|---|---|
+| `clubs.tenup_club_id` | Identifiant Ten'Up (`^[0-9]{1,12}$`), écrit par le service role seulement (`authenticated` n'a que `UPDATE (status)` sur `clubs`). Lisible comme le reste de `clubs` : donnée publique de Ten'Up. |
+| `club_tenup_site_reads` | Compteur à part (hors `team_tenup_competition_requests`, donc hors plafond d'essai) : `running` / `done` / `failed`, `background`. Aucun accès navigateur. Purge à 2 jours. |
+| `club_tenup_site_proposals` | Une proposition par club (`payload`, `images`, `status` `ready` / `consumed`, `read_at`). `SELECT` aux admins du club (et au super-admin) ; écriture service role. Gardée jusqu'à l'enregistrement ou la lecture suivante. |
+| `club_tenup_site_begin(club, tenup_id, background)` | Admin d'un club actif ou super-admin (`42501`) ; refus pour `internal`. Une lecture réussie — ou en cours depuis moins de 2 min — par 24 h (« Nouvelle lecture possible le JJ/MM à HHhMM ») ; 3 échecs par 24 h (une lecture restée `running` plus de 2 min compte comme échec). En tâche de fond, ces refus rendent `{started: false, reason}` (`no_id`, `recent`, `failures`) au lieu d'une erreur. Verrou consultatif par club. |
+| `club_tenup_site_state(club)` | `{available, tenup_club_id, running, next_read_at, failures}` ; `{available: false}` pour `internal`. |
+| `club_tenup_site_consume(club)` | Proposition `ready` → `consumed`. |
+
+Jamais de SQLSTATE 40001 (exceptions par défaut, `42501` pour les droits).
+
+### 13.3 Relecture (`TenupSiteImport`, règles `lib/tenupSiteImport.ts`)
+
+- **Entrée** : bandeau « Votre site a été prérempli depuis Ten'Up — relisez et enregistrez » quand
+  une proposition attend ; « Lecture de votre club sur Ten'Up en cours… » (état relu toutes les
+  8 s) ; sinon « Remplir depuis Ten'Up », lien à coller, aide « Où trouver ce lien ? ». « Relire
+  depuis Ten'Up » reste proposé, ou la date de la prochaine lecture possible. Le CAC ne voit rien
+  et ne fait aucun appel.
+- **Cartes** Identité, Contact, Réseaux, Accueil, Le club, Infrastructures, Tarifs ; une case par
+  valeur (libellée, `aria-describedby` vers l'avertissement), compteur « Enregistrer (N) ».
+  Une valeur identique à l'actuelle n'est pas proposée (casse et format du téléphone ignorés).
+- **Décoché et « à vérifier »** : valeur déjà saisie et différente (« actuel : … → Ten'Up : … »),
+  prix manquant, prix ≤ 1 € ou ligne « Réduction », type `Produit`, image illisible (ligne non
+  cochable).
+- **Mise en forme** : ville et noms en capitales → « Moissac », « Zoé Michel » ; téléphone
+  « 06 29 33 46 04 » ; titre d'accueil « Bienvenue au <nom du tunnel> », modifiable, proposé
+  seulement si le titre est vide ; le nom du club n'est jamais touché.
+- **Bureau** : la personne dont une fonction est exactement « Président(e) » → `club.president`
+  (nom, fonction) ; les autres → `club.board` (fonctions jointes par « · »). Note : « Ces noms
+  seront publiés sur votre site. »
+- **Terrains** : une entrée par sport et surface — `count` « 5 », `label` « Tennis », `detail`
+  « Résine · dont 2 couverts ».
+- **Tarifs** : `Adhésion` → `membership`, sauf libellé de cours (`cours`, `mini-tennis`, `école`,
+  `stage`) → `lessons` ; `Enseignement (cours)` → `lessons` ; `Carnet de tickets` → `other_fees`
+  (« 60 € ») ; `Produit` → `other_fees`, décoché ; autres types (animations) ignorés. « À partir
+  de X » → `price = X`, `subtitle = « à partir de »` (autres frais : « à partir de X € »). Le prix
+  Ten'Up est importé tel quel (Moissac : part club sans licence), la description reste visible ;
+  nom et prix se corrigent sur place (« 150,50 » accepté). Saison : année la plus récente entre
+  parenthèses (« (2027) » → « 2026/2027 »), à défaut la saison sportive en cours.
+- **Listes jamais remplacées** : les lignes cochées s'ajoutent aux listes existantes ; une ligne
+  dont le nom existe déjà (bureau, tarifs) ou le détail (terrains) n'est pas proposée.
+- **Enregistrer** : `applyReview` → `saveClubConfigGroup` par groupe touché (validation du schéma,
+  `UPDATE` d'une clé racine), puis suppression des images remplacées et des images de la
+  proposition non retenues, `club_tenup_site_consume`, relecture de la config et remontage des
+  panneaux. Message « N champs remplis depuis Ten'Up », et si `siteGaps` est vide, renvoi vers
+  « Publier le site ». Un groupe refusé est listé, les autres restent écrits. « Plus tard » garde
+  la proposition.
+
+### 13.4 Tests et recette
+
+`tests/tenup-site-worker.test.mjs` (parseur sur les pages réelles des clubs 60820110, 57950125 et
+60310304 relevées le 14/11/2026 — scripts retirés sauf JSON-LD, noms des personnes remplacés —,
+lecture des quatre pages dans Chromium avec une page en échec, URL, validation),
+`tests/tenup-site-edge.test.mjs` (contrôle SQL avant lecture, images copiées et contrôlées,
+aucune URL Ten'Up dans la proposition, échec marqué, tâche de fond), `tests/tenup-site-sql.test.mjs`
+(PGlite : 24 h, lecture en cours, échecs, tâche de fond silencieuse, `internal`, droits, RLS de la
+proposition), `tests/tenup-site-import.test.mjs` (mapping Moissac, pas d'écrasement, écriture
+validée et site complet, parcours réel de `/admin/site`), `tests/first-steps.test.mjs` (lecture en
+tâche de fond après la dernière poule), `tests/tenup-club-edge.test.mjs` (identifiant enregistré).
+Lecture réelle vérifiée en local sur les trois clubs (2,4 à 3,2 s). Rendu contrôlé en desktop et à
+390 px (aucun défilement horizontal ; une URL longue se coupe), navigation au clavier.
+
+Mise en service, **avant le merge**, dans cet ordre : appliquer `2026111402_tenup_site_profile.sql` ;
+redéployer le worker Ten'Up (`kind: 'club-profile'`) ; déployer l'Edge `tenup-site` (nouvelle,
+mêmes secrets que `tenup-sync`) puis redéployer `tenup-sync`. Recette prod : un club d'essai importe
+ses équipes depuis sa page Ten'Up → proposition prête sur `/admin/site` sans action ; relecture,
+enregistrement, checklist « Compléter votre site » cochée ; seconde lecture refusée dans les 24 h ;
+lien collé sur un autre club de test ; rien pour le CAC.
+
+Limites connues : une seule installation lue (Ermont en a deux) ; la présentation du club publiée
+par certains clubs (Ermont), l'équipe pédagogique, les horaires et la galerie ne sont pas repris ;
+« Loisir enfant » ou « Perf enfant » (type Adhésion, cours dans la seule description) restent en
+adhésion seule.

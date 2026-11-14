@@ -22,11 +22,15 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   const canonical = 'https://tenup.fft.fr/club/60820056/competitions/rencontres';
   const club = extractTenupClub(new JSDOM(await readFile(new URL('./fixtures/tenup-club.html', import.meta.url), 'utf8')).window.document);
   let handler, fetched = 0, rpcError = null, payload = club, workerStatus = 200;
-  const rpcs = [], marks = [];
+  const rpcs = [], marks = [], stored = [];
   globalThis.Deno = { serve: (fn) => (handler = fn), env: { get: (key) => (key === 'TENUP_WORKER_URL' ? 'https://worker.example/api/extract' : key) } };
   globalThis.__clubApi = (_url, key) => {
     // Clé service : uniquement pour rendre une lecture en échec, jamais pour écrire.
-    if (key === 'SUPABASE_SERVICE_ROLE_KEY') return { rpc: async (name, args) => { marks.push([name, args]); return { data: true, error: null }; } };
+    if (key === 'SUPABASE_SERVICE_ROLE_KEY') return {
+      rpc: async (name, args) => { marks.push([name, args]); return { data: true, error: null }; },
+      // S8b : l'identifiant Ten'Up du club est gardé à la réussite (jamais pour un club `internal`).
+      from: (table) => ({ update: (row) => ({ eq: (k, v) => ({ neq: async (k2, v2) => { stored.push([table, row, k, v, k2, v2]); return { error: null }; } }) }) }),
+    };
     return {
       auth: { getUser: async () => ({ data: { user: { id: 'actor' } }, error: null }) },
       rpc: async (name, args) => { rpcs.push([name, args]); return { data: true, error: rpcError }; },
@@ -42,6 +46,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   assert.deepEqual(rpcs[0], ['team_tenup_club_begin', { p_club: clubId, p_url: canonical }]);
   assert.equal((await res.json()).teams.length, 6);
   assert.equal(marks.length, 0, 'a successful read stays counted');
+  assert.deepEqual(stored, [['clubs', { tenup_club_id: '60820056' }, 'id', clubId, 'plan', 'internal']]);
   // Refus SQL (droits, quota, plafond) : aucune lecture facturée.
   rpcError = { code: '42501', message: 'Administration du club requise.' };
   res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));
@@ -64,6 +69,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   assert.equal(res.status, 502);
   const mark = ['team_tenup_read_failed', { p_actor: 'actor', p_club: clubId, p_club_import: true }];
   assert.deepEqual(marks, [mark], 'an unreadable page is not counted');
+  assert.equal(stored.length, 1, 'nothing stored for an unreadable page');
   // Worker verrouillé ou en erreur : la lecture est rendue, le message reste « indisponible ».
   payload = club; workerStatus = 502;
   res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));

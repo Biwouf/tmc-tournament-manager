@@ -70,6 +70,8 @@ const supabase = {
     return { data: 0, error: null };
   },
   functions: { async invoke(name, { body }) {
+    // S8b : profil du club lu en tâche de fond à la fin de l'import (Edge `tenup-site`).
+    if (name === 'tenup-site') { log.push(['tenup-site', body]); return { data: { started: true }, error: null }; }
     log.push(['tenup', body.kind]);
     if (tenup.refuse) return { data: null, error: { context: new Response(JSON.stringify({ error: tenup.refuse }), { status: 400 }) } };
     if (body.kind === 'club') return { data: tenup.club, error: null };
@@ -547,6 +549,9 @@ test('club link: every team listed by championship, all ticked; import creates t
   await click('Importer 2 équipes');
   for (let i = 0; i < 10; i++) await flush();
   assert.deepEqual(log.filter(l => l[0] === 'tenup').map(l => l[1]), ['club', 'competition', 'pool', 'pool']);
+  // S8b : une fois les poules lues (le worker est libre), le profil du club part en tâche de fond.
+  assert.deepEqual(log.filter(l => l[0] === 'tenup-site').map(l => l[1]), [{ club_id: 'c1', background: true }]);
+  assert.ok(log.findIndex(l => l[0] === 'tenup-site') > log.findLastIndex(l => l[0] === 'tenup'), 'after the last pool read');
   assert.equal(db.team_competitions[0].genre, 'hommes', 'gender from the « Homme » badge');
   assert.equal(db.team_equipes.length, 1);
   assert.match(text(), /TC ALPHA 1Hommes Seniors · Division 2 · 2 rencontres/, 'created team in the step list');
