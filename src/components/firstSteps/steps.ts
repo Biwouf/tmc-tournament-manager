@@ -43,7 +43,7 @@ export const FIRST_STEPS: FirstStep[] = [
     isDone: () => false,
     Component: FinalStep,
     Preview: ActuPreview,
-    Below: Discover,
+    Side: Discover,
     final: true,
   },
 ];

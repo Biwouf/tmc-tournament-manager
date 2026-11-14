@@ -44,8 +44,8 @@ export type FirstStep = {
   Component: ComponentType<StepProps>;
   /** L'aperçu à droite : l'onglet de la PWA concerné par l'étape. */
   Preview: ComponentType<StepPreviewProps>;
-  /** Pleine largeur, sous l'étape et l'aperçu. */
-  Below?: ComponentType;
+  /** À droite de l'étape, à la place de l'aperçu (écran final : « à découvrir »). */
+  Side?: ComponentType;
   /** Récapitulatif de l'écran final. */
   recap?: { done: string; todo: string };
   /** Écran de fin : absent du décompte « Étape X sur N ». */
@@ -74,7 +74,7 @@ export default function FirstStepsFlow({ club, config, steps }: { club: Club; co
   const step = steps[index];
   const progress = stepProgress(steps, index);
   const nextStep = steps[index + 1];
-  const { Component, Preview, Below } = step;
+  const { Component, Preview, Side } = step;
   const name = config.brand.name || club.name;
   const data: PreviewData = { name, city: config.brand.city, slug: club.slug, color: config.brand.color ?? '', logo: config.brand.logo || null, photo: config.home.hero_image || null };
 
@@ -158,14 +158,15 @@ export default function FirstStepsFlow({ club, config, steps }: { club: Club; co
             )}
           </section>
 
-          <section className={`fs-stage${previewOpen ? ' open' : ''}`} aria-label="Aperçu de l'app">
-            <button type="button" className="fs-btn fs-btn-o fs-preview-toggle" aria-expanded={previewOpen} aria-controls="fs-preview" onClick={() => setPreviewOpen((open) => !open)}>
-              {previewOpen ? 'Masquer l’aperçu' : 'Voir l’aperçu'}
-            </button>
-            <div id="fs-preview" className="fs-phone"><Preview club={club} data={data} version={version} /></div>
-          </section>
+          {Side
+            ? <Side />
+            : <section className={`fs-stage${previewOpen ? ' open' : ''}`} aria-label="Aperçu de l'app">
+                <button type="button" className="fs-btn fs-btn-o fs-preview-toggle" aria-expanded={previewOpen} aria-controls="fs-preview" onClick={() => setPreviewOpen((open) => !open)}>
+                  {previewOpen ? 'Masquer l’aperçu' : 'Voir l’aperçu'}
+                </button>
+                <div id="fs-preview" className="fs-phone"><Preview club={club} data={data} version={version} /></div>
+              </section>}
         </div>
-        {Below && <Below />}
       </main>
     </div>
   );

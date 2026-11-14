@@ -106,7 +106,7 @@
 .fs-discover { display: flex; flex-direction: column; gap: 16px; }
 .fs-discover-head { display: flex; flex-direction: column; gap: 4px; }
 .fs-discover h2 { margin: 0; font-weight: 800; font-size: 24px; letter-spacing: -0.02em; }
-.fs-discover-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.fs-discover-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .fs-disc { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
 .fs-disc h3 { margin: 0; font-weight: 800; font-size: 16px; }
 .fs-disc p { margin: 0; color: var(--mu); font-size: 13.5px; line-height: 1.5; }
@@ -176,7 +176,6 @@
 @keyframes fs-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .fs-step > *, .fs-pop, .fs-disc-tag { animation: none; } .fs-spin { animation-duration: 2.4s; } .fs-bar div { transition: none; } }
 
-@media (max-width: 1099px) { .fs-discover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 860px) {
   .fs-layout { grid-template-columns: minmax(0, 1fr); }
   .fs-shell { padding-inline: 16px; }

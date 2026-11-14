@@ -325,7 +325,10 @@ test('reload resumes at the right step; final screen: real QR code, copy, dashbo
   assert.match(text(), /Première actu publiée/);
   assert.match(text(), /Vos équipes et leur calendrier/);
   assert.match(text(), /Affiche du week-end prête/);
-  assert.match(text(), /Déjà publiée/);
+  // « À découvrir » prend la place du téléphone, pour être vu sans défiler (14/11/2026).
+  assert.ok(document.querySelector('.fs-layout > .fs-discover'), 'discover cards beside the step');
+  assert.ok(!document.querySelector('.fs-stage'), 'no phone preview on the final screen');
+  assert.doesNotMatch(text(), /Déjà publiée/);
   assert.match(text(), /app-tc-alpha\.feelike\.pro/);
   const qr = document.querySelector('svg[role="img"]');
   assert.ok(qr.querySelector('path').getAttribute('d').length > 1000);
