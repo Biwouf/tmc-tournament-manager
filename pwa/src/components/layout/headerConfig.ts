@@ -29,7 +29,7 @@ const ROUTES: Array<[string, HeaderConfig]> = [
   ['/matches/:id/score',  { mode: 'sub',  title: 'Live',
                             backTo: '/matches', backLabel: 'Live' }],
   ['/login',              { mode: 'sub',  title: 'Connexion',
-                            backTo: '/matches', backLabel: 'Live' }],
+                            backTo: '/actu', backLabel: 'Actualités' }],
 ];
 
 export function resolveHeader(pathname: string): HeaderConfig {

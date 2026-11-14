@@ -5,6 +5,7 @@ import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
 import { useAuth } from '../../hooks/useAuth';
 import { returnPath } from './headerConfig';
+import { originLabel, useBackOrigin, useGoBack } from './useGoBack';
 
 const isIOS = () =>
   typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -93,13 +94,17 @@ export default function AppHeader() {
   const { config } = useClubConfig();
   const clubName = club?.name ?? cfg.title;
 
+  const origin = useBackOrigin();
+  const goBack = useGoBack(cfg.backTo ?? '/actu');
+  const backLabel = originLabel(origin) ?? cfg.backLabel;
   const handleBack = () => {
     const from = (location.state as { from?: string } | null)?.from;
     const profileReturn = new URLSearchParams(location.search).get('returnTo');
+    // Login and profile can be reached through a replaced entry (auth redirect): go to the
+    // origin itself rather than one step back.
     if (location.pathname === '/login' && returnPath(from)) navigate(returnPath(from)!);
     else if (location.pathname === '/profil' && returnPath(profileReturn)) navigate(returnPath(profileReturn)!);
-    else if (cfg.backTo) navigate(cfg.backTo);
-    else navigate(-1);
+    else goBack();
   };
 
   return (
@@ -126,7 +131,7 @@ export default function AppHeader() {
           <button
             type="button"
             onClick={handleBack}
-            aria-label={`Retour à ${cfg.backLabel ?? 'précédent'}`}
+            aria-label={`Retour à ${backLabel ?? 'précédent'}`}
             className="flex min-h-11 min-w-11 items-center gap-1 -ml-2 px-2 text-primary active:opacity-70"
           >
             <svg
@@ -142,9 +147,9 @@ export default function AppHeader() {
             >
               <path d="M15 18l-6-6 6-6" />
             </svg>
-            {isIOS() && cfg.backLabel && (
+            {isIOS() && backLabel && (
               <span className="truncate text-[15px] font-medium" style={{ maxWidth: 80 }}>
-                {cfg.backLabel}
+                {backLabel}
               </span>
             )}
           </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { fromHere } from '../../components/layout/useGoBack';
 import type { LiveMatch, LiveMatchWinner } from '../../types';
 import {
   firstServerFor,
@@ -51,6 +52,7 @@ export default function LiveScoreboard({
   onStart: (firstServer: LiveMatchWinner | null, notify: boolean) => void;
   onScore: (patch: Partial<LiveMatch>) => void;
 }) {
+  const location = useLocation();
   const currentSet = activeSet(match);
   const quickAvailable = !!quickScore(match, 'j1');
   const [now, setNow] = useState(() => new Date().toISOString());
@@ -259,6 +261,7 @@ export default function LiveScoreboard({
           <Link
             className="live-note"
             to={`/matches-equipes/${match.team_rencontre_id}`}
+            state={fromHere(location)}
           >
             Valider le résultat dans la rencontre →
           </Link>

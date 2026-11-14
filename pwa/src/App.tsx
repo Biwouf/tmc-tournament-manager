@@ -68,6 +68,8 @@ function AppShell() {
   const { config, isFetched: configFetched, isSuccess: configLoaded } = useClubConfig();
   const location = useLocation();
   const immersive = /^\/matches\/(?!new(?:\/|$))[^/]+(?:\/score)?\/?$/.test(location.pathname);
+  // Écrans d'authentification : ni barre d'onglets ni bannière d'installation (clavier).
+  const authScreen = /^\/(?:login|inscription|forgot-password|reset-password)(?:\/|$)/.test(location.pathname);
 
   // Effet à part de celui du manifeste : les couleurs ne dépendent pas de `club`, seulement
   // de la config. Le logo et les couleurs publics s'appliquent aussi avant connexion.
@@ -135,7 +137,7 @@ function AppShell() {
   return (
     <HeaderActionProvider>
       {!immersive && <AppHeader />}
-      <main className={`pwa-content${immersive ? ' live-immersive' : ''}`}>
+      <main className={`pwa-content${immersive ? ' live-immersive' : ''}${authScreen ? ' no-bottom-nav' : ''}`}>
         {!immersive && <UpdateBanner />}
         {!immersive && <SignupNotice />}
         <Routes>
@@ -168,8 +170,8 @@ function AppShell() {
           <Route path="/evenements" element={<Navigate to="/actu?tab=events" replace />} />
         </Routes>
       </main>
-      {!immersive && <InstallBanner />}
-      {!immersive && <BottomNav />}
+      {!immersive && !authScreen && <InstallBanner />}
+      {!immersive && !authScreen && <BottomNav />}
     </HeaderActionProvider>
   );
 }

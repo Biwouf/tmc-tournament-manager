@@ -101,7 +101,7 @@ export default function PasswordRecoveryPage({ reset = false }: { reset?: boolea
         <h1 className="mb-3 text-2xl font-semibold text-foreground">{reset ? 'Nouveau mot de passe' : 'Mot de passe oublié'}</h1>
         {done ? <div role="status" className="space-y-4">
           <p>Votre mot de passe a été modifié.</p>
-          <Link className="block text-primary underline" to="/cours">Continuer vers mon espace</Link>
+          <Link className="block text-primary underline" to="/actu">Continuer vers mon espace</Link>
         </div> : sent ? <div role="status" className="space-y-4">
           <p>Si un compte correspond à cette adresse, vous recevrez un email pour choisir un nouveau mot de passe.</p>
           <p className="text-sm text-muted-foreground">Pensez à vérifier vos spams. Ouvrez le lien dans votre navigateur pour poursuivre.</p>

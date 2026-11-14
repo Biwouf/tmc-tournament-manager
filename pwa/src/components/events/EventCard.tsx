@@ -1,7 +1,8 @@
 // Carte d'un événement — vignette latérale + date renforcée (variante B1).
 // Clic → navigation vers /evenements/:id
 
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { fromHere } from '../../components/layout/useGoBack';
 import type { ClubEvent, EventType } from '../../types';
 
 const TYPE_COLORS: Record<EventType, string> = {
@@ -89,11 +90,13 @@ interface Props {
 }
 
 export default function EventCard({ event }: Props) {
+  const location = useLocation();
   const prix = !event.prix || event.prix === 0 ? 'Gratuit' : `${event.prix} €`;
 
   return (
     <Link
       to={`/evenements/${event.id}`}
+      state={fromHere(location)}
       className="flex h-[130px] bg-card rounded-xl overflow-hidden border border-border shadow-sm active:opacity-80 transition-opacity"
     >
       <div className="w-24 flex-shrink-0 bg-muted">

@@ -3,7 +3,8 @@ import PerformanceBadge from '../components/teamMatches/PerformanceBadge';
 import { isClubPerformance } from '../lib/teamPerformance';
 import TeamPlayers from '../components/teamMatches/TeamPlayers';
 import { useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { fromHere } from '../components/layout/useGoBack';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clubTopic } from '../lib/liveChannel';
 import { LIVE_SAFETY_POLL, useLiveTopic } from '../hooks/useLiveTopic';
@@ -32,6 +33,7 @@ export default function TeamRencontrePage() {
   const { user } = useAuth();
   const membership = useCourseContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const [creating, setCreating] = useState(false);
   const [composing, setComposing] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -110,7 +112,7 @@ export default function TeamRencontrePage() {
     const result = await action.run('start_live', base);
     // L'alerte de début ne bloque jamais l'ouverture du live (au pire, pas d'alerte).
     if (result?.live_match_id && startsLive && notifyStart && clubId) await announceLiveStart(clubId, result.live_match_id);
-    if (result?.live_match_id) navigate(`/matches/${result.live_match_id}/score`);
+    if (result?.live_match_id) navigate(`/matches/${result.live_match_id}/score`, { state: fromHere(location) });
   };
   const chooseRule = async (rule: 'normal' | 'super_tiebreak') => {
     const base = await revisions();

@@ -3,7 +3,8 @@
 // La carte et le bandeau de rencontre ont chacun un lien natif indépendant.
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { fromHere } from '../../components/layout/useGoBack';
 import type { LiveEncounterScore } from '../../lib/liveEncounterScores';
 import { useQueryClient } from '@tanstack/react-query';
 import { deleteLiveMatch } from '../../lib/liveMatchWrites';
@@ -173,6 +174,7 @@ export default function MatchCard({
   encounterError,
   onFollowChange,
 }: Props) {
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { clubId } = useClub();
   const [busy, setBusy] = useState(false);
@@ -233,6 +235,7 @@ export default function MatchCard({
     >
       <Link
         to={`/matches/${match.id}`}
+        state={fromHere(location)}
         aria-label={`${actionLabel} : ${playerLabel(match, 'j1')} contre ${playerLabel(match, 'j2')}`}
         className="absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
@@ -321,6 +324,7 @@ export default function MatchCard({
       {match.team_rencontre_id && (
         <Link
           to={`/matches-equipes/${match.team_rencontre_id}`}
+          state={fromHere(location)}
           className="relative z-10 -mx-4 -mb-4 mt-1 flex min-h-14 items-center justify-between gap-3 rounded-b-xl border-t border-border bg-muted/30 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <span className="min-w-0">

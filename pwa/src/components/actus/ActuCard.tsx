@@ -1,7 +1,8 @@
 // Carte d'une actu dans la liste — image, titre, extrait, date.
 // Clic → navigation vers /actus/:id
 
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { fromHere } from '../../components/layout/useGoBack';
 import type { Actu } from '../../types';
 import { focalPointStyle } from '../../utils/focalPoint';
 
@@ -21,9 +22,10 @@ function excerpt(markdown: string, maxLength = 120): string {
 }
 
 export default function ActuCard({ actu }: Props) {
+  const location = useLocation();
   const cover = actu.image_urls[0];
   return (
-    <Link to={`/actus/${actu.id}`} className="block bg-card rounded-xl overflow-hidden shadow-sm border border-border active:opacity-80 transition-opacity">
+    <Link to={`/actus/${actu.id}`} state={fromHere(location)} className="block bg-card rounded-xl overflow-hidden shadow-sm border border-border active:opacity-80 transition-opacity">
       {cover && (
         <img
           src={cover}
