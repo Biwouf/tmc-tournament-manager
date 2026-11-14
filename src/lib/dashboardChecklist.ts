@@ -6,6 +6,7 @@ import type { ClubConfig, OnboardingState } from './clubConfig';
 import type { Club } from '../contexts/ClubContext';
 import type { ClubRole } from '../contexts/ClubRoleContext';
 import { trialDaysLeft, trialLabel } from './firstSteps';
+import { missingSiteExtras } from './siteExtras';
 
 /** Clubs self-serve (essai ou abonnés), ouverts par un admin, hors support. Rien pour `internal`. */
 export function eligibleForChecklist(club: Club | null, role: ClubRole | null, isSupport: boolean): boolean {
@@ -38,7 +39,7 @@ export function reminderSteps(state: OnboardingState) {
 
 export const firstStepPath = (id: string) => `/premiers-pas?etape=${id}`;
 
-export type ChecklistItemId = 'site' | 'publish' | 'team' | 'share' | 'password' | `step:${string}`;
+export type ChecklistItemId = 'site' | 'publish' | 'team' | 'share' | 'password' | `step:${string}` | `extra:${string}`;
 export type ChecklistItem = {
   id: ChecklistItemId;
   title: string;
@@ -82,6 +83,10 @@ export function checklistItems({ config, sitePublished, team, passwordSet }: Che
     },
     ...reminderSteps(config.onboarding).map((step): ChecklistItem => ({
       id: `step:${step.id}`, title: step.title, detail: step.detail, done: config.onboarding.completed_steps.includes(step.id),
+    })),
+    // S8b-bis : ce que Ten'Up ne donne pas, en rappel facultatif (hors compteur).
+    ...missingSiteExtras(config).map((extra): ChecklistItem => ({
+      id: `extra:${extra.id}`, title: extra.title, detail: extra.detail, done: false, optional: true,
     })),
   ];
   if (passwordSet !== null) {

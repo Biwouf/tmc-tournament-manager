@@ -79,9 +79,18 @@ async function readProfile(admin: Admin, clubId: string, tenupId: string, readId
     const { data: previous } = await admin.from('club_tenup_site_proposals').select('images, status').eq('club_id', clubId).maybeSingle();
     const logo = profile.club.logo ? await copyImage(admin, clubId, profile.club.logo, 'logo') : null;
     const banner = profile.club.banner ? await copyImage(admin, clubId, profile.club.banner, 'bandeau') : null;
-    const image_errors = [profile.club.logo && !logo ? 'logo' : null, profile.club.banner && !banner ? 'banner' : null].filter(Boolean);
-    const payload = { ...profile, club: { ...profile.club, logo: logo?.url ?? '', banner: banner?.url ?? '' }, image_errors };
-    const images = [logo?.path, banner?.path].filter(Boolean);
+    // S8b-bis : la photo de l'installation, en DEUX copies (page Infrastructures et accueil) : un
+    // panneau supprime les images qu'il n'utilise plus, un fichier partagé serait effacé par l'autre.
+    const installationSource = profile.club.installation_image ?? '';
+    const installation = installationSource ? await copyImage(admin, clubId, installationSource, 'installation') : null;
+    const installationHome = installation ? await copyImage(admin, clubId, installationSource, 'installation-accueil') : null;
+    const image_errors = [profile.club.logo && !logo ? 'logo' : null, profile.club.banner && !banner ? 'banner' : null,
+      installationSource && !installation ? 'installation' : null].filter(Boolean);
+    const payload = {
+      ...profile, image_errors,
+      club: { ...profile.club, logo: logo?.url ?? '', banner: banner?.url ?? '', installation_image: installation?.url ?? '', installation_image_home: installationHome?.url ?? '' },
+    };
+    const images = [logo?.path, banner?.path, installation?.path, installationHome?.path].filter(Boolean);
     const { error } = await admin.from('club_tenup_site_proposals').upsert({
       club_id: clubId, tenup_club_id: tenupId, payload, images, status: 'ready', read_at: new Date().toISOString(),
     });

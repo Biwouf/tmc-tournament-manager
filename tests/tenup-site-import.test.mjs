@@ -13,7 +13,7 @@ import ts from 'typescript';
 import { JSDOM } from 'jsdom';
 import { siteGaps } from '../shared/siteReadiness.mjs';
 import {
-  extractTenupClubBoard, extractTenupClubHome, extractTenupClubOffers, extractTenupInstallation,
+  extractTenupClubBoard, extractTenupClubHome, extractTenupClubOffers, extractTenupInstallation, extractTenupOfferTariffs,
 } from '../services/tenup-worker/parse-club-profile.mjs';
 
 const dom = new JSDOM('<div id="root"></div>', { url: 'https://admin.feelike.pro/admin/site' });
@@ -132,9 +132,13 @@ test('mapping Moissac: everything checked except what needs a look; Ten’Up pri
   assert.equal(ids['club.president_role'].next, 'Président');
   assert.equal(items.filter((i) => i.list === 'board').length, 3);
   assert.deepEqual(items.filter((i) => i.list === 'courts').map((i) => i.entry), [
-    { count: '5', label: 'Tennis', detail: 'Résine · dont 2 couverts', image: '' },
-    { count: '2', label: 'Padel', detail: 'Gazon synthétique', image: '' },
+    { count: '3', label: 'Courts extérieurs', detail: 'Résine', image: '' },
+    { count: '2', label: 'Courts couverts', detail: 'Résine', image: '' },
+    { count: '2', label: 'Terrains de padel', detail: 'Gazon synthétique', image: '' },
   ]);
+  assert.deepEqual(items.filter((i) => i.list === 'infra_teaser').map((i) => i.entry.detail), ['3 courts · résine', '2 courts · résine', '2 terrains · gazon synthétique']);
+  assert.deepEqual(['cta_title', 'cta_text', 'cta_button'].map((k) => [ids[`home.${k}`].next, ids[`home.${k}`].checked]),
+    [['Rejoignez notre club', true], [lib.DEFAULT_HOME_CTA.cta_text, true], ['Nous contacter', true]]);
   assert.equal(ids['pricing.season'].next, '2026/2027');
   // Part club sans licence : importée telle quelle, la description reste visible pour corriger.
   const adult = find(items, 'Adhesion Adulte tennis hors padel');
@@ -165,7 +169,8 @@ test('nothing is overwritten silently: current values shown, unchecked; lists on
     contact: { phone: '05 63 00 00 00', email: 'tennispadelmoissac@gmail.com', address_street: 'avenue du sarlac' },
     club: { board: [{ name: 'Alice Morel', role: 'Secrétaire' }] },
     pricing: { membership: [{ name: 'Adhesion Enfant', price: 40 }] },
-    home: { hero_title: 'Bonjour' },
+    home: { hero_title: 'Bonjour', cta_button: 'Écrivez-nous', infra_teaser: [{ label: 'Club house' }, { label: 'Courts couverts' }] },
+    infra: { courts: [{ count: '2', label: 'Courts couverts' }] },
   });
   const items = lib.buildReview(await moissac(), config);
   const ids = byId(items);
@@ -175,6 +180,9 @@ test('nothing is overwritten silently: current values shown, unchecked; lists on
   assert.equal(ids['contact.email'], undefined, 'same value: nothing to review');
   assert.equal(ids['contact.address_street'], undefined, 'same value, other case');
   assert.equal(ids['home.hero_title'], undefined, 'a home title exists: no default proposed');
+  assert.equal(ids['home.cta_title'], undefined, 'the final call already has a button: no default');
+  assert.deepEqual(items.filter((i) => i.list === 'courts').map((i) => i.entry.label), ['Courts extérieurs', 'Terrains de padel'], 'same label already on the site');
+  assert.deepEqual(items.filter((i) => i.list === 'infra_teaser').map((i) => i.entry.label), ['Courts extérieurs'], 'three cards at most');
   assert.equal(items.some((i) => i.list === 'board' && i.entry.name === 'Alice Morel'), false, 'already on the site');
   assert.equal(items.some((i) => i.entry?.name === 'Adhesion Enfant'), false);
   // Coché à la main : l'ancienne image est à supprimer après l'enregistrement.
@@ -206,7 +214,9 @@ test('write: validated groups, config parses, the site is complete with the defa
   assert.deepEqual(config.contact, { ...config.contact, address_street: 'Avenue du Sarlac', address_postal_code: '82200', address_city: 'Moissac', phone: '06 29 33 46 04', email: 'tennispadelmoissac@gmail.com' });
   assert.equal(config.social.facebook_url, 'https://www.facebook.com/TCMoissac');
   assert.deepEqual(config.club.president, { ...config.club.president, name: 'Zoé Michel', role: 'Président' });
-  assert.equal(config.infra.courts.length, 2);
+  assert.equal(config.infra.courts.length, 3);
+  assert.equal(config.home.infra_teaser.length, 3);
+  assert.equal(config.home.cta_button, 'Nous contacter');
   assert.equal(config.pricing.season, '2026/2027');
   assert.deepEqual(config.pricing.membership[0], { name: 'Adhésion adulte', subtitle: '', price: 150.5 });
   assert.equal(config.pricing.membership.some((m) => m.name === 'Reduction'), false);
@@ -340,4 +350,54 @@ test('/admin/site: server refusal shown; recent read gives the date; internal cl
     assert.doesNotMatch(text(), /Ten’Up/);
     assert.equal(log.some(([, n]) => n === 'club_tenup_site_state'), false, 'no call at all for the CAC');
   } finally { await unmount(); }
+});
+
+test('S8b-bis — CAC: courts grouped with the photo, home cards, one line per tariff of an « À partir de » offer', async () => {
+  const cacDoc = await doc('60820058-installation');
+  const { courts } = extractTenupInstallation(cacDoc);
+  const p = await moissac();
+  const photo = `${STORE}2-tenup-installation.webp`, photoHome = `${STORE}2-tenup-installation-accueil.webp`;
+  const tariffs = extractTenupOfferTariffs(await doc('60820058-offre')).tariffs;
+  const proposal = {
+    ...p, courts, club: { ...p.club, installation_image: photo, installation_image_home: photoHome },
+    offers: [{ type: 'Enseignement (cours)', title: 'Cours collectifs Tennis', year: 2027, description: '', price: 20, from: true, tariffs },
+      { type: 'Adhésion', title: 'CARTE PADEL', year: 2027, description: '', price: 113, from: true, tariffs: [] }],
+  };
+  const items = lib.buildReview(proposal, parseClubConfig({ brand: { name: 'CAC' } }));
+  assert.deepEqual(items.filter((i) => i.list === 'courts').map((i) => i.entry), [
+    { count: '7', label: 'Courts extérieurs', detail: 'Béton poreux, gazon synthétique, terre battue traditionnelle', image: photo },
+    { count: '6', label: 'Courts couverts', detail: 'Résine, terre battue traditionnelle', image: '' },
+    { count: '2', label: 'Terrains de padel', detail: 'Gazon synthétique', image: '' },
+  ], 'padel kept: its surface is also a tennis surface');
+  assert.deepEqual(items.filter((i) => i.list === 'infra_teaser').map((i) => [i.entry.label, i.entry.image]),
+    [['Courts extérieurs', photoHome], ['Courts couverts', ''], ['Terrains de padel', '']]);
+  const lessons = items.filter((i) => i.list === 'lessons');
+  assert.equal(lessons.length, 5);
+  assert.deepEqual(lessons[0].entry, { ...lessons[0].entry, name: '1 heure de tennis à 2 ni membres ni licenciés', subtitle: 'Cours collectifs Tennis', price: '22' });
+  assert.equal(lessons[0].note, 'Tarif par personne, Licence en supplément obligatoire');
+  assert.equal(lessons[0].next, '1 heure de tennis à 2 ni membres ni licenciés (Cours collectifs Tennis) — 22 €');
+  assert.equal(lessons.every((i) => i.checked), true);
+  const padel = items.find((i) => i.entry?.name === 'CARTE PADEL');
+  assert.deepEqual([padel.entry.subtitle, padel.next], ['à partir de', 'CARTE PADEL — à partir de 113 €'], 'page not read: lowest price kept');
+
+  reset({ config: { brand: { name: 'CAC' } } });
+  const saved = await saveAll(parseClubConfig(db.club_settings[0].config), items);
+  assert.equal(saved.config.infra.courts[0].image, photo);
+  assert.equal(saved.config.home.infra_teaser[0].image, photoHome);
+  assert.equal(saved.config.pricing.lessons.length, 5);
+  assert.deepEqual(lib.unusedProposalImages(proposal, items), []);
+  items.find((i) => i.id === 'home.infra_teaser.0').checked = false;
+  assert.deepEqual(lib.unusedProposalImages(proposal, items), [photoHome]);
+  // Proposition lue avant S8b-bis : ni photo ni grille, rien ne casse.
+  const old = lib.buildReview({ ...p, courts }, parseClubConfig({}));
+  assert.equal(old.find((i) => i.list === 'courts').entry.image, '');
+});
+
+test('S8b-bis — what Ten’Up does not give: president’s word, partners, key figures', () => {
+  const extras = load('src/lib/siteExtras.ts');
+  assert.deepEqual(extras.missingSiteExtras(parseClubConfig({})).map((e) => [e.id, extras.extraPanelPath(e)]),
+    [['president_quote', '/admin/site#panneau-club'], ['partners', '/admin/site#panneau-partners'], ['stats', '/admin/site#panneau-home']]);
+  assert.deepEqual(extras.missingSiteExtras(parseClubConfig({
+    club: { president: { quote: 'Bienvenue' } }, partners: [{ logo: 'x' }], home: { stats: [{ value: '6', label: 'courts' }] },
+  })), []);
 });

@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 import { chromium } from '../services/tenup-worker/node_modules/playwright/index.mjs';
 import {
-  extractTenupClubBoard, extractTenupClubHome, extractTenupClubOffers, extractTenupInstallation,
+  extractTenupClubBoard, extractTenupClubHome, extractTenupClubOffers, extractTenupInstallation, extractTenupOfferTariffs,
 } from '../services/tenup-worker/parse-club-profile.mjs';
 import { readTenupClubProfile } from '../services/tenup-worker/read-club-profile.mjs';
 import { createHandler, validClubProfileUrl } from '../services/tenup-worker/server.mjs';
@@ -56,7 +56,7 @@ test('offers page: type, title, season year, price « tarif unique » or « à p
   assert.deepEqual(offers[0], {
     type: 'Adhésion', title: 'Adhesion Adulte tennis hors padel 150€', year: 2027,
     description: 'Adhérez au club pour profiter librement de nos terrains de tennis en extérieur et en intérieur tous les jours de 8h à 22h.',
-    price: 117, from: false,
+    price: 117, from: false, href: '/club/60820110/offres/731268',
   }, 'the club share, not the 150 € of the title; the age condition is not the price');
   assert.equal(offers[1].from, true);
   assert.equal(offers[1].price, 147);
@@ -81,6 +81,19 @@ test('installation page: one row per sport and surface, covered courts', async (
   ]);
   assert.equal(extractTenupInstallation(await doc('57950125-installation')).courts.length, 4);
   assert.deepEqual(extractTenupInstallation(await doc('60310304-installation')).courts[1], { sport: 'Tennis', surface: 'Terre battue traditionnelle', count: 4, covered: 4 });
+  // S8b-bis : la photo de l'installation (CAC, relevé du 14/11/2026), padel compris.
+  const cac = extractTenupInstallation(await doc('60820058-installation'));
+  assert.match(cac.image, /^https:\/\/cmsclub\.fft\.fr\/60\/82\/0058\//);
+  assert.deepEqual(cac.courts.at(-1), { sport: 'Padel', surface: 'Gazon synthétique', count: 2, covered: 0 });
+  assert.equal(extractTenupInstallation(await doc('57950125-installation')).image.startsWith('https://cmsclub.fft.fr/'), true);
+});
+
+test('offer page (S8b-bis): the full tariff grid behind « À partir de »', async () => {
+  const { tariffs } = extractTenupOfferTariffs(await doc('60820058-offre'));
+  assert.equal(tariffs.length, 5);
+  assert.deepEqual(tariffs[0], { name: '1 heure de tennis à 2 ni membres ni licenciés', price: 22, note: 'Tarif par personne, Licence en supplément obligatoire' });
+  assert.deepEqual(tariffs.map((t) => t.price), [22, 210, 20, 170, 440]);
+  assert.throws(() => extractTenupOfferTariffs(new JSDOM('<main><h1>X</h1></main>').window.document), /not found/);
 });
 
 test('links: any club tab is brought back to the club root; other hosts refused', () => {
@@ -114,6 +127,7 @@ test('worker handler: club-profile accepts only the club root', async () => {
 
 test('one browser session reads the four pages; a failed page does not cancel the others', async () => {
   const pages = Object.fromEntries(await Promise.all(['club', 'equipe', 'offres', 'installation'].map(async (p) => [p, await fixture(`60820110-${p}`)])));
+  const offer = await fixture('60820058-offre');
   const browser = await chromium.launch({ headless: true });
   try {
     const run = async (fail) => {
@@ -122,6 +136,8 @@ test('one browser session reads the four pages; a failed page does not cancel th
         const { hostname, pathname } = new URL(route.request().url());
         if (hostname !== 'tenup.fft.fr') return route.abort();
         const name = pathname === '/club/60820110' ? 'club' : pathname.endsWith('/equipe') ? 'equipe' : pathname.endsWith('/offres') ? 'offres' : pathname.includes('/installations/') ? 'installation' : null;
+        // Page d'une offre « À partir de » (structure relevée sur le CAC) ; les autres en erreur.
+        if (pathname === '/club/60820110/offres/731270' && fail !== 'offre') return route.fulfill({ status: 200, contentType: 'text/html', body: offer });
         if (!name || name === fail) return route.fulfill({ status: 500, body: 'Erreur' });
         return route.fulfill({ status: 200, contentType: 'text/html', body: pages[name] });
       });
@@ -135,6 +151,10 @@ test('one browser session reads the four pages; a failed page does not cancel th
     assert.equal(full.courts.length, 2);
     assert.equal(full.club.city, 'MOISSAC');
     assert.equal('installation' in full.club, false);
+    assert.match(full.club.installation_image, /^https:\/\/cmsclub\.fft\.fr\//);
+    assert.equal(full.offers.some((o) => 'href' in o), false, 'links stay in the worker');
+    assert.equal(full.offers[1].tariffs.length, 5, 'the « À partir de » offer page is read');
+    assert.equal(full.offers.filter((o) => o.tariffs.length).length, 1, 'other offer pages failed: lowest price kept');
     assert.deepEqual(validateTenupClubProfile(JSON.parse(JSON.stringify(full)), 'https://tenup.fft.fr/club/60820110').pages, full.pages);
 
     const partial = await run('equipe');
@@ -160,6 +180,12 @@ test('worker response validation: unexpected shapes and foreign images refused',
     { ...ok, offers: [{ type: 'Adhésion', title: 'A', year: 2027, description: '', price: -1, from: false }] },
     { ...ok, courts: [{ sport: 'Tennis', surface: 'Résine', count: 2, covered: 3 }] },
     { ...ok, board: [{ name: 'A', roles: 'Président' }] },
+    { ...ok, club: { ...ok.club, installation_image: 'https://evil.test/court.jpg' } },
+    { ...ok, offers: [{ type: 'Adhésion', title: 'A', year: 2027, description: '', price: 10, from: true, tariffs: [{ name: '', price: 10, note: '' }] }] },
+    { ...ok, offers: [{ type: 'Adhésion', title: 'A', year: 2027, description: '', price: 10, from: true, tariffs: [{ name: 'B', price: -1, note: '' }] }] },
   ];
+  // S8b-bis : champs nouveaux acceptés, et facultatifs (worker antérieur).
+  const richer = { ...ok, club: { ...ok.club, installation_image: 'https://cmsclub.fft.fr/1/x' }, offers: [{ type: 'Adhésion', title: 'A', year: 2027, description: '', price: 10, from: true, tariffs: [{ name: 'B', price: null, note: '' }] }] };
+  assert.deepEqual(validateTenupClubProfile(richer, ok.url), richer);
   for (const payload of bad) assert.throws(() => validateTenupClubProfile(payload, ok.url), /illisible/);
 });

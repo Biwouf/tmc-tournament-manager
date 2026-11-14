@@ -3,11 +3,13 @@
 // enregistrement par le chemin de `SiteConfigPanel` (`saveClubConfigGroup`). Rien n'est écrit sans
 // « Enregistrer ». Logique pure : `lib/tenupSiteImport.ts` ; appels : `lib/tenupSiteClient.ts`.
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { siteGaps } from '../../../shared/siteReadiness.mjs';
 import { normalizeTenupClubProfileUrl } from '../../../shared/tenupSite.mjs';
 import type { ClubConfig } from '../../lib/clubConfig';
 import { saveClubConfigGroup } from '../../lib/clubConfigWrite';
 import { deleteConfigImage } from '../../lib/configImages';
+import { extraPanelPath, missingSiteExtras } from '../../lib/siteExtras';
 import { supabase } from '../../lib/supabase';
 import { consumeTenupSite, loadTenupSite, readTenupSite, type TenupSiteState } from '../../lib/tenupSiteClient';
 import {
@@ -180,6 +182,20 @@ export default function TenupSiteImport({ clubId, config, onSaved }: {
                   ? `Il manque encore : ${siteGaps(config).join(', ')}. Complétez les panneaux ci-dessous.`
                   : 'Votre site est complet : vous pouvez le publier avec « Publier le site ».'}
               </p>
+              {/* S8b-bis : ce que Ten'Up ne donne pas, à ajouter à la main (facultatif). */}
+              {missingSiteExtras(config).length > 0 && (
+                <div className="mt-3">
+                  <p className="m-0 text-sm font-medium">À compléter ensuite, Ten’Up ne le donne pas :</p>
+                  <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0 text-sm">
+                    {missingSiteExtras(config).map((extra) => (
+                      <li key={extra.id}>
+                        <Link to={extraPanelPath(extra)} className="font-medium text-primary underline-offset-2 hover:underline">{extra.title}</Link>
+                        <span className="text-muted-foreground"> — {extra.detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             {!siteGaps(config).length && (
               <button type="button" className={primary} onClick={() => document.getElementById('site-publication-title')?.scrollIntoView({ block: 'center' })}>Publier le site</button>

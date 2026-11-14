@@ -2,8 +2,10 @@ import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 import { focalPointStyle } from '../../lib/focalPoint';
+import { initials } from '../../lib/initials';
 
-/** Mot du président·e — `club.president.*`. */
+/** Mot du président·e — `club.president.*`. Sans portrait, ses initiales dans le médaillon (S8b-bis :
+ *  un site prérempli depuis Ten'Up n'a pas de photo, et la colonne vide déséquilibrait la carte). */
 export default function PresidentSection() {
   const { config } = useSite();
   const president = config.club.president;
@@ -15,13 +17,19 @@ export default function PresidentSection() {
       <div className="card grid gap-10 p-8 sm:p-12 md:grid-cols-[280px_1fr] md:items-center">
         {(photo || president.name || president.role) && (
           <div className="text-center">
-            {photo && (
+            {photo ? (
               <ConfigImage loading="lazy" decoding="async"
                 src={photo}
                 alt={president.name || ''}
                 className="mx-auto h-44 w-44 rounded-full border-4 border-brand-soft object-cover"
                 style={focalPointStyle(president.photo_focal)}
               />
+            ) : (
+              initials(president.name) && (
+                <div aria-hidden className="mx-auto flex h-44 w-44 items-center justify-center rounded-full border-4 border-brand-soft bg-bg2 text-5xl font-extrabold text-muted">
+                  {initials(president.name)}
+                </div>
+              )
             )}
             {president.name && <div className="mt-4 text-lg font-extrabold">{president.name}</div>}
             {president.role && (

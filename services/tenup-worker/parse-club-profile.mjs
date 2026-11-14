@@ -74,6 +74,7 @@ export function extractTenupClubOffers(document) {
     if (!title) continue;
     const parts = [...body.children];
     const description = text(parts[1]).slice(0, 600);
+    const href = [...card.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')).find((h) => /^\/club\/\d+\/offres\/\d+$/.test(h)) ?? '';
     const priceText = [...card.querySelectorAll('p')].map(text).find((p) => /^(Tarif unique à|À partir de)\s.*€$/.test(p)) ?? ''; // pas la condition « À partir de 18 ans »
     const match = /([\d\s ]+(?:,\d{1,2})?)\s*€/.exec(priceText);
     const price = match ? Number(match[1].replace(/[\s ]/g, '').replace(',', '.')) : null;
@@ -84,13 +85,14 @@ export function extractTenupClubOffers(document) {
       description,
       price: Number.isFinite(price) ? price : null,
       from: /^À partir de/.test(priceText),
+      href,
     });
   }
   return { offers };
 }
 
 /** Installation : under « Courts », one block per sport, then one row per surface with
- * « 4 terrains (4 couverts) ». */
+ * « 4 terrains (4 couverts) ». The page carries one photo (« Photo de l'installation … »). */
 export function extractTenupInstallation(document) {
   const text = (el) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
   const title = [...document.querySelectorAll('main p')].find((p) => text(p) === 'Courts');
@@ -106,5 +108,26 @@ export function extractTenupInstallation(document) {
       if (sport && match) courts.push({ sport, surface, count: Number(match[1]), covered: match[2] ? Number(match[2]) : 0 });
     }
   }
-  return { courts };
+  const photo = [...document.querySelectorAll('main img[alt]')].find((img) => /^Photo de l.installation/.test(img.getAttribute('alt')));
+  return { courts, image: photo?.getAttribute('src') ?? '' };
+}
+
+/** Offer page (`/offres/<id>`), SaaS S8b-bis : under « Tarifs disponibles », one `article` per
+ * tariff — name, price « 22,00 € », then its conditions (« Tarif par personne… »). Read only for
+ * the offers listed « À partir de », whose card shows the lowest price alone. */
+export function extractTenupOfferTariffs(document) {
+  const text = (el) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  const title = [...document.querySelectorAll('main h2')].find((h) => text(h) === 'Tarifs disponibles');
+  if (!title) throw new Error('Offer tariffs not found');
+  const tariffs = [];
+  for (const article of title.parentElement.querySelectorAll('article')) {
+    const paragraphs = [...article.querySelectorAll('p')].map(text);
+    const name = paragraphs[0] ?? '';
+    const priceText = paragraphs.find((p) => /^[\d\s ]+(?:,\d{1,2})?\s*€$/.test(p)) ?? '';
+    const match = /([\d\s ]+(?:,\d{1,2})?)\s*€/.exec(priceText);
+    const price = match ? Number(match[1].replace(/[\s ]/g, '').replace(',', '.')) : null;
+    const note = text([...article.querySelectorAll('div')].find((d) => !d.querySelector('p, div, button') && text(d))).slice(0, 300);
+    if (name) tariffs.push({ name: name.slice(0, 200), price: Number.isFinite(price) ? price : null, note });
+  }
+  return { tariffs };
 }
