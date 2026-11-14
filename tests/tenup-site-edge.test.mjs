@@ -15,7 +15,8 @@ const doc = async (name) => new JSDOM(await readFile(new URL(`./fixtures/tenup-p
 const WEBP = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 1, 2, 3]);
 
 async function profile() {
-  const { installation: _i, ...club } = extractTenupClubHome(await doc('60820110-club'));
+  const { installation: _i, ...home } = extractTenupClubHome(await doc('60820110-club'));
+  const club = { ...home, installation_image: extractTenupInstallation(await doc('60820110-installation')).image };
   return {
     url: 'https://tenup.fft.fr/club/60820110', pages: { club: 'ok', equipe: 'ok', offres: 'ok', installation: 'ok' },
     club, board: extractTenupClubBoard(await doc('60820110-equipe')).board,
@@ -85,17 +86,19 @@ test('tenup-site edge: SQL first, worker, images copied, proposal stored, nothin
   assert.equal(res.status, 200);
   assert.deepEqual(rpcs[0], ['club_tenup_site_begin', { p_club: CLUB, p_tenup_id: '60820110', p_background: false }]);
   const { payload } = await res.json();
-  assert.equal(uploads.length, 2);
+  assert.equal(uploads.length, 4, 'logo, banner, and the installation photo twice (site page and home)');
   for (const u of uploads) {
     assert.equal(u.bucket, 'content-images');
-    assert.match(u.path, new RegExp(`^${CLUB}/config/\\d+-tenup-(logo|bandeau)\\.webp$`));
+    assert.match(u.path, new RegExp(`^${CLUB}/config/\\d+-tenup-(logo|bandeau|installation|installation-accueil)\\.webp$`));
     assert.equal(u.type, 'image/webp');
   }
   assert.match(payload.club.logo, /^https:\/\/db\.example\/storage\/v1\/object\/public\/content-images\//);
   assert.doesNotMatch(JSON.stringify(payload.club), /cmsclub\.fft\.fr/, 'no Ten’Up image URL kept');
   assert.deepEqual(payload.image_errors, []);
   assert.equal(proposal.status, 'ready');
-  assert.equal(proposal.images.length, 2);
+  assert.equal(proposal.images.length, 4);
+  assert.notEqual(payload.club.installation_image, payload.club.installation_image_home, 'two files: a panel deletes the images it drops');
+  assert.match(payload.club.installation_image_home, /tenup-installation-accueil/);
   assert.deepEqual(writes.filter(([t]) => t === 'club_tenup_site_reads').map(([, , row, f]) => [row.status, f.id]), [['done', 'r1']]);
   assert.deepEqual(writes.find(([t]) => t === 'clubs').slice(2), [{ tenup_club_id: '60820110' }, { id: CLUB }]);
 
@@ -105,7 +108,8 @@ test('tenup-site edge: SQL first, worker, images copied, proposal stored, nothin
   begun = { started: true, read_id: 'r2', tenup_club_id: '60820110' };
   res = await handler(request({ club_id: CLUB, url: 'https://tenup.fft.fr/club/60820110' }));
   const second = (await res.json()).payload;
-  assert.deepEqual(second.image_errors, ['logo', 'banner']);
+  assert.deepEqual(second.image_errors, ['logo', 'banner', 'installation']);
+  assert.equal(second.club.installation_image_home, '');
   assert.equal(second.club.logo, '');
   assert.equal(uploads.length, 0, 'not a PNG, JPEG or WebP: not stored');
   assert.deepEqual(removed, previousImages);

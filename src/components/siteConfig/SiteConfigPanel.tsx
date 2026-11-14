@@ -116,6 +116,7 @@ export default function SiteConfigPanel({
   initial,
   clubId,
   defaultOpen,
+  focused = false,
   onSaved,
 }: {
   group: GroupSpec;
@@ -123,9 +124,16 @@ export default function SiteConfigPanel({
   clubId: string | null;
   /** L'écran porte dix panneaux : ils sont repliés par défaut, sauf le premier. */
   defaultOpen: boolean;
+  /** `#panneau-<groupe>` vise ce panneau, y compris après le montage (liens « À compléter »). */
+  focused?: boolean;
   onSaved: () => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [wasFocused, setWasFocused] = useState(focused);
+  if (focused !== wasFocused) {
+    setWasFocused(focused);
+    if (focused) setOpen(true);
+  }
   const [value, setValue] = useState<GroupValue>(initial);
   /** Dernier état réellement en base — sert à savoir quelles images ont été remplacées. */
   const [persisted, setPersisted] = useState<GroupValue>(initial);

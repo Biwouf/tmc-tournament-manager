@@ -158,17 +158,18 @@ test('trial banner: days left in Paris calendar days, accent from J-7, J0 messag
 
 test('checklist states, order and counter; password optional and out of the counter', () => {
   let items = lib.checklistItems(facts());
-  assert.deepEqual(ids(items), ['site', 'publish', 'team', 'share', 'password']);
+  assert.deepEqual(ids(items), ['site', 'publish', 'team', 'share', 'extra:president_quote', 'extra:partners', 'extra:stats', 'password']);
+  assert.equal(items.filter(i => i.id.startsWith('extra:')).every(i => i.optional), true, 'S8b-bis reminders are out of the counter');
   assert.match(items[0].detail, /Il manque : accueil, tarifs, adresse et téléphone ou e-mail\./);
   assert.deepEqual(lib.checklistProgress(items), { done: 0, total: 4 });
   items = lib.checklistItems(facts({ ...COMPLETE, onboarding: { app_shared_at: '2026-11-14' } }, { sitePublished: true, team: true, passwordSet: false }));
-  assert.deepEqual(items.map(i => i.done), [true, true, true, true, false]);
+  assert.deepEqual(items.map(i => i.done), [true, true, true, true, false, false, false, false]);
   assert.deepEqual(lib.checklistProgress(items), { done: 4, total: 4 });
   assert.equal(lib.checklistComplete(items), true, 'the optional password does not hold the card');
   // Liste des membres pas encore lue : à faire.
   assert.equal(lib.checklistItems(facts({}, { team: null })).find(i => i.id === 'team').done, false);
   // Compte qui n'est pas né du tunnel : pas d'élément mot de passe.
-  assert.deepEqual(ids(lib.checklistItems(facts({}, { passwordSet: null }))), ['site', 'publish', 'team', 'share']);
+  assert.deepEqual(ids(lib.checklistItems(facts({}, { passwordSet: null }))), ['site', 'publish', 'team', 'share', 'extra:president_quote', 'extra:partners', 'extra:stats']);
   assert.equal(lib.passwordState({ app_metadata: { created_via: 'club_signup' }, user_metadata: {} }), false);
   assert.equal(lib.passwordState({ app_metadata: { created_via: 'club_signup' }, user_metadata: { password_set: true } }), true);
   assert.equal(lib.passwordState({ app_metadata: {}, user_metadata: {} }), null);

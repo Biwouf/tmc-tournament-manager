@@ -6,6 +6,8 @@
 // signalé — valeur déjà saisie et différente (les deux visibles), prix manquant ou ≤ 1 €, ligne
 // « Réduction », produit, image illisible. Les listes (bureau, terrains, tarifs) ne sont jamais
 // remplacées : les lignes cochées s'AJOUTENT, et celles déjà présentes (même nom) sont écartées.
+// S8b-bis : terrains regroupés (aussi en cartes d'accueil), photo de l'installation, bandeau d'appel
+// final par défaut, une ligne par tarif quand la page de l'offre a été lue.
 import type { TenupClubProfile } from '../../shared/tenupSite.mjs';
 import type { ClubConfig } from './clubConfig';
 import {
@@ -81,6 +83,39 @@ export function pricingSeason(offers: TenupClubProfile['offers'], today = new Da
 const euros = (price: number) => (Number.isInteger(price) ? String(price) : price.toFixed(2).replace('.', ','));
 const LESSON = /\b(cours|mini[- ]?tennis|[ée]cole|stages?)\b/i;
 
+const lowerFirst = (v: string) => (v ? v[0].toLowerCase() + v.slice(1) : v);
+const surfaceList = (rows: TenupClubProfile['courts']) =>
+  [...new Set(rows.map((r) => r.surface).filter(Boolean))].map((v, i) => (i ? lowerFirst(v) : v)).join(', ');
+
+export type CourtGroup = { count: number; label: string; detail: string; noun: string };
+/** S8b-bis — les terrains regroupés comme le site du CAC : le tennis en « Courts extérieurs » et
+ * « Courts couverts » (surfaces en détail), chaque autre sport en une carte. */
+export function courtGroups(courts: TenupClubProfile['courts']): CourtGroup[] {
+  const groups: CourtGroup[] = [];
+  const tennis = courts.filter((c) => /^tennis$/i.test(c.sport));
+  const outdoor = tennis.reduce((n, c) => n + c.count - c.covered, 0);
+  const covered = tennis.reduce((n, c) => n + c.covered, 0);
+  const courtNoun = (n: number) => (n > 1 ? 'courts' : 'court');
+  if (outdoor) groups.push({ count: outdoor, label: outdoor > 1 ? 'Courts extérieurs' : 'Court extérieur', detail: surfaceList(tennis.filter((c) => c.count > c.covered)), noun: courtNoun(outdoor) });
+  if (covered) groups.push({ count: covered, label: covered > 1 ? 'Courts couverts' : 'Court couvert', detail: surfaceList(tennis.filter((c) => c.covered > 0)), noun: courtNoun(covered) });
+  for (const sport of [...new Set(courts.map((c) => c.sport))].filter((s) => !/^tennis$/i.test(s))) {
+    const rows = courts.filter((c) => c.sport === sport);
+    const count = rows.reduce((n, c) => n + c.count, 0);
+    const roofed = rows.reduce((n, c) => n + c.covered, 0);
+    const noun = count > 1 ? 'terrains' : 'terrain';
+    const cover = roofed ? (roofed === count ? (count > 1 ? 'couverts' : 'couvert') : `dont ${roofed} couvert${roofed > 1 ? 's' : ''}`) : '';
+    groups.push({ count, label: `${count > 1 ? 'Terrains' : 'Terrain'} de ${lowerFirst(sport)}`, detail: [surfaceList(rows), cover].filter(Boolean).join(' · '), noun });
+  }
+  return groups;
+}
+
+/** Bandeau d'appel final proposé quand il est vide : le texte du site du CAC. */
+export const DEFAULT_HOME_CTA = {
+  cta_title: 'Rejoignez notre club',
+  cta_text: 'Une question, une envie d’essayer, nouer un partenariat ? Écrivez-nous, on vous répond vite.',
+  cta_button: 'Nous contacter',
+} as const;
+
 type OfferTarget = { list: 'lessons' | 'membership' | 'other_fees'; warning?: string };
 /** Brief §4 : type Ten'Up → liste de tarifs, et pourquoi la ligne doit être vérifiée. */
 export function offerTarget(offer: TenupClubProfile['offers'][number]): OfferTarget | null {
@@ -90,6 +125,7 @@ export function offerTarget(offer: TenupClubProfile['offers'][number]): OfferTar
   else if (offer.type === 'Carnet de tickets') target = { list: 'other_fees' };
   else if (offer.type === 'Produit') target = { list: 'other_fees', warning: 'produit (balles, stage…) : à garder ?' };
   else return null; // animations, événements : hors périmètre
+  if (offer.tariffs?.length) return target; // prix vérifiés tarif par tarif
   if (offer.price === null) return { ...target, warning: 'prix manquant' };
   if (offer.price <= 1 || /r[ée]duction/i.test(offer.title)) return { ...target, warning: 'prix à vérifier' };
   return target;
@@ -135,6 +171,12 @@ export function buildReview(proposal: TenupSiteProposal, config: ClubConfig): Re
     const name = String(values.brand.name ?? '').trim() || tidyCase(club.name);
     field('home', 'hero_title', 'Titre d’accueil (proposé)', `Bienvenue au ${name}`, { editable: 'text' });
   }
+  // S8b-bis : bandeau d'appel final par défaut, seulement s'il est entièrement vide.
+  if (!['cta_title', 'cta_text', 'cta_button'].some((k) => String(values.home[k] ?? '').trim())) {
+    field('home', 'cta_title', 'Appel final : titre (proposé)', DEFAULT_HOME_CTA.cta_title, { editable: 'text' });
+    field('home', 'cta_text', 'Appel final : texte (proposé)', DEFAULT_HOME_CTA.cta_text, { editable: 'text' });
+    field('home', 'cta_button', 'Appel final : bouton (proposé)', DEFAULT_HOME_CTA.cta_button, { editable: 'text' });
+  }
 
   // Bureau : le président à sa place, les autres dans la liste.
   const president = proposal.board.find((m) => m.roles.some((r) => /^présidente?$/i.test(r)));
@@ -142,11 +184,18 @@ export function buildReview(proposal: TenupSiteProposal, config: ClubConfig): Re
     field('club', 'president_name', 'Président·e', tidyCase(president.name));
     field('club', 'president_role', 'Fonction du président·e', president.roles.find((r) => /^présidente?$/i.test(r))!);
   }
-  const addEntries = (group: ReviewGroup, list: string, key: string, entries: { id: string; label: string; entry: ListEntry; next: string; warning?: string; note?: string; editable?: 'offer' }[]) => {
-    const existing = new Set(((values[group][list] as ListEntry[] | undefined) ?? []).map((e) => norm(e[key] ?? '')));
+  type NewEntry = { id: string; label: string; entry: ListEntry; next: string; warning?: string; note?: string; editable?: 'offer' };
+  /** `key` : le champ qui identifie une entrée déjà sur le site, ou une fonction. */
+  const addEntries = (group: ReviewGroup, list: string, key: string | ((e: ListEntry) => string), entries: NewEntry[], max = Infinity) => {
+    const keyOf = (e: ListEntry) => norm(typeof key === 'function' ? key(e) : e[key] ?? '');
+    const current = (values[group][list] as ListEntry[] | undefined) ?? [];
+    const existing = new Set(current.map(keyOf));
+    let room = max - current.length;
     for (const e of entries) {
-      if (existing.has(norm(e.entry[key] ?? ''))) continue; // déjà sur le site
-      existing.add(norm(e.entry[key] ?? ''));
+      if (room <= 0) break;
+      if (existing.has(keyOf(e.entry))) continue; // déjà sur le site
+      existing.add(keyOf(e.entry));
+      room -= 1;
       items.push({ id: e.id, group, list, label: e.label, current: '', next: e.next, entry: e.entry, warning: e.warning, note: e.note, editable: e.editable, checked: !e.warning });
     }
   };
@@ -155,23 +204,46 @@ export function buildReview(proposal: TenupSiteProposal, config: ClubConfig): Re
     return { id: `club.board.${i}`, label: 'Membre du bureau', next: `${name} — ${role}`, entry: blankEntry('club', 'board', { name, role }) };
   }));
 
-  addEntries('infra', 'courts', 'detail', proposal.courts.map((c, i) => {
-    const detail = [c.surface, c.covered ? (c.covered === c.count ? 'couverts' : `dont ${c.covered} couvert${c.covered > 1 ? 's' : ''}`) : ''].filter(Boolean).join(' · ');
-    return { id: `infra.courts.${i}`, label: 'Terrains', next: `${c.count} × ${c.sport} — ${detail}`, entry: blankEntry('infra', 'courts', { count: String(c.count), label: c.sport, detail }) };
+  // Terrains regroupés (S8b-bis) ; la photo de l'installation sur la première carte, ici et à l'accueil.
+  const groups = courtGroups(proposal.courts);
+  const photo = proposal.club.installation_image ?? '';
+  const photoHome = proposal.club.installation_image_home ?? '';
+  const withPhoto = (image: string) => (image ? ' · avec la photo du club' : '');
+  addEntries('infra', 'courts', 'label', groups.map((g, i) => {
+    const image = i === 0 ? photo : '';
+    return { id: `infra.courts.${i}`, label: 'Terrains', next: `${g.count} — ${g.label}${g.detail ? ` (${g.detail})` : ''}${withPhoto(image)}`, entry: blankEntry('infra', 'courts', { count: String(g.count), label: g.label, detail: g.detail, image }) };
   }));
+  // Accueil : les mêmes groupes en cartes, trois au plus (recommandation du panneau).
+  addEntries('home', 'infra_teaser', 'label', groups.map((g, i) => {
+    const detail = [`${g.count} ${g.noun}`, lowerFirst(g.detail)].filter(Boolean).join(' · ');
+    const image = i === 0 ? photoHome : '';
+    return { id: `home.infra_teaser.${i}`, label: 'Carte infrastructures', next: `${g.label} — ${detail}${withPhoto(image)}`, entry: blankEntry('home', 'infra_teaser', { label: g.label, detail, image }) };
+  }), 3);
 
   // Tarifs : la saison, puis une ligne par offre utile, nom et prix modifiables.
   const offers = proposal.offers.map((offer, i) => ({ offer, i, target: offerTarget(offer) })).filter((o) => o.target);
   if (offers.length) field('pricing', 'season', 'Saison', pricingSeason(proposal.offers));
   for (const list of ['membership', 'lessons', 'other_fees'] as const) {
     const key = list === 'other_fees' ? 'label' : 'name';
-    addEntries('pricing', list, key, offers.filter((o) => o.target!.list === list).map(({ offer, i, target }) => {
+    const label = list === 'membership' ? 'Adhésion' : list === 'lessons' ? 'Adhésion + cours' : 'Autres frais';
+    // Une ligne de grille se reconnaît à son nom ET à son offre (« Adulte » peut exister deux fois).
+    const tariffKey = (e: ListEntry) => (e.subtitle && e.subtitle !== 'à partir de' ? `${e[key] ?? ''}|${e.subtitle}` : e[key] ?? '');
+    addEntries('pricing', list, list === 'other_fees' ? key : tariffKey, offers.filter((o) => o.target!.list === list).flatMap(({ offer, i, target }): NewEntry[] => {
+      // S8b-bis : grille lue sur la page de l'offre → une ligne par tarif, l'offre en sous-titre.
+      if (offer.tariffs?.length) {
+        return offer.tariffs.map((t, j) => {
+          const entry = list === 'other_fees'
+            ? blankEntry('pricing', list, { label: `${offer.title} — ${t.name}`, price: t.price === null ? '' : `${euros(t.price)} €` })
+            : blankEntry('pricing', list, { name: t.name, subtitle: offer.title, price: t.price === null ? '' : String(t.price) });
+          const warning = target!.warning ?? (t.price === null ? 'prix manquant' : t.price <= 1 ? 'prix à vérifier' : undefined);
+          return { id: `pricing.${list}.${i}.${j}`, label, next: offerSummary(list, entry), entry, warning, note: t.note, editable: 'offer' };
+        });
+      }
       const price = offer.price === null ? '' : list === 'other_fees' ? `${offer.from ? 'à partir de ' : ''}${euros(offer.price)} €` : String(offer.price);
       const entry = list === 'other_fees'
         ? blankEntry('pricing', list, { label: offer.title, price })
         : blankEntry('pricing', list, { name: offer.title, price, subtitle: offer.from ? 'à partir de' : '' });
-      const label = list === 'membership' ? 'Adhésion' : list === 'lessons' ? 'Adhésion + cours' : 'Autres frais';
-      return { id: `pricing.${list}.${i}`, label, next: offerSummary(list, entry), entry, warning: target!.warning, note: offer.description, editable: 'offer' as const };
+      return [{ id: `pricing.${list}.${i}`, label, next: offerSummary(list, entry), entry, warning: target!.warning, note: offer.description, editable: 'offer' }];
     }));
   }
   return items;
@@ -179,7 +251,9 @@ export function buildReview(proposal: TenupSiteProposal, config: ClubConfig): Re
 
 export function offerSummary(list: string, entry: ListEntry): string {
   if (list === 'other_fees') return `${entry.label} — ${entry.price || 'sans prix'}`;
-  return `${entry.name} — ${entry.price ? `${entry.subtitle ? `${entry.subtitle} ` : ''}${entry.price.replace('.', ',')} €` : 'sans prix'}`;
+  const from = entry.subtitle === 'à partir de';
+  const offer = entry.subtitle && !from ? ` (${entry.subtitle})` : '';
+  return `${entry.name}${offer} — ${entry.price ? `${from ? 'à partir de ' : ''}${entry.price.replace('.', ',')} €` : 'sans prix'}`;
 }
 
 export type ReviewWrite = {
@@ -216,6 +290,8 @@ export function applyReview(config: ClubConfig, items: ReviewItem[]): ReviewWrit
 
 /** Images copiées pour la proposition et non retenues : à supprimer une fois la relecture enregistrée. */
 export function unusedProposalImages(proposal: TenupSiteProposal, items: ReviewItem[]): string[] {
-  const used = new Set(items.filter((i) => i.image && i.checked && !i.disabled).map((i) => i.next));
-  return [proposal.club.logo, proposal.club.banner].filter((url) => url && !used.has(url));
+  const kept = items.filter((i) => i.checked && !i.disabled);
+  const used = new Set([...kept.filter((i) => i.image).map((i) => i.next), ...kept.map((i) => i.entry?.image ?? '')]);
+  return [proposal.club.logo, proposal.club.banner, proposal.club.installation_image ?? '', proposal.club.installation_image_home ?? '']
+    .filter((url) => url && !used.has(url));
 }

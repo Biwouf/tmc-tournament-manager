@@ -2,21 +2,7 @@ import ConfigImage from '../ConfigImage';
 import { useSite } from '../../contexts/SiteContext';
 import { configImageUrl } from '../../lib/configImage';
 import { focalPointStyle } from '../../lib/focalPoint';
-
-/**
- * Initiales d'un membre : première lettre des deux premiers mots du nom (maquette : rien —
- * c'est le repli demandé au brief PR9-bis §4). Chaîne vide si le nom ne donne rien, et
- * l'appelant n'affiche alors aucun carré : un carré vide serait le « trou » que la règle §10
- * de PR9 interdit.
- */
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0].toUpperCase())
-    .join('');
-}
+import { initials } from '../../lib/initials';
 
 /**
  * Bureau du club — `club.board` (maquette 1813-1823).

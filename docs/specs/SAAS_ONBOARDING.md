@@ -831,3 +831,31 @@ Limites connues : une seule installation lue (Ermont en a deux) ; la présentati
 par certains clubs (Ermont), l'équipe pédagogique, les horaires et la galerie ne sont pas repris ;
 « Loisir enfant » ou « Perf enfant » (type Adhésion, cours dans la seule description) restent en
 adhésion seule.
+
+### 13.5 S8b-bis — retours de recette (14/11/2026, brief `SAAS_10c_S8b_ameliorations.md`)
+
+- **Terrains regroupés** (`courtGroups`) : le tennis en « Courts extérieurs » et « Courts couverts »
+  (nombre total, surfaces en détail), chaque autre sport en une carte (« Terrains de padel »). Les
+  entrées existantes sont reconnues à leur libellé. Corrige le padel écarté : l'ancienne clé de
+  dédoublonnage était le détail, et « Gazon synthétique » existait déjà côté tennis.
+- **Photo de l'installation** : le worker lit la photo de la page installation
+  (`club.installation_image`) ; l'Edge la copie **deux fois** (`tenup-installation` pour la page
+  Infrastructures, `tenup-installation-accueil` pour l'accueil), car un panneau supprime les images
+  qu'il n'utilise plus et un fichier partagé serait effacé par l'autre. Posée sur la première carte.
+- **Accueil** : `home.infra_teaser` reprend les mêmes groupes (trois cartes au plus, existantes
+  comprises) ; bandeau d'appel final proposé s'il est entièrement vide, texte du site du CAC
+  (`DEFAULT_HOME_CTA` : « Rejoignez notre club » / « Une question, une envie d'essayer, nouer un
+  partenariat ? Écrivez-nous, on vous répond vite. » / « Nous contacter »).
+- **Tarifs** : pour les offres « À partir de » (adhésion, enseignement, carnet), le worker ouvre la
+  page de l'offre (`/offres/<id>`, « Tarifs disponibles ») : 12 pages au plus, 6 s de marge sur le
+  budget de 32 s. Une ligne par tarif (nom du tarif, l'offre en sous-titre, conditions en note) ;
+  une offre dont la page n'est pas lue garde son prix le plus bas. Mesuré en local : CAC 4,9 s,
+  Moissac 4,4 s, Blagnac 8,8 s (35 offres « à partir de », 12 lues).
+- **À compléter ensuite** (`lib/siteExtras.ts`, `missingSiteExtras`) : le mot du président·e, les
+  partenaires, les chiffres clés. Liste avec liens vers le panneau après l'enregistrement de
+  l'import, et rappels facultatifs (hors compteur, bouton « Ajouter ») dans la checklist du tableau
+  de bord. Un lien `#panneau-<groupe>` ouvre le panneau même déjà monté (`SiteConfigPanel.focused`).
+- **Vitrine** : président·e sans portrait → ses initiales dans le médaillon (`web/src/lib/initials.ts`,
+  partagé avec le bureau).
+- **Compatibilité** : champs nouveaux facultatifs dans la validation et la relecture (proposition lue
+  avant, worker antérieur) ; worker et Edge déployables dans n'importe quel ordre. Pas de migration.

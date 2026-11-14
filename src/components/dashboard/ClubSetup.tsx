@@ -7,6 +7,7 @@ import { useSitePublication } from '../../hooks/useSitePublication';
 import type { ClubConfig } from '../../lib/clubConfig';
 import { listClubMembers } from '../../lib/clubMembers';
 import { clubAppHost, clubSiteHost, markAppShared } from '../../lib/firstSteps';
+import { extraPanelPath, missingSiteExtras } from '../../lib/siteExtras';
 import {
   checklistComplete, checklistItems, checklistProgress, eligibleForChecklist, firstStepPath,
   passwordState, trialBanner, type ChecklistItem,
@@ -108,6 +109,10 @@ function Eligible({ club, config, reloadConfig }: { club: Club; config: ClubConf
     if (item.id === 'team') return <Link to="/admin/members" className={style}>Inviter</Link>;
     if (item.id === 'share') return <button type="button" className={style} onClick={share}>Partager</button>;
     if (item.id === 'password') return <button type="button" className={secondary} onClick={() => setDialog('password')}>Choisir</button>;
+    if (item.id.startsWith('extra:')) {
+      const extra = missingSiteExtras(config).find((e) => `extra:${e.id}` === item.id);
+      return extra && <Link to={extraPanelPath(extra)} className={secondary}>Ajouter</Link>;
+    }
     return <Link to={firstStepPath(item.id.slice('step:'.length))} className={style}>Reprendre</Link>;
   };
 

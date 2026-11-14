@@ -117,6 +117,7 @@ export default function SiteConfigPage() {
                 initial={initialValues[index]}
                 clubId={clubId}
                 defaultOpen={index === 0 || hash === `#panneau-${group.key}`}
+                focused={hash === `#panneau-${group.key}`}
                 onSaved={reload}
               />
             ))}
