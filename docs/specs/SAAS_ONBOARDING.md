@@ -388,7 +388,8 @@ club : actu sans image.
 
 `app-<slug>.feelike.pro`, « Copier le lien », QR code réel en SVG (`uqr` : aucune dépendance, 27 Ko
 non compressés, chunk de la page uniquement ; écrire l'encodage et sa correction d'erreurs ici
-aurait fait plus de code à maintenir pour le même résultat). « Aller au tableau de bord » pose `finished_at`. Les cartes « à découvrir »
+aurait fait plus de code à maintenir pour le même résultat). « Finir l'installation » (« Aller au tableau de bord » jusqu'au 14/11/2026, jugé peu clair) pose
+`finished_at` et ouvre le tableau de bord ; le bouton est répété dans la carte « Et plus encore ». Les cartes « à découvrir »
 (`Discover`, entrée `Side` de l'étape) **remplacent le téléphone** à droite de l'étape, en 2 × 2,
 comme sur la maquette. Jusqu'au 14/11/2026 elles étaient en pleine largeur sous l'étape et le
 téléphone, comme le demandait le brief : on ne les voyait qu'en défilant. Le QR code montre déjà

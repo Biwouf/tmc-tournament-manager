@@ -343,7 +343,12 @@ test('reload resumes at the right step; final screen: real QR code, copy, dashbo
   assert.equal([...document.querySelectorAll('article')].find(a => a.textContent.includes('Et plus encore')).querySelector('a'), null);
   assert.doesNotMatch(text(), /Passer à la saison/);
   assert.doesNotMatch(text(), /Je finirai plus tard/);
-  await click('Aller au tableau de bord');
+  // « Finir l'installation » sous l'étape et dans la carte « Et plus encore » (14/11/2026).
+  const finishButtons = [...document.querySelectorAll('button')].filter(b => b.textContent === 'Finir l’installation');
+  assert.equal(finishButtons.length, 2);
+  assert.ok(finishButtons[1].closest('.fs-disc-more'), 'repeated in « Et plus encore »');
+  assert.doesNotMatch(text(), /Aller au tableau de bord/);
+  await act(async () => finishButtons[1].click()); await flush();
   assert.equal(where(), '/');
   assert.ok(db.club_settings[0].config.onboarding.finished_at);
   await unmount();

@@ -24,8 +24,6 @@ function QrCode({ value }: { value: string }) {
 export default function FinalStep({ club, state, steps, finish }: StepProps) {
   const host = clubAppHost(club.slug);
   const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const recap = steps.flatMap((step) => (step.recap ? [{ id: step.id, ok: step.isDone(state), ...step.recap }] : []));
 
   const copyLink = async () => {
@@ -35,11 +33,6 @@ export default function FinalStep({ club, state, steps, finish }: StepProps) {
     } catch {
       setCopy('failed');
     }
-  };
-  const goToDashboard = async () => {
-    setBusy(true);
-    setError(await finish());
-    setBusy(false);
   };
 
   return <>
@@ -68,13 +61,28 @@ export default function FinalStep({ club, state, steps, finish }: StepProps) {
       <span className="fs-label">Pour finir d’installer le club</span>
       <span className="fs-note">Votre site et votre bureau vous attendent dans la checklist du tableau de bord.</span>
     </div>
+    <FinishButton finish={finish} />
+  </>;
+}
+
+/** « Finir l'installation » : clôt les premiers pas (`finished_at`) et ouvre le tableau de bord,
+ *  où la checklist attend. Présent sous l'étape et dans la carte « Et plus encore ». */
+function FinishButton({ finish }: Pick<StepProps, 'finish'>) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setBusy(true);
+    setError(await finish());
+    setBusy(false);
+  };
+  return <>
     {error && <p role="alert" className="fs-error">{error}</p>}
-    <button type="button" className="fs-btn fs-btn-p" disabled={busy} onClick={goToDashboard}>Aller au tableau de bord</button>
+    <button type="button" className="fs-btn fs-btn-p fs-finish" disabled={busy} onClick={go}>Finir l’installation</button>
   </>;
 }
 
 /** « Et ce n'est que l'échauffement » : des liens vers les pages du BO. */
-export function Discover() {
+export function Discover({ finish }: Pick<StepProps, 'finish'>) {
   return (
     <section className="fs-discover" aria-labelledby="fs-discover-title">
       <div className="fs-discover-head">
@@ -106,6 +114,7 @@ export function Discover() {
           <span aria-hidden="true" className="fs-disc-plus">+</span>
           <h3>Et plus encore</h3>
           <p>Planning et affiches de tournois TMC, événements du club, publication sur Facebook… et les nouveautés de la saison, incluses dans votre abonnement.</p>
+          <FinishButton finish={finish} />
         </article>
       </div>
     </section>

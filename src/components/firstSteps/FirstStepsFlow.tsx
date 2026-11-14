@@ -45,7 +45,7 @@ export type FirstStep = {
   /** L'aperçu à droite : l'onglet de la PWA concerné par l'étape. */
   Preview: ComponentType<StepPreviewProps>;
   /** À droite de l'étape, à la place de l'aperçu (écran final : « à découvrir »). */
-  Side?: ComponentType;
+  Side?: ComponentType<Pick<StepProps, 'finish'>>;
   /** Récapitulatif de l'écran final. */
   recap?: { done: string; todo: string };
   /** Écran de fin : absent du décompte « Étape X sur N ». */
@@ -94,6 +94,7 @@ export default function FirstStepsFlow({ club, config, steps }: { club: Club; co
     navigate('/');
     return null;
   };
+  const finish = () => leave(finishFirstSteps);
   const postpone = async () => {
     setLeaving(true);
     setLeaveError(await leave(postponeFirstSteps));
@@ -148,7 +149,7 @@ export default function FirstStepsFlow({ club, config, steps }: { club: Club; co
               complete={complete}
               next={nextStep && { label: lowerFirst(nextStep.label), go: () => setIndex(index + 1) }}
               goTo={(id) => { const target = steps.findIndex((item) => item.id === id); if (target !== -1) setIndex(target); }}
-              finish={() => leave(finishFirstSteps)}
+              finish={finish}
             />
             {!step.final && (
               <div className="fs-later">
@@ -159,7 +160,7 @@ export default function FirstStepsFlow({ club, config, steps }: { club: Club; co
           </section>
 
           {Side
-            ? <Side />
+            ? <Side finish={finish} />
             : <section className={`fs-stage${previewOpen ? ' open' : ''}`} aria-label="Aperçu de l'app">
                 <button type="button" className="fs-btn fs-btn-o fs-preview-toggle" aria-expanded={previewOpen} aria-controls="fs-preview" onClick={() => setPreviewOpen((open) => !open)}>
                   {previewOpen ? 'Masquer l’aperçu' : 'Voir l’aperçu'}
