@@ -104,11 +104,12 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - Sur Android, l'écran de lancement natif de l'app installée prend lui aussi la couleur du club
 
 ### PWA — bannière d'incitation à l'installation
-- Bannière fixe en bas (au-dessus de la barre de navigation) qui invite à installer l'app sur l'écran d'accueil
+- Carte compacte d'une ligne, fixée en bas (au-dessus de la barre de navigation), qui invite à installer l'app sur l'écran d'accueil sans masquer la liste
 - Variante Android Chrome/Edge : bouton « Installer » qui déclenche le prompt natif (`beforeinstallprompt`)
-- Variante iOS Safari : instructions visuelles « Touche [Partager] · puis [+] Sur l'écran d'accueil »
+- Variante iOS Safari : consigne « Touchez [Partager] puis « Sur l'écran d'accueil » »
+- Textes au vouvoiement, aide Samsung Internet comprise
 - Masquée si l'app est déjà installée (mode standalone)
-- Fermeture (croix ou « Plus tard ») : reproposée 7 jours plus tard
+- Fermeture (croix) : reproposée 7 jours plus tard
 
 ### Comptes, rôles et invitations
 - Accès au back-office **sur invitation** : tout se passe sur l'écran *Admin › Membres* (`/admin/members`), réservé aux administrateurs du club. L'ancienne adresse `/admin/invite` y redirige.
