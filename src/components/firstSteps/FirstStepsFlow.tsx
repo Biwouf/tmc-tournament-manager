@@ -54,10 +54,14 @@ export type FirstStep = {
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
-export default function FirstStepsFlow({ club, config, steps }: { club: Club; config: ClubConfig; steps: FirstStep[] }) {
+export default function FirstStepsFlow({ club, config, steps, initialStepId }: { club: Club; config: ClubConfig; steps: FirstStep[]; initialStepId?: string }) {
   const navigate = useNavigate();
   const [state, setState] = useState(config.onboarding);
-  const [index, setIndex] = useState(() => currentStepIndex(steps, config.onboarding));
+  // S8 : une étape rouverte depuis la checklist, sinon la reprise habituelle.
+  const [index, setIndex] = useState(() => {
+    const asked = initialStepId ? steps.findIndex((step) => step.id === initialStepId) : -1;
+    return asked !== -1 ? asked : currentStepIndex(steps, config.onboarding);
+  });
   const [version, setVersion] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);

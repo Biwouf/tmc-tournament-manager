@@ -19,13 +19,14 @@
 // premier, et chacun affiche son état (« Configuré » / « À compléter ») — ce qui donne en prime
 // une vue d'avancement au club qui remplit sa config. Le repli n'est qu'un masquage : chaque
 // panneau reste monté et garde sa saisie en cours, qu'il signale plutôt que de la cacher.
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
 import { useClubTheme } from '../hooks/useClubTheme';
 import { CLUB_CONFIG_GROUPS, groupValueFromConfig, type GroupValue } from '../lib/clubConfigWrite';
 import SiteConfigPanel from '../components/siteConfig/SiteConfigPanel';
+import SitePublication from '../components/siteConfig/SitePublication';
 
 export default function SiteConfigPage() {
   const { clubId, club } = useClub();
@@ -43,6 +44,13 @@ export default function SiteConfigPage() {
   if (!loading && !initialValues) {
     setInitialValues(CLUB_CONFIG_GROUPS.map((group) => groupValueFromConfig(group, config)));
   }
+
+  // SaaS S8 : `#panneau-<groupe>` (« Ajouter votre propre fond d'affiche ») déplie ce panneau.
+  const { hash } = useLocation();
+  const ready = initialValues !== null;
+  useEffect(() => {
+    if (ready && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [ready, hash]);
 
   return (
     <div className="min-h-screen">
@@ -85,13 +93,16 @@ export default function SiteConfigPage() {
               le compléter plus tard.
             </p>
 
+            {/* SaaS S8 — publication du site d'un club self-serve (le CAC n'est pas concerné). */}
+            {club?.created_via === 'self_serve' && <SitePublication club={club} config={config} />}
+
             {CLUB_CONFIG_GROUPS.map((group, index) => (
               <SiteConfigPanel
                 key={group.key}
                 group={group}
                 initial={initialValues[index]}
                 clubId={clubId}
-                defaultOpen={index === 0}
+                defaultOpen={index === 0 || hash === `#panneau-${group.key}`}
                 onSaved={reload}
               />
             ))}

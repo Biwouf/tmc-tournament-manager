@@ -213,6 +213,15 @@ Juste après le lien, le fondateur publie sa première actu, ajoute ses équipes
 - Ouvrir le back-office ramène à ces écrans, à la bonne étape, tant que le parcours n'est ni terminé (« Finir l'installation », sous l'écran final et dans la carte « Et plus encore ») ni reporté (« Je finirai plus tard »). Ensuite, il ne revient plus.
 - Réservé aux admins d'un club créé par inscription et en essai : les autres clubs ne voient rien.
 
+### Tableau de bord d'un nouveau club
+
+Après les premiers pas, le tableau de bord d'un club créé par inscription montre en tête ce qu'il reste à faire pour finir de l'installer.
+
+- **Bandeau d'essai** : « Essai · N jours restants », mis en avant à 7 jours de la fin, puis « Votre essai se termine aujourd'hui ». Pas encore de bouton d'abonnement.
+- **« Pour finir d'installer le club »**, avec un compteur et une barre : **Compléter votre site** (accueil, tarifs, contact ; la carte dit ce qui manque), **Publier le site**, **Inviter votre bureau** (un autre admin ou une invitation en cours), **Partager l'app aux adhérents** (QR code, lien et message prêt à coller). Une étape des premiers pas reportée (actu, équipes, affiche) y revient avec « Reprendre », et reste cochée une fois faite. **Choisir un mot de passe** est proposé à part, facultatif : le lien par e-mail suffit pour se connecter. Un lien mène à *Configuration du site › Affiches* pour ajouter son propre fond.
+- **Publier le site** n'est possible qu'une fois le site complet ; après confirmation, il devient visible des moteurs de recherche. *Configuration du site* affiche en tête « Site publié » ou « Site non publié », et c'est là qu'on le dépublie.
+- La carte se replie et disparaît quand tout est fait (le mot de passe n'est pas obligatoire). Le CAC et les clubs créés par la console ne voient rien.
+
 ### Comptes sociaux
 Écran *Admin › Comptes sociaux* (`/admin/social`), réservé aux **administrateurs** du club.
 

@@ -60,7 +60,7 @@ clubs
   plan          text                -- 'internal' | 'trial' | 'saison' (S2, cf. SAAS_ONBOARDING.md)
   trial_ends_at timestamptz null    -- fin d'essai, posée à l'activation (S2)
   created_via   text                -- 'console' | 'self_serve' (S2)
-  site_published boolean            -- false : vitrine noindex (S2 ; bouton « Publier » en S8)
+  site_published boolean            -- false : vitrine noindex (S2) ; écrit par la RPC club_set_site_published (S8)
   custom_domain text null           -- réservé à une phase ultérieure
   created_at    timestamptz
   updated_at    timestamptz
@@ -1157,3 +1157,12 @@ Spec : [SAAS_ONBOARDING.md](SAAS_ONBOARDING.md). Migration `2026102601_club_self
 - **Exception à « on ne supprime pas un club » (§5.1)** : un club `pending` de plus de 7 jours
   est supprimé. Il n'a jamais été ouvert par personne ; un club `active` ou `suspended` reste
   non supprimable.
+
+## SaaS S8 — publication du site (`club_set_site_published`)
+
+Migration `2026111401_club_site_publish.sql`. `site_published` reste hors des grants par colonne
+d'`authenticated` : la RPC `club_set_site_published(p_club, p_published)`, `SECURITY DEFINER`, est
+le seul chemin d'écriture côté navigateur. Garde : admin d'un club `active`, ou super-admin
+(`42501` sinon, `P0002` pour un club introuvable) ; `EXECUTE` à `authenticated` seulement. Elle ne
+touche ni `plan` ni `status`. La vitrine garde sa double condition (site prêt **et** publié) :
+détails dans [SAAS_ONBOARDING.md](SAAS_ONBOARDING.md) §12.

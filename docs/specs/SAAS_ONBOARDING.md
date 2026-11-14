@@ -33,7 +33,7 @@ annuel, Stripe). L'humain n'intervient que pour le call de réassurance.
 | **S6** | Premiers pas : vos équipes depuis un lien de poule Ten'Up, plafond Ten'Up d'essai (§10) | livrée (#207) |
 | **S6b** | Vos équipes : toutes les équipes du club depuis la page de ses rencontres (§10.6) | en revue (migration, Edge et worker à déployer avant merge) |
 | **S7** | Premiers pas : vos affiches, fond « Aux couleurs du club » (§11) | en revue |
-| S8 | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » | à faire |
+| **S8** | Tableau de bord : bandeau d'essai, checklist, bouton « Publier le site » (§12) | en revue (migration avant merge) |
 | S9 | Abonnement Stripe, lecture seule en fin d'essai | à faire |
 | S10 | E-mails de cycle de vie, funnel super-admin | à faire |
 
@@ -625,3 +625,93 @@ les trois couleurs, en desktop et à 390 px.
 
 Aucune opération hors code : pas de migration, pas d'Edge Function. Le bucket `content-images` et
 ses policies (`20260822_config_storage_tenant.sql`) servent déjà aux fonds.
+
+## 12. Tableau de bord (S8, brief `SAAS_09_S8_tableau_de_bord.md`)
+
+En tête du tableau de bord (`AppHomePage`), `components/dashboard/ClubSetup.tsx` : le bandeau
+d'essai puis la carte « Pour finir d'installer le club ». Les sections de cartes ne changent pas.
+Règles pures dans `lib/dashboardChecklist.ts`.
+
+### 12.1 Qui le voit
+
+`eligibleForChecklist` : `created_via = self_serve`, `plan` ≠ `internal` (essai et abonnés), rôle
+`admin`, hors mode support. Sinon rien, et **aucune lecture de plus** (le CAC, un membre, le
+support). Rien ne s'affiche avant la première lecture de la config (sinon le site paraîtrait vide).
+Les premiers pas en cours gardent la priorité : `FirstStepsGate` y renvoie toujours (S5).
+
+### 12.2 Bandeau d'essai
+
+`plan = trial` seulement. Jours restants en **jours calendaires de Paris** (`trialDaysLeft`,
+`lib/firstSteps.ts`, partagé avec la pastille des premiers pas) : « Essai · N jours restants »,
+accent (ambre) à J-7 et au-delà, « Votre essai se termine aujourd'hui » à J0, « Essai terminé »
+ensuite. Pas de bouton tant que S9 n'existe pas (décision 5). La pastille des premiers pas dit
+« Essai · dernier jour » à J0.
+
+### 12.3 La checklist
+
+| Élément | Fait quand… | Action |
+|---|---|---|
+| Compléter votre site | `siteGaps(config)` vide (même règle que la vitrine, hors `search_indexing`) ; sinon « Il manque : … » | → `/admin/site` |
+| Publier le site | `clubs.site_published` | Bouton désactivé tant que le site n'est pas complet ; fenêtre de confirmation ; RPC `club_set_site_published` |
+| Inviter votre bureau | un **autre admin**, ou une invitation pas encore acceptée (`club-members`, statut `pending`) | → `/admin/members` |
+| Partager l'app aux adhérents | `onboarding.app_shared_at` | Fenêtre (chunk à part) : QR code et copie de l'écran final (`QrCode`, `useCopy`), message prêt à coller ; l'ouvrir pose la date |
+| Votre première actu / Vos équipes / Votre affiche | étape dans `completed_steps` | « Reprendre » → `/premiers-pas?etape=<id>` |
+| Choisir un mot de passe (facultatif) | `user_metadata.password_set` | Fenêtre : nouveau + confirmation, ≥ 6 caractères ; `updateUser({ password, data: { password_set: true } })` |
+
+- **Bureau** : le brief disait « un autre membre ». Un adhérent inscrit depuis l'app est un membre
+  actif : il aurait coché l'élément sans que le bureau soit invité. D'où « autre admin ou
+  invitation en cours ».
+- **Étapes des premiers pas** : affichées si le parcours a été quitté (`postponed_at` ou
+  `finished_at`) sans les terminer — passées (`skipped_steps`) ou jamais atteintes. Terminée
+  depuis la checklist, une étape est notée dans **`onboarding.resumed_steps`** par
+  `completeFirstStep` (parcours déjà quitté) : elle reste dans la liste, cochée. `FirstStepsPage`
+  accepte `?etape=<id>` pour une étape reportée non terminée, même parcours quitté, et
+  `FirstStepsFlow` y démarre (`initialStepId`) ; sinon, retour au tableau de bord.
+- **Mot de passe** : seulement pour un compte né du tunnel (`app_metadata.created_via =
+  club_signup`, S2) ; un compte invité a choisi le sien à l'activation. Hors compteur, il ne
+  retient pas la carte. GoTrue peut exiger une connexion récente (`reauthentication_needed`) :
+  message « reconnectez-vous avec un nouveau lien ».
+- **Compteur** « N / M » (`aria-live`), barre, premier élément à faire mis en avant. Carte
+  repliable (préférence `localStorage` `feelike_checklist_collapsed:<club>`), **retirée quand tout
+  est fait hors facultatif** ; le bandeau d'essai reste.
+- Lien discret « Ajouter votre propre fond d'affiche » → `/admin/site#panneau-posters`, qui déplie
+  et fait défiler le panneau Affiches (chaque panneau porte l'ancre `panneau-<groupe>`).
+
+Groupe `onboarding` (additif, `.catch`, copie de la vitrine synchronisée) : `resumed_steps`,
+`app_shared_at` en plus de §9.2.
+
+### 12.4 Publier / dépublier
+
+- **RPC** `club_set_site_published(p_club, p_published)` (migration
+  `2026111401_club_site_publish.sql`), `SECURITY DEFINER` : admin d'un club `active` ou
+  super-admin, `42501` sinon, `P0002` si le club n'existe pas ; `EXECUTE` à `authenticated`
+  seulement ; ne touche ni `plan` ni `status` ; pas de SQLSTATE 40001. `authenticated` ne peut
+  toujours pas écrire la colonne directement.
+- **`/admin/site`** (`SitePublication`, clubs self-serve seulement) : « Site publié » / « Site
+  non publié — invisible des moteurs de recherche », ce qui manque, et le bouton **Dépublier** ou
+  **Publier le site** (actif quand le site est complet). Les deux écrans relisent
+  `clubs.site_published` à leur montage (`useSitePublication`).
+- **Règle partagée** : `shared/siteReadiness.mjs` (`hasContent`, `siteGaps`,
+  `isReadyForIndexing`), extrait de `web/src/lib/site.ts` sans changer la règle ; la vitrine la
+  réexporte. Publier un site incomplet reste sans effet (double condition de `render.tsx`), et
+  `settings.search_indexing = false` le garde hors index : la fenêtre de publication le signale.
+- **Vitrine** : rien à changer. En-tête `X-Robots-Tag`, balise `robots`, `sitemap.xml` et
+  `robots.txt` suivent `ready = isReadyForIndexing && site_published` (réponses `no-store` :
+  effet immédiat). Couvert par `web/tests/seo.test.mjs` (publié / non publié).
+
+### 12.5 Tests et recette
+
+`tests/dashboard-checklist.test.mjs` : règle partagée et ce qui manque, visibilité (CAC sans
+lecture de plus, membre), bandeau (jours de Paris, J-7, J0, terminé), états et compteur, étapes
+reportées et reprises, parcours réel du tableau de bord (liens, repli, partage, publication et
+erreur, mot de passe), reprise par `?etape`. `tests/club-site-publish-sql.test.mjs` (PGlite) :
+admin, super-admin, refus d'un membre, d'un autre club, d'un club suspendu et d'`anon`, écriture
+directe toujours refusée. Les deux dans `npm run test:club-signup`.
+
+Recette locale : `/etc/hosts` (`admin.feelike.pro` → `127.0.0.1`) et
+`__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=admin.feelike.pro` (§8.4). Rendu contrôlé en desktop et à
+390 px.
+
+Mise en service : appliquer `2026111401_club_site_publish.sql` en prod **avant** le merge (sans
+elle, « Publier » échoue avec un message ; le reste de la carte fonctionne). Pas d'Edge Function,
+pas de variable.

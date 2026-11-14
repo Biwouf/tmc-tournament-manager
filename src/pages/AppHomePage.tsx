@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useClubRole } from '../contexts/ClubRoleContext';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
+import ClubSetup from '../components/dashboard/ClubSetup';
 
 // `roles` = rôles autorisés à voir la carte (matrice MULTI_TENANT.md §4 / brief PR4 §6).
 // Le masquage est purement UI : la RLS tenant_isolation cloisonne par club, pas par rôle.
@@ -45,7 +46,7 @@ const SECTIONS = [
 export default function AppHomePage() {
   const { role, isSuperAdmin } = useClubRole();
   const { club } = useClub();
-  const { config } = useClubConfig();
+  const { config, loading: configLoading, reload } = useClubConfig();
   const handleLogout = () => supabase.auth.signOut();
   const clubName = club?.name ?? 'Club';
   const logo = config.brand.logo || '/logo.png';
@@ -81,6 +82,8 @@ export default function AppHomePage() {
 
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col gap-9">
+          {/* SaaS S8 — bandeau d'essai et checklist d'un club self-serve ; rien pour le CAC. */}
+          <ClubSetup config={config} loading={configLoading} reloadConfig={reload} />
           {/* PR5 — surface PLATEFORME, pas module club : volontairement hors de la
               matrice de rôles ci-dessus (le super-admin n'est pas un rôle de club). */}
           {isSuperAdmin && (
