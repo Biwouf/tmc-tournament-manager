@@ -110,6 +110,8 @@ function load(relative) {
   function read(file) {
     if (file.endsWith('/lib/supabase.ts')) return { supabase };
     if (file.endsWith('/contexts/ClubContext.tsx')) return { useClub: () => ({ clubId: context.club.id, club: context.club, isSupport: context.isSupport, loading: false }) };
+    // S7b : la story vidéo (polices, encodeur, worker) n'existe pas sous jsdom ; le bouton est testé.
+    if (file.endsWith('/rencontresAnimation/useRencontresVideo.ts')) return { useRencontresVideo: (input) => ({ encoderOk: true, canExport: true, exporting: false, progress: null, exportError: '', cancel() {}, download: async (name) => { log.push(['video', name, input.matches.length]); } }) };
     if (file.endsWith('/contexts/ClubRoleContext.tsx')) return { useClubRole: () => ({ role: context.role, isMember: true, isSuperAdmin: false, loading: false }) };
     if (cache.has(file)) return cache.get(file).exports;
     const mod = { exports: {} }; cache.set(file, mod);
@@ -410,6 +412,8 @@ test('one pool link: season, competition, team and encounters created; the phone
   assert.match(text(), /Une équipe manque \? Ajoutez-la avec le lien de sa poule/);
   assert.equal(document.getElementById('fs-pool-url').value, '');
   assert.ok(!buttonNamed('Passer cette étape'), 'skipping is offered only before the first team');
+  assert.match(text(), /Votre équipe est prête\./);
+  assert.ok(!text().includes('C’est bon pour l’instant'));
   await click('Suivant : vos affiches →');
   assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes']);
   assert.match(text(), /Annoncez le week-end comme un tournoi/);
@@ -621,6 +625,10 @@ test('posters: the club colours background is created once, the real poster is g
   const download = [...document.querySelectorAll('a')].find(a => a.textContent === 'Télécharger');
   assert.equal(download.getAttribute('href'), JPEG);
   assert.match(download.getAttribute('download'), /^affiche-rencontres-\d{4}-\d{2}-\d{2}\.jpg$/);
+  // S7b : la story vidéo de /medias, à côté, dans la même barre d'actions collée en bas.
+  assert.ok(download.closest('.fs-sticky'), 'download stays on screen');
+  await click('Télécharger la vidéo (story)');
+  assert.deepEqual(log.filter(l => l[0] === 'video').map(l => l.slice(1)).map(([n, c]) => [/^story-rencontres-\d{4}-\d{2}-\d{2}$/.test(n), c]), [[true, 2]]);
   assert.ok(!buttonNamed('Publier en actu'), 'no actu from the first steps');
   assert.equal(db.actus.length, 0);
   // Une nouvelle coche invalide l'affiche générée.

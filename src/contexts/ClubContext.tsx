@@ -35,6 +35,9 @@ export const CLUB_FIELDS = 'id, slug, name, sport, status, plan, trial_ends_at, 
 // club AFFICHÉ, pas les droits — ne pas le sur-protéger côté front.
 export const SUPPORT_CLUB_KEY = 'feelike_support_club';
 
+/** Titre de l'onglet tant qu'aucun club n'est choisi (repris de `index.html`). */
+const BO_TITLE = 'feelike.pro · Back-office';
+
 /** Entre dans un club en support (console super-admin). Recharge l'app. */
 export function enterSupportClub(clubId: string) {
   localStorage.setItem(SUPPORT_CLUB_KEY, clubId);
@@ -97,6 +100,14 @@ export function ClubProvider({ children, initialClub, support = false }: { child
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [initialClub, support]);
+
+  // Onglet du navigateur : le club une fois choisi, le titre neutre de `index.html` sinon (BO
+  // central avant le choix, ou au retour à la liste des clubs).
+  useEffect(() => {
+    if (!club) return;
+    document.title = `${club.name} · feelike.pro`;
+    return () => { document.title = BO_TITLE; };
+  }, [club]);
 
   if (loading) return <p role="status" className="p-8 text-center">Chargement du club…</p>;
   if (!club) return <ClubUnavailable temporary={temporary} />;
