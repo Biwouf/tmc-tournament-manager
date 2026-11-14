@@ -6,6 +6,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { fromHere, useGoBack } from '../components/layout/useGoBack';
 import {
   keepPreviousData,
   useQuery,
@@ -76,6 +77,7 @@ function LiveMatchScreen({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const goBack = useGoBack('/matches');
   const activity = useLiveActivity(id, clubId, userId);
   // Ligne déjà chargée par la liste Live (tenue à jour par le Broadcast) : affichée tout de suite.
   const queryClient = useQueryClient();
@@ -322,7 +324,7 @@ function LiveMatchScreen({
       <div className="live-fallback">
         <p role="alert">{live.error ?? 'Match introuvable.'}</p>
         <button onClick={() => void live.reload()}>Réessayer</button>
-        <Link to="/matches">Retour aux matchs</Link>
+        <button type="button" onClick={goBack}>Retour</button>
       </div>
     );
   const poll = activity.items.find((p) => p.id === pollId);
@@ -340,13 +342,14 @@ function LiveMatchScreen({
       }
     >
       <header className="live-header">
-        <Link
-          to="/matches"
-          aria-label="Retour aux matchs"
+        <button
+          type="button"
+          onClick={goBack}
+          aria-label="Retour"
           className="icon-button"
         >
           ←
-        </Link>
+        </button>
         <h1>Le live du match</h1>
         <button
           className="icon-button info-button"
@@ -736,7 +739,7 @@ function LiveMatchScreen({
                 ` · 3e set : ${match.set3_format === 'normal' ? 'set classique' : 'super tie-break'}`}
             </p>
             {match.team_rencontre_id && (
-              <Link to={`/matches-equipes/${match.team_rencontre_id}`}>
+              <Link to={`/matches-equipes/${match.team_rencontre_id}`} state={fromHere(location)}>
                 Voir la rencontre →
               </Link>
             )}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { returnPath } from '../components/layout/headerConfig';
 
 interface LocationState {
   from?: string;
@@ -12,7 +13,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const requested = (location.state as LocationState | undefined)?.from;
-  const fromPath = requested?.startsWith('/') && !requested.startsWith('//') ? requested : '/matches';
+  const fromPath = returnPath(requested) ?? '/actu';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +40,7 @@ export default function LoginPage() {
           Connexion
         </h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          {fromPath.startsWith('/cours') || fromPath.startsWith('/profil') ? 'Retrouvez les cours et vos inscriptions avec votre compte membre.' : 'Accédez à la gestion des lives.'}
+          {fromPath.startsWith('/cours') || fromPath.startsWith('/profil') ? 'Retrouvez les cours et vos inscriptions avec votre compte membre.' : 'Retrouvez les actualités, les scores et les cours de votre club.'}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
