@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useInstallPrompt } from '../../hooks/useInstallPrompt';
-import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
 
 export default function InstallBanner() {
   const { variant, promptInstall, dismiss } = useInstallPrompt();
-  const { club } = useClub();
   const { config } = useClubConfig();
-  const clubName = club?.name ?? 'votre club';
   const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,7 +52,7 @@ export default function InstallBanner() {
           {variant === 'ios' ? (
             <IosInstructions />
           ) : (
-            <p className="install-banner__description">{clubName} directement depuis votre écran d’accueil.</p>
+            <p className="install-banner__description">Sur votre écran d’accueil.</p>
           )}
         </div>
         {variant === 'android' && <AndroidActions onInstall={promptInstall} />}

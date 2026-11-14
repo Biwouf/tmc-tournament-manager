@@ -139,6 +139,12 @@ body.has-install-banner .pwa-content {
   line-height: 1.3;
   color: hsl(355 10% 38%);
 }
+/* Android : une ligne, jamais deux (la consigne iOS, elle, peut passer à la ligne). */
+.install-banner__description:not(.install-banner__ios) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Petits écrans : titre + bouton suffisent (ni description ni logo), la carte reste sur une ligne.
    La consigne iOS reste (elle tient lieu de bouton). */
