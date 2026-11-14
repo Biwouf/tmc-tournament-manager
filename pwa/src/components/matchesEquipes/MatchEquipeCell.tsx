@@ -1,19 +1,20 @@
-import { Link } from 'react-router-dom';
-import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
-import { competitionShortLabel } from './labels';
+import type { ReactNode } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import type { TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 
 interface Props {
   rencontre: TeamRencontre;
   equipe: TeamEquipe;
-  competition: TeamCompetition;
   etape: TeamEtape;
   state: 'upcoming' | 'past';
   isLive: boolean;
   isPending?: boolean;
 }
 
-const JOURS = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
-const MOIS = ['JANV', 'FÉVR', 'MARS', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
+// Lucide `home` / `plane`, même graisse de trait : la forme et le contraste clair/foncé
+// portent le lieu, pas la couleur seule.
+const HOME = 'M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1h-5.5v-6h-4v6H4.5a1 1 0 0 1-1-1z';
+const PLANE = 'M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z';
 
 // 0–0 hors WO = aucun résultat saisi (match nul impossible à 0 point).
 function hasScore(r: TeamRencontre): boolean {
@@ -27,157 +28,106 @@ function outcome(r: TeamRencontre): 'win' | 'lose' | 'draw' | null {
   return 'draw';
 }
 
-function etapeBadge(etape: TeamEtape): string {
-  if (etape.phase === 'poule') return `JOURNÉE ${etape.numero_journee}`;
-  return etape.stade_finale === 'finale' ? 'Finale' : (etape.stade_finale ?? 'Finale');
+const OUTCOME_LABEL = { win: 'Victoire', lose: 'Défaite', draw: 'Nul' } as const;
+
+const STADE_LABEL = { '1/16': 'Seizièmes', '1/8': 'Huitièmes', '1/4': 'Quarts', '1/2': 'Demies', finale: 'Finale' } as const;
+
+function etapeLabel(etape: TeamEtape): string {
+  if (etape.phase === 'poule') return etape.numero_journee ? `Journée ${etape.numero_journee}` : 'Poule';
+  return etape.stade_finale ? STADE_LABEL[etape.stade_finale] : 'Phase finale';
 }
 
-function formatHeure(d: Date): string {
-  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+/** « 9h », « 14h30 ». */
+function shortTime(d: Date): string {
+  const m = d.getMinutes();
+  return `${d.getHours()}h${m ? String(m).padStart(2, '0') : ''}`;
 }
 
-const RESULT_STYLES: Record<'win' | 'lose' | 'draw', { bg: string; label: string }> = {
-  win: { bg: 'bg-green-700', label: 'VICTOIRE' },
-  lose: { bg: 'bg-red-700', label: 'DÉFAITE' },
-  draw: { bg: 'bg-amber-700', label: 'NUL' },
-};
+/** « 9 heures », « 14 heures 30 » pour le lecteur d'écran. */
+function spokenTime(d: Date): string {
+  const m = d.getMinutes();
+  return `${d.getHours()} heures${m ? ` ${m}` : ''}`;
+}
 
-export default function MatchEquipeCell({ rencontre, equipe, competition, etape, state, isLive, isPending }: Props) {
+// Le numéro d'équipe adverse reste collé au nom (« Club 5 » ne se coupe pas avant 5).
+function opponentName(name: string): string {
+  return name.replace(/\s+(\d+)$/, ' $1');
+}
+
+export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLive, isPending }: Props) {
+  const location = useLocation();
   const date = new Date(rencontre.date_heure);
-  const jour = JOURS[date.getDay()];
-  const num = date.getDate();
-  const mois = MOIS[date.getMonth()];
+  const away = !rencontre.domicile;
+  const place = away ? 'Déplacement' : 'Au club';
+  const past = state === 'past' && !isLive;
+  // L'heure n'est mise en avant que lorsqu'elle sort de l'habituel 9 h.
+  const unusualTime = date.getHours() !== 9 || date.getMinutes() !== 0;
+  const score = rencontre.wo ? 'WO' : `${rencontre.score_club ?? 0}–${rencontre.score_adverse ?? 0}`;
+  const spokenScore = rencontre.wo ? 'forfait' : `${rencontre.score_club ?? 0} à ${rencontre.score_adverse ?? 0}`;
 
-  const topLabel = `${competition.nom} · ${competitionShortLabel(competition)}`;
-  const isUpcoming = state === 'upcoming';
-
-  return (
-    <Link to={`/matches-equipes/${rencontre.id}`} aria-label={`Ouvrir la rencontre contre ${rencontre.club_adverse}${isLive ? ' · En cours' : ''}`}
-      className={`grid rounded-xl border bg-card overflow-hidden ${isLive ? 'border-primary ring-1 ring-primary/20' : 'border-border'}`}
-      style={{
-        gridTemplateColumns: isLive ? '72px 1fr 86px' : isUpcoming && !isPending ? '72px 1fr 58px' : '72px 1fr 78px',
-        minHeight: 116,
-      }}
-    >
-      {/* Col 1 — date */}
-      <div
-        className={`flex flex-col items-center justify-center gap-0.5 px-1 py-3 ${
-          isUpcoming ? 'bg-muted' : ''
-        }`}
-        style={isUpcoming ? undefined : { backgroundColor: '#f6f3f3' }}
-      >
-        <span
-          className={`text-[11px] font-bold tracking-wide ${
-            isUpcoming ? 'text-primary' : 'text-muted-foreground'
-          }`}
-        >
-          {jour}
-        </span>
-        <span
-          className={`text-[30px] font-extrabold leading-none ${
-            isUpcoming ? 'text-foreground' : 'text-muted-foreground'
-          }`}
-        >
-          {num}
-        </span>
-        <span
-          className={`text-[11px] font-semibold ${
-            isUpcoming ? 'text-foreground/70' : 'text-muted-foreground'
-          }`}
-        >
-          {mois}
-        </span>
-        {isUpcoming && (
-          <span className="mt-1 rounded-full border border-accent px-1.5 py-0.5 text-[11px] font-bold text-primary">
-            {formatHeure(date)}
+  let trail: ReactNode = null;
+  let status = '';
+  if (isLive) {
+    trail = <><span className="me-score block">{score}</span><span className="me-res live">En direct</span></>;
+    status = `en direct, ${spokenScore}`;
+  } else if (isPending || past) {
+    const issue = past ? outcome(rencontre) : null;
+    if (issue) {
+      // En victoire notre score ressort ; en défaite c'est le leur. Pas de rouge pour une défaite.
+      const us = issue === 'lose' ? 'muted' : undefined;
+      const them = issue === 'win' ? 'muted' : undefined;
+      trail = (
+        <>
+          <span className="me-score block">
+            {rencontre.wo ? 'WO' : <><span className={us}>{rencontre.score_club}</span>–<span className={them}>{rencontre.score_adverse}</span></>}
           </span>
-        )}
-      </div>
-
-      {/* Col 2 — contexte + adversaire */}
-      <div className="flex flex-col justify-center gap-1.5 px-3 py-3 min-w-0">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-primary truncate">
-          {topLabel}
-        </span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="whitespace-nowrap rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-            ÉQUIPE {equipe.numero}
-          </span>
-          <span className="whitespace-nowrap rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-            {etapeBadge(etape)}
-          </span>
-        </div>
-        <span
-          className="text-base font-extrabold text-foreground leading-tight overflow-hidden"
-          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
-        >
-          vs {rencontre.club_adverse}
-        </span>
-      </div>
-
-      {/* Col 3 — lieu (upcoming), en attente (commencée) ou résultat (past) */}
-      {isLive ? (
-        <div className="flex flex-col items-center justify-center gap-1 bg-primary px-1 text-primary-foreground">
-          <span className="flex items-center gap-1 text-[10px] font-bold tracking-wide">
-            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current motion-safe:animate-pulse" />
-            EN COURS
-          </span>
-          <span className="text-[26px] font-black tabular-nums leading-none">{rencontre.score_club ?? 0}<span className="opacity-55">–</span>{rencontre.score_adverse ?? 0}</span>
-          <span className="text-[9px] font-medium">Provisoire</span>
-          <span className="mt-1 text-[9px]">{rencontre.domicile ? 'Au club' : 'Extérieur'}</span>
-        </div>
-      ) : isPending ? (
-        <div className="flex flex-col items-center justify-center gap-1 bg-muted px-1 text-center text-muted-foreground">
-          {hasScore(rencontre) ? (
-            <>
-              <span className="text-[26px] font-black tabular-nums leading-none text-foreground">{rencontre.score_club}<span className="opacity-55">–</span>{rencontre.score_adverse}</span>
-              <span className="text-[9px] font-medium">Provisoire</span>
-            </>
-          ) : (
-            <span className="text-[10px] font-semibold">En attente</span>
-          )}
-          <span className="text-[9px]">{rencontre.domicile ? 'Au club' : 'Extérieur'}</span>
-        </div>
-      ) : isUpcoming ? (
-        <div
-          className={`flex flex-col items-center justify-center gap-1 ${
-            rencontre.domicile ? 'bg-primary' : 'bg-foreground'
-          } text-white`}
-        >
-          <span className="text-2xl leading-none">{rencontre.domicile ? '🏠' : '✈️'}</span>
-          <span className="text-[9px] font-bold tracking-widest">
-            {rencontre.domicile ? 'AU CLUB' : 'EXT.'}
-          </span>
-        </div>
-      ) : (
-        <ResultColumn rencontre={rencontre} />
-      )}
-    </Link>
-  );
-}
-
-function ResultColumn({ rencontre }: { rencontre: TeamRencontre }) {
-  const issue = outcome(rencontre);
-  if (!issue) {
-    return (
-      <div className="flex items-center justify-center bg-muted text-[10px] font-semibold text-muted-foreground text-center px-1">
-        En attente
-      </div>
-    );
+          <span className={`me-res block${issue === 'win' ? ' win' : ''}`}>{OUTCOME_LABEL[issue]}</span>
+        </>
+      );
+      status = `${OUTCOME_LABEL[issue]}, ${spokenScore}`;
+    } else if (!past && hasScore(rencontre)) {
+      trail = <><span className="me-score block">{score}</span><span className="me-res block">Provisoire</span></>;
+      status = `provisoire, ${spokenScore}`;
+    } else {
+      trail = <span className="me-pending">En attente</span>;
+      status = 'résultat en attente';
+    }
   }
-  const { bg, label } = RESULT_STYLES[issue];
+
+  const label = [
+    place,
+    rencontre.club_adverse,
+    `Équipe ${equipe.numero}`,
+    past ? etapeLabel(etape) : spokenTime(date),
+    status,
+  ].filter(Boolean).join(', ');
+
   return (
-    <div className={`flex flex-col items-center justify-center gap-1 ${bg} text-white px-1`}>
-      <span className="text-[9px] font-bold tracking-wide">{label}</span>
-      {rencontre.wo ? (
-        <span className="text-[22px] font-black tracking-wider leading-none">WO</span>
-      ) : (
-        <span className="text-[26px] font-black tabular-nums leading-none">
-          {rencontre.score_club}
-          <span className="opacity-55">–</span>
-          {rencontre.score_adverse}
+    <Link
+      to={`/matches-equipes/${rencontre.id}`}
+      state={{ from: `${location.pathname}${location.search}` }}
+      aria-label={label}
+      className={`me-row${away ? ' away' : ''}`}
+    >
+      <span className="me-bar" aria-hidden="true" />
+      <span className="me-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d={away ? PLANE : HOME} />
+        </svg>
+        <span className="sr-only">{place}</span>
+      </span>
+      <span className="me-mid">
+        <span className="me-title block">{opponentName(rencontre.club_adverse)}</span>
+        <span className="me-meta block">
+          Équipe {equipe.numero} ·{' '}
+          {past
+            ? etapeLabel(etape)
+            : <span className={`me-time${unusualTime ? ' emph' : ''}`}>{shortTime(date)}</span>}
         </span>
-      )}
-    </div>
+      </span>
+      <span className="me-trail">{trail}</span>
+      <span className="me-chev" aria-hidden="true" />
+    </Link>
   );
 }

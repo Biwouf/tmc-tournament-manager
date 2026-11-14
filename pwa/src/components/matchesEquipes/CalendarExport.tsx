@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { toBlob } from 'html-to-image';
 import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
-import { useHeaderSlot } from '../layout/HeaderActionContext';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import { competitionShortLabel } from './labels';
 import { buildTeamCalendar, type CalendarRencontre, type TeamCalendar } from '../../../../shared/teamCalendar';
@@ -17,8 +15,8 @@ type State =
   | { step: 'empty' | 'error' };
 
 /**
- * Bouton du header (à gauche du profil) qui exporte en PNG le calendrier de toutes les
- * rencontres à venir de la saison, toutes équipes confondues, quel que soit le filtre affiché.
+ * Bouton « Calendrier » de la barre de filtres : exporte en PNG le calendrier des rencontres
+ * à venir de la saison affichée, pour les équipes reçues (l'équipe filtrée, ou toutes).
  */
 export default function CalendarExport({
   saisonLabel,
@@ -31,7 +29,6 @@ export default function CalendarExport({
 }) {
   const { clubId, club } = useClub();
   const { config } = useClubConfig();
-  const { slot } = useHeaderSlot();
   const [state, setState] = useState<State>({ step: 'idle' });
   const nodeRef = useRef<HTMLDivElement>(null);
 
@@ -115,26 +112,24 @@ export default function CalendarExport({
 
   return (
     <>
-      {slot && createPortal(
-        <button
-          type="button"
-          onClick={start}
-          disabled={state.step === 'loading'}
-          aria-label="Exporter le calendrier des rencontres"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary active:opacity-70 disabled:opacity-50"
-        >
-          {state.step === 'loading' ? (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true" />
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
-              <rect x="3" y="4.5" width="18" height="16.5" rx="2.5" />
-              <path d="M3 9.5h18M8 2.5v4M16 2.5v4M12 13v5M9.5 15.5 12 18l2.5-2.5" />
-            </svg>
-          )}
-        </button>,
-        slot,
-      )}
+      <button
+        type="button"
+        onClick={start}
+        disabled={state.step === 'loading'}
+        aria-label="Exporter le calendrier des rencontres"
+        className="me-cal"
+      >
+        {state.step === 'loading' ? (
+          <span className="h-[18px] w-[18px] animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="4.5" width="18" height="16.5" rx="2.5" />
+            <path d="M3 9.5h18M8 2.5v4M16 2.5v4M12 13v5M9.5 15.5 12 18l2.5-2.5" />
+          </svg>
+        )}
+        <span>Calendrier</span>
+      </button>
 
       {calendar && (
         <div aria-hidden="true" style={{ position: 'fixed', left: -100000, top: 0, pointerEvents: 'none' }}>
@@ -179,7 +174,9 @@ export default function CalendarExport({
           ) : (
             <p className="m-auto max-w-xs px-6 text-center text-sm text-white/90">
               {state.step === 'empty'
-                ? 'Aucune rencontre à venir sur cette saison.'
+                ? equipes.length === 1
+                  ? 'Aucune rencontre à venir pour cette équipe.'
+                  : 'Aucune rencontre à venir sur cette saison.'
                 : 'Le calendrier n’a pas pu être généré. Réessayez dans un instant.'}
             </p>
           )}

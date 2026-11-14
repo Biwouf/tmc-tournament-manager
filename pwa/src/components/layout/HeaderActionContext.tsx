@@ -4,18 +4,14 @@ import type { HeaderAction } from './headerConfig';
 type Ctx = {
   action: HeaderAction | null;
   setAction: (a: HeaderAction | null) => void;
-  /** Emplacement du header, à gauche du bouton de profil, où une page peut monter un bouton (portail). */
-  slot: HTMLElement | null;
-  setSlot: (el: HTMLElement | null) => void;
 };
 
 const HeaderActionContext = createContext<Ctx | null>(null);
 
 export function HeaderActionProvider({ children }: { children: ReactNode }) {
   const [action, setAction] = useState<HeaderAction | null>(null);
-  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
-    <HeaderActionContext.Provider value={{ action, setAction, slot, setSlot }}>
+    <HeaderActionContext.Provider value={{ action, setAction }}>
       {children}
     </HeaderActionContext.Provider>
   );
@@ -25,12 +21,6 @@ export function useHeaderActionState(): HeaderAction | null {
   const ctx = useContext(HeaderActionContext);
   if (!ctx) throw new Error('useHeaderActionState must be used within HeaderActionProvider');
   return ctx.action;
-}
-
-export function useHeaderSlot() {
-  const ctx = useContext(HeaderActionContext);
-  if (!ctx) throw new Error('useHeaderSlot must be used within HeaderActionProvider');
-  return ctx;
 }
 
 /**
