@@ -71,7 +71,7 @@
 
 /* L'espace suit la hauteur réelle de l'invite, qui varie selon la largeur et la plateforme. */
 body.has-install-banner .pwa-content {
-  padding-bottom: calc(56px + var(--install-banner-height, 190px) + 20px + env(safe-area-inset-bottom));
+  padding-bottom: calc(56px + var(--install-banner-height, 68px) + 20px + env(safe-area-inset-bottom));
 }
 
 /* Écrans d'authentification : pas de barre d'onglets à réserver. */
@@ -86,174 +86,134 @@ body.has-install-banner .pwa-content {
   right: 0;
   bottom: calc(56px + env(safe-area-inset-bottom));
   left: 0;
-  padding: 10px 10px 12px;
+  padding: 0 8px 8px;
   pointer-events: none;
 }
 
+/* Une seule ligne compacte (~60 px) : logo, texte, action, fermeture. Carte claire pour
+   laisser le rouge de marque au bouton d'action et au direct. */
 .install-banner__card {
   position: relative;
+  display: flex;
   width: min(100%, 32rem);
+  min-height: 60px;
+  align-items: center;
+  gap: 10px;
   margin-inline: auto;
-  padding: 16px;
-  overflow: hidden;
-  color: hsl(var(--primary-foreground));
-  background:
-    radial-gradient(circle at 0 0, rgb(255 255 255 / 20%), transparent 42%),
-    hsl(var(--primary));
-  border: 1px solid rgb(255 255 255 / 35%);
-  border-radius: 18px;
-  box-shadow: 0 12px 36px rgb(0 0 0 / 32%), 0 2px 8px rgb(0 0 0 / 20%);
+  padding: 8px 4px 8px 10px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  border: 1px solid hsl(355 12% 88%);
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgb(40 20 20 / 16%), 0 1px 3px rgb(40 20 20 / 10%);
   pointer-events: auto;
 }
 
-.install-banner__close {
-  position: absolute;
-  z-index: 1;
-  top: 6px;
-  right: 6px;
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-  color: hsl(var(--primary-foreground));
-  background: rgb(0 0 0 / 14%);
-  border-radius: 999px;
-  touch-action: manipulation;
-}
-
-.install-banner__intro {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding-right: 38px;
-}
-
-.install-banner__logo-wrap {
-  display: grid;
-  width: 54px;
-  height: 54px;
-  flex: 0 0 auto;
-  place-items: center;
-  padding: 5px;
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
-}
-
 .install-banner__logo {
-  width: 100%;
-  height: 100%;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  padding: 3px;
   object-fit: contain;
+  background: white;
+  border: 1px solid hsl(355 12% 90%);
+  border-radius: 9px;
 }
 
-.install-banner__eyebrow {
-  margin-bottom: 2px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .11em;
-  line-height: 1.2;
-  opacity: .8;
+.install-banner__text {
+  min-width: 0;
+  flex: 1;
 }
 
 .install-banner__title {
-  overflow: hidden;
-  font-size: 17px;
-  font-weight: 850;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .install-banner__description {
-  margin-top: 3px;
+  margin-top: 1px;
   font-size: 12px;
   font-weight: 500;
-  line-height: 1.35;
-  opacity: .88;
+  line-height: 1.3;
+  color: hsl(355 10% 38%);
+}
+
+/* Petits écrans : titre + bouton suffisent (ni description ni logo), la carte reste sur une ligne.
+   La consigne iOS reste (elle tient lieu de bouton). */
+@media (max-width: 359px) {
+  .install-banner__description:not(.install-banner__ios) { display: none; }
+  .install-banner__card:has(.install-banner__actions) .install-banner__logo { display: none; }
+}
+
+.install-banner__ios svg {
+  display: inline;
+  margin-inline: 1px;
+  vertical-align: -2px;
+  color: hsl(var(--foreground));
 }
 
 .install-banner__actions {
-  margin-top: 14px;
+  flex: none;
 }
 
 .install-banner__install-button {
-  display: flex;
-  width: 100%;
-  min-height: 52px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding-inline: 16px;
-  color: hsl(var(--primary));
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 3px 10px rgb(0 0 0 / 20%);
-  font-size: 14px;
-  font-weight: 800;
+  min-height: 36px;
+  padding-inline: 14px;
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
   touch-action: manipulation;
+  /* Cible tactile de 44 px autour d'une pastille de 36 px. */
+  position: relative;
+}
+.install-banner__install-button::after {
+  content: "";
+  position: absolute;
+  inset: -4px -2px;
 }
 
 .install-banner__install-button:disabled {
   opacity: .72;
 }
 
-.install-banner__ios-instructions {
+.install-banner__error {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  left: 0;
+  padding: 8px 12px;
+  color: white;
+  background: hsl(355 16% 18%);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.install-banner__close {
   display: flex;
-  min-height: 52px;
+  width: 44px;
+  height: 44px;
+  flex: none;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  margin-top: 14px;
-  padding: 10px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  text-align: center;
-  background: rgb(0 0 0 / 14%);
-  border: 1px solid rgb(255 255 255 / 32%);
-  border-radius: 12px;
-}
-
-.install-banner__separator {
-  opacity: .72;
-}
-
-@media (max-width: 359px) {
-  .install-banner {
-    padding-inline: 6px;
-  }
-
-  .install-banner__card {
-    padding: 13px;
-  }
-
-  .install-banner__logo-wrap {
-    width: 48px;
-    height: 48px;
-  }
-
-  .install-banner__description {
-    font-size: 11px;
-  }
-
-  .install-banner__ios-instructions {
-    flex-wrap: wrap;
-  }
+  margin-left: -4px;
+  color: hsl(355 10% 38%);
+  border-radius: 999px;
+  touch-action: manipulation;
 }
 
 @media (hover: hover) {
   .install-banner__close:hover {
-    background: rgb(0 0 0 / 22%);
-  }
-
-  .install-banner__install-button:hover {
-    transform: translateY(-1px);
+    background: hsl(355 10% 94%);
   }
 }
 
 .install-banner button:focus-visible {
-  outline: 3px solid white;
+  outline: 3px solid #2563eb;
   outline-offset: 2px;
 }
 
