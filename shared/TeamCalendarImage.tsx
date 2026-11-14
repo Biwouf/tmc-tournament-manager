@@ -29,7 +29,10 @@ export const TeamCalendarImage = forwardRef<HTMLDivElement, TeamCalendarImagePro
   function TeamCalendarImage({ calendar, clubName, saisonLabel, logoUrl, color = '#e51828' }, ref) {
     const { columns, months } = calendar;
     const width = 2 * 48 + DATE_COL_W + columns.length * (TEAM_COL_W + GAP);
-    const grid = `${DATE_COL_W}px repeat(${columns.length}, ${TEAM_COL_W}px)`;
+    // Les colonnes d'équipe se partagent la largeur de l'image (760 px minimum) : avec une ou
+    // deux équipes, titre et cartes prennent toute la place au lieu d'une colonne étroite.
+    const grid = `${DATE_COL_W}px repeat(${columns.length}, minmax(${TEAM_COL_W}px, 1fr))`;
+    const single = columns.length === 1;
     const updated = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     return (
@@ -109,14 +112,15 @@ export const TeamCalendarImage = forwardRef<HTMLDivElement, TeamCalendarImagePro
                     {(row.cells.get(c.key) ?? []).map((cell) => (
                       <div key={cell.id} style={{
                         flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                        padding: '7px 10px', borderRadius: 9, boxSizing: 'border-box', textAlign: 'center',
+                        padding: single ? '9px 16px' : '7px 10px', borderRadius: 9, boxSizing: 'border-box',
+                        textAlign: single ? 'left' : 'center',
                         ...(cell.domicile
                           ? { background: color, color: '#ffffff' }
                           : { border: `2px solid ${color}`, background: tint(color, 0.06), color: INK }),
                       }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>{cell.adversaire}</span>
+                        <span style={{ fontSize: single ? 15 : 13, fontWeight: 700, lineHeight: 1.2 }}>{cell.adversaire}</span>
                         {cell.heure && (
-                          <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginTop: 1 }}>{cell.heure}</span>
+                          <span style={{ fontSize: single ? 12 : 11, fontWeight: 600, opacity: 0.8, marginTop: 1 }}>{cell.heure}</span>
                         )}
                       </div>
                     ))}
