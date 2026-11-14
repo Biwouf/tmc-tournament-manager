@@ -1,39 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { encode } from 'uqr';
 import { clubAppHost } from '../../lib/firstSteps';
+import { QrCode } from './QrCode';
+import { useCopy } from './useCopy';
 import type { StepProps } from './FirstStepsFlow';
-
-/** QR code réel, en SVG : modules sombres sur fond blanc quelle que soit la couleur du club, pour
- *  rester lisible par un téléphone. La marge blanche fait partie du code (`border`). */
-function QrCode({ value }: { value: string }) {
-  const { path, size } = useMemo(() => {
-    const qr = encode(value, { ecc: 'M', border: 3 });
-    let d = '';
-    qr.data.forEach((row, y) => row.forEach((dark, x) => { if (dark) d += `M${x} ${y}h1v1h-1z`; }));
-    return { path: d, size: qr.size };
-  }, [value]);
-  return (
-    <svg role="img" aria-label="QR code vers l'app" viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" className="fs-qr">
-      <rect width={size} height={size} fill="#fff" />
-      <path d={path} fill="#2a201f" />
-    </svg>
-  );
-}
 
 export default function FinalStep({ club, state, steps, finish }: StepProps) {
   const host = clubAppHost(club.slug);
-  const [copy, setCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const { state: copy, copy: copyText } = useCopy();
   const recap = steps.flatMap((step) => (step.recap ? [{ id: step.id, ok: step.isDone(state), ...step.recap }] : []));
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(`https://${host}`);
-      setCopy('copied');
-    } catch {
-      setCopy('failed');
-    }
-  };
+  const copyLink = () => copyText(`https://${host}`);
 
   return <>
     <span className="fs-chip fs-chip-fill fs-pop">C’est prêt</span>

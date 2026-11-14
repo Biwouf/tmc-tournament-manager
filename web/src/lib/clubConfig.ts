@@ -367,7 +367,7 @@ const postersSchema = z.object({
 /**
  * État EXPLICITE, jamais déduit des données : une actu supprimée ne rouvre pas le parcours.
  * Ni la vitrine ni la PWA ne le lisent, et l'écran de configuration du site ne l'écrit pas :
- * seuls les premiers pas (`src/lib/firstSteps.ts`) l'écrivent, S8 le lira.
+ * seuls les premiers pas et la checklist du tableau de bord (`src/lib/firstSteps.ts`) l’écrivent.
  *
  * `config` étant lisible par `anon`, ce groupe l'est aussi : des identifiants d'étapes et deux
  * dates, rien de sensible (même raisonnement que `posters`, `20260909_club_settings_public_read`).
@@ -378,6 +378,10 @@ const onboardingSchema = z.object({
   skipped_steps: z.array(z.string()).catch([]),
   postponed_at: optionalText,
   finished_at: optionalText,
+  /** Étapes terminées APRÈS avoir quitté le parcours, depuis la checklist (S8) : elles y restent, cochées. */
+  resumed_steps: z.array(z.string()).catch([]),
+  /** « Partager l'app » de la checklist (S8) : lien copié ou QR affiché. */
+  app_shared_at: optionalText,
 });
 export type OnboardingState = z.infer<typeof onboardingSchema>;
 

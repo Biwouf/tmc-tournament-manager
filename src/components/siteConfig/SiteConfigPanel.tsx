@@ -287,7 +287,7 @@ export default function SiteConfigPanel({
   const bodyId = `site-config-${group.key}`;
 
   return (
-    <section>
+    <section id={`panneau-${group.key}`} className="scroll-mt-4">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
