@@ -716,6 +716,19 @@ Déploiement, variables et opérations DNS : `landing/README.md`.
 - `shared/teamPostFacts.mjs` (+ `.d.mts`, 11/11/2026) : `buildPostFacts` (faits des rencontres envoyés à Claude : prénoms seuls, simples d'abord, avertissements de cohérence calculés en code), `firstName`, `FORMAT_POINTS` (copie de `FORMAT_SPECS`, vérifiée par test). Importé par l'Edge Function `generate-post` et par `ActuGeneratePage` (aperçu).
 - `shared/tennisRankings.ts` : `TENNIS_RANKINGS` (NC → -15, ordre croissant) et type `TennisRanking`, importés par le BO (`src/types.ts`, sélecteurs TMC) et la PWA (inscription, profil, perfs des rencontres). Avec les modules Ten'Up, le calendrier, `clubSlug.mjs` et `brandTokens.mjs` ci-dessus, ce sont les seuls modules réellement partagés : les autres doublons BO/PWA/web restent des copies à synchroniser à la main.
 
+## Déploiements Vercel — builds ciblés
+
+Le dépôt alimente 4 projets Vercel (BO à la racine, `pwa/`, `web/`, `landing/`) ; le plan Hobby plafonne à **100 déploiements par 24 h** (`api-deployments-free-per-day`, atteint le 14/11/2026 avec 4 builds par push). Chaque `vercel.json` déclare un `ignoreCommand` qui appelle `scripts/vercel-ignore-build.sh <chemins>` : le build n'a lieu que si ces chemins ont changé depuis `VERCEL_GIT_PREVIOUS_SHA` (dernier déploiement réussi du projet sur la branche). Sans ce SHA : build en production, comparaison au seul dernier commit en preview.
+
+| Projet | Reconstruit si changement dans |
+|---|---|
+| BO (racine) | tout, sauf `pwa/`, `web/`, `landing/`, `services/`, `docs/`, `tools/` et les `*.md` |
+| PWA | `pwa/`, `shared/` |
+| Vitrine | `web/`, `shared/` |
+| Landing | `landing/` |
+
+⚠️ Une nouvelle dépendance d'une app vers un dossier hors de sa racine (ex. la PWA qui importe `src/`) doit être ajoutée à son `ignoreCommand`, sinon le changement ne sera pas déployé.
+
 ## Service Ten'Up — `services/tenup-worker/`
 
 Worker Node 22 + Playwright/Chromium qui lit le **DOM public** de Ten'Up (aucun accès Supabase, aucun identifiant FFT). `server.mjs` : `POST /extract` protégé par `Authorization: Bearer $TENUP_WORKER_TOKEN`, URL validées par regex (`rencontre`, `competition` = `/championnat/<id>`, `pool` = `?division&phase&poule`). Extracteurs sans dépendance exécutés dans Chromium et dans les tests : `parse-club-profile.mjs` + `read-club-profile.mjs` (S8b, `kind: 'club-profile'`, URL `/club/<id>` seulement : « Le club » — JSON-LD `SportsActivityLocation` et liens de l'en-tête —, « Équipe & contact » — équipe dirigeante seule —, « Offres et tarifs » et la première installation, dans une session ; une page en échec n'annule pas les autres), `parse-club.mjs` (S6b : page « Matchs par équipe » d'un club, une entrée par équipe du club et par poule — lien de poule, championnat, badges niveau / catégorie / genre, dates —, `kind: 'club'`, URL `/club/<id>/competitions/rencontres` seulement), `parse-page.mjs` (feuille de rencontre, abandons compris), `parse-competition.mjs` (nom, format, règles), `parse-pool.mjs` + `read-pool.mjs` (journées d'une poule, attente du rendu complet ; depuis le 31/10/2026, une rencontre du payload Next.js portant un juge-arbitre — objet imbriqué `jugeArbitre` — est lue, faute de quoi une carte forfait sans lien faisait échouer tout le calendrier). `extract` refuse le bandeau cookies TrustCommander (`#popin_tc_privacy_button`, `addLocatorHandler`) : il bloque le défilement et rend le sélecteur de journée inatteignable. Plafond d'essai (S6, relevé à 40 en S6b) : lectures par 24 h et par club en `plan = trial`, posé côté SQL dans `team_tenup_competition_begin` (le worker n'en sait rien). Déploiement : fonction Vercel `api/extract.mjs` (`vercel.json`) ou `Dockerfile`. Mise en service et contraintes réseau : `services/tenup-worker/README.md`.
