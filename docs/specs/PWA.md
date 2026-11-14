@@ -336,9 +336,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 VitePWA({
   registerType: 'autoUpdate',
   manifest: {
-    name: 'CAC Tennis',
-    short_name: 'CAC Tennis',
-    description: "L'application du club CAC Tennis",
+    // Neutre depuis le 14/11/2026 : App.tsx pose le manifest du club (nom, nom court,
+    // icônes carrées et maskable dessinées depuis le logo, lib/appIcons.ts).
+    name: 'Application du club',
+    short_name: 'Club',
+    description: "L'application de votre club",
     theme_color: '#e51828',
     background_color: '#ffffff',
     display: 'standalone',
@@ -535,6 +537,8 @@ validées avec les dépendances propres à chaque application.
 
 La résolution d'un club introuvable/suspendu ne bascule plus vers CAC Tennis.
 Le chargement hors ligne à froid reste une limite à traiter dans le lot PWA suivant.
+→ Traité le 14/11/2026 (PR5 du brief UX) : `navigateFallback: 'index.html'` explicite, bandeau
+`OfflineNotice` quand le réseau manque ; les données restent celles du dernier chargement.
 
 
 ## Réduction des appels réseau — septembre 2026

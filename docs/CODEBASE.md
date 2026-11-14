@@ -217,6 +217,17 @@ config est chargée, ou par `ClubProvider` si le club est introuvable ; filet de
 script inline. Le `background_color` du manifest runtime suit aussi `brand.color`, pour que le
 splash natif Android soit raccord.
 
+**Installation (14/11/2026, PR5 du brief UX)** — le manifest de `vite.config.ts` est **neutre**
+(« Application du club », icône `club.svg`) et ne sert qu'avant le chargement du club ; `index.html`
+pointe aussi vers `club.svg` (les PNG CAC de `public/icons/` ne sont plus référencés, gardés pour
+les apps déjà installées). Le manifest runtime d'`App.tsx` prend `short_name` = **`brand.short_name`**
+(« Nom court » du BO, exposé par `club_public_brand` depuis `2026111403`, repli sur le nom), `id`,
+`scope`, `lang`, et des **icônes carrées dessinées depuis le logo** par `lib/appIcons.ts` : 192 et
+512 `any`, 512 `maskable` (logo dans la zone sûre), 180 pour `apple-touch-icon` — data URLs, fond
+blanc. Logo illisible (CORS) → l'ancien comportement (URL du logo). `meta apple-mobile-web-app-title`
+= nom court. Service worker : `navigateFallback: 'index.html'` explicite (toute route rouvre la
+coquille hors ligne), sauf les chemins à extension ; vérifié par `scripts/check-service-worker.mjs`.
+
 ---
 
 ## Flux de données — TMC Planner
@@ -406,7 +417,7 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `contexts/AuthProvider.tsx` | Abonnement Auth unique, restauration par INITIAL_SESSION. |
 | `contexts/SessionQueryProvider.tsx` | Cache Query neuf lorsque l'identité change ; conserve le cache au renouvellement du JWT. |
 | `lib/queryClient.ts` | Factory du QueryClient PWA : fraîcheur par défaut 60 s, un retry. Live surcharge à 0 s. |
-| `hooks/useClubConfig.ts` | Lecture publique mutualisée par club et session, cache 5 min ; logo et couleurs conservés avant connexion (migration 20260909). |
+| `hooks/useClubConfig.ts` | Lecture publique mutualisée par club et session, cache 5 min ; logo et couleurs conservés avant connexion (migration 20260909) ; `short_name` depuis `2026111403`. |
 | `lib/liveMatchesSubscription.ts` | Temps réel de liste : Broadcast `live:club:<id>` (événement `live`), regroupement 250 ms, revalidation après reconnexion ; signale l'état d'abonnement (`onStatus`) pour réduire le polling. |
 | `lib/liveChannel.ts` | **18/10/2026** — `listenLiveTopic` : un canal Broadcast par topic (`live:match:<id>`, `live:club:<id>`), partagé entre écouteurs par compteur de références et gardé ouvert 10 s après le dernier (`RELEASE_DELAY`) ; `matchTopic` / `clubTopic`, `LIVE_SAFETY_POLL` (2 min). **Copie BO** : `src/lib/liveChannel.ts`. |
 | `hooks/useLiveTopic.ts` | Hook React sur `listenLiveTopic` : `true` tant que le canal est abonné, message `subscribed` à chaque (ré)abonnement. Consommé par `useLiveActivity`, `MatchesEquipesPage`, `TeamRencontrePage`. |
@@ -426,6 +437,8 @@ Déploiement : projet Vercel séparé, Root Directory = `pwa/`.
 | `components/PasswordInput.tsx` | Copie de `src/components/PasswordInput.tsx` (afficher / masquer). |
 | `components/ClubUnavailable.tsx` | **PR13** — copie de l'écran neutre du BO : hôte inconnu, slug réservé ou club suspendu ; erreur réseau → message temporaire + « Réessayer ». |
 | `lib/pwaUpdates.ts` | Mises à jour PWA (13/09/2026) : service worker `vite-plugin-pwa` en mode **`prompt`**, enregistrement manuel ; vérification au lancement, au retour au premier plan, à la reconnexion et toutes les 5 min (30 s d'écart minimum). Une version prête n'est activée qu'après accord **de cette fenêtre** — jamais de rechargement forcé. `pwa/scripts/check-service-worker.mjs` vérifie au build que le worker démarre sans les assets d'un ancien déploiement. Doc : `docs/PWA_UPDATES.md`. |
+| `components/layout/OfflineNotice.tsx` | Bandeau « Vous êtes hors ligne. Les informations affichées peuvent ne pas être à jour. » (`online` / `offline`, `role=status`), sous `UpdateBanner`, hors mode immersif. |
+| `lib/appIcons.ts` | `buildAppIcons(logoUrl)` : icônes d'installation carrées (192/512 `any`, 512 `maskable`, 180 iOS) dessinées en canvas depuis le logo du club, `null` si le logo n'est pas lisible. |
 | `components/layout/UpdateBanner.tsx` | Bandeau global « Nouvelle version disponible » + bouton « Actualiser », branché sur `startPwaUpdates`. |
 | `pages/TeamRencontrePage.tsx` | `/matches-equipes/:id` — **suivi d'une rencontre par équipe dans la PWA** (23/09/2026, spec `TEAM_MATCHES_PWA.md`). Lecture publique ; écriture pour tout membre du club (`is_member` ou `can_manage` de `useCourseContext`). Score pondéré par le format (double parfois à 2 points), avancement « n/N résultats validés », statut par match (en attente / LIVE / LIVE · TERMINÉ · À valider / validé / WO). Actions : « Prendre en photo la compo » des simples libres (`TeamCompoSheet`, si la règle du 3ᵉ set est configurée), « Ajouter match manuellement » (`CreateTeamMatch`), suivre en live (`start_live` → `/matches/:id/score`), saisir ou valider un résultat (`TeamResultSheet`), trancher la règle d'un match historique (`resolve_rule`), confirmer la rencontre. Rafraîchie sur le Broadcast `live:club:<id>` (`team` / `live` de cette rencontre, 18/10/2026), toutes les 15 s seulement si le canal tombe (filet 2 min sinon). Badge `PerformanceBadge` sur les perfs en simple. |
 | `lib/teamMatches.ts` | Types (`TeamPlayer`, `TeamSet`, `TeamLine`, `TeamEncounter`, `TeamDetail`), `TEAM_FORMATS` (simples/doubles/points du double), vainqueur d'un set / d'un match selon la règle du 3ᵉ set, conversion live → sets, `fetchTeamDetail(clubId, id)`. |

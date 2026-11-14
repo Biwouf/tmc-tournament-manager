@@ -17,19 +17,20 @@ export default defineConfig(({ mode }) => {
       registerType: 'prompt',
       // Registration and reload consent are managed by pwaUpdates.ts.
       injectRegister: false,
+      // Manifest NEUTRE : il ne sert qu'avant le chargement du club. App.tsx le remplace aussitôt
+      // par celui du club courant (nom, nom court, couleurs, icônes tirées du logo).
       manifest: {
-        name: 'CAC Tennis',
-        short_name: 'CAC Tennis',
-        description: "L'application du club CAC Tennis",
+        id: '/',
+        name: 'Application du club',
+        short_name: 'Club',
+        description: "L'application de votre club",
+        lang: 'fr',
         theme_color: '#e51828',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
-        icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-        ],
+        scope: '/',
+        icons: [{ src: '/icons/club.svg', sizes: 'any', type: 'image/svg+xml' }],
       },
       workbox: {
         // Keep installed workers independent of hashed files from older deployments.
@@ -41,6 +42,10 @@ export default defineConfig(({ mode }) => {
         // Décodeur HEIC (3 Mo) chargé seulement pour lire une photo d'iPhone hors Safari, en ligne.
         globIgnores: ['**/heic-to-*.js'],
         cleanupOutdatedCaches: true,
+        // Hors ligne, toute route de l'app rouvre la coquille en cache. Un chemin de fichier
+        // (extension) n'est jamais servi par index.html, comme sur Vercel (vercel.json).
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/\/[^/?]+\.[^/?]+$/],
         runtimeCaching: [
           {
             urlPattern: ({ url }) =>

@@ -28,6 +28,9 @@ const context = vm.createContext({
 });
 vm.runInContext(code, context);
 for (const type of ['install', 'activate', 'fetch', 'message', 'push', 'notificationclick']) assert.ok(handlers.has(type), type);
+// Hors ligne, les navigations de l'app retombent sur la coquille en cache.
+assert.match(code, /createHandlerBoundToURL\(\w+\)|createHandlerBoundToURL\("index\.html"\)/, 'navigateFallback');
+assert.match(code, /=\s*"index\.html"/, 'navigateFallback index.html');
 
 // Vercel must keep deep links working but never return index.html for a
 // missing Workbox runtime or JavaScript asset.

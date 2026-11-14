@@ -102,6 +102,8 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 - À l'ouverture, un écran plein aux couleurs du club, logo centré, s'affiche le temps du chargement, comme sur une app native
 - Au tout premier lancement, l'écran est blanc (les couleurs du club ne sont pas encore connues) ; elles sont mémorisées pour les lancements suivants
 - Sur Android, l'écran de lancement natif de l'app installée prend lui aussi la couleur du club
+- L'icône de l'app installée est tirée du logo du club, carrée et sans coin rogné (Android et iPhone) ; sous l'icône, le **Nom court** saisi dans *Configuration du site* (sinon le nom du club)
+- Hors ligne, l'app installée s'ouvre quand même et un bandeau prévient que les informations peuvent ne pas être à jour
 
 ### PWA — bannière d'incitation à l'installation
 - Carte compacte d'une ligne, fixée en bas (au-dessus de la barre de navigation), qui invite à installer l'app sur l'écran d'accueil sans masquer la liste
