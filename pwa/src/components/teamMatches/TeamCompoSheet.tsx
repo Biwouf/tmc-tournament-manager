@@ -5,6 +5,7 @@ import type { TeamDetail, TeamPlayer } from '../../lib/teamMatches';
 import { COMPO_RANKS, PROFILE_RANKS, matchMember, type CompoEntry, type RosterMember } from '../../lib/teamCompo';
 import { scanCompoPhoto } from '../../lib/compoScan';
 import { useTeamAction } from '../../hooks/useTeamAction';
+import { formatClubName } from '../../../../shared/formatClubName';
 import TeamSheet from './TeamSheet';
 
 type Row = TeamPlayer & { updateRank: boolean };
@@ -71,8 +72,9 @@ export default function TeamCompoSheet({ detail, clubId, slots, onClose }: {
     if (await action.compose({ simples })) onClose();
   };
 
-  const team = (s: Side) => s === 0 ? 'notre équipe' : detail.rencontre.club_adverse;
-  const steps = ['Photo de notre compo', `Photo de la compo de ${detail.rencontre.club_adverse}`, 'Vérification'];
+  const opponent = formatClubName(detail.rencontre.club_adverse);
+  const team = (s: Side) => s === 0 ? 'notre équipe' : opponent;
+  const steps = ['Photo de notre compo', `Photo de la compo de ${opponent}`, 'Vérification'];
   const current = side === 'review' ? 2 : side;
   const photoInput = (s: Side, label: string, primary: boolean) => <label className={`flex min-h-12 w-full cursor-pointer items-center justify-center rounded-lg px-4 font-semibold ${primary ? 'bg-primary text-primary-foreground' : 'border border-primary text-primary'}`}>
     {label}
@@ -82,7 +84,7 @@ export default function TeamCompoSheet({ detail, clubId, slots, onClose }: {
   const playerFields = (s: Side, row: Row, index: number) => {
     const change = s === 0 ? rankChange(row) : null;
     return <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase text-muted-foreground">{s === 0 ? 'Notre joueur' : `Adversaire · ${detail.rencontre.club_adverse}`}</p>
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{s === 0 ? 'Notre joueur' : `Adversaire · ${opponent}`}</p>
       {s === 0 && <label className="block text-sm">Membre du club
         <select value={row.member_id ?? ''} className={field} onChange={e => {
           const member = members.find(m => m.id === e.target.value);
@@ -124,11 +126,11 @@ export default function TeamCompoSheet({ detail, clubId, slots, onClose }: {
     {side !== 'review' ? <div className="space-y-4">
       <p className="text-sm">{side === 0
         ? <>Chaque capitaine écrit la compo de ses simples sur une feuille. Commencez par photographier <strong>la feuille de notre équipe</strong>, puis vous photographierez celle de l’adversaire.</>
-        : <>Photographiez maintenant <strong>la feuille de {detail.rencontre.club_adverse}</strong>.</>}</p>
+        : <>Photographiez maintenant <strong>la feuille de {opponent}</strong>.</>}</p>
       {scanning ? <p role="status" className="rounded-lg bg-muted p-4 text-center font-semibold">Lecture de la feuille de {team(side)}…</p>
         : <>
           {scanError && <p role="alert" className="text-sm text-red-700">{scanError}</p>}
-          {photoInput(side, scanError ? 'Reprendre la photo' : side === 0 ? 'Photographier notre compo' : `Photographier la compo de ${detail.rencontre.club_adverse}`, true)}
+          {photoInput(side, scanError ? 'Reprendre la photo' : side === 0 ? 'Photographier notre compo' : `Photographier la compo de ${opponent}`, true)}
         </>}
       <p className="text-xs text-muted-foreground">Cadrez la feuille entière, à plat et bien éclairée. Seuls les simples numérotés sont lus ; la partie double est ignorée.</p>
     </div> : <div className="space-y-4">

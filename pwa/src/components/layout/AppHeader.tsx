@@ -5,6 +5,7 @@ import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
 import { useAuth } from '../../hooks/useAuth';
 import { returnPath } from './headerConfig';
+import { formatClubName } from '../../../../shared/formatClubName';
 import { originLabel, useBackOrigin, useGoBack } from './useGoBack';
 
 const isIOS = () =>
@@ -92,7 +93,7 @@ export default function AppHeader() {
   const { setSlot } = useHeaderSlot();
   const { club } = useClub();
   const { config } = useClubConfig();
-  const clubName = club?.name ?? cfg.title;
+  const clubName = club?.name ? formatClubName(club.name) : cfg.title;
 
   const origin = useBackOrigin();
   const goBack = useGoBack(cfg.backTo ?? '/actu');

@@ -7,9 +7,10 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { signupError, signupReturnTo, validateSignup, TENNIS_RANKINGS, type SignupFields } from '../lib/signup';
 
-const inputClass = 'min-h-11 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
-const buttonClass = 'w-full rounded-lg bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-60';
-const labelClass = 'mb-1.5 block text-sm font-medium';
+// Champs de 48 px, texte 16 px : pas de zoom automatique d'iOS au focus.
+const inputClass = 'min-h-12 w-full rounded-xl border border-border bg-background px-3.5 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const buttonClass = 'min-h-12 w-full rounded-xl bg-primary px-4 text-base font-bold text-primary-foreground shadow-lg disabled:opacity-60';
+const labelClass = 'mb-1.5 block text-sm font-semibold';
 export default function SignupPage({ confirmed = false }: { confirmed?: boolean }) {
   const { clubId } = useClub();
   const { user, loading: authLoading } = useAuth();
@@ -49,13 +50,15 @@ export default function SignupPage({ confirmed = false }: { confirmed?: boolean 
     } catch (err) { setError(signupError(err)); }
     finally { busy.current = false; setLoading(false); }
   }
-  return <div className="flex min-h-[80vh] items-center justify-center px-4 py-8">
-    <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <h1 className="mb-3 text-2xl font-semibold text-foreground">Créer un compte</h1>
+  const formShown = !sent && !confirmed && !(user && !created.current);
+  // Le titre visible est celui du header (« Créer un compte ») : pas de second titre à l'écran.
+  return <div className={`flex flex-col items-center px-4 pt-4 ${formShown ? 'pb-28' : 'pb-8'}`}>
+    <h1 className="sr-only">Créer un compte</h1>
+    <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-sm">
       {sent ? <div role="status" className="space-y-4"><p>Vérifiez votre boîte mail pour activer votre compte.</p><p className="text-sm text-muted-foreground">Pensez à vérifier vos spams. Votre accès membre sera ensuite soumis à la validation du club.</p></div>
       : confirmed ? <div role="status" className="space-y-4"><p>{authLoading ? 'Vérification du compte…' : user ? 'Votre demande est enregistrée. Le club doit la valider pour vous accorder un accès membre.' : 'Connectez-vous pour retrouver votre demande. Si le lien a expiré, demandez un nouveau mot de passe.'}</p><Link className="block py-3 text-primary underline" to={user ? returnTo : '/login'}>{user ? 'Continuer' : 'Se connecter'}</Link></div>
       : user && !created.current ? <p role="status">Vous êtes déjà connecté·e. Retrouvez votre accès au club dans votre espace.</p>
-      : <form onSubmit={submit} aria-busy={loading} className="space-y-4">
+      : <form id="signup-form" onSubmit={submit} aria-busy={loading} className="space-y-4">
         <p className="text-sm text-muted-foreground">Réservé aux adhérents. Un administrateur du club validera votre demande avant de vous donner accès aux services membres.</p>
         {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}<Link to="/forgot-password" className="block py-3 underline">Mot de passe oublié ?</Link>{created.current && <p>Votre compte est créé. Réessayez pour vérifier la demande.</p>}</div>}
         <fieldset disabled={loading || created.current} className="space-y-4">
@@ -65,9 +68,14 @@ export default function SignupPage({ confirmed = false }: { confirmed?: boolean 
           {(['password', 'confirm'] as const).map(key => <div key={key}><label className={labelClass} htmlFor={`signup-${key}`}>{key === 'password' ? 'Mot de passe' : 'Confirmer le mot de passe'} *</label><PasswordInput id={`signup-${key}`} className={inputClass} minLength={8} autoComplete="new-password" value={fields[key]} onChange={change(key)} required />{key === 'password' && <p className="mt-1 text-sm text-muted-foreground">8 caractères minimum.</p>}</div>)}
           <div className="border-t border-border/70 pt-4"><label className={labelClass} htmlFor="signup-classement">Classement <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-accent-foreground">Facultatif</span></label><select id="signup-classement" className={inputClass} value={fields.classement} onChange={change('classement')}><option value="">Je ne sais pas / non classé·e</option>{TENNIS_RANKINGS.map(r => <option key={r}>{r}</option>)}</select></div>
         </fieldset>
-        <button className={buttonClass} disabled={loading || !clubId || authLoading}>{loading ? 'Création du compte…' : created.current ? 'Vérifier ma demande' : 'Créer mon compte'}</button>
       </form>}
-      <Link to="/login" className="mt-4 block py-3 text-center text-sm text-primary underline">J’ai déjà un compte</Link>
     </div>
+    <Link to="/login" className="mt-2 flex min-h-11 items-center justify-center text-sm font-semibold text-primary underline underline-offset-2">J’ai déjà un compte</Link>
+    {/* Action principale toujours visible en bas d'écran, au-dessus de la zone sûre. */}
+    {formShown && <div className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-background via-background/95 to-background/0 px-4 pt-6 pb-[max(env(safe-area-inset-bottom),12px)]">
+      <div className="mx-auto max-w-sm">
+        <button form="signup-form" className={buttonClass} disabled={loading || !clubId || authLoading}>{loading ? 'Création du compte…' : created.current ? 'Vérifier ma demande' : 'Créer mon compte'}</button>
+      </div>
+    </div>}
   </div>;
 }

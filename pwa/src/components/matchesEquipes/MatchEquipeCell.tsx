@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import { fromHere } from '../layout/useGoBack';
+import { formatClubName } from '../../../../shared/formatClubName';
 import { ResultChip } from './ResultChip';
 import { ISSUE_LABEL, outcome } from './result';
 
@@ -45,6 +46,8 @@ function opponentName(name: string): string {
 
 export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLive, isPending }: Props) {
   const location = useLocation();
+  // Même nom formaté pour le titre visible et l'aria-label.
+  const opponent = formatClubName(rencontre.club_adverse);
   const date = new Date(rencontre.date_heure);
   const away = !rencontre.domicile;
   const place = away ? 'Déplacement' : 'Au club';
@@ -85,7 +88,7 @@ export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLiv
 
   const label = [
     place,
-    rencontre.club_adverse,
+    opponent,
     `Équipe ${equipe.numero}`,
     past ? etapeLabel(etape) : spokenTime(date),
     status,
@@ -107,7 +110,7 @@ export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLiv
         <span className="sr-only">{place}</span>
       </span>
       <span className="me-mid">
-        <span className="me-title block">{opponentName(rencontre.club_adverse)}</span>
+        <span className="me-title block">{opponentName(opponent)}</span>
         <span className="me-meta block">
           Équipe {equipe.numero} ·{' '}
           {past

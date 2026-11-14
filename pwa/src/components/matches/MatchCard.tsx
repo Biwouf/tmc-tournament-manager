@@ -13,6 +13,7 @@ import type { LiveMatch, LiveMatchWinner } from '../../types';
 import LiveBadge from './LiveBadge';
 import { getServer } from '../../liveScoreRules';
 import TennisBall from '../TennisBall';
+import { formatClubName } from '../../../../shared/formatClubName';
 import { LiveFollowButton } from '../live/LivePush';
 
 interface Props {
@@ -333,7 +334,7 @@ export default function MatchCard({
             </span>
             {encounter && (
               <span className="block truncate text-xs text-muted-foreground">
-                Contre {encounter.club_adverse}
+                Contre {formatClubName(encounter.club_adverse)}
               </span>
             )}
           </span>

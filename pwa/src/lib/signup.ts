@@ -20,3 +20,12 @@ export function signupError(error: unknown): string {
   if (e?.code === 'email_address_invalid') return 'Vérifiez votre adresse email.';
   return 'Connexion impossible. Vérifiez votre connexion internet puis réessayez.';
 }
+
+/** Erreur de connexion en français ; jamais le message brut de Supabase. */
+export function loginError(error: unknown): string {
+  const e = error as { code?: string; status?: number; message?: string };
+  if (e?.code === 'invalid_credentials' || /invalid login credentials/i.test(e?.message ?? '')) return 'Email ou mot de passe incorrect.';
+  if (e?.code === 'email_not_confirmed' || /email not confirmed/i.test(e?.message ?? '')) return 'Votre adresse email n’est pas encore confirmée. Ouvrez le lien reçu par email, puis réessayez.';
+  if (e?.status === 429) return 'Trop de tentatives. Patientez quelques minutes avant de réessayer.';
+  return 'Connexion impossible. Vérifiez votre connexion internet puis réessayez.';
+}

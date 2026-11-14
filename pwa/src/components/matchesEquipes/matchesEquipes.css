@@ -1,8 +1,9 @@
 /* Matchs équipes — liste « inset grouped » (maquette v2 A2, 14/11/2026).
    Rouge de marque réservé à l'état actif et au direct ; le lieu est porté par l'icône. */
 .me-page {
-  --me-canvas: hsl(30 10% 97%);
-  --me-muted: hsl(355 10% 38%);
+  /* Alias des tokens globaux v2 (index.css), gardés pour les règles de cette feuille. */
+  --me-canvas: hsl(var(--background));
+  --me-muted: hsl(var(--muted-foreground));
   --me-quiet: hsl(355 8% 46%);
   --me-sep: hsl(355 12% 90%);
   --me-home-bg: hsl(30 12% 92%);
@@ -13,18 +14,7 @@
   background: var(--me-canvas);
 }
 
-/* Issues V / D / N (spec résultats, 14/11/2026). Locales à la liste et à la fiche rencontre,
-   sous les noms prévus pour le thème global v2 (PR4) : la migration n'aura qu'à les déplacer.
-   Rouge de défaite atténué, distinct du rouge de marque (réservé au direct et aux actions). */
-.me-page,
-.tr-page {
-  --win-fg: #1f7a3a;
-  --win-bg: #e7f3ea;
-  --loss-fg: #b42318;
-  --loss-bg: #fdeceb;
-  --draw-fg: #5c5553;
-  --draw-bg: #f1efee;
-}
+/* Puces V / D / N : couleurs `--win-*`, `--loss-*`, `--draw-*` du thème global (index.css). */
 .res-chip {
   display: inline-flex;
   align-items: center;

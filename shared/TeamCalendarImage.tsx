@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { formatClubName } from './formatClubName';
 import type { TeamCalendar } from './teamCalendar';
 
 /** `#e51828` → `rgba(229, 24, 40, a)` ; toute autre valeur est rendue telle quelle. */
@@ -55,7 +56,7 @@ export const TeamCalendarImage = forwardRef<HTMLDivElement, TeamCalendarImagePro
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color }}>
-              {clubName} · Saison {saisonLabel}
+              {formatClubName(clubName)} · Saison {saisonLabel}
             </div>
             <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.15 }}>
               Calendrier des rencontres par équipe
@@ -118,7 +119,7 @@ export const TeamCalendarImage = forwardRef<HTMLDivElement, TeamCalendarImagePro
                           ? { background: color, color: '#ffffff' }
                           : { border: `2px solid ${color}`, background: tint(color, 0.06), color: INK }),
                       }}>
-                        <span style={{ fontSize: single ? 15 : 13, fontWeight: 700, lineHeight: 1.2 }}>{cell.adversaire}</span>
+                        <span style={{ fontSize: single ? 15 : 13, fontWeight: 700, lineHeight: 1.2 }}>{formatClubName(cell.adversaire)}</span>
                         {cell.heure && (
                           <span style={{ fontSize: single ? 12 : 11, fontWeight: 600, opacity: 0.8, marginTop: 1 }}>{cell.heure}</span>
                         )}
