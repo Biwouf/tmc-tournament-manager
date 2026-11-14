@@ -22,6 +22,7 @@ export default function MatchEquipeFilterSheet({ title, options, selectedId, onS
       <button
         type="button"
         aria-label="Fermer"
+        tabIndex={-1}
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
       />

@@ -14,17 +14,14 @@
   background: var(--me-canvas);
 }
 
-/* Barre de filtres : commandes texte discrètes, Calendrier à droite. Si une équipe au nom
-   long ne laisse pas la place, Calendrier passe à la ligne plutôt que de rogner les filtres. */
+/* Barre de filtres : Saison + Équipe sur une ligne (l'export Calendrier est dans le header).
+   Saison n'est jamais tronquée ; le libellé d'équipe ne s'abrège qu'en dernier recours. */
 .me-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  column-gap: 0;
   padding: 4px 10px 0;
 }
-.me-tool,
-.me-cal {
+.me-tool {
   min-height: 44px;
   padding: 0 6px;
   display: inline-flex;
@@ -35,16 +32,12 @@
   line-height: 1.2;
   color: hsl(var(--foreground));
 }
-.me-tool { min-width: 0; max-width: 100%; }
+.me-tool { min-width: 0; }
 .me-tool:first-child { flex: none; }
 .me-tool .lbl { font-size: 12px; font-weight: 600; color: var(--me-muted); }
 .me-tool .val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .me-tool svg { width: 10px; height: 10px; flex: none; color: var(--me-muted); }
-.me-cal { margin-left: auto; flex: none; white-space: nowrap; }
-.me-cal svg { width: 18px; height: 18px; flex: none; }
-.me-tool:active,
-.me-cal:active { opacity: 0.6; }
-.me-cal:disabled { opacity: 0.5; }
+.me-tool:active { opacity: 0.6; }
 
 /* Segmented control : piste grise, onglet actif blanc. Cible de 44 px, pastille visible
    de 38 px dessinée par ::before. */

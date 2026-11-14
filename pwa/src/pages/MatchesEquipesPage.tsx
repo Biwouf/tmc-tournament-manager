@@ -158,9 +158,12 @@ export default function MatchesEquipesPage() {
   // (en attente) jusqu'à confirmation du résultat ou WO, au plus tard jusqu'à minuit. Un live
   // ne compte que le jour de la rencontre : un live jamais clos ne la retient pas indéfiniment
   // dans « À venir » (même fenêtre que l'export du calendrier).
+  const [mountedAt] = useState(Date.now);
   const { upcoming, past } = useMemo(() => {
     // Re-evaluate dates on every refresh, even when the server rows are unchanged.
-    const now = new Date(dataUpdatedAt);
+    // Pendant le chargement d'une autre équipe, keepPreviousData expose dataUpdatedAt = 0 :
+    // sans repli, 1970 ferait passer les rencontres jouées dans « À venir ».
+    const now = new Date(dataUpdatedAt || mountedAt);
     const all = (rencontres ?? []).map((x) => {
       const start = new Date(x.rencontre.date_heure);
       const endOfDay = new Date(start);
@@ -171,7 +174,7 @@ export default function MatchesEquipesPage() {
     });
     // Tri et regroupement par jour / compétition : MatchEquipeList.
     return { upcoming: all.filter((x) => !x.isPast), past: all.filter((x) => x.isPast) };
-  }, [rencontres, dataUpdatedAt]);
+  }, [rencontres, dataUpdatedAt, mountedAt]);
 
   // Libellés chips
   const currentSaison = saisons?.find((s) => s.id === currentSaisonId);
@@ -220,19 +223,20 @@ export default function MatchesEquipesPage() {
 
   return (
     <div className="me-page">
+      {user && equipesCtx && currentSaison && (
+        <CalendarExport
+          saisonLabel={currentSaison.label}
+          scopeLabel={`Saison ${currentSaison.label} · ${equipeId ? equipeLabel : 'Toutes les équipes'}`}
+          competitions={equipesCtx.competitions}
+          equipes={equipeId ? equipesCtx.equipes.filter((e) => e.id === equipeId) : equipesCtx.equipes}
+        />
+      )}
       <PullToRefreshWrapper onRefresh={async () => void (await refetch())} isRefreshing={isFetching && !loading}>
         <MatchEquipeFilterBar
           saisonLabel={saisonLabel}
           equipeLabel={equipeLabel}
           onOpenSaison={() => setOpenSheet('saison')}
           onOpenEquipe={() => setOpenSheet('equipe')}
-          calendar={user && equipesCtx && currentSaison && (
-            <CalendarExport
-              saisonLabel={currentSaison.label}
-              competitions={equipesCtx.competitions}
-              equipes={equipeId ? equipesCtx.equipes.filter((e) => e.id === equipeId) : equipesCtx.equipes}
-            />
-          )}
           upcomingTab={upcomingTab}
           onUpcomingTabChange={(periode) => setFilters({ periode })}
           upcomingCount={rencontres ? upcoming.length : undefined}

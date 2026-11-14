@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toBlob } from 'html-to-image';
 import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
+import { useHeaderSlot } from '../layout/HeaderActionContext';
 import { useDialogFocus } from './useDialogFocus';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import { competitionShortLabel } from './labels';
@@ -15,25 +17,37 @@ type State =
   | { step: 'ready'; blob: Blob; url: string }
   | { step: 'empty' | 'error' };
 
+// Marque l'entrée d'historique posée à l'ouverture : le bouton retour (Android) ferme le
+// dialogue sans quitter la liste.
+const HISTORY_MARK = 'calendarExport';
+
 /**
- * Bouton « Calendrier » de la barre de filtres : exporte en PNG le calendrier des rencontres
- * à venir de la saison affichée, pour les équipes reçues (l'équipe filtrée, ou toutes).
+ * Bouton icône du header (à gauche du profil, portail dans `useHeaderSlot`) qui exporte en PNG
+ * le calendrier des rencontres à venir de la saison affichée, pour les équipes reçues
+ * (l'équipe filtrée, ou toutes). L'aperçu s'ouvre en portail sur `document.body`, au-dessus
+ * du header et de la bannière d'installation.
  */
 export default function CalendarExport({
   saisonLabel,
+  scopeLabel,
   competitions,
   equipes,
 }: {
   saisonLabel: string;
+  /** Périmètre exporté, en sous-titre : « Saison 2026/2027 · Toutes les équipes ». */
+  scopeLabel: string;
   competitions: TeamCompetition[];
   equipes: TeamEquipe[];
 }) {
   const { clubId, club } = useClub();
   const { config } = useClubConfig();
+  const { slot } = useHeaderSlot();
   const [state, setState] = useState<State>({ step: 'idle' });
   const nodeRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const start = async () => {
+    window.history.pushState({ ...window.history.state, [HISTORY_MARK]: true }, '');
     if (equipes.length === 0) return setState({ step: 'empty' });
     setState({ step: 'loading' });
     try {
@@ -66,10 +80,10 @@ export default function CalendarExport({
         }];
       });
       const calendar = buildTeamCalendar(items);
-      setState(calendar.count ? { step: 'loading', calendar } : { step: 'empty' });
+      setState((s) => (s.step === 'idle' ? s : calendar.count ? { step: 'loading', calendar } : { step: 'empty' }));
     } catch (err) {
       console.error(err);
-      setState({ step: 'error' });
+      setState((s) => (s.step === 'idle' ? s : { step: 'error' }));
     }
   };
 
@@ -97,13 +111,28 @@ export default function CalendarExport({
     if (state.step === 'ready') URL.revokeObjectURL(state.url);
   }, [state]);
 
+  // Retour matériel pendant le chargement ou l'aperçu : on quitte l'entrée posée par start().
+  const active = state.step !== 'idle';
+  useEffect(() => {
+    if (!active) return;
+    const onPop = () => {
+      if (!window.history.state?.[HISTORY_MARK]) setState({ step: 'idle' });
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [active]);
+
   const fileName = `calendrier-rencontres-${saisonLabel.replace(/[^\w-]+/g, '-')}.png`;
   const file = state.step === 'ready' ? new File([state.blob], fileName, { type: 'image/png' }) : null;
   const canShare = !!file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
-  const close = () => setState({ step: 'idle' });
+  const close = () => {
+    if (window.history.state?.[HISTORY_MARK]) window.history.back(); // popstate → idle
+    else setState({ step: 'idle' });
+  };
   const dialogOpen = state.step === 'ready' || state.step === 'empty' || state.step === 'error';
   const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(dialogRef, close, dialogOpen);
+  // Le bouton est désactivé pendant le chargement : il a perdu le focus avant l'ouverture.
+  useDialogFocus(dialogRef, close, dialogOpen, buttonRef);
 
   const share = async () => {
     if (!file) return;
@@ -116,24 +145,27 @@ export default function CalendarExport({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={start}
-        disabled={state.step === 'loading'}
-        aria-label="Exporter le calendrier des rencontres"
-        className="me-cal"
-      >
-        {state.step === 'loading' ? (
-          <span className="h-[18px] w-[18px] animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect x="3" y="4.5" width="18" height="16.5" rx="2.5" />
-            <path d="M3 9.5h18M8 2.5v4M16 2.5v4M12 13v5M9.5 15.5 12 18l2.5-2.5" />
-          </svg>
-        )}
-        <span>Calendrier</span>
-      </button>
+      {slot && createPortal(
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={start}
+          disabled={state.step === 'loading'}
+          aria-label="Exporter le calendrier"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground active:opacity-60 disabled:opacity-60"
+        >
+          {state.step === 'loading' ? (
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[22px] w-[22px]" aria-hidden="true">
+              <rect x="3" y="4.5" width="18" height="16.5" rx="2.5" />
+              <path d="M3 9.5h18M8 2.5v4M16 2.5v4M12 13v5M9.5 15.5 12 18l2.5-2.5" />
+            </svg>
+          )}
+        </button>,
+        slot,
+      )}
 
       {calendar && (
         <div aria-hidden="true" style={{ position: 'fixed', left: -100000, top: 0, pointerEvents: 'none' }}>
@@ -148,30 +180,34 @@ export default function CalendarExport({
         </div>
       )}
 
-      {dialogOpen && (
-        // Au-dessus de la bannière d'installation (z-index 60).
-        <div ref={dialogRef} className="fixed inset-0 z-[70] flex flex-col bg-black/85" role="dialog" aria-modal="true"
-          aria-label="Calendrier des rencontres">
-          <div className="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3 text-white">
-            <span className="text-[15px] font-bold">Calendrier des rencontres</span>
-            <button type="button" onClick={close} className="min-h-11 min-w-11 px-2 text-sm font-semibold active:opacity-70">
+      {dialogOpen && createPortal(
+        // Portail sur body : un ancêtre transformé (pull-to-refresh) ne borne plus le `fixed`.
+        // z-[70] : au-dessus du header (50) et de la bannière d'installation (60).
+        <div ref={dialogRef} className="fixed inset-0 z-[70] flex flex-col bg-black/[.92]" role="dialog" aria-modal="true"
+          aria-labelledby="calendar-export-title" aria-describedby="calendar-export-scope">
+          <div className="flex items-start justify-between gap-3 bg-[#0b0b0b] px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3 text-white">
+            <div className="min-w-0 pt-1.5">
+              <h2 id="calendar-export-title" className="text-[17px] font-bold leading-tight tracking-tight">Exporter le calendrier</h2>
+              <p id="calendar-export-scope" className="mt-1 text-[13px] font-medium text-white/70">{scopeLabel}</p>
+            </div>
+            <button type="button" onClick={close} className="min-h-11 min-w-11 shrink-0 px-2 text-[15px] font-semibold active:opacity-70">
               Fermer
             </button>
           </div>
           {state.step === 'ready' ? (
             <>
-              <div className="flex flex-1 items-center justify-center overflow-auto px-3">
-                <img src={state.url} alt="Calendrier des rencontres à venir" className="max-h-full w-full rounded-lg object-contain" />
+              <div className="flex flex-1 items-center justify-center overflow-auto px-4 py-3">
+                <img src={state.url} alt="Calendrier des rencontres à venir" className="max-h-full w-full rounded-xl object-contain" />
               </div>
               <div className="flex gap-3 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),16px)]">
                 {canShare && (
                   <button type="button" onClick={share}
-                    className="h-11 flex-1 rounded-xl bg-primary text-sm font-bold text-primary-foreground active:brightness-95">
+                    className="min-h-11 flex-1 rounded-xl bg-primary text-[15px] font-bold text-primary-foreground active:brightness-95">
                     Partager
                   </button>
                 )}
                 <a href={state.url} download={fileName}
-                  className="flex h-11 flex-1 items-center justify-center rounded-xl bg-white text-sm font-bold text-foreground active:opacity-80">
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-xl bg-white text-[15px] font-bold text-foreground active:opacity-80">
                   Enregistrer
                 </a>
               </div>
@@ -185,7 +221,8 @@ export default function CalendarExport({
                 : 'Le calendrier n’a pas pu être généré. Réessayez dans un instant.'}
             </p>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

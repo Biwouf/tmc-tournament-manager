@@ -1,12 +1,8 @@
-import type { ReactNode } from 'react';
-
 interface Props {
   saisonLabel: string;
   equipeLabel: string;
   onOpenSaison: () => void;
   onOpenEquipe: () => void;
-  /** Bouton « Calendrier », à droite des filtres (connecté uniquement). */
-  calendar?: ReactNode;
   upcomingTab: 'upcoming' | 'past';
   onUpcomingTabChange: (t: 'upcoming' | 'past') => void;
   /** Compteurs absents tant que les rencontres chargent. */
@@ -27,7 +23,6 @@ export default function MatchEquipeFilterBar({
   equipeLabel,
   onOpenSaison,
   onOpenEquipe,
-  calendar,
   upcomingTab,
   onUpcomingTabChange,
   upcomingCount,
@@ -46,7 +41,6 @@ export default function MatchEquipeFilterBar({
           <span className="val">{equipeLabel}</span>
           <ChevronDown />
         </button>
-        {calendar}
       </div>
 
       <div className="me-seg" role="tablist" aria-label="Période">
