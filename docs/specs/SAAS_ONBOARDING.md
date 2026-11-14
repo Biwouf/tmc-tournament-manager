@@ -691,6 +691,10 @@ Groupe `onboarding` (additif, `.catch`, copie de la vitrine synchronisée) : `re
   non publié — invisible des moteurs de recherche », ce qui manque, et le bouton **Dépublier** ou
   **Publier le site** (actif quand le site est complet). Les deux écrans relisent
   `clubs.site_published` à leur montage (`useSitePublication`).
+- **Aperçu avant publication** : le site non publié est déjà en ligne (en `noindex`) sur
+  `<slug>.feelike.pro` (`clubSiteHost`). Le bloc `SitePublication` porte un lien « Aperçu du
+  site » (« Voir le site » une fois publié) et la fenêtre « Publier le site ? » du tableau de bord
+  un lien « Voir le site avant de le publier », tous deux en nouvel onglet.
 - **Règle partagée** : `shared/siteReadiness.mjs` (`hasContent`, `siteGaps`,
   `isReadyForIndexing`), extrait de `web/src/lib/site.ts` sans changer la règle ; la vitrine la
   réexporte. Publier un site incomplet reste sans effet (double condition de `render.tsx`), et
