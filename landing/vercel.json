@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "bash ../scripts/vercel-ignore-build.sh landing",
   "framework": "astro",
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
