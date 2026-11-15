@@ -859,3 +859,84 @@ adhésion seule.
   partagé avec le bureau).
 - **Compatibilité** : champs nouveaux facultatifs dans la validation et la relecture (proposition lue
   avant, worker antérieur) ; worker et Edge déployables dans n'importe quel ordre. Pas de migration.
+
+## 14. Onboarding « Ten'Up d'abord » (brief `SAAS_11_onboarding_tenup`, décisions du 14/11/2026)
+
+Le club colle le lien Ten'Up de son club **avant** de s'inscrire ; le tunnel reprend nom, adresse,
+sports, logo et bandeau. Découpage : P0 (retouches), **P1-back** (serveur, ci-dessous), P1-front
+(écrans « Retrouvons votre club », « C'est bien votre club ? », branche manuelle), P2 (code à
+6 chiffres). P3 (recherche) reporté. Les autres PR complètent cette section.
+
+### 14.1 P1-back — lecture anonyme (Edge `tenup-lookup`, `verify_jwt = false`)
+
+`POST { url, turnstile_token }`, dans cet ordre :
+
+| Étape | Refus |
+|---|---|
+| Lien ramené à `https://tenup.fft.fr/club/<id>` (`normalizeTenupClubProfileUrl`, tout onglet) | `400 bad_link` (message `BAD_LINK`), aucun appel |
+| Turnstile (`TURNSTILE_SECRET_KEY`, même widget que `club-signup`) | `403 turnstile` |
+| Club déjà rattaché (`clubs.tenup_club_id`, club `pending` compris) | `200 { ok, tenup_club_id, already_on_feelike: true, name? }` immédiat, sans lecture ; `name` = nom Ten'Up du cache s'il existe, **rien** du club existant |
+| Cache `tenup_lookup_cache` de moins de 24 h | `200`, `cached: true`, `read_at` = date de la lecture d'origine ; ni lecture ni décompte |
+| `tenup_lookup_throttle` : 20 lectures / h / IP (empreinte SHA-256) | `429 throttled` |
+| Worker `kind: 'club-identity'` (page « Le club » seule, budget 8 s), délai client 10 s | `404 not_found` (404 Ten'Up, page sans JSON-LD) ; `504 tenup_unavailable` (délai, Queue-it, worker occupé ou en erreur, réponse hors schéma, worker non configuré) |
+| Logo et bandeau copiés de `cmsclub.fft.fr` dans `content-images/_lookup/<id>/<ts>-logo.<ext>` et `-banner` (signature PNG / JPEG / WebP, ≤ 5 Mo) | image illisible : champ absent, pas d'erreur |
+
+Réponse (`LookupResult` du brief §4.3) : `ok`, `tenup_club_id`, `name` (tel quel Ten'Up),
+`street?`, `postal_code?`, `city?`, `sports`, `courts?` (total des cartes « Installations »),
+`logo_url?`, `banner_url?` (notre stockage, jamais `cmsclub`), `already_on_feelike: false`,
+`cached`, `read_at`, `lookup_token`. Ni téléphone, ni e-mail, ni réseaux, ni bureau (ils restent
+pour `/admin/site`). Autres codes : `503` (configuration ou Turnstile injoignable), `500`. Rien
+n'est journalisé de l'IP, du lien ni du contenu. Le worker ne lit qu'une page à la fois : une
+lecture qui tombe pendant un import d'équipes reçoit `504 tenup_unavailable` (README du worker).
+
+**`lookup_token`** (`supabase/functions/_shared/lookup-token.ts`) : `base64url({id, read_at, exp})`
+`.` `base64url(HMAC-SHA256)`, secret `LOOKUP_HMAC_SECRET` (≥ 32 caractères, commun à
+`tenup-lookup` et `club-signup`), valable 2 h.
+
+### 14.2 P1-back — données (migration `2026111520_tenup_club_unique.sql`)
+
+| Objet | Rôle |
+|---|---|
+| `clubs_tenup_club_id_key` | Index unique partiel (`WHERE tenup_club_id IS NOT NULL`). Les doublons existants font échouer la migration : les lister avant (requête en tête du fichier). Un club `pending` tient l'identifiant 7 jours, comme son slug ; un squat se libère à la main (`UPDATE clubs SET tenup_club_id = NULL WHERE id = … AND status = 'pending'`, super-admin). |
+| `club_self_serve_create(…, p_tenup_club_id DEFAULT NULL, p_short_name DEFAULT NULL)` | Écrit `clubs.tenup_club_id` et `brand.short_name` (1 à 12 caractères). Identifiant pris → **`PT410`** (verrou consultatif par identifiant après celui du slug, l'index reste le filet). Le rejeu (même adresse, même slug, club `pending`) reste prioritaire. Ancienne signature supprimée ; service role seulement. |
+| `tenup_lookup_cache(tenup_club_id PK, payload, images, read_at)` | `payload` = nom, rue, CP, ville, sports, terrains et chemins des images `_lookup/`. Aucune policy, service role seulement. Servi 24 h, purgé après 48 h. |
+| `tenup_lookup_throttle(p_ip)` | Buckets `lookup-ip:<sha256>` dans `club_self_serve_attempts` (CHECK élargi), 20 / h ; une demande refusée n'est pas comptée ; purgés avec les autres après 2 jours. |
+
+### 14.3 P1-back — `club-signup`, `tenup-sync`, purge, nommage
+
+- **`club-signup`** (§5.1) : champs facultatifs `short_name` (≤ 12, sinon 400) et `lookup_token`.
+  Jeton invalide ou expiré → `400 lookup_expired` avant toute création de compte. Jeton valide →
+  `p_tenup_club_id`, et logo / bandeau **copiés** (API Storage `copy`) de `_lookup/<id>/` vers
+  `<club>/config/<ts>-logo|hero-image.<ext>`, sauf fichier envoyé par le formulaire ; copie
+  impossible ou cache purgé → inscription sans image. Nom, ville, couleur, slug et nom court
+  restent ceux du formulaire. `PT410` → `409 { reason: 'already_on_feelike' }`, compte neuf et
+  fichiers retirés. Sans ces champs, l'appel SQL est exactement celui de S2 (les clés absentes ne
+  sont pas envoyées).
+- **`tenup-sync`** (`kind: 'club'`, §10.6) : un identifiant déjà rattaché à un autre club (`23505`
+  sur l'index) n'est pas écrit ; l'import continue et la réponse porte `tenup_id_conflict: true`.
+  Rien n'est affiché (décision 8). Rien ne change pour le CAC (`internal` : identifiant jamais écrit).
+- **`club-signup-purge`** (§5.3) : après les clubs, lignes du cache de plus de 48 h → fichiers
+  `_lookup/<id>/` antérieurs à cette limite (images d'une lecture remplacée comprises), puis la
+  ligne. Réponse `{ purged, accounts, lookups, failed }`. Le cron n'appelle la fonction que s'il y
+  a un club ou une lecture à purger (`club-signup-purge-cron.sql`, à rejouer).
+- **`shared/clubName.mjs`** : réexporte `formatClubName` (`shared/formatClubName.ts`, PR4 du brief
+  UX PWA : une seule règle de casse, « MOISSAC TENNIS CLUB » → « Moissac Tennis Club »), puis `shortNameFor` (nom
+  formaté s'il tient en 12 ; sinon `<Ville> <sigle>` — Tennis Club → TC, Tennis Club Municipal →
+  TCM, Association Sportive → AS, Union Sportive → US, Stade, sigle déjà présent sans ses points —,
+  dans l'ordre du nom : « TC du Lac » ; « Saint » abrégé en « St » ; sinon le premier mot
+  significatif, tronqué à 12) et `shortSlugCandidates` (décision 5 : `moissac-tc`, puis
+  `-<ville>` si la ville n'y est pas, puis `-2`, `-3`, format self-serve seulement ; disponibilité
+  par `slug_available`).
+
+### 14.4 P1-back — tests et mise en service
+
+Tests : `tests/tenup-lookup-edge.test.mjs`, `tests/tenup-lookup-worker.test.mjs`,
+`tests/tenup-lookup-sql.test.mjs` (PGlite), `tests/club-name.test.mjs` (20 noms Ten'Up réels),
+`tests/club-signup-edge.test.mjs` (jeton, copie, 409, purge du cache),
+`tests/tenup-club-edge.test.mjs` (conflit toléré). Aucun écran : le tunnel actuel est inchangé.
+
+Avant le merge, dans l'ordre : lister et résoudre les doublons de `tenup_club_id` en prod ;
+appliquer `2026111520_tenup_club_unique.sql` ; redéployer le worker (`kind: 'club-identity'`) ;
+déployer `tenup-lookup` (secrets `TURNSTILE_SECRET_KEY`, `TENUP_WORKER_URL`, `TENUP_WORKER_TOKEN`,
+`TENUP_WORKER_BYPASS_TOKEN` s'il existe, `LOOKUP_HMAC_SECRET`) ; redéployer `club-signup`,
+`tenup-sync` et `club-signup-purge` ; rejouer `club-signup-purge-cron.sql`.

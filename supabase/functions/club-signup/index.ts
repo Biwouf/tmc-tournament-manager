@@ -5,10 +5,17 @@
 // création SQL atomique (`club_self_serve_create`) → lien magique. Le club reste `pending`
 // jusqu'au premier passage par ce lien (`club_self_serve_activate`, appelé par le BO).
 //
+// Onboarding Ten'Up d'abord (brief SAAS_11 §4.5), champs facultatifs : `short_name` (nom court,
+// 12 caractères au plus → `brand.short_name`) et `lookup_token` (jeton de `tenup-lookup`, HMAC,
+// 2 h) : l'identifiant Ten'Up est alors enregistré (`clubs.tenup_club_id`) et le logo et le
+// bandeau lus sont COPIÉS du cache `_lookup/<id>/` vers `<club>/config/` (sauf fichier envoyé).
+// Club Ten'Up déjà rattaché → 409 `already_on_feelike`. Sans ces champs : comportement S2.
+//
 // La réponse ne dit jamais si l'adresse avait déjà un compte : même statut, même corps.
 // Rien n'est journalisé de l'adresse, de l'IP, du jeton ni des fichiers.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { signupSlugProblem } from '../../../shared/clubSlug.mjs';
+import { validLookupSecret, verifyLookupToken } from '../_shared/lookup-token.ts';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -89,6 +96,16 @@ Deno.serve(async (req: Request) => {
   }
   const problem = signupSlugProblem(slug);
   if (problem) return json(400, { error: 'Cette adresse n’est pas disponible.', reason: problem });
+  const shortName = text(form, 'short_name');
+  if ([...shortName].length > 12) return json(400, { error: 'Le nom court fait 12 caractères au plus.' });
+  // Jeton de `tenup-lookup` : invalide ou expiré → le tunnel relance la recherche du club.
+  const lookupToken = text(form, 'lookup_token');
+  let lookup: { tenup_club_id: string } | null = null;
+  if (lookupToken) {
+    const secret = Deno.env.get('LOOKUP_HMAC_SECRET');
+    lookup = validLookupSecret(secret) ? await verifyLookupToken(secret, lookupToken) : null;
+    if (!lookup) return json(400, { error: 'La lecture de votre club sur Ten’Up a expiré. Retrouvez votre club à nouveau.', reason: 'lookup_expired' });
+  }
   const files: { field: string; data: Uint8Array; type: string; ext: string }[] = [];
   for (const [key, field] of [['logo', 'logo'], ['photo', 'hero-image']]) {
     const value = form.get(key);
@@ -127,15 +144,35 @@ Deno.serve(async (req: Request) => {
     if (error) { await rollback(); return json(500, { error: 'Envoi des images impossible. Réessayez.' }); }
     uploaded[file.field] = path;
   }
+  // Logo et bandeau lus par `tenup-lookup` : copiés depuis le cache (jamais re-téléchargés), sauf
+  // si le formulaire envoie son propre fichier. Une copie impossible laisse le champ vide.
+  if (lookup) {
+    const { data: cached } = await admin.from('tenup_lookup_cache').select('payload').eq('tenup_club_id', lookup.tenup_club_id).maybeSingle();
+    const prefix = `_lookup/${lookup.tenup_club_id}/`;
+    for (const [field, key] of [['logo', 'logo_path'], ['hero-image', 'banner_path']]) {
+      const source = cached?.payload?.[key];
+      if (uploaded[field] || typeof source !== 'string' || !source.startsWith(prefix) || source.includes('..')) continue;
+      const ext = /\.(png|jpg|webp)$/.exec(source)?.[1];
+      if (!ext) continue;
+      const path = `${clubId}/config/${stamp}-${field}.${ext}`;
+      const { error } = await admin.storage.from(BUCKET).copy(source, path);
+      if (!error) uploaded[field] = path;
+    }
+  }
   const publicUrl = (field: string) => uploaded[field] ? admin.storage.from(BUCKET).getPublicUrl(uploaded[field]).data.publicUrl : null;
 
   // 6. Club, réglages et appartenance en une transaction.
   const { data: result, error: createError } = await admin.rpc('club_self_serve_create', {
     p_club: clubId, p_email: email, p_name: name, p_city: city, p_sport: sport, p_slug: slug,
     p_color: color, p_logo: publicUrl('logo'), p_hero_image: publicUrl('hero-image'),
+    // Seulement s'ils sont fournis : le parcours manuel garde l'appel S2 tel quel.
+    ...(lookup ? { p_tenup_club_id: lookup.tenup_club_id } : {}),
+    ...(shortName ? { p_short_name: shortName } : {}),
   });
   if (createError) {
     await rollback();
+    // Club Ten'Up déjà rattaché (actif ou en attente) : rien sur le club existant.
+    if (createError.code === 'PT410') return json(409, { error: 'Ce club a déjà son espace feelike.', reason: 'already_on_feelike' });
     if (createError.code === 'PT409') return json(409, { error: 'Cette adresse est déjà prise.', reason: 'taken' });
     if (createError.code === 'PT400') return json(400, { error: 'Informations incomplètes ou invalides.' });
     return json(500, { error: 'Inscription momentanément indisponible.' });

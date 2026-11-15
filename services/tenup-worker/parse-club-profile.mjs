@@ -39,6 +39,19 @@ export function extractTenupClubHome(document) {
   };
 }
 
+/** Onboarding Ten'Up d'abord (lecture d'identité) : la page est-elle bien celle d'un club (JSON-LD
+ * `SportsActivityLocation`, sinon « introuvable »), et combien de terrains annoncent ses cartes
+ * « Installations » (« 11 terrains », une carte par installation ; `null` sans carte). */
+export function extractTenupClubIdentity(document) {
+  const text = (el) => el?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  const found = [...document.querySelectorAll('script[type="application/ld+json"]')].some((script) => {
+    try { return JSON.parse(script.textContent)?.['@type'] === 'SportsActivityLocation'; } catch { return false; }
+  });
+  const counts = [...document.querySelectorAll('main [data-slot="badge"] p')]
+    .map((p) => /^(\d+)\s+terrains?$/.exec(text(p))).filter(Boolean).map((m) => Number(m[1]));
+  return { found, courts: counts.length ? counts.reduce((a, b) => a + b, 0) : null };
+}
+
 /** « Équipe & contact » : only the « Équipe dirigeante » (the board). Teachers and volunteers
  * are not read. A person may hold several roles. */
 export function extractTenupClubBoard(document) {

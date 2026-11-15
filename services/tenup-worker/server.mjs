@@ -10,8 +10,11 @@ export const validPoolUrl = value => typeof value === 'string' && /^https:\/\/te
 /** SaaS S8b — racine de la page du club ; `/equipe`, `/offres` et l'installation en sont dérivées. */
 export const validClubProfileUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/club\/\d+$/.test(value);
 export const validClubUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/club\/\d+\/competitions\/rencontres$/.test(value);
-const KINDS = ['rencontre', 'competition', 'pool', 'club', 'club-profile'];
-const validKindUrl = (kind, url) => kind === 'pool' ? validPoolUrl(url) : kind === 'competition' ? validCompetitionUrl(url) : kind === 'club' ? validClubUrl(url) : kind === 'club-profile' ? validClubProfileUrl(url) : validUrl(url);
+// `club-identity` (onboarding Ten'Up d'abord) : la seule page « Le club », budget de 8 s.
+const KINDS = ['rencontre', 'competition', 'pool', 'club', 'club-profile', 'club-identity'];
+const validKindUrl = (kind, url) => kind === 'pool' ? validPoolUrl(url) : kind === 'competition' ? validCompetitionUrl(url) : kind === 'club' ? validClubUrl(url) : (kind === 'club-profile' || kind === 'club-identity') ? validClubProfileUrl(url) : validUrl(url);
+/** Club inconnu de Ten'Up (404) ou page sans JSON-LD : « introuvable », pas « indisponible ». */
+const NOT_FOUND = /^HTTP 404$|^Club profile not found$/;
 export const validCompetitionUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/[0-9]+$/.test(value);
 
 export const validUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/\d+\/division\/\d+\/phase\/\d+\/poule\/\d+\/rencontre\/\d+$/.test(value);
@@ -71,10 +74,11 @@ export function createHandler({ token, extract, deadline = 45_000, onFatal = () 
         // Only the public Ten'Up URL is logged: no credentials or environment values.
         const message = error instanceof Error ? error.message.slice(0, 2000) : 'Unknown extraction error';
         console.error('[tenup-worker] extraction failed', { kind, url: input.url, error: message });
+        if (kind === 'club-identity' && NOT_FOUND.test(message)) return reply(404, { error: 'Club introuvable sur Ten’Up.', reason: 'not_found' });
         reply(502, { error: kind === 'competition'
           ? 'La fiche du championnat Ten’Up est indisponible. Réessayez plus tard ou saisissez la compétition manuellement.'
           : kind === 'pool' ? 'Le calendrier de la poule Ten’Up est indisponible. Réessayez plus tard ou créez l’équipe manuellement.'
-          : kind === 'club-profile' ? 'Le profil du club Ten’Up est indisponible. Réessayez plus tard ou remplissez le site à la main.'
+          : kind === 'club-profile' || kind === 'club-identity' ? 'Le profil du club Ten’Up est indisponible. Réessayez plus tard ou remplissez le site à la main.'
           : kind === 'club' ? 'La page du club Ten’Up est indisponible. Réessayez plus tard ou ajoutez vos équipes avec le lien de leur poule.'
           : 'Ten’Up ne fournit pas de feuille complète lisible pour le moment. Réessayez plus tard ou saisissez les résultats manuellement.' });
         // After the reply: the caller gets its answer before the instance is recycled. No timer
@@ -112,6 +116,7 @@ export async function extract(url, launchOptions = {}, kind = 'rencontre') {
     await page.addLocatorHandler(refuseCookies, () => refuseCookies.click());
     // Plusieurs pages dans la même session : la lecture gère ses propres attentes (S8b).
     if (kind === 'club-profile') return await readTenupClubProfile(page, url);
+    if (kind === 'club-identity') return await readTenupClubProfile(page, url, { pages: ['club'] });
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     if (kind === 'competition') await page.locator('main p').filter({ hasText: /^Nombre de points pour un double\s*:/ }).waitFor({ timeout: 12_000 });
     else if (kind === 'pool') await poolDayButton(page).waitFor({ timeout: 12_000 });

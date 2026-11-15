@@ -14,3 +14,7 @@ verify_jwt = false
 [functions.club-signup]
 # Inscription publique d'un club : Turnstile et limite de débit dans la fonction, pas de session.
 verify_jwt = false
+
+[functions.tenup-lookup]
+# Lecture anonyme d'un club Ten'Up avant l'inscription : Turnstile, limite par IP et cache dans la fonction.
+verify_jwt = false

@@ -15,7 +15,9 @@ SELECT cron.schedule('club-signup-purge', '17 3 * * *', $$
        WHERE name='club_signup_purge_secret')),
    body := '{}'::jsonb, timeout_milliseconds := 120000
  )
- -- Pas d'appel tant qu'aucun club n'est à purger ; même prédicat que club_self_serve_purge_begin.
+ -- Pas d'appel tant que rien n'est à purger ; mêmes prédicats que club_self_serve_purge_begin et
+ -- que la purge du cache Ten'Up (2026111520 : lectures anonymes de plus de 48 h).
  WHERE EXISTS (SELECT 1 FROM public.clubs c
-   WHERE c.status = 'pending' AND c.created_at < now() - interval '7 days');
+   WHERE c.status = 'pending' AND c.created_at < now() - interval '7 days')
+    OR EXISTS (SELECT 1 FROM public.tenup_lookup_cache l WHERE l.read_at < now() - interval '48 hours');
 $$);

@@ -21,7 +21,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   });
   const canonical = 'https://tenup.fft.fr/club/60820056/competitions/rencontres';
   const club = extractTenupClub(new JSDOM(await readFile(new URL('./fixtures/tenup-club.html', import.meta.url), 'utf8')).window.document);
-  let handler, fetched = 0, rpcError = null, payload = club, workerStatus = 200;
+  let handler, fetched = 0, rpcError = null, payload = club, workerStatus = 200, idError = null;
   const rpcs = [], marks = [], stored = [];
   globalThis.Deno = { serve: (fn) => (handler = fn), env: { get: (key) => (key === 'TENUP_WORKER_URL' ? 'https://worker.example/api/extract' : key) } };
   globalThis.__clubApi = (_url, key) => {
@@ -29,7 +29,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
     if (key === 'SUPABASE_SERVICE_ROLE_KEY') return {
       rpc: async (name, args) => { marks.push([name, args]); return { data: true, error: null }; },
       // S8b : l'identifiant Ten'Up du club est gardé à la réussite (jamais pour un club `internal`).
-      from: (table) => ({ update: (row) => ({ eq: (k, v) => ({ neq: async (k2, v2) => { stored.push([table, row, k, v, k2, v2]); return { error: null }; } }) }) }),
+      from: (table) => ({ update: (row) => ({ eq: (k, v) => ({ neq: async (k2, v2) => { stored.push([table, row, k, v, k2, v2]); return { error: idError }; } }) }) }),
     };
     return {
       auth: { getUser: async () => ({ data: { user: { id: 'actor' } }, error: null }) },
@@ -47,6 +47,20 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   assert.equal((await res.json()).teams.length, 6);
   assert.equal(marks.length, 0, 'a successful read stays counted');
   assert.deepEqual(stored, [['clubs', { tenup_club_id: '60820056' }, 'id', clubId, 'plan', 'internal']]);
+  assert.equal('tenup_id_conflict' in (await handler(request({ kind: 'club', club_id: clubId, url: canonical })).then((r) => r.json())), false);
+  // Onboarding Ten'Up d'abord (§5.2) : identifiant déjà rattaché à un autre club (index unique) →
+  // l'import continue, l'identifiant n'est pas écrit, la réponse le signale sans erreur.
+  idError = { code: '23505', message: 'duplicate key value violates unique constraint "clubs_tenup_club_id_key"' };
+  res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));
+  assert.equal(res.status, 200);
+  const conflicted = await res.json();
+  assert.equal(conflicted.tenup_id_conflict, true);
+  assert.equal(conflicted.teams.length, 6, 'the teams are still imported');
+  assert.equal(marks.length, 0, 'not a failed read');
+  idError = { code: '57014', message: 'timeout' };
+  assert.equal('tenup_id_conflict' in (await handler(request({ kind: 'club', club_id: clubId, url: canonical })).then((r) => r.json())), false);
+  idError = null;
+  stored.length = 1;
   // Refus SQL (droits, quota, plafond) : aucune lecture facturée.
   rpcError = { code: '42501', message: 'Administration du club requise.' };
   res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));
@@ -55,7 +69,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   res = await handler(request({ kind: 'club', club_id: clubId, url: canonical }));
   assert.equal(res.status, 400);
   assert.match((await res.json()).error, /Limite de l’essai/);
-  assert.equal(fetched, 1);
+  assert.equal(fetched, 4);
   assert.equal(marks.length, 0, 'a read refused by SQL was never counted');
   rpcError = null;
   // Lien invalide ou club mal formé : refusé sans SQL ni lecture.

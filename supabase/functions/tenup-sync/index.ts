@@ -92,11 +92,15 @@ Deno.serve(async req => {
       catch { return failed(502, 'Page du club Ten’Up illisible. Ajoutez vos équipes avec le lien de leur poule.'); }
       // S8b : l'identifiant Ten'Up du club est gardé dès l'import des équipes (pas pour un club
       // `internal`), pour la lecture du profil qui préremplira son site. Un échec n'empêche pas l'import.
+      // Identifiant unique (2026111520) : s'il appartient déjà à un autre club, il n'est pas écrit,
+      // l'import continue et la réponse porte `tenup_id_conflict: true` (rien d'affiché, décision 8).
+      let conflict = false;
       try {
         const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-        await admin.from('clubs').update({ tenup_club_id: /\/club\/(\d+)\//.exec(url)![1] }).eq('id', body.club_id).neq('plan', 'internal');
+        const { error: idError } = await admin.from('clubs').update({ tenup_club_id: /\/club\/(\d+)\//.exec(url)![1] }).eq('id', body.club_id).neq('plan', 'internal');
+        conflict = idError?.code === '23505';
       } catch { /* l'admin pourra coller le lien dans `/admin/site` */ }
-      return json(200, page);
+      return json(200, conflict ? { ...page, tenup_id_conflict: true } : page);
     }
     if (body.kind === 'competition') {
       if (!uuid.test(body.club_id) || !uuid.test(body.saison_id)) return json(400, { error: 'Requête invalide.' });
