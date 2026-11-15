@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { useCourseAction, useCourseContext } from '../hooks/useCourses';
-import { courseError, type Profile, type Sex } from '../lib/courses';
+import { courseLoadError, type Profile, type Sex } from '../lib/courses';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { coursePushSupported, disableCoursePush } from '../lib/coursePush';
@@ -151,7 +151,7 @@ export default function ProfilePage() {
         </div>
       ) : context.isError ? (
         <div className="booking-error" role="alert">
-          {courseError(context.error)}
+          {courseLoadError(context.error)}
           <button
             className="booking-button secondary"
             onClick={() => void context.refetch()}

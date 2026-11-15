@@ -76,7 +76,7 @@ function AppShell() {
       window.removeEventListener('online', reconcile);
     };
   }, [user?.id, authLoading]);
-  const { club, loading: clubLoading } = useClub();
+  const { club } = useClub();
   const { config, isFetched: configFetched, isSuccess: configLoaded } = useClubConfig();
   const location = useLocation();
   const immersive = /^\/matches\/(?!new(?:\/|$))[^/]+(?:\/score)?\/?$/.test(location.pathname);
@@ -173,9 +173,6 @@ function AppShell() {
       if (url) URL.revokeObjectURL(url);
     };
   }, [club, config]);
-  // Derrière le splash d'index.html ; s'il s'efface avant (filet de 6 s), pas d'écran blanc.
-  if (clubLoading) return <AppLoading />;
-
   return (
     <HeaderActionProvider>
       {!immersive && <AppHeader />}

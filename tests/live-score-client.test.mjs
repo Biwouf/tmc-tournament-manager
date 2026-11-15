@@ -32,6 +32,7 @@ for (const prefix of ['', 'pwa/']) {
         return {
           select(){return this;}, eq(key,value){filters[key]=value; return this;}, abortSignal(){return this;},
           update(patch){operation='write'; appliedPatch=patch; return this;},
+          maybeSingle(){return this.single();},
           single(){
             if(operation==='write'){
               writes++;
@@ -105,14 +106,14 @@ for (const prefix of ['', 'pwa/']) {
       await act(async()=>emit({...server}));
       await act(async()=>{save=state.save({set1_j1:3});});
       await act(async()=>{pending.reject(new Error('Network offline'));await save;});
-      assert.match(state.savingError,/Network offline/);
+      assert.match(state.savingError,/Network offline|Sauvegarde impossible/); // PWA : anglais brut remplacé (uiMessage)
       assert.equal(state.match.set1_j1,2); assert.equal(state.saving,false);
       await act(async()=>{await state.reload();});
       assert.equal(state.savingError,null);assert.equal(writes,3,'retry reads without replaying uncertain mutations');
       await act(async()=>{save=state.save({set1_j1:3});});
       nextReadError={message:'Not reachable'};
       await act(async()=>{pending.resolve({data:null,error:{code:'PGRST116'}});await save;});
-      assert.match(state.savingError,/match a changé/); assert.equal(state.error,'Not reachable');
+      assert.match(state.savingError,/match a changé/); assert.match(state.error,/Not reachable|Connexion impossible/);
       nextReadError=null;
       await act(async()=>{await state.reload();});
       assert.equal(state.error,null);assert.equal(state.savingError,null);
@@ -147,6 +148,7 @@ test('pwa/ Live: cached list row shows at once, writes wait for the server confi
       return {
         select(){return this;}, eq(){return this;}, abortSignal(){return this;},
         update(){write=true;return this;},
+        maybeSingle(){return this.single();},
         single(){
           if(write){writes++;return Promise.resolve({data:{...server,revision:5},error:null});}
           return new Promise(resolve=>{read=()=>resolve({data:{...server},error:null});});
