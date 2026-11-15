@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { LIVE_SAFETY_POLL, listenLiveTopic, matchTopic } from '../lib/liveChannel';
 import { writeLiveMatch, readLiveMatch, hasLiveMatchRevision } from '../lib/liveMatchWrites';
 import type { LiveMatch } from '../types';
+import { uiMessage } from '../lib/uiMessage';
 
 /**
  * Lecture publique ; une sauvegarde en vol, autorité serveur et événements versionnés.
@@ -46,7 +47,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
       setError(null);
       setSavingError(null);
     } catch (e) {
-      if (generation.current === version && reads.current === read) setError(e instanceof Error ? e.message : 'Connexion impossible.');
+      if (generation.current === version && reads.current === read) setError(uiMessage(e, 'Connexion impossible.'));
     } finally { if (generation.current === version && reads.current === read) setLoading(false); }
   }, [id, clubId, receive]);
 
@@ -118,7 +119,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     } catch (e) {
       if (version === generation.current) {
         await reload();
-        if (version === generation.current) setSavingError(e instanceof Error ? e.message : 'Sauvegarde impossible.');
+        if (version === generation.current) setSavingError(uiMessage(e, 'Sauvegarde impossible.'));
       }
     } finally {
       if (version === generation.current) { busy.current = false; setSaving(false); }

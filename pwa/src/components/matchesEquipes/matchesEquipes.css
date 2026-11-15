@@ -232,39 +232,3 @@
 .me-pending { font-size: 12px; font-weight: 650; color: var(--me-muted); white-space: nowrap; }
 
 .me-empty { padding: 40px 24px; text-align: center; font-size: 14px; color: var(--me-muted); }
-
-/* Erreur et chargement. */
-.me-error { padding: 40px 24px; text-align: center; }
-.me-error .icon {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: hsl(var(--foreground) / 0.06);
-  color: hsl(var(--foreground));
-}
-.me-error h2 { margin: 12px 0 8px; font-size: 17px; font-weight: 750; letter-spacing: -0.02em; }
-.me-error p { margin: 0 auto 20px; max-width: 280px; font-size: 14px; line-height: 1.45; color: var(--me-muted); }
-.me-error button {
-  min-height: 44px;
-  padding: 0 20px;
-  border-radius: 12px;
-  background: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
-  font-size: 15px;
-  font-weight: 650;
-}
-.me-stale { margin: 8px 16px 0; font-size: 12px; font-weight: 600; color: var(--me-muted); }
-.me-stale button { min-height: 44px; padding: 0 4px; text-decoration: underline; color: hsl(var(--foreground)); }
-
-.me-sk {
-  border-radius: 6px;
-  background: linear-gradient(90deg, hsl(30 8% 91%) 0%, hsl(30 8% 95%) 50%, hsl(30 8% 91%) 100%);
-  background-size: 200% 100%;
-}
-@media (prefers-reduced-motion: no-preference) {
-  .me-sk { animation: me-shimmer 1.2s ease infinite; }
-}
-@keyframes me-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }

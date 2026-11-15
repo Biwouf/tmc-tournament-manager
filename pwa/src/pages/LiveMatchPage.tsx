@@ -48,6 +48,7 @@ import {
 } from '../lib/liveActivity';
 import { countLiveView, readRecap } from '../lib/liveRecap';
 import '../components/live/live.css';
+import { uiMessage } from '../lib/uiMessage';
 
 export default function LiveMatchPage() {
   const { id } = useParams();
@@ -273,7 +274,7 @@ function LiveMatchScreen({
       });
     } catch (error) {
       setPhotoError(
-        error instanceof Error ? error.message : 'Photo illisible.',
+        uiMessage(error, 'Photo illisible.'),
       );
     } finally {
       setPhotoBusy(false);
@@ -298,7 +299,7 @@ function LiveMatchScreen({
         setPhoto({ ...photo, sent: true });
       } catch (error) {
         setPhotoError(
-          error instanceof Error ? error.message : 'Envoi impossible.',
+          uiMessage(error, 'Envoi impossible.'),
         );
         return false;
       } finally {

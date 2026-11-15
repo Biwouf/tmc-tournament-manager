@@ -23,6 +23,7 @@ import TeamResultSheet from '../components/teamMatches/TeamResultSheet';
 import TeamPhotos from '../components/teamMatches/TeamPhotos';
 import { ResultChip } from '../components/matchesEquipes/ResultChip';
 import { scoreIssue, type ResultIssue } from '../components/matchesEquipes/result';
+import { LoadError, StaleNotice } from '../components/layout/LoadState';
 
 type Selection = { line: TeamLine; live?: LiveMatch; mode: 'actions' | 'result' };
 const toLocalInput = (iso: string) => {
@@ -85,8 +86,12 @@ export default function TeamRencontrePage() {
     setDateDraft(null);
     void query.refetch();
   };
-  if (query.isPending) return <p className="p-6" role="status">Chargement de la rencontre…</p>;
-  if (!query.data) return <div className="p-6"><p role="alert">Impossible de charger la rencontre.</p><button className="min-h-11 underline" onClick={() => void query.refetch()}>Réessayer</button></div>;
+  if (query.isPending) return <div className="space-y-5 p-4" role="status" aria-label="Chargement de la rencontre…">
+    <div className="sk h-56 rounded-2xl" />
+    <div className="sk h-6 w-24" />
+    <div className="sk h-36 rounded-xl" />
+  </div>;
+  if (!query.data) return <LoadError title="Impossible de charger la rencontre" onRetry={() => void query.refetch()} retrying={query.isFetching} />;
   const detail = query.data;
   const { rencontre, competition, equipe, lines, lives } = detail;
   const spec = TEAM_FORMATS[competition.format];
@@ -157,7 +162,7 @@ export default function TeamRencontrePage() {
       <p className="mt-3 text-xs text-muted-foreground">{spec.simples} simples · {spec.doubles} double{spec.doubles > 1 ? 's' : ''}{spec.doublePoints > 1 ? ' · double à 2 points' : ''}</p>
       <p className="mt-1 text-xs text-muted-foreground">3e set des simples : {competition.singles_set3_format === 'super_tiebreak' ? 'super tie-break' : competition.singles_set3_format === 'normal' ? 'set classique' : 'à configurer'} · doubles : super tie-break</p>
     </section>
-    {query.isError && <p role="alert" className="text-sm text-amber-800">Actualisation impossible. Les données affichées peuvent avoir changé. <button onClick={() => void query.refetch()} className="underline">Réessayer</button></p>}
+    {query.isError && <StaleNotice onRetry={() => void query.refetch()}>Actualisation impossible, les scores affichés peuvent avoir changé.</StaleNotice>}
     {!user && lines.length > 0 && login}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Matchs</h2><span className="text-xs text-muted-foreground">{completed}/{expected} résultats validés</span></div>

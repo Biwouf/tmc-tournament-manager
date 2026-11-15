@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { compressPhoto } from '../../lib/liveActivity';
+import { uiMessage } from '../../lib/uiMessage';
 
 const BUCKET = 'team-match-photos';
 
@@ -40,7 +41,7 @@ export default function TeamPhotos({ clubId, rencontreId, photoUrls, userId, can
       if (rpcErr) throw new Error('Envoi de la photo impossible.');
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Envoi de la photo impossible.');
+      setError(uiMessage(e, 'Envoi de la photo impossible.'));
     } finally {
       setBusy(false);
       if (input.current) input.current.value = '';

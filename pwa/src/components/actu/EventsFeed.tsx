@@ -4,6 +4,7 @@ import { useClub } from '../../contexts/ClubContext';
 import type { ClubEvent } from '../../types';
 import EventCard from '../events/EventCard';
 import PullToRefreshWrapper from '../layout/PullToRefreshWrapper';
+import { LoadError, StaleNotice, CardSkeleton } from '../layout/LoadState';
 
 async function fetchUpcomingEvents(clubId: string | null): Promise<ClubEvent[]> {
   const { data, error } = await supabase
@@ -32,20 +33,15 @@ export default function EventsFeed() {
     await refetch();
   };
 
-  if (isError) {
-    return <div className="p-6 text-center text-muted-foreground">Impossible de charger les événements.</div>;
+  if (isError && !events) {
+    return <LoadError title="Impossible de charger les événements" onRetry={() => void refetch()} retrying={isFetching} />;
   }
 
   return (
     <PullToRefreshWrapper onRefresh={handleRefresh} isRefreshing={isFetching}>
+      {isError && <StaleNotice onRetry={() => void refetch()} />}
       <div className="p-4 flex flex-col gap-4">
-        {isLoading && (
-          <div className="flex flex-col gap-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-muted rounded-xl h-[130px] animate-pulse" />
-            ))}
-          </div>
-        )}
+        {isLoading && <CardSkeleton height={130} label="Chargement des événements…" />}
 
         {!isLoading && events?.length === 0 && (
           <p className="text-center text-muted-foreground py-8">Aucun événement à venir.</p>

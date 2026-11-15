@@ -4,6 +4,7 @@ import { useClub } from '../../contexts/ClubContext';
 import type { Actu } from '../../types';
 import ActuCard from '../actus/ActuCard';
 import PullToRefreshWrapper from '../layout/PullToRefreshWrapper';
+import { LoadError, StaleNotice, CardSkeleton } from '../layout/LoadState';
 
 const PAGE_SIZE = 10;
 
@@ -37,12 +38,14 @@ export default function ActusFeed() {
     await refetch();
   };
 
-  if (isError) {
-    return <div className="p-6 text-center text-muted-foreground">Impossible de charger les actualités.</div>;
+  // Rien en cache : écran d'erreur. Liste déjà affichée : bandeau discret au-dessus.
+  if (isError && allActus.length === 0) {
+    return <LoadError title="Impossible de charger les actualités" onRetry={() => void refetch()} retrying={isFetching} />;
   }
 
   return (
     <PullToRefreshWrapper onRefresh={handleRefresh} isRefreshing={isRefreshing}>
+      {isError && <StaleNotice onRetry={() => void refetch()} />}
       <div className="p-4 flex flex-col gap-4">
         {allActus.length === 0 && !isFetching && (
           <p className="text-center text-muted-foreground py-8">Aucune actualité pour l'instant.</p>
@@ -52,13 +55,7 @@ export default function ActusFeed() {
           <ActuCard key={actu.id} actu={actu} />
         ))}
 
-        {isFetching && (
-          <div className="flex flex-col gap-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-muted rounded-xl h-32 animate-pulse" />
-            ))}
-          </div>
-        )}
+        {isFetching && allActus.length === 0 && <CardSkeleton height={128} label="Chargement des actualités…" />}
 
         {hasNextPage && !isFetching && allActus.length > 0 && (
           <button

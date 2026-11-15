@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { createPwaQueryClient } from '../lib/queryClient';
+import { AppLoading } from '../components/layout/LoadState';
 
 function SessionCache({ children }: { children: ReactNode }) {
   const [client] = useState(createPwaQueryClient);
@@ -10,7 +11,7 @@ function SessionCache({ children }: { children: ReactNode }) {
 
 export function SessionQueryProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <AppLoading />;
   // Un autre compte (ou une déconnexion) repart sans les données de la session précédente.
   // TOKEN_REFRESHED / SIGNED_IN du même compte conservent le cache et les écrans montés.
   return <SessionCache key={user?.id ?? 'anon'}>{children}</SessionCache>;

@@ -24,6 +24,7 @@ import CourseSheet from '../components/courses/CourseSheet';
 import CourseCreateSheet from '../components/courses/CourseCreateSheet';
 import { CoursePushPrompt } from '../components/courses/CoursePushSettings';
 import '../components/courses/courses.css';
+import { CardSkeleton, LoadError } from '../components/layout/LoadState';
 
 export default function CoursesPage() {
   const { clubId } = useClub();
@@ -163,14 +164,10 @@ export default function CoursesPage() {
           Votre profil n’a pas pu être chargé. {courseError(context.error)}
         </p>
       )}
-      {page.isError ? (
-        <p className="booking-error" role="alert">
-          {courseError(page.error)}
-        </p>
+      {page.isError && !page.data ? (
+        <LoadError title="Impossible de charger les cours" onRetry={() => void page.refetch()} retrying={page.isFetching} />
       ) : page.isPending ? (
-        <div className="booking-empty" role="status">
-          Chargement des cours…
-        </div>
+        <div className="px-4 pt-2"><CardSkeleton height={96} label="Chargement des cours…" /></div>
       ) : (
         <>
           {page.data.items.length === 0 && (

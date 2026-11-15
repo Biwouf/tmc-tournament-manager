@@ -12,6 +12,7 @@ import CoursePushSettings from '../components/courses/CoursePushSettings';
 import { LivePushSettings } from '../components/live/LivePush';
 import NewsPushSettings from '../components/actu/NewsPushSettings';
 import '../components/courses/courses.css';
+import { uiMessage } from '../lib/uiMessage';
 
 function ProfileForm({
   profile,
@@ -131,7 +132,7 @@ export default function ProfilePage() {
       navigate(returnTo, { replace: true });
       await supabase.auth.signOut();
     } catch (error) {
-      setLogoutError(error instanceof Error ? error.message : 'Déconnexion impossible. Réessayez.');
+      setLogoutError(uiMessage(error, 'Déconnexion impossible. Réessayez.'));
       setLoggingOut(false);
     }
   }
