@@ -7,9 +7,14 @@
 // puis club en SQL (`club_self_serve_purge`, qui revérifie l'état), puis comptes nés de
 // l'inscription et sans autre appartenance (API Auth). Un échec laisse le club `pending` :
 // le passage suivant reprend.
+// Onboarding Ten'Up d'abord : purge aussi le cache des lectures anonymes (`tenup_lookup_cache`,
+// lignes de plus de 48 h) et ses fichiers `content-images/_lookup/<id>/` antérieurs à cette limite
+// (images d'une lecture remplacée comprises). Fichiers d'abord, ligne ensuite : un échec laisse la
+// ligne, le passage suivant reprend. Une lecture plus récente du même club n'est jamais touchée.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BUCKET = 'content-images';
+const LOOKUP_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
 function sameSecret(a: string, b: string): boolean {
@@ -53,5 +58,32 @@ Deno.serve(async (req: Request) => {
       console.error('[club-signup-purge] club purge failed', { clubId });
     }
   }
-  return json(failed ? 500 : 200, { purged, accounts, failed });
+
+  let lookups = 0;
+  try {
+    const cutoff = Date.now() - LOOKUP_MAX_AGE_MS;
+    const cutoffIso = new Date(cutoff).toISOString();
+    const { data: rows, error: cacheError } = await admin.from('tenup_lookup_cache')
+      .select('tenup_club_id').lt('read_at', cutoffIso).limit(200);
+    if (cacheError) throw cacheError;
+    for (const { tenup_club_id } of (rows || []) as { tenup_club_id: string }[]) {
+      const folder = `_lookup/${tenup_club_id}`;
+      const { data: objects, error: listError } = await admin.storage.from(BUCKET).list(folder, { limit: 1000 });
+      if (listError) throw listError;
+      // `<ts>-logo.webp` : seuls les fichiers antérieurs à la limite (une relecture récente reste).
+      const old = (objects || []).filter(o => Number(/^(\d+)-/.exec(o.name)?.[1] ?? 0) < cutoff).map(o => `${folder}/${o.name}`);
+      if (old.length) {
+        const { error: removeError } = await admin.storage.from(BUCKET).remove(old);
+        if (removeError) throw removeError;
+      }
+      const { error: deleteError } = await admin.from('tenup_lookup_cache').delete()
+        .eq('tenup_club_id', tenup_club_id).lt('read_at', cutoffIso);
+      if (deleteError) throw deleteError;
+      lookups++;
+    }
+  } catch {
+    failed++;
+    console.error('[club-signup-purge] lookup cache purge failed');
+  }
+  return json(failed ? 500 : 200, { purged, accounts, lookups, failed });
 });

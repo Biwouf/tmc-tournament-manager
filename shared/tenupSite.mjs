@@ -25,7 +25,8 @@ export function isTenupImageUrl(value) {
   } catch { return false; }
 }
 
-const PAGE_STATES = { club: ['ok'], equipe: ['ok', 'failed'], offres: ['ok', 'empty', 'failed'], installation: ['ok', 'failed', 'none'] };
+// `skipped` : page non lue par la lecture d'identité (`kind: 'club-identity'`, onboarding Ten'Up d'abord).
+const PAGE_STATES = { club: ['ok'], equipe: ['ok', 'failed', 'skipped'], offres: ['ok', 'empty', 'failed', 'skipped'], installation: ['ok', 'failed', 'none', 'skipped'] };
 
 /** Rejette tout ce qui n'a pas la forme attendue (worker compromis ou page changée). */
 export function validateTenupClubProfile(payload, url) {
@@ -41,6 +42,9 @@ export function validateTenupClubProfile(payload, url) {
   // S8b-bis : photo de l'installation et grilles de tarifs, absentes d'un worker antérieur.
   if (club.installation_image !== undefined && club.installation_image !== '' &&
       !(str(club.installation_image, 500) && isTenupImageUrl(club.installation_image))) fail();
+  // Lecture d'identité : nombre de terrains des cartes « Installations » (absent ailleurs).
+  if (club.courts_count !== undefined && club.courts_count !== null &&
+      !(Number.isInteger(club.courts_count) && club.courts_count >= 0 && club.courts_count < 1000)) fail();
   if (!Array.isArray(club.sports) || club.sports.length > 10 || !club.sports.every((s) => label(s, 60))) fail();
   if (!Array.isArray(board) || board.length > 40 || !board.every((m) => m && label(m.name, 120) &&
       Array.isArray(m.roles) && m.roles.length <= 6 && m.roles.every((r) => label(r, 120)))) fail();

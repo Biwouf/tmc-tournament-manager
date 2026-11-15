@@ -445,3 +445,22 @@ test('one local origin sends consecutive requests with each active club brand', 
     assert.ok(mail.htmlContent.includes(color));
   }
 });
+
+// La tête de `x-forwarded-for` est fournie par le client : la limite se fonde sur
+// `cf-connecting-ip`, réécrit par Cloudflare, pour qu'un visiteur ne change pas d'empreinte à
+// chaque message (onboarding Ten'Up d'abord, retour de revue du 15/11/2026).
+test('Contact form: the rate-limit hash follows cf-connecting-ip, not a forged x-forwarded-for', async () => {
+  const hashes = [];
+  for (const forged of ['1.1.1.1', '2.2.2.2']) {
+    const app = await handler('contact-form');
+    const response = await app.call(VALID, { ...VISITOR, 'x-forwarded-for': `${forged}, 198.51.100.9`, 'cf-connecting-ip': '198.51.100.9' });
+    assert.equal(response.status, 200);
+    const row = inserts(app)[0].insert;
+    assert.ok(!JSON.stringify(row).includes('198.51.100.9'), 'aucune IP en clair');
+    hashes.push(row.ip_hash);
+  }
+  assert.equal(hashes[0], hashes[1], 'same client, same hash');
+  const fallback = await handler('contact-form');
+  await fallback.call(VALID, VISITOR);
+  assert.notEqual(inserts(fallback)[0].insert.ip_hash, hashes[0], 'x-forwarded-for still read without Cloudflare');
+});

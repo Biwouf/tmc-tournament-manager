@@ -1,4 +1,4 @@
-import { extractTenupClubBoard, extractTenupClubHome, extractTenupClubOffers, extractTenupInstallation, extractTenupOfferTariffs } from './parse-club-profile.mjs';
+import { extractTenupClubBoard, extractTenupClubHome, extractTenupClubIdentity, extractTenupClubOffers, extractTenupInstallation, extractTenupOfferTariffs } from './parse-club-profile.mjs';
 
 /** Offres dont on ouvre la page pour la grille complète : « À partir de », types repris sur le site. */
 const DETAIL_TYPES = /^(Adhésion|Enseignement|Carnet de tickets)/;
@@ -9,8 +9,12 @@ const MAX_DETAILS = 12;
  * does not cancel the others: its status says so, and the review shows what was read.
  * S8b-bis : then the page of each offer listed « À partir de » (12 at most), for its full tariff
  * grid ; an offer whose page is not read keeps its lowest price.
- * `budget` keeps the whole read under the handler deadline (45 s). */
-export async function readTenupClubProfile(page, url, { budget = 32_000, now = Date.now } = {}) {
+ * `budget` keeps the whole read under the handler deadline (45 s).
+ * Onboarding Ten'Up d'abord : `pages: ['club']` lit « Le club » seule (identité du club avant
+ * l'inscription, Edge `tenup-lookup`), budget de 8 s ; les autres pages sont `skipped`. */
+export async function readTenupClubProfile(page, url, { pages: only, budget, now = Date.now } = {}) {
+  const identity = Array.isArray(only) && only.length === 1 && only[0] === 'club';
+  budget ??= identity ? 8_000 : 32_000;
   const started = now();
   const evaluate = (fn) => page.evaluate(`(${fn.toString()})(document)`);
   const open = async (target, ready, timeout = 12_000) => {
@@ -19,6 +23,20 @@ export async function readTenupClubProfile(page, url, { budget = 32_000, now = D
     await ready();
     if (page.url() !== target) throw new Error('Unexpected destination');
   };
+
+  if (identity) {
+    const left = () => Math.max(500, budget - (now() - started));
+    await open(url, () => page.locator('main h1').first().waitFor({ timeout: left() }), budget);
+    // Les cartes « Installations » (nombre de terrains) arrivent après l'en-tête ; 3 s au plus.
+    await page.locator('main a[href*="/installations/"]').first().waitFor({ timeout: Math.min(3_000, left()) }).catch(() => {});
+    const { installation: _installation, ...club } = await evaluate(extractTenupClubHome);
+    const { found, courts } = await evaluate(extractTenupClubIdentity);
+    if (!found) throw new Error('Club profile not found');
+    return {
+      url, pages: { club: 'ok', equipe: 'skipped', offres: 'skipped', installation: 'skipped' },
+      club: { ...club, installation_image: '', courts_count: courts }, board: [], offers: [], courts: [],
+    };
+  }
 
   await open(url, () => page.locator('main h1').first().waitFor({ timeout: 12_000 }), 30_000);
   // Les installations se chargent après l'en-tête (Moissac, 14/11/2026) ; un club peut n'en avoir aucune.

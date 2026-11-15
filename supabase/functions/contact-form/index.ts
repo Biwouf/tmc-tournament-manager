@@ -84,8 +84,12 @@ async function hashIp(ip: string): Promise<string> {
     .join('');
 }
 
-// Derrière le proxy Supabase, l'IP du client est en tête de `x-forwarded-for`.
+// IP du client : `cf-connecting-ip` d'abord, réécrit par Cloudflare devant Supabase (le client ne
+// peut pas l'imposer). La tête de `x-forwarded-for` garde ce que le client a envoyé : falsifiable,
+// elle n'est lue qu'à défaut. Même règle que `_shared/client-ip.ts` (non importé : patron maison).
 function clientIp(req: Request): string | null {
+  const cloudflare = req.headers.get('cf-connecting-ip')?.trim();
+  if (cloudflare) return cloudflare;
   const forwarded = req.headers.get('x-forwarded-for');
   const first = forwarded?.split(',')[0]?.trim();
   return first || null;
