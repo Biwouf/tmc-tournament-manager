@@ -1020,3 +1020,77 @@ appliquer `2026111520_tenup_club_unique.sql` ; redéployer le worker (`kind: 'cl
 déployer `tenup-lookup` (secrets `TURNSTILE_SECRET_KEY`, `TENUP_WORKER_URL`, `TENUP_WORKER_TOKEN`,
 `TENUP_WORKER_BYPASS_TOKEN` s'il existe, `LOOKUP_HMAC_SECRET`) ; redéployer `club-signup`,
 `tenup-sync`, `club-signup-purge` et `contact-form` (IP lue dans `cf-connecting-ip`) ; rejouer `club-signup-purge-cron.sql`.
+
+### 14.6 P1-front — écrans (`feat/onboarding-tenup-link`)
+
+`SignupTunnelPage` (`step`) et `components/signup/TenupSteps` ; logique dans `lib/clubSignup.ts`.
+
+| Écran | `step` | En-tête | Contenu |
+|---|---|---|---|
+| 01 Retrouvons votre club | `find` (défaut) | Étape 1 sur 3 (sur 5 en branche manuelle) | Lien seul (P3 reporté) : `type="url"`, `inputmode="url"`, `autocomplete="off"`, `autocapitalize="none"`, `spellcheck=false`, sans placeholder ; aide sous le champ ; « Où trouver ce lien ? » (tenup.fft.fr seulement, décision 3) ; « Trouver mon club » jamais grisé ; pied « Club non affilié à la FFT ? Saisir à la main » |
+| 01b déjà sur feelike | `already` | — | « <Nom formaté> a déjà son espace feelike », « Se connecter » (`/login`), « Ce n’est pas mon club » (01, champ vidé). Pas de support (décision 2) |
+| 02 C'est bien votre club ? | `confirm` | Étape 2 sur 3 | Carte (`section aria-labelledby`, bandeau ou aplat, logo ou initiales, squelette pendant le chargement, image illisible → initiales), source « lues à l'instant / le JJ/MM » ; Couleur, Nom court, Adresse web ; « Modifier le nom » ; « Oui, c'est mon club » ; « Ce n'est pas le bon club » (01, champ vidé) |
+| M1-M3 | `1`, `2`, `3` | Étape 2 à 4 sur 5 | Étapes manuelles de P0 ; M1 commence par « ← Retrouver mon club sur Ten’Up » |
+| 03 Accès | `account`, puis `sent` | Étape 3 sur 3 (5 sur 5) | « Gardez <nom court> » (nom en branche manuelle) ; lien magique et case CGU inchangés (code à 6 chiffres : P2) |
+
+**Écran 01.** Le lien est validé (`normalizeTenupClubProfileUrl`) au collage, à la sortie du champ et à
+l'envoi ; vide → « Collez le lien de votre club. », autre site → `BAD_LINK`, sans requête. Coller ne
+lance pas la lecture. Turnstile invisible (`interaction-only`) : envoyé avant le jeton, la lecture part
+à son arrivée ; relancé après chaque réponse. États (`lookupOutcome`) :
+
+| Réponse | Rendu |
+|---|---|
+| en cours | « Recherche de votre club… » + spinner, `aria-busy`, champ en lecture seule ; après 3 s, `role="status"` « Ten’Up met un peu de temps à répondre… » |
+| `200` libre | 02 |
+| `200` `already_on_feelike` | 01b |
+| `404` | message + « Saisir à la main » |
+| `504`, coupure réseau, délai navigateur (25 s) | message ; « Réessayer » principal, « Continuer à la main » secondaire ; lien gardé (`tenupUrl`) |
+| `429` | message + « Saisir à la main » |
+| `403` | « La vérification anti-robot a échoué. Rechargez la page… » |
+| hors ligne (`navigator.onLine`) | « Pas de connexion internet… », aucune requête, « Réessayer » |
+| autre | « momentanément indisponible » + « Saisir à la main » |
+
+Messages sous le champ (`role="alert"`, `aria-describedby`), focus sur le champ.
+
+**Écran 02.** Nom = `formatClubName`, ville = `tidyCase`. Couleur : 3 teintes du logo copié
+(`paletteFromUrl`, la première choisie) ; sans logo ou logo illisible, les échantillons Rouge, Vert,
+Bleu marine (Rouge choisi) ; `radiogroup`, un seul arrêt de tabulation, flèches. Nom court =
+`shortNameFor` (recalculé quand le nom change, tant qu'il n'a pas été modifié), 12 caractères, compteur.
+Adresse web = première libre parmi les 3 premières `shortSlugCandidates(nom court, ville)` (`slug_available`,
+300 ms après la dernière frappe) ; aucune libre → la ligne s'ouvre en erreur ; vérification impossible →
+la première (la création revérifie) ; modifiée → vérification de M3, `app-<slug>.feelike.pro` en aide.
+Le bouton reste actif : manque → la ligne s'ouvre, message, focus (nom, ville si Ten'Up n'en donne pas,
+nom court, adresse) ; vérification en cours → « Vérification… », on avance à la réponse.
+
+**Envoi** (`club-signup`) : branche Ten'Up → `lookup_token` et `short_name`, ni logo ni photo (copiés
+côté serveur). `409 already_on_feelike` → 01b ; `400 lookup_expired` → 01 avec le lien et un message, et
+une nouvelle lecture du **même** club garde nom, ville, nom court, adresse et couleur retouchés. Les autres
+erreurs de §7.3 restent, ramenées sur 02 (adresse) en branche Ten'Up.
+
+**Brouillon** (`SignupDraft`, `sessionStorage`) : `mode`, `tenupUrl`, `tenup` (le `LookupResult`, relu par
+`parseLookupResult`), `alreadyName`, `shortName`, `shortNameEdited` ; un brouillon d'avant P1 (sans `mode`)
+reprend en branche manuelle, l'étape 4 devenant `account`.
+
+**Lien Ten'Up de la branche manuelle.** Jamais envoyé à `club-signup` (P1-back ne le traite pas). Le
+brouillon est propre à l'onglet et le lien magique en ouvre un autre : après une inscription manuelle
+réussie, le lien est aussi écrit dans `localStorage` (`feelike_signup_tenup_link`, `{ slug, url }`) ;
+`ClubImport` préremplit son champ avec la page des rencontres de ce club, seulement si le slug
+correspond. Sur un autre appareil, rien n'est prérempli.
+
+**Étape Équipes** (§10, `EquipesStep`) : `clubs.tenup_club_id` connu → pas de champ, la page des
+rencontres (`/club/<id>/competitions/rencontres`) est lue dès l'arrivée tant qu'aucune équipe n'existe
+(1 lecture, comme le clic) ; « Trouver mes équipes » / « Réessayer » relance sans lien. Le CAC n'a pas
+d'identifiant écrit (`internal`) et ne voit pas les premiers pas.
+
+**Mobile** : bouton principal collé en bas dans le flux (`position: sticky`), cibles ≥ 44 px ; pas de
+vignette de l'app avant la carte.
+
+**Tests** : `club-signup-tunnel` (logique : lien, codes, assainissement, carte, adresse courte, en-tête,
+envoi, brouillon, lien gardé ; rendu jsdom avec Edge simulée : parcours Ten'Up complet, attributs ARIA,
+lecture en cours et 3 s, 404 / 429 / 403 / 500, hors ligne, 504 + réessai + repli manuel jusqu'à l'envoi,
+01b, adresse prise / 3 prises, nom court vide, brouillon au rechargement, 409 / 400 à la création,
+mobile) ; `first-steps` (Équipes sans lien, lien prérempli pour ce club seulement).
+
+**Recette** : à 390 et 1280 px sur `localhost`, avec un faux Supabase local (`tenup-lookup`,
+`club-signup`, `slug_available`) ; clavier sur 01 et 02. Pas de recette contre la prod : la migration
+`2026111520_tenup_club_unique.sql` n'y est pas appliquée (15/11), alors que les Edge sont déployées.

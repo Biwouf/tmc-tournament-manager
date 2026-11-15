@@ -10,6 +10,8 @@ import PoolImport from './PoolImport';
 
 // SaaS S6 — étape « Vos équipes ». Depuis S6b, le lien des rencontres du club sur Ten'Up importe
 // toutes les équipes d'un coup (`ClubImport`) ; le lien d'une poule reste en repli (`PoolImport`).
+// Onboarding P1 : club inscrit depuis Ten'Up (`clubs.tenup_club_id` connu) → pas de lien à coller,
+// la page des rencontres est lue d'office.
 
 type ListedTeam = { id: string; name: string; detail: string };
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
@@ -49,6 +51,16 @@ export default function EquipesStep({ club, config, eyebrow, complete, next }: S
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listVersion, setListVersion] = useState(0);
+  // undefined : en lecture ; null : inconnu (branche manuelle, club d'avant P1).
+  const [tenupClubId, setTenupClubId] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let active = true;
+    supabase.from('clubs').select('tenup_club_id').eq('id', club.id).maybeSingle().then(
+      ({ data }) => { if (active) setTenupClubId((data as { tenup_club_id?: string | null } | null)?.tenup_club_id ?? null); },
+      () => { if (active) setTenupClubId(null); },
+    );
+    return () => { active = false; };
+  }, [club.id]);
   useEffect(() => {
     let active = true;
     loadTeams(club.id).then(
@@ -82,7 +94,9 @@ export default function EquipesStep({ club, config, eyebrow, complete, next }: S
   return <>
     <span className="fs-eyebrow">{eyebrow}</span>
     <h2 className="fs-h" tabIndex={-1}>Vos équipes, sans rien ressaisir.</h2>
-    <p className="fs-lede">Collez le lien des rencontres de votre club sur TEN’UP : toutes vos équipes, leur calendrier, leurs adversaires et leurs lieux arrivent d’un coup.</p>
+    <p className="fs-lede">{tenupClubId
+      ? 'Vos équipes arrivent de TEN’UP : leur calendrier, leurs adversaires et leurs lieux, d’un coup.'
+      : 'Collez le lien des rencontres de votre club sur TEN’UP : toutes vos équipes, leur calendrier, leurs adversaires et leurs lieux arrivent d’un coup.'}</p>
 
     {hasTeams && (
       <ul className="fs-teams" aria-label="Équipes ajoutées">
@@ -95,7 +109,9 @@ export default function EquipesStep({ club, config, eyebrow, complete, next }: S
       </ul>
     )}
 
-    <ClubImport club={club} onImported={refresh} onBusy={setBusy} />
+    {tenupClubId !== undefined && teams !== null && (
+      <ClubImport club={club} tenupClubId={tenupClubId} autoRead={!hasTeams} onImported={refresh} onBusy={setBusy} />
+    )}
 
     <details className="fs-more">
       <summary>Une équipe manque ? Ajoutez-la avec le lien de sa poule</summary>
