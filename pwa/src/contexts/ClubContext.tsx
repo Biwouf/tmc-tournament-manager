@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { resolveClubSlug } from '../lib/clubHost';
 import ClubUnavailable from '../components/ClubUnavailable';
 import { hideSplash } from '../lib/splash';
+import { AppLoading } from '../components/layout/LoadState';
 import type { ClubStatus } from '../types';
 
 type Club = { id: string; slug: string; name: string; sport: string; status: ClubStatus };
@@ -30,7 +31,8 @@ export function ClubProvider({ children }: { children: ReactNode }) {
   }, []);
   // Sans club, AppShell ne monte jamais : c'est ici que le splash doit céder la place.
   useEffect(() => { if (!loading && !club) hideSplash(); }, [loading, club]);
-  if (loading) return <p role="status" className="p-8 text-center">Chargement du club…</p>;
+  // Derrière le splash d'index.html ; s'il s'efface avant (filet de 6 s), pas d'écran blanc.
+  if (loading) return <AppLoading />;
   if (!club) return <ClubUnavailable temporary={temporary} />;
   return <ClubContext.Provider value={{ clubId: club.id, club, loading: false }}>{children}</ClubContext.Provider>;
 }

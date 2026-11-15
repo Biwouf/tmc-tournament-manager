@@ -18,10 +18,14 @@ async function withTimeout<T>(request: (signal: AbortSignal) => PromiseLike<T>):
   try { return await request(controller.signal); } finally { clearTimeout(timer); }
 }
 
+/** Aucune ligne : match supprimé ou d'un autre club. À distinguer d'une panne réseau. */
+export class LiveMatchNotFound extends Error {}
+
 export async function readLiveMatch(id: string, clubId: string) {
   const { data, error } = await withTimeout(signal => supabase.from('live_matches').select('*')
-    .eq('id', id).eq('club_id', clubId).abortSignal(signal).single());
-  if (error || !data) throw new Error(error?.message ?? 'Match introuvable');
+    .eq('id', id).eq('club_id', clubId).abortSignal(signal).maybeSingle());
+  if (error) throw new Error(error.message);
+  if (!data) throw new LiveMatchNotFound('Match introuvable.');
   return requireRevision(data as LiveMatch);
 }
 

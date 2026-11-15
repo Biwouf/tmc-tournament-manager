@@ -192,6 +192,9 @@ function setup(user, canAnimate, finished = false, overrides = {}) {
         abortSignal() {
           return this;
         },
+        maybeSingle() {
+          return this.single();
+        },
         async single() {
           if (patch) {
             scoreWrites.push(patch);

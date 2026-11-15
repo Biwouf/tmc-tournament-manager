@@ -7,6 +7,7 @@ import { scanCompoPhoto } from '../../lib/compoScan';
 import { useTeamAction } from '../../hooks/useTeamAction';
 import { formatClubName } from '../../../../shared/formatClubName';
 import TeamSheet from './TeamSheet';
+import { uiMessage } from '../../lib/uiMessage';
 
 type Row = TeamPlayer & { updateRank: boolean };
 type Side = 0 | 1;
@@ -60,7 +61,7 @@ export default function TeamCompoSheet({ detail, clubId, slots, onClose }: {
       const [entries, list] = await Promise.all([scanCompoPhoto(clubId, file), s === 0 ? roster.refetch().then(r => r.data ?? []) : Promise.resolve(members)]);
       fill(s, entries, list);
       setSide(next);
-    } catch (e) { setScanError(e instanceof Error ? e.message : 'Lecture de la photo impossible.'); }
+    } catch (e) { setScanError(uiMessage(e, 'Lecture de la photo impossible.')); }
     finally { setScanning(false); }
   };
   const submit = async () => {

@@ -29,6 +29,7 @@ import { reconcileCoursePush } from './lib/coursePush';
 import { buildAppIcons } from './lib/appIcons';
 import { useScrollMemory } from './hooks/useScrollMemory';
 import OfflineNotice from './components/layout/OfflineNotice';
+import { AppLoading } from './components/layout/LoadState';
 
 // Conteneur de défilement des pages (Live, Cours, fiches…) : sa position est retenue par
 // entrée d'historique, et restaurée au Retour.
@@ -42,7 +43,7 @@ function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   const membership = useCourseContext();
-  if (loading) return null;
+  if (loading) return <AppLoading />;
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
@@ -75,7 +76,7 @@ function AppShell() {
       window.removeEventListener('online', reconcile);
     };
   }, [user?.id, authLoading]);
-  const { club, loading: clubLoading } = useClub();
+  const { club } = useClub();
   const { config, isFetched: configFetched, isSuccess: configLoaded } = useClubConfig();
   const location = useLocation();
   const immersive = /^\/matches\/(?!new(?:\/|$))[^/]+(?:\/score)?\/?$/.test(location.pathname);
@@ -172,8 +173,6 @@ function AppShell() {
       if (url) URL.revokeObjectURL(url);
     };
   }, [club, config]);
-  if (clubLoading) return null;
-
   return (
     <HeaderActionProvider>
       {!immersive && <AppHeader />}

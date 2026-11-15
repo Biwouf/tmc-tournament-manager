@@ -15,6 +15,7 @@ import { getServer } from '../../liveScoreRules';
 import TennisBall from '../TennisBall';
 import { formatClubName } from '../../../../shared/formatClubName';
 import { LiveFollowButton } from '../live/LivePush';
+import { uiMessage } from '../../lib/uiMessage';
 
 interface Props {
   match: LiveMatch;
@@ -201,7 +202,7 @@ export default function MatchCard({
       (error: Error) => ({ error }),
     );
     if (error) {
-      setActionError(error.message);
+      setActionError(uiMessage(error, 'Suppression impossible. Réessayez.'));
       void refresh();
       setBusy(false);
       return;

@@ -4,6 +4,7 @@ import {
   coursePushSupported, disablePushCategory, enablePush, onPushPreferences, syncPush,
   type PushPreferences,
 } from '../lib/coursePush';
+import { uiMessage } from '../lib/uiMessage';
 
 export type PushCategory = keyof PushPreferences;
 
@@ -35,7 +36,7 @@ export function usePush(clubId: string, userId: string) {
       queryClient.setQueryData(['push-prefs', clubId, userId], await operation());
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Impossible de modifier les notifications.');
+      setError(uiMessage(e, 'Impossible de modifier les notifications.'));
       return false;
     } finally {
       setBusy(false);

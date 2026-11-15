@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent, LiveMatchType } from '../types';
 import { useHeaderAction } from '../components/layout/HeaderActionContext';
+import { uiMessage } from '../lib/uiMessage';
 
 interface FieldErrors {
   j1_prenom?: string;
@@ -133,7 +134,7 @@ export default function NewMatchPage() {
 
     const { error } = await supabase.from('live_matches').insert(payload);
     if (error) {
-      setSubmitError(error.message);
+      setSubmitError(uiMessage(error, 'Création du match impossible. Réessayez.'));
       setSaving(false);
       return;
     }

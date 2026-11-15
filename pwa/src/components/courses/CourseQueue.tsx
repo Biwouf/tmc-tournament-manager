@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   courseDate,
-  courseError,
+  courseLoadError,
   getCourseQueue,
   quotaLabel,
   type Course,
@@ -95,7 +95,7 @@ export default function CourseQueue({
       )}
       {query.isError ? (
         <div className="booking-error" role="alert">
-          {courseError(query.error)}
+          {courseLoadError(query.error)}
           <button
             className="booking-button secondary"
             onClick={() => void query.refetch()}

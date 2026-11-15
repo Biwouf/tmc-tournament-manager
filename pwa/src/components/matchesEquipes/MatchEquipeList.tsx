@@ -107,16 +107,16 @@ export function MatchEquipeListSkeleton() {
   return (
     <div className="me-list" role="status" aria-label="Chargement des rencontres">
       <section className="me-day">
-        <div className="me-day-head"><span className="me-sk block h-[18px] w-44" /></div>
-        <div className="me-comp"><span className="me-sk block h-3 w-56" /></div>
+        <div className="me-day-head"><span className="sk block h-[18px] w-44" /></div>
+        <div className="me-comp"><span className="sk block h-3 w-56" /></div>
         <ul className="me-group">
           {[0, 1, 2].map((i) => (
             <li key={i}>
               <div className="me-row" aria-hidden="true">
-                <span className="me-sk block h-9 w-9 !rounded-full" />
+                <span className="sk block h-9 w-9 !rounded-full" />
                 <span className="me-mid">
-                  <span className="me-sk block h-4 w-4/5" />
-                  <span className="me-sk mt-2 block h-3 w-24" />
+                  <span className="sk block h-4 w-4/5" />
+                  <span className="sk mt-2 block h-3 w-24" />
                 </span>
                 <span />
                 <span />

@@ -48,6 +48,8 @@ import {
 } from '../lib/liveActivity';
 import { countLiveView, readRecap } from '../lib/liveRecap';
 import '../components/live/live.css';
+import { uiMessage } from '../lib/uiMessage';
+import { LoadError } from '../components/layout/LoadState';
 
 export default function LiveMatchPage() {
   const { id } = useParams();
@@ -124,6 +126,7 @@ function LiveMatchScreen({
   const undo = history[history.length - 1];
   const [height, setHeight] = useState<number>();
   const [keyboard, setKeyboard] = useState(0);
+  const [retrying, setRetrying] = useState(false);
   const latest = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -273,7 +276,7 @@ function LiveMatchScreen({
       });
     } catch (error) {
       setPhotoError(
-        error instanceof Error ? error.message : 'Photo illisible.',
+        uiMessage(error, 'Photo illisible.'),
       );
     } finally {
       setPhotoBusy(false);
@@ -298,7 +301,7 @@ function LiveMatchScreen({
         setPhoto({ ...photo, sent: true });
       } catch (error) {
         setPhotoError(
-          error instanceof Error ? error.message : 'Envoi impossible.',
+          uiMessage(error, 'Envoi impossible.'),
         );
         return false;
       } finally {
@@ -313,18 +316,30 @@ function LiveMatchScreen({
     } else forceFollow.current = false;
     return success;
   }
-  if (live.loading || authLoading)
-    return (
-      <div className="live-fallback" role="status">
-        Chargement du live…
-      </div>
-    );
-  if (!match)
+  // Écran immersif (ni en-tête ni barre d'onglets) : le repli porte son propre Retour.
+  if (live.loading || authLoading || !match)
     return (
       <div className="live-fallback">
-        <p role="alert">{live.error ?? 'Match introuvable.'}</p>
-        <button onClick={() => void live.reload()}>Réessayer</button>
-        <button type="button" onClick={goBack}>Retour</button>
+        <button type="button" className="live-fallback-back" onClick={goBack}>
+          ‹ Retour
+        </button>
+        {live.loading || authLoading ? (
+          <div className="flex flex-col gap-4" role="status" aria-label="Chargement du live…">
+            <div className="sk rounded-xl" style={{ height: 200 }} />
+            {[0, 1, 2].map((i) => <div key={i} className="sk rounded-xl" style={{ height: 72 }} />)}
+          </div>
+        ) : live.notFound ? (
+          <LoadError title="Match introuvable" message="Il a peut-être été supprimé par le club." />
+        ) : (
+          <LoadError
+            title="Impossible de charger le match"
+            onRetry={() => {
+              setRetrying(true);
+              void live.reload().finally(() => setRetrying(false));
+            }}
+            retrying={retrying}
+          />
+        )}
       </div>
     );
   const poll = activity.items.find((p) => p.id === pollId);

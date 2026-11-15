@@ -12,6 +12,7 @@ import {
 } from '../lib/liveActivity';
 import { matchTopic } from '../lib/liveChannel';
 import { LIVE_SAFETY_POLL, useLiveTopic } from './useLiveTopic';
+import { uiMessage } from '../lib/uiMessage';
 
 type Feed = InfiniteData<LiveActivityPage, number | null>;
 
@@ -157,7 +158,7 @@ export function useLiveActivity(
     } catch (error) {
       if (lifetime === generation.current)
         setActionError(
-          error instanceof Error ? error.message : 'Enregistrement impossible.',
+          uiMessage(error, 'Enregistrement impossible.'),
         );
       return false;
     } finally {
@@ -180,7 +181,7 @@ export function useLiveActivity(
     } catch (error) {
       if (lifetime === generation.current)
         setActionError(
-          error instanceof Error ? error.message : 'Réaction non enregistrée.',
+          uiMessage(error, 'Réaction non enregistrée.'),
         );
     } finally {
       if (lifetime === generation.current)

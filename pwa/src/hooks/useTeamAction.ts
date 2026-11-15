@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import { uiMessage } from '../lib/uiMessage';
 
 export function useTeamAction(clubId: string | null, rencontreId: string) {
   const client = useQueryClient();
@@ -31,7 +32,7 @@ export function useTeamAction(clubId: string | null, rencontreId: string) {
       ]);
       return result as T;
     } catch (e) {
-      setError(e && typeof e === 'object' && 'message' in e ? String(e.message) : 'Enregistrement impossible. Réessayez.');
+      setError(uiMessage(e, 'Enregistrement impossible. Réessayez.'));
       return null;
     } finally { clearTimeout(timer); lock.current = false; setBusy(false); }
   }
