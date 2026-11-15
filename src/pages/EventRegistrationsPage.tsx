@@ -175,6 +175,8 @@ export default function EventRegistrationsPage() {
   // Personnes sans compte (prénom + nom).
   const [guests, setGuests] = useState<{ prenom: string; nom: string; sections: SectionPick }[]>([]);
   const [saving, setSaving] = useState(false);
+  // Erreur de l'ajout, affichée à côté du bouton « Inscrire ».
+  const [addError, setAddError] = useState<string | null>(null);
 
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey((k) => k + 1);
@@ -203,6 +205,11 @@ export default function EventRegistrationsPage() {
   const taken = bookings.reduce((n, b) => n + b.participants.length, 0);
   const sectionTaken = (sectionId: string) =>
     bookings.reduce((n, b) => n + b.participants.filter((p) => inSection(p.sections, sectionId)).length, 0);
+  // Nouvelle personne : tout l'événement, ou seulement les sections qui ont encore de la place.
+  const defaultPick = (): SectionPick => {
+    const open = sections.filter((s) => s.capacity === null || sectionTaken(s.id) < s.capacity).map((s) => s.id);
+    return open.length === sections.length || open.length === 0 ? null : open;
+  };
   const shown = filter
     ? bookings
         .map((b) => ({
@@ -243,11 +250,11 @@ export default function EventRegistrationsPage() {
     }));
     if (!id || members.length + cleanGuests.length === 0) return;
     if (cleanGuests.some((g) => !g.prenom || !g.nom)) {
-      setError(ERRORS.VALIDATION_ERROR);
+      setAddError(ERRORS.VALIDATION_ERROR);
       return;
     }
     setSaving(true);
-    setError(null);
+    setAddError(null);
     const { error: err } = await supabase.rpc('event_admin_add', {
       p_club: clubId,
       p_event: id,
@@ -258,7 +265,7 @@ export default function EventRegistrationsPage() {
     });
     setSaving(false);
     if (err) {
-      setError(errorMessage(err));
+      setAddError(errorMessage(err));
       return;
     }
     setMembers([]);
@@ -443,11 +450,12 @@ export default function EventRegistrationsPage() {
           <PersonSearch
             clubId={clubId}
             exclude={members.map((m) => m.id)}
-            onPick={(m) => setMembers([...members, { ...m, sections: null }])}
-            onPickNamed={(name) => setGuests([...guests, { ...name, sections: null }])}
+            onPick={(m) => setMembers([...members, { ...m, sections: defaultPick() }])}
+            onPickNamed={(name) => setGuests([...guests, { ...name, sections: defaultPick() }])}
           />
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-3">
+            {addError && <p className="text-sm text-red-700">{addError}</p>}
             <button
               type="submit"
               disabled={members.length + guests.length === 0 || saving}
