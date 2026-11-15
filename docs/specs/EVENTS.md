@@ -421,13 +421,13 @@ Nouveaux codes d'erreur : `SECTION_FULL`, `SECTION_REQUIRED` (liste vide), `VALI
 Écrans :
 - **BO, page Inscrits** : filtre par section avec le compteur de chacune (`n / jauge`), badge des
   sections choisies sur chaque personne qui ne vient pas à tout, choix des sections par personne
-  à l'ajout.
+  à l'ajout, pré-coché sur les sections qui ont encore de la place (comme dans la PWA).
 - **PWA** : programme des sections (heure, prix, places restantes ou « complet ») dans le bloc
   « Inscription » ; dans l'éditeur, cases à cocher par personne (vous, membres, invités). Une
   nouvelle personne est pré-cochée sur les sections qui ont encore de la place. « Complet »
   quand plus aucune section n'a de place. « Modifier » est proposé dès que l'événement a des
   sections, même à 1 place par réservation. Le panneau admin affiche le compteur par section et
-  le choix par personne à l'ajout.
+  le choix par personne à l'ajout, avec le même pré-cochage.
 - Un membre inscrit par un autre voit ses sections mais ne peut pas les changer (c'est le
   titulaire qui gère sa réservation).
 

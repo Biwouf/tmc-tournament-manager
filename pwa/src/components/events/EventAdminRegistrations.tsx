@@ -6,6 +6,7 @@ import SectionChoice from './SectionChoice';
 import {
   ERRORS,
   cleanGuests,
+  defaultPick,
   errorMessage,
   fullName,
   inSection,
@@ -308,8 +309,8 @@ export default function EventAdminRegistrations({
           <MemberPicker
             clubId={clubId}
             exclude={members.map((m) => m.id)}
-            onPick={(m) => setMembers([...members, { ...m, sections: null }])}
-            onPickNamed={(name) => setGuests([...guests, { ...name, sections: null }])}
+            onPick={(m) => setMembers([...members, { ...m, sections: defaultPick(sections) }])}
+            onPickNamed={(name) => setGuests([...guests, { ...name, sections: defaultPick(sections) }])}
             placeholder="Nom d'une personne à inscrire"
           />
 
