@@ -2,7 +2,10 @@ import { StrictMode } from 'react';
 import { hydrateRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import type { Site } from './lib/site';
+import { inject } from '@vercel/analytics';
 import App from './App';
+
+inject();
 
 const site = JSON.parse(document.getElementById('site-data')!.textContent!) as Site;
 hydrateRoot(document.getElementById('root')!,
