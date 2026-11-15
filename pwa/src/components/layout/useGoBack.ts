@@ -1,5 +1,6 @@
 import { useLocation, useNavigate, type Location } from 'react-router-dom';
 import { returnPath } from './headerConfig';
+import { RESTORE_SCROLL } from '../../hooks/useScrollMemory';
 
 // State to put on every in-app link to a sub-page, so its Back returns here. `fromIdx` is the
 // history index of the origin: Back only steps back when the origin is the previous entry.
@@ -24,7 +25,8 @@ export function useGoBack(parent: string): () => void {
   return () => {
     if (!from) navigate(parent);
     else if (originIdx !== undefined && (window.history.state?.idx ?? 0) === originIdx + 1) navigate(-1);
-    else navigate(from, { replace: true });
+    // Revenir sur l'origine sans pas d'historique : retrouver quand même sa position.
+    else navigate(from, { replace: true, state: RESTORE_SCROLL });
   };
 }
 

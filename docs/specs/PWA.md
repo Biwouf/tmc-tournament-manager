@@ -180,6 +180,7 @@ Police **Manrope** — importer depuis Google Fonts dans `pwa/index.html` :
 - **BottomNav** : `position: fixed; bottom: 0` — hauteur 56px + `padding-bottom: env(safe-area-inset-bottom)` pour iPhone
 - **AppHeader** : logo CAC Tennis + nom "CAC Tennis", hauteur 56px, fond blanc, ombre légère
 - **Retour** (14/11/2026) : tout lien interne vers une sous-page passe `state: { from }` (`fromHere`, `components/layout/useGoBack.ts`). Le bouton Retour (header et live immersif) revient à cette origine si elle est sûre, sinon au parent déclaré dans `headerConfig.ts`. Ex. Live → « Voir la rencontre » → Retour = Live ; fiche rencontre → score live → Retour = la fiche. Connexion sans origine → `/actu`. Pas de barre d'onglets sur les écrans d'auth ; l'onglet reste actif sur les sous-pages de sa rubrique.
+- **Position de défilement** (15/11/2026) : au Retour (app ou navigateur), une liste revient là où on l'avait laissée (`useScrollMemory`, par conteneur et par entrée d'historique) ; une nouvelle navigation repart en haut.
 - **Cartes** : `rounded-xl`, ombre légère (`shadow-sm`), zone de tap minimum 44px
 - **Badge LIVE** : fond rouge `#e51828`, texte blanc, animation `pulse` CSS
 - **États de chargement** : skeleton cards (pas de spinner générique)

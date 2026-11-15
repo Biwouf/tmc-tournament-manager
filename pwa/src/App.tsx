@@ -2,7 +2,7 @@ import { useCourseContext } from './hooks/useCourses';
 import SignupPage from './pages/SignupPage';
 import SignupNotice from './components/SignupNotice';
 import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppHeader from './components/layout/AppHeader';
 import { HeaderActionProvider } from './components/layout/HeaderActionContext';
@@ -27,7 +27,16 @@ import { applyClubTheme } from './lib/theme';
 import { hideSplash, rememberSplashBrand } from './lib/splash';
 import { reconcileCoursePush } from './lib/coursePush';
 import { buildAppIcons } from './lib/appIcons';
+import { useScrollMemory } from './hooks/useScrollMemory';
 import OfflineNotice from './components/layout/OfflineNotice';
+
+// Conteneur de défilement des pages (Live, Cours, fiches…) : sa position est retenue par
+// entrée d'historique, et restaurée au Retour.
+function PwaMain({ className, children }: { className: string; children: ReactNode }) {
+  const ref = useRef<HTMLElement>(null);
+  useScrollMemory(ref, 'main');
+  return <main ref={ref} className={className}>{children}</main>;
+}
 
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, loading } = useAuth();
@@ -168,7 +177,7 @@ function AppShell() {
   return (
     <HeaderActionProvider>
       {!immersive && <AppHeader />}
-      <main className={`pwa-content${immersive ? ' live-immersive' : ''}${authScreen ? ' no-bottom-nav' : ''}`}>
+      <PwaMain className={`pwa-content${immersive ? ' live-immersive' : ''}${authScreen ? ' no-bottom-nav' : ''}`}>
         {!immersive && <UpdateBanner />}
         {!immersive && <OfflineNotice />}
         {!immersive && <SignupNotice />}
@@ -201,7 +210,7 @@ function AppShell() {
           <Route path="/actus" element={<Navigate to="/actu?tab=actus" replace />} />
           <Route path="/evenements" element={<Navigate to="/actu?tab=events" replace />} />
         </Routes>
-      </main>
+      </PwaMain>
       {!immersive && !authScreen && <InstallBanner />}
       {!immersive && !authScreen && <BottomNav />}
     </HeaderActionProvider>
