@@ -264,31 +264,88 @@ test('P0 étape 4 : bouton jamais grisé ; envoi incomplet → message et focus 
   try {
     assert.equal(t.widgets[0].appearance, 'interaction-only', 'Turnstile invisible tant qu’aucun défi');
     const submit = () => t.button('Créer mon club · 30 jours offerts');
-    const alert = () => t.container.querySelector('#fl-account-error').textContent;
+    const message = (field) => t.container.querySelector(`#fl-${field}-error`)?.textContent ?? '';
     assert.equal(submit().disabled, false);
     await t.click(submit());
-    assert.equal(alert(), 'Indiquez votre e-mail.');
+    assert.equal(message('email'), 'Indiquez votre e-mail.');
+    // Le message se lit sous le champ à corriger, pas sous la case CGU.
+    assert.equal(t.container.querySelector('#fl-email-error').previousElementSibling.id, 'fl-email');
     assert.equal(t.dom.window.document.activeElement.id, 'fl-email');
     assert.equal(t.container.querySelector('#fl-email').getAttribute('aria-invalid'), 'true');
+    assert.equal(t.container.querySelector('#fl-email').getAttribute('aria-describedby'), 'fl-email-error');
     const email = t.container.querySelector('#fl-email');
     const setter = Object.getOwnPropertyDescriptor(t.dom.window.HTMLInputElement.prototype, 'value').set;
     await t.act(async () => { setter.call(email, 'president@club.fr'); email.dispatchEvent(new t.dom.window.Event('input', { bubbles: true })); });
     await t.click(submit());
-    assert.equal(alert(), 'Cochez l’acceptation des CGU.');
+    assert.equal(message('email'), '', 'le message de l’e-mail est parti');
+    assert.equal(message('consent'), 'Cochez l’acceptation des CGU.');
+    assert.ok(t.container.querySelector('#fl-consent-error').previousElementSibling.contains(t.container.querySelector('#fl-consent')), 'sous la case');
     assert.equal(t.dom.window.document.activeElement.id, 'fl-consent');
     await t.click(t.container.querySelector('#fl-consent'));
     await t.click(submit());
-    assert.match(alert(), /anti-robot n’est pas terminée/, 'jeton Turnstile pas encore reçu');
+    assert.match(message('turnstile'), /anti-robot n’est pas terminée/, 'jeton Turnstile pas encore reçu');
     assert.equal(submit().disabled, false);
     assert.deepEqual(t.requests, [], 'aucune requête tant qu’il manque quelque chose');
     // Le jeton arrive : l'envoi part, avec tennis.
     await t.act(async () => t.widgets[0].callback('jeton'));
-    assert.equal(alert(), '', 'message retiré quand le jeton arrive');
+    assert.equal(message('turnstile'), '', 'message retiré quand le jeton arrive');
     await t.click(submit());
     assert.equal(t.requests.length, 1);
     assert.equal(t.requests[0].form.get('sport'), 'tennis');
     assert.equal(t.requests[0].form.get('email'), 'president@club.fr');
   } finally { await t.unmount(); }
+});
+
+test('P0 étape 1 : bouton jamais grisé ; nom ou ville manquant → message sous le champ et focus, on reste', async () => {
+  const t = await renderTunnel({});
+  try {
+    const next = () => t.button('Continuer');
+    assert.equal(next().disabled, false);
+    await t.click(next());
+    assert.equal(t.container.querySelector('#fl-name-error').textContent, 'Indiquez le nom du club.');
+    assert.equal(t.container.querySelector('#fl-name-error').previousElementSibling.id, 'fl-club');
+    assert.equal(t.dom.window.document.activeElement.id, 'fl-club');
+    const type = async (id, value) => {
+      const input = t.container.querySelector(`#${id}`);
+      const setter = Object.getOwnPropertyDescriptor(t.dom.window.HTMLInputElement.prototype, 'value').set;
+      await t.act(async () => { setter.call(input, value); input.dispatchEvent(new t.dom.window.Event('input', { bubbles: true })); });
+    };
+    await type('fl-club', 'Tennis Club de Moissac');
+    assert.equal(t.container.querySelector('#fl-name-error'), null, 'message retiré à la saisie');
+    await t.click(next());
+    assert.equal(t.container.querySelector('#fl-city-error').textContent, 'Indiquez la ville du club.');
+    assert.equal(t.dom.window.document.activeElement.id, 'fl-city');
+    await type('fl-city', 'Moissac');
+    await t.click(next());
+    assert.match(t.container.textContent, /Votre logo, votre photo/);
+  } finally { await t.unmount(); }
+});
+
+test('P0 étape 3 : bouton jamais grisé ; adresse refusée → focus sur le champ ; en vérification → on avance à la réponse', async () => {
+  const t = await renderTunnel({ draft: { step: 3, name: 'TC Nouveau', city: 'Moissac', slug: 'ab', slugEdited: true } });
+  try {
+    const reserve = () => t.container.querySelector('form button[type="submit"]');
+    assert.equal(reserve().disabled, false);
+    await t.click(reserve());
+    assert.equal(t.dom.window.document.activeElement.id, 'fl-slug', 'adresse trop courte : focus sur le champ');
+    assert.match(t.container.querySelector('#fl-slug-msg').textContent, /3 à 32/);
+    assert.match(t.container.textContent, /Votre adresse sur le circuit/, 'on reste à l’étape 3');
+    // Adresse valide, vérification en cours : l'envoi attend la réponse puis avance.
+    const input = t.container.querySelector('#fl-slug');
+    const setter = Object.getOwnPropertyDescriptor(t.dom.window.HTMLInputElement.prototype, 'value').set;
+    await t.act(async () => { setter.call(input, 'tc-nouveau'); input.dispatchEvent(new t.dom.window.Event('input', { bubbles: true })); });
+    await t.click(reserve());
+    assert.equal(reserve().textContent, 'Vérification…');
+    await t.act(async () => { await new Promise(r => setTimeout(r, 400)); });
+    await t.flush();
+    assert.match(t.container.textContent, /Gardez votre club/);
+  } finally { await t.unmount(); }
+});
+
+test('P0 en-tête : « Déjà un compte ? Connexion » reste visible sous 720 px', () => {
+  const css = readFileSync(join(root, 'src/components/signup/signup.css'), 'utf8');
+  const mobile = css.slice(css.indexOf('@media (max-width: 719px)'));
+  assert.doesNotMatch(mobile, /\.fl-head-login\s*\{\s*display:\s*none/);
 });
 
 test('P0 mobile : vignette de l’app sous le titre, qui ouvre l’aperçu complet', async () => {
@@ -298,6 +355,10 @@ test('P0 mobile : vignette de l’app sous le titre, qui ouvre l’aperçu compl
     assert.ok(mini, 'vignette rendue sur mobile');
     assert.equal(mini.previousElementSibling.tagName, 'H1', 'juste sous le titre');
     assert.match(mini.textContent, /app-tc-nouveau\.feelike\.pro/);
+    // Coupure possible seulement après un tiret ou avant un point, jamais dans un mot.
+    const host = mini.querySelector('.fl-mini-host');
+    assert.deepEqual([...host.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent), ['app-', 'tc-', 'nouveau', '.feelike', '.pro']);
+    assert.equal(host.querySelectorAll('wbr').length, 4);
     assert.equal(t.container.querySelector('.fl-preview-toggle').textContent, 'Voir l’aperçu', 'la version complète reste');
     await t.click(mini);
     assert.equal(t.container.querySelector('.fl-preview-toggle').getAttribute('aria-expanded'), 'true');

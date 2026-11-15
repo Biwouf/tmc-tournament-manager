@@ -71,13 +71,16 @@ GRANT EXECUTE ON FUNCTION public.onboarding_event_log(uuid, text, jsonb) TO auth
 
 -- Événements du serveur : activation par le lien magique (`pending` → `active`) et première
 -- ouverture du site aux moteurs (`club_set_site_published(true)`), clubs self-serve seulement.
+-- Une seule fois par club chacun : dépublier puis republier ne compte pas deux fois.
 CREATE OR REPLACE FUNCTION public.onboarding_events_from_club()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  IF OLD.status = 'pending' AND NEW.status = 'active' THEN
+  IF OLD.status = 'pending' AND NEW.status = 'active' AND NOT EXISTS (
+    SELECT 1 FROM public.onboarding_events e WHERE e.club_id = NEW.id AND e.name = 'club_activated') THEN
     INSERT INTO public.onboarding_events (club_id, name) VALUES (NEW.id, 'club_activated');
   END IF;
-  IF NOT OLD.site_published AND NEW.site_published AND NEW.status = 'active' THEN
+  IF NOT OLD.site_published AND NEW.site_published AND NEW.status = 'active' AND NOT EXISTS (
+    SELECT 1 FROM public.onboarding_events e WHERE e.club_id = NEW.id AND e.name = 'site_published') THEN
     INSERT INTO public.onboarding_events (club_id, name) VALUES (NEW.id, 'site_published');
   END IF;
   RETURN NULL;

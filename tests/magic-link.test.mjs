@@ -143,6 +143,17 @@ test('LoginPage (onboarding P0): ?inscription opens in link mode, the password s
   } finally { await page.close(); }
 });
 
+test('onboarding P0: the route guard keeps the query and the asked path until /login, then returns there', () => {
+  const { loginReturnPath } = load('src/lib/magicLink.ts');
+  assert.equal(loginReturnPath({ from: '/premiers-pas' }), '/premiers-pas');
+  for (const state of [null, undefined, {}, { from: 42 }, { from: 'https://evil.test' }, { from: '//evil.test' }, { from: '/\\evil.test' }, { from: '/login' }]) {
+    assert.equal(loginReturnPath(state), '/', JSON.stringify(state));
+  }
+  const app = readFileSync(resolve(base, 'src/App.tsx'), 'utf8');
+  assert.match(app, /<Navigate to=\{\{ pathname: '\/login', search \}\} state=\{\{ from: pathname \}\} replace \/>/);
+  assert.match(app, /path="\/login" element=\{user \? <Navigate to=\{\{ pathname: loginReturnPath\(state\), search \}\}/);
+});
+
 test('every signInWithOtp call sets shouldCreateUser: false', () => {
   const files = [];
   const walk = (dir) => { for (const name of readdirSync(dir)) { const p = join(dir, name); if (statSync(p).isDirectory()) walk(p); else if (/\.(ts|tsx|mjs|js)$/.test(name)) files.push(p); } };

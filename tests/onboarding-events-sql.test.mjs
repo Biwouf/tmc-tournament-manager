@@ -113,7 +113,13 @@ test('onboarding-events SQL: activation and site publication are recorded by the
     await f.db.query("UPDATE clubs SET status = 'active', trial_ends_at = now() + interval '30 days' WHERE id = $1", [SELF]);
     await publish(f, SELF_ADMIN, SELF, true);
     await publish(f, SELF_ADMIN, SELF, true);
+    // Dépublier puis republier : seule la première publication compte.
+    await publish(f, SELF_ADMIN, SELF, false);
+    await publish(f, SELF_ADMIN, SELF, true);
     await f.db.query('UPDATE clubs SET name = $2 WHERE id = $1', [SELF, 'TC Alpha 2']);
+    // Suspendu puis repassé en attente et réactivé (support) : une seule activation.
+    await f.db.query("UPDATE clubs SET status = 'pending', trial_ends_at = NULL WHERE id = $1", [SELF]);
+    await f.db.query("UPDATE clubs SET status = 'active', trial_ends_at = now() + interval '30 days' WHERE id = $1", [SELF]);
     assert.deepEqual((await events(f)).map(e => [e[0], e[1]]), [[SELF, 'club_activated'], [SELF, 'site_published']], 'once each, nothing for a rename');
     // Le CAC : ni publication ni suspension/réactivation n'écrivent quoi que ce soit.
     await f.db.query("UPDATE clubs SET site_published = false WHERE id = $1", [CAC]);

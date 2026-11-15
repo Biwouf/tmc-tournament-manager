@@ -31,6 +31,12 @@ export function pickAdminClub(clubs: Club[], saved: string | null, inscription: 
   return { club: clubs.find(club => club.id === saved) ?? (clubs.length === 1 ? clubs[0] : undefined), firstSteps: false };
 }
 
+/** Après la connexion : le chemin interne demandé avant `/login` (état du routeur), sinon la racine. */
+export function loginReturnPath(state: unknown): string {
+  const from = (state as { from?: unknown } | null)?.from;
+  return typeof from === 'string' && /^\/(?![/\\])/.test(from) && from !== '/login' ? from : '/';
+}
+
 /** Retour du lien : la racine de cet hôte, avec le club d'inscription s'il est connu. */
 export function magicLinkRedirect(origin: string, inscription: string | null): string {
   return `${origin}/` + (inscription ? `?inscription=${encodeURIComponent(inscription)}` : '');

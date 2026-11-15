@@ -8,6 +8,7 @@ import { lazy, Suspense, useState, useEffect, type ReactElement } from 'react';
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
+import { loginReturnPath } from './lib/magicLink';
 import AppHomePage from './pages/AppHomePage';
 import HomePage from './pages/HomePage';
 import TournamentPage from './pages/TournamentPage';
@@ -128,7 +129,7 @@ function AppRoutes() {
 function GuardedRoutes({ user }: { user: User | null }) {
   const { club, isSupport } = useClub();
   const { role, isMember, isSuperAdmin, loading: roleLoading } = useClubRole();
-  const { pathname } = useLocation();
+  const { pathname, search, state } = useLocation();
 
   if (user && roleLoading) return null;
 
@@ -136,7 +137,9 @@ function GuardedRoutes({ user }: { user: User | null }) {
     return <NoClubAccess clubName={club?.name ?? null} />;
   }
 
-  const auth = (el: ReactElement) => user ? el : <Navigate to="/login" replace />;
+  // Onboarding P0 : la requête (`?inscription`) suit jusqu'à `/login` (mode lien), et le chemin
+  // demandé est rouvert après la connexion.
+  const auth = (el: ReactElement) => user ? el : <Navigate to={{ pathname: '/login', search }} state={{ from: pathname }} replace />;
   // Un super-admin non membre entre en support avec le rôle effectif 'admin'.
   const adminOnly = (el: ReactElement) =>
     isSuperAdmin || role === 'admin' ? el : <Navigate to="/" replace />;
@@ -153,7 +156,7 @@ function GuardedRoutes({ user }: { user: User | null }) {
       <Routes>
           <Route path="/forgot-password" element={<PasswordRecoveryPage key="forgot" />} />
           <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
-        <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+        <Route path="/login" element={user ? <Navigate to={{ pathname: loginReturnPath(state), search }} replace /> : <LoginPage />} />
         <Route path="/" element={auth(<FirstStepsGate><AppHomePage /></FirstStepsGate>)} />
         <Route path="/premiers-pas" element={auth(<Suspense fallback={null}><FirstStepsPage /></Suspense>)} />
         <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />

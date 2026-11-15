@@ -874,23 +874,32 @@ elles diffèrent, les règles des §7, §9 et §12.
   `fl-input` ordinaire, plus de Big Shoulders en capitales).
 - Étape 2 : « Continuer » est toujours le bouton principal ; « Passer cette étape » est un
   bouton-lien (`fl-link`), affiché seulement tant que rien n'est choisi (logo, photo, couleur).
-- Étape 4 : le bouton n'est **jamais grisé**. À l'envoi, `accountProblem` (`lib/clubSignup.ts`)
-  donne le premier manque dans l'ordre de l'écran — « Indiquez votre e-mail. », adresse
-  incomplète, « Cochez l’acceptation des CGU. », jeton anti-robot pas encore reçu — affiché dans
-  l'alerte `#fl-account-error`, champ en `aria-invalid` relié par `aria-describedby`, focus sur
-  le champ (ou sur le cadre Turnstile). **Aucune requête** tant qu'il manque quelque chose.
+- Boutons des étapes 1, 3 et 4 **jamais grisés**. À l'envoi, le premier manque dans l'ordre de
+  l'écran s'affiche **sous son champ** (`#fl-<champ>-error`, `aria-invalid` + `aria-describedby`)
+  et le champ reçoit le focus :
+  - étape 1, `clubProblem` : « Indiquez le nom du club. » (2 caractères au moins), « Indiquez la
+    ville du club. » ;
+  - étape 3 : adresse refusée → focus sur le champ, dont le message est déjà dessous ; adresse en
+    cours de vérification → bouton « Vérification… », l'étape avance dès la réponse ;
+  - étape 4, `accountProblem` : « Indiquez votre e-mail. », adresse incomplète, « Cochez
+    l’acceptation des CGU. » (sous la case), jeton anti-robot pas encore reçu (sous le cadre
+    Turnstile). **Aucune requête** tant qu'il manque quelque chose.
 - Turnstile rendu avec `appearance: 'interaction-only'` : invisible sauf défi. Le widget doit
   être en mode **Managé** dans le dashboard Cloudflare (réglage hors code).
 - Mobile (< 720 px) : vignette de l'app (120 px de haut, rencontres d'exemple, adresse
-  `app-<slug>.feelike.pro`) **sous le titre** de chaque étape ; un tap ouvre l'aperçu complet sur
+  `app-<slug>.feelike.pro`, coupée seulement après un tiret ou avant un point) **sous le titre**
+  de chaque étape ; un tap ouvre l'aperçu complet sur
   l'onglet App. « Voir l'aperçu » garde la version complète. Rien de plus sur ordinateur.
+- « Déjà un compte ? Connexion » reste dans l'en-tête sous 720 px.
 - La case CGU reste telle quelle (POC, juridique ignoré).
 
 **Connexion** :
 - `/premier-pas` → `/premiers-pas` (requête conservée), dans `AdminEntry`, **avant** toute garde
   ou lecture : connecté ou non, sur tout hôte.
 - `LoginPage` s'ouvre en mode « Recevoir un lien de connexion » quand `?inscription` est présent
-  (le mot de passe reste à un clic). Le cas « dernier compte connu né du tunnel » n'est pas traité.
+  (le mot de passe reste à un clic). La garde d'auth d'`App.tsx` garde la requête jusqu'à `/login`
+  et rouvre le chemin demandé après la connexion (`loginReturnPath`, chemins internes seulement) :
+  le mode lien s'active aussi sur un hôte de club et en local. Le cas « dernier compte connu né du tunnel » n'est pas traité.
 
 **Premiers pas** (§9) : ordre `equipes` → `affiches` → `actu` → `fin`, pour ne pas annoncer une
 app vide. Un club existant dont `completed_steps = ['actu']` reprend sur `equipes` (la reprise
@@ -911,8 +920,8 @@ place (chaque écriture de clé y est une lecture-modification-écriture).
 
 | Événement | Écrit par | Quand |
 |---|---|---|
-| `club_activated` | déclencheur `clubs_onboarding_events` | `pending` → `active` (lien magique) |
-| `site_published` | même déclencheur | `site_published` passe à `true` |
+| `club_activated` | déclencheur `clubs_onboarding_events` | `pending` → `active` (lien magique), une fois |
+| `site_published` | même déclencheur | première ouverture du site (republier ne recompte pas) |
 | `teams_import_started` | `ClubImport`, `PoolImport` | début d'import |
 | `teams_imported` `{ count }` | `ClubImport`, `PoolImport` | fin d'import, équipes créées |
 | `poster_generated` | `AffichesStep` | affiche générée |
@@ -934,5 +943,5 @@ incomplet sans requête, vignette mobile), `first-steps` (ordre, reprise `['actu
 événements), `dashboard-checklist` (ordre, `app_shared`), `domains` (`/premier-pas`),
 `magic-link` (`?inscription` → mode lien), `onboarding-events-sql` (PGlite).
 
-**Recette** : à 390 et 1280 px sur `localhost` (tunnel). Le parcours `admin.feelike.pro` via
-`/etc/hosts` reste à passer.
+**Recette** : à 390 et 1280 px sur `localhost` (tunnel, `/premier-pas?inscription=…` → connexion
+en mode lien). Le parcours `admin.feelike.pro` via `/etc/hosts` reste à passer.
