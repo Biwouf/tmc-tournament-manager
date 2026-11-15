@@ -74,5 +74,9 @@ const displayFaces = [[700, display700], [800, display800], [900, display900]]
     </main>
     <Footer />
     <Analytics />
+    <script>
+      import { inject } from '@vercel/analytics';
+      inject();
+    </script>
   </body>
 </html>
