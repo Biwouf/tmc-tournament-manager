@@ -7,18 +7,11 @@ import AffichesStep from './AffichesStep';
 import AffichesPreview from './AffichesPreview';
 import FinalStep, { Discover } from './FinalStep';
 
-// SaaS S5 — LA liste des premiers pas. Ajouter une étape (S6 `equipes`, S7 `affiches`) = une entrée
+// SaaS S5 — LA liste des premiers pas. P0 (onboarding Ten'Up d'abord) : les équipes d'abord,
+// pour ne pas annoncer une app vide ; l'actu passe juste avant le partage.
+// Ajouter une étape (S6 `equipes`, S7 `affiches`) = une entrée
 // ici : fil d'Ariane, « Étape X sur N », barre, reprise et récapitulatif en découlent.
 export const FIRST_STEPS: FirstStep[] = [
-  {
-    id: 'actu',
-    label: 'Première actu',
-    duration: '1 minute',
-    isDone: (state) => state.completed_steps.includes('actu'),
-    Component: ActuStep,
-    Preview: ActuPreview,
-    recap: { done: 'Première actu publiée', todo: 'Première actu à publier' },
-  },
   {
     id: 'equipes',
     label: 'Vos équipes',
@@ -36,6 +29,15 @@ export const FIRST_STEPS: FirstStep[] = [
     Component: AffichesStep,
     Preview: AffichesPreview,
     recap: { done: 'Affiche du week-end prête', todo: 'Affiche du week-end à générer' },
+  },
+  {
+    id: 'actu',
+    label: 'Première actu',
+    duration: '1 minute',
+    isDone: (state) => state.completed_steps.includes('actu'),
+    Component: ActuStep,
+    Preview: ActuPreview,
+    recap: { done: 'Première actu publiée', todo: 'Première actu à publier' },
   },
   {
     id: 'fin',

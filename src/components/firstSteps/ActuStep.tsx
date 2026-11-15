@@ -32,7 +32,8 @@ export default function ActuStep({ club, config, state, eyebrow, complete, next 
       <span className="fs-chip fs-chip-fill fs-pop">Étape terminée</span>
       <h2 className="fs-h" tabIndex={-1}>Votre première actu est en ligne.</h2>
       <p className="fs-lede">Elle est dans l’onglet Actu de l’app, et sera sur le site quand vous le publierez.</p>
-      {next && <button type="button" className="fs-btn fs-btn-p" onClick={next.go}>Suivant : {next.label} →</button>}
+      {/* P0 : dernière étape avant l'écran final. */}
+      {next && <button type="button" className="fs-btn fs-btn-p" onClick={next.go}>Terminer →</button>}
     </>;
   }
 

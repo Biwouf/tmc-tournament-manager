@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { signupSlugProblem } from '../../shared/clubSlug.mjs';
 import {
-  BRAND_FALLBACK, COLOR_SAMPLES, cleanSlugInput, isEmail, loadDraft, saveDraft, signupConfig, slugify,
-  slugMessage, submitClubSignup, suggestSlug, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
+  accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, loadDraft, saveDraft, signupConfig, slugify,
+  slugMessage, submitClubSignup, suggestSlug, type FieldProblem, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
 } from '../lib/clubSignup';
 import { dataUrlToBlob, prepareSignupImage, SIGNUP_IMAGE_TYPES } from '../lib/signupImage';
 import Turnstile, { type TurnstileHandle } from '../components/signup/Turnstile';
@@ -25,6 +25,9 @@ import '../components/signup/signup.css';
 const CONFIG = signupConfig(import.meta.env);
 const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/club-signup`;
 const STEP_LABELS = ['Club', 'Logo', 'Adresse', 'Compte'];
+
+/** Champ qui reçoit le focus pour chaque manque (Turnstile : son cadre, par ref). */
+const FIELD_IDS = { name: 'fl-club', city: 'fl-city', email: 'fl-email', consent: 'fl-consent', turnstile: '' } as const;
 
 function readDraft(): SignupDraft {
   try { return loadDraft(window.sessionStorage); } catch { return loadDraft({ getItem: () => null }); }
@@ -73,8 +76,13 @@ function Tunnel() {
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
+  // P0 : ce qui manque à l'envoi d'une étape (les boutons ne sont jamais grisés), affiché sous le champ.
+  const [missing, setMissing] = useState<FieldProblem | null>(null);
+  // Étape 3 : envoyée pendant la vérification de l'adresse → on avance dès qu'elle aboutit.
+  const [advance, setAdvance] = useState(false);
   const [preview, setPreview] = useState<{ open: boolean; tab: 'site' | 'app' }>({ open: false, tab: 'site' });
   const turnstile = useRef<TurnstileHandle>(null);
+  const turnstileBox = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
   const mobile = useMobile();
@@ -106,13 +114,16 @@ function Tunnel() {
     return () => { active = false; window.clearTimeout(timer); };
   }, [step, draft.slug]);
 
-  const update = (patch: Partial<SignupDraft>) => { setError(''); setDraft(current => ({ ...current, ...patch })); };
-  const go = (next: SignupStep) => { setError(''); setStatus(''); setDraft(current => ({ ...current, step: next })); };
+  const update = (patch: Partial<SignupDraft>) => { setError(''); setMissing(null); setAdvance(false); setDraft(current => ({ ...current, ...patch })); };
+  const go = (next: SignupStep) => { setError(''); setStatus(''); setMissing(null); setAdvance(false); setDraft(current => ({ ...current, step: next })); };
 
   const name = draft.name.trim();
   const city = draft.city.trim();
-  const step1Ready = name.length >= 2 && city.length > 0;
   const slugReady = slugCheck.state === 'available' || slugCheck.state === 'error';
+  useEffect(() => {
+    if (advance && step === 3 && slugReady) go(4);
+    else if (advance && slugCheck.state === 'unavailable') { setAdvance(false); document.getElementById('fl-slug')?.focus(); }
+  }, [advance, step, slugReady, slugCheck.state]);
   const suggestion = slugCheck.state === 'unavailable' && slugCheck.reason === 'taken' ? suggestSlug(draft.slug, city) : null;
 
   async function pickImage(event: ChangeEvent<HTMLInputElement>, kind: 'logo' | 'photo') {
@@ -145,6 +156,36 @@ function Tunnel() {
     if (!resend && outcome.step !== step) setDraft(current => ({ ...current, step: outcome.step }));
   }
 
+  /** Le premier manque : message sous son champ, focus dessus. */
+  function show(problem: FieldProblem) {
+    setMissing(problem);
+    if (problem.field === 'turnstile') turnstileBox.current?.focus();
+    else document.getElementById(FIELD_IDS[problem.field])?.focus();
+  }
+  function submitClub() {
+    const problem = clubProblem({ name: draft.name, city: draft.city });
+    if (problem) show(problem); else go(2);
+  }
+  /** Étape 3 : adresse refusée → focus sur le champ (son message est dessous) ; en cours de
+   *  vérification → on avance dès la réponse. */
+  function submitSlug() {
+    if (slugReady) go(4);
+    else if (slugCheck.state === 'unavailable') document.getElementById('fl-slug')?.focus();
+    else setAdvance(true);
+  }
+  /** Envoi de l'étape 4 : message et focus sur le premier manque, aucune requête. */
+  function submitAccount() {
+    if (busy) return;
+    const problem = accountProblem({ email: draft.email, consent, token });
+    if (problem) show(problem); else void submit(false);
+  }
+  const invalid = (field: FieldProblem['field']) => ({
+    'aria-invalid': missing?.field === field,
+    'aria-describedby': missing?.field === field ? `fl-${field}-error` : undefined,
+  });
+  const fieldError = (field: FieldProblem['field']) => missing?.field === field
+    && <p id={`fl-${field}-error`} role="alert" className="fl-field-error">{missing.message}</p>;
+
   async function submit(resend: boolean) {
     if (!token || busy) return;
     const email = resend && draft.sent ? draft.sent.email : draft.email.trim().toLowerCase();
@@ -165,12 +206,27 @@ function Tunnel() {
     } finally { setBusy(false); }
   }
 
+  const previewData = { name: draft.name, city: draft.city, slug: draft.slug, color: draft.color, logo: draft.logo, photo: draft.photo };
   const kicker = (index: number, time: string) => <span className="fl-kicker">Étape {index} sur 4 · {time}</span>;
-  const title = (text: ReactNode) => <h1 ref={heading} tabIndex={-1} className="fl-h1">{text}</h1>;
+  const openPreview = () => {
+    setPreview({ open: true, tab: 'app' });
+    window.requestAnimationFrame(() => document.getElementById('fl-preview-body')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+  // P0 : sur mobile, l'app reste visible sous le titre ; « Voir l'aperçu » garde la version complète.
+  const mini = mobile && (
+    <button type="button" className="fl-mini" aria-controls="fl-preview-body" onClick={openPreview}>
+      <span className="fl-mini-phone" aria-hidden="true"><AppPreview data={previewData} /></span>
+      <span className="fl-mini-text">
+        <span className="fl-pulse">Votre app en direct</span>
+        <span className="fl-mini-host">{breakable(`app-${draft.slug || 'votreclub'}.feelike.pro`)}</span>
+        <span className="fl-mini-open">Voir l’aperçu en grand</span>
+      </span>
+    </button>
+  );
+  const title = (text: ReactNode) => <><h1 ref={heading} tabIndex={-1} className="fl-h1">{text}</h1>{mini}</>;
   const alert = <div role="alert" className="fl-alert">{error}</div>;
   const back = (to: SignupStep, label = 'Retour') => <button type="button" className="fl-ghost" onClick={() => go(to)}>{label}</button>;
 
-  const previewData = { name: draft.name, city: draft.city, slug: draft.slug, color: draft.color, logo: draft.logo, photo: draft.photo };
   const current = step === 'sent' ? 5 : step;
 
   return (
@@ -193,31 +249,26 @@ function Tunnel() {
       <main className="fl-main">
         <section className="fl-form" aria-label="Inscription">
           {step === 1 && (
-            <form className="fl-step" onSubmit={event => { event.preventDefault(); if (step1Ready) go(2); }}>
+            <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submitClub(); }}>
               {kicker(1, '15 secondes')}
               {title('Comment s’appelle votre club ?')}
               <p className="fl-lede">Votre site et votre app se construisent pendant que vous tapez.</p>
               <div className="fl-field">
                 <label htmlFor="fl-club" className="fl-label">Nom du club</label>
-                <input id="fl-club" className="fl-input fl-input-name" type="text" autoComplete="organization" maxLength={80} required
-                  value={draft.name} placeholder="Tennis Club de Saint-Aubin"
+                <input id="fl-club" className="fl-input" type="text" autoComplete="organization" maxLength={80} required
+                  value={draft.name} {...invalid('name')}
                   onChange={event => { const value = event.target.value; update({ name: value, ...(draft.slugEdited ? {} : { slug: slugify(value) }) }); }} />
+                {fieldError('name')}
               </div>
               <div className="fl-field">
                 <label htmlFor="fl-city" className="fl-label">Ville</label>
                 <input id="fl-city" className="fl-input" type="text" autoComplete="address-level2" maxLength={80} required
-                  value={draft.city} placeholder="Saint-Aubin" onChange={event => update({ city: event.target.value })} />
-              </div>
-              <div className="fl-field">
-                <span className="fl-label" id="fl-sport">Sport</span>
-                <div className="fl-chips" role="group" aria-labelledby="fl-sport">
-                  <button type="button" className="fl-chip" aria-pressed="true">Tennis</button>
-                  <button type="button" className="fl-chip" disabled>Autres sports · bientôt</button>
-                </div>
+                  value={draft.city} {...invalid('city')} onChange={event => update({ city: event.target.value })} />
+                {fieldError('city')}
               </div>
               {alert}
               <div className="fl-actions">
-                <button type="submit" className="fl-cta" disabled={!step1Ready}>Continuer</button>
+                <button type="submit" className="fl-cta">Continuer</button>
                 <span className="fl-small">Gratuit 30 jours · sans carte bancaire</span>
               </div>
             </form>
@@ -277,15 +328,16 @@ function Tunnel() {
               {alert}
               <div className="fl-actions">
                 {back(1)}
-                <button type="button" className="fl-cta" disabled={busy} onClick={() => go(3)}>
-                  {draft.logo || draft.photo || draft.sample !== null || draft.palette.length ? 'Continuer' : 'Passer cette étape'}
-                </button>
+                <button type="button" className="fl-cta" disabled={busy} onClick={() => go(3)}>Continuer</button>
               </div>
+              {!(draft.logo || draft.photo || draft.sample !== null || draft.palette.length) && (
+                <button type="button" className="fl-link" disabled={busy} onClick={() => go(3)}>Passer cette étape</button>
+              )}
             </div>
           )}
 
           {step === 3 && (
-            <form className="fl-step" onSubmit={event => { event.preventDefault(); if (slugReady) go(4); }}>
+            <form className="fl-step" onSubmit={event => { event.preventDefault(); submitSlug(); }}>
               {kicker(3, '10 secondes')}
               {title('Votre adresse sur le circuit.')}
               <div className="fl-field">
@@ -313,30 +365,37 @@ function Tunnel() {
               {alert}
               <div className="fl-actions">
                 {back(2)}
-                <button type="submit" className="fl-cta" disabled={!slugReady}>Réserver cette adresse</button>
+                <button type="submit" className="fl-cta" aria-busy={advance}>{advance ? 'Vérification…' : 'Réserver cette adresse'}</button>
               </div>
             </form>
           )}
 
           {step === 4 && (
-            <form className="fl-step" onSubmit={event => { event.preventDefault(); void submit(false); }}>
+            <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submitAccount(); }}>
               {kicker(4, 'dernière ligne droite')}
               {title('Gardez votre club.')}
               <p className="fl-lede">Tout ce que vous voyez dans l’aperçu est enregistré. Il ne manque que l’e-mail de l’administrateur du club.</p>
               <div className="fl-field">
                 <label htmlFor="fl-email" className="fl-label">Votre e-mail</label>
                 <input id="fl-email" className="fl-input" type="email" autoComplete="email" inputMode="email" maxLength={254} required
-                  value={draft.email} placeholder="president@votreclub.fr" onChange={event => update({ email: event.target.value })} />
+                  value={draft.email} {...invalid('email')}
+                  onChange={event => update({ email: event.target.value })} />
+                {fieldError('email')}
               </div>
               <label className="fl-check">
-                <input type="checkbox" checked={consent} onChange={event => { setError(''); setConsent(event.target.checked); }} />
+                <input id="fl-consent" type="checkbox" checked={consent} {...invalid('consent')}
+                  onChange={event => { setError(''); setMissing(null); setConsent(event.target.checked); }} />
                 <span>J’accepte les <a href={CONFIG.termsUrl} target="_blank" rel="noopener">CGU</a> et la <a href={CONFIG.privacyUrl} target="_blank" rel="noopener">politique de confidentialité</a>.</span>
               </label>
-              <Turnstile ref={turnstile} siteKey={CONFIG.siteKey} onToken={setToken}
-                onError={() => setError('La vérification anti-robot ne se charge pas. Vérifiez votre connexion, puis rechargez la page : votre saisie est conservée.')} />
+              {fieldError('consent')}
+              <div ref={turnstileBox} tabIndex={-1} aria-label="Vérification anti-robot">
+                <Turnstile ref={turnstile} siteKey={CONFIG.siteKey} onToken={value => { setToken(value); if (value && missing?.field === 'turnstile') setMissing(null); }}
+                  onError={() => setError('La vérification anti-robot ne se charge pas. Vérifiez votre connexion, puis rechargez la page : votre saisie est conservée.')} />
+              </div>
+              {fieldError('turnstile')}
               {alert}
               <div className="fl-actions" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                <button type="submit" className="fl-cta fl-cta-wide" disabled={busy || !isEmail(draft.email) || !consent || !token}>
+                <button type="submit" className="fl-cta fl-cta-wide" aria-busy={busy}>
                   {busy ? 'Création en cours…' : 'Créer mon club · 30 jours offerts'}
                 </button>
                 <span className="fl-small">Sans carte bancaire. Un lien de connexion vous attend dans votre boîte mail.</span>
@@ -401,6 +460,11 @@ function OtherColor({ color, onChange }: { color: string; onChange: (color: stri
       Autre
     </label>
   );
+}
+
+/** Adresse coupable après chaque tiret et avant chaque point, jamais au milieu d'un mot. */
+function breakable(host: string): ReactNode[] {
+  return host.split(/(?<=-)|(?=\.)/).flatMap((part, i) => (i ? [<wbr key={i} />, part] : [part]));
 }
 
 function alpha(hex: string, value: number) {

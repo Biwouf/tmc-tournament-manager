@@ -131,6 +131,29 @@ test('LoginPage: expired link explained, new link keeps the signup club, no acco
   }
 });
 
+test('LoginPage (onboarding P0): ?inscription opens in link mode, the password stays one click away', async () => {
+  at('https://admin.feelike.pro/premiers-pas?inscription=gamma');
+  const page = await mountLogin();
+  try {
+    assert.match(document.body.textContent, /Administration club/, 'not the expired-link screen');
+    assert.equal(document.getElementById('login-password'), null);
+    assert.ok([...document.querySelectorAll('button')].some(b => b.textContent === 'Se connecter avec un mot de passe'));
+    await page.change('login-email', 'fondateur@example.com'); await page.click('Recevoir un lien de connexion');
+    assert.deepEqual(calls[0][1].options, { shouldCreateUser: false, emailRedirectTo: 'https://admin.feelike.pro/?inscription=gamma' });
+  } finally { await page.close(); }
+});
+
+test('onboarding P0: the route guard keeps the query and the asked path until /login, then returns there', () => {
+  const { loginReturnPath } = load('src/lib/magicLink.ts');
+  assert.equal(loginReturnPath({ from: '/premiers-pas' }), '/premiers-pas');
+  for (const state of [null, undefined, {}, { from: 42 }, { from: 'https://evil.test' }, { from: '//evil.test' }, { from: '/\\evil.test' }, { from: '/login' }]) {
+    assert.equal(loginReturnPath(state), '/', JSON.stringify(state));
+  }
+  const app = readFileSync(resolve(base, 'src/App.tsx'), 'utf8');
+  assert.match(app, /<Navigate to=\{\{ pathname: '\/login', search \}\} state=\{\{ from: pathname \}\} replace \/>/);
+  assert.match(app, /path="\/login" element=\{user \? <Navigate to=\{\{ pathname: loginReturnPath\(state\), search \}\}/);
+});
+
 test('every signInWithOtp call sets shouldCreateUser: false', () => {
   const files = [];
   const walk = (dir) => { for (const name of readdirSync(dir)) { const p = join(dir, name); if (statSync(p).isDirectory()) walk(p); else if (/\.(ts|tsx|mjs|js)$/.test(name)) files.push(p); } };

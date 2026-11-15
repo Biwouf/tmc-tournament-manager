@@ -158,9 +158,10 @@ test('trial banner: days left in Paris calendar days, accent from J-7, J0 messag
 
 test('checklist states, order and counter; password optional and out of the counter', () => {
   let items = lib.checklistItems(facts());
-  assert.deepEqual(ids(items), ['site', 'publish', 'team', 'share', 'extra:president_quote', 'extra:partners', 'extra:stats', 'password']);
+  // Onboarding P0 (§3.7) : partager l'app d'abord.
+  assert.deepEqual(ids(items), ['share', 'site', 'publish', 'team', 'extra:president_quote', 'extra:partners', 'extra:stats', 'password']);
   assert.equal(items.filter(i => i.id.startsWith('extra:')).every(i => i.optional), true, 'S8b-bis reminders are out of the counter');
-  assert.match(items[0].detail, /Il manque : accueil, tarifs, adresse et téléphone ou e-mail\./);
+  assert.match(items[1].detail, /Il manque : accueil, tarifs, adresse et téléphone ou e-mail\./);
   assert.deepEqual(lib.checklistProgress(items), { done: 0, total: 4 });
   items = lib.checklistItems(facts({ ...COMPLETE, onboarding: { app_shared_at: '2026-11-14' } }, { sitePublished: true, team: true, passwordSet: false }));
   assert.deepEqual(items.map(i => i.done), [true, true, true, true, false, false, false, false]);
@@ -169,7 +170,7 @@ test('checklist states, order and counter; password optional and out of the coun
   // Liste des membres pas encore lue : à faire.
   assert.equal(lib.checklistItems(facts({}, { team: null })).find(i => i.id === 'team').done, false);
   // Compte qui n'est pas né du tunnel : pas d'élément mot de passe.
-  assert.deepEqual(ids(lib.checklistItems(facts({}, { passwordSet: null }))), ['site', 'publish', 'team', 'share', 'extra:president_quote', 'extra:partners', 'extra:stats']);
+  assert.deepEqual(ids(lib.checklistItems(facts({}, { passwordSet: null }))), ['share', 'site', 'publish', 'team', 'extra:president_quote', 'extra:partners', 'extra:stats']);
   assert.equal(lib.passwordState({ app_metadata: { created_via: 'club_signup' }, user_metadata: {} }), false);
   assert.equal(lib.passwordState({ app_metadata: { created_via: 'club_signup' }, user_metadata: { password_set: true } }), true);
   assert.equal(lib.passwordState({ app_metadata: {}, user_metadata: {} }), null);
@@ -184,7 +185,10 @@ test('postponed steps: reminded once the course is left, kept and ticked when re
   const steps = (onboarding) => ids(lib.checklistItems(facts({ onboarding }, { passwordSet: null }))).filter(id => id.startsWith('step:'));
   assert.deepEqual(steps({ completed_steps: ['actu'], skipped_steps: ['equipes'] }), [], 'course not left yet');
   assert.deepEqual(steps({ completed_steps: ['actu'], skipped_steps: ['equipes'], finished_at: 'x' }), ['step:equipes', 'step:affiches']);
-  assert.deepEqual(steps({ completed_steps: [], postponed_at: 'x' }), ['step:actu', 'step:equipes', 'step:affiches']);
+  assert.deepEqual(steps({ completed_steps: [], postponed_at: 'x' }), ['step:equipes', 'step:affiches', 'step:actu']);
+  // Ordre §3.7 : partage, équipes, affiche, site, publication, bureau, première actu.
+  assert.deepEqual(ids(lib.checklistItems(facts({ onboarding: { completed_steps: [], postponed_at: 'x' } }, { passwordSet: null }))).filter(id => !id.startsWith('extra:')),
+    ['share', 'step:equipes', 'step:affiches', 'site', 'publish', 'team', 'step:actu']);
   assert.deepEqual(steps({ completed_steps: ['actu', 'equipes', 'affiches'], finished_at: 'x' }), []);
   const items = lib.checklistItems(facts({ onboarding: { completed_steps: ['actu', 'equipes'], resumed_steps: ['equipes'], finished_at: 'x' } }, { passwordSet: null }));
   assert.deepEqual(items.filter(i => i.id.startsWith('step:')).map(i => [i.id, i.done]), [['step:equipes', true], ['step:affiches', false]]);
@@ -237,6 +241,8 @@ test('trial club, first steps finished: banner, real states, actions lead to the
   assert.equal(clipboard, 'https://app-tc-alpha.feelike.pro');
   assert.match(document.querySelector('textarea').value, /https:\/\/app-tc-alpha\.feelike\.pro/);
   assert.ok(db.club_settings[0].config.onboarding.app_shared_at);
+  // Onboarding P0 : événement interne au premier partage, sans propriété.
+  assert.deepEqual(log.filter(l => l[0] === 'rpc' && l[1] === 'onboarding_event_log').map(l => [l[2].p_name, l[2].p_props]), [['app_shared', {}]]);
   await click('Fermer');
   assert.equal(document.querySelector('[aria-live="polite"]').textContent, '1 / 4 éléments faits');
   await unmount();
@@ -293,7 +299,7 @@ test('a postponed step reopens from the checklist; the page refuses a done step 
   reset({ config: { brand: COMPLETE.brand, onboarding: { completed_steps: [], postponed_at: 'x' } } });
   let unmount = await mountHome();
   const resume = [...document.querySelectorAll('a')].filter(a => a.textContent === 'Reprendre').map(a => a.getAttribute('href'));
-  assert.deepEqual(resume, ['/premiers-pas?etape=actu', '/premiers-pas?etape=equipes', '/premiers-pas?etape=affiches']);
+  assert.deepEqual(resume, ['/premiers-pas?etape=equipes', '/premiers-pas?etape=affiches', '/premiers-pas?etape=actu']);
   await unmount();
   unmount = await mountHome('/premiers-pas?etape=actu');
   assert.equal(where(), '/premiers-pas?etape=actu');

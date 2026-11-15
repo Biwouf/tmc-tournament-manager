@@ -39,7 +39,9 @@ const Turnstile = forwardRef<TurnstileHandle, { siteKey: string; onToken: (token
       loadTurnstile().then(api => {
         if (!active || !box.current) return;
         widget.current = api.render(box.current, {
-          sitekey: siteKey, theme: 'dark', language: 'fr', action: 'club-signup',
+          // P0 : widget en mode managé côté Cloudflare, et rien d'affiché tant qu'aucun défi
+          // n'est demandé. Le jeton arrive seul ; le tunnel dit ce qui manque s'il tarde.
+          sitekey: siteKey, theme: 'dark', language: 'fr', action: 'club-signup', appearance: 'interaction-only',
           callback: (token: string) => callbacks.current.onToken(token),
           'expired-callback': () => callbacks.current.onToken(null),
           'error-callback': () => { callbacks.current.onToken(null); callbacks.current.onError(); },

@@ -9,11 +9,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // SaaS S4 : un compte né du tunnel n'a pas de mot de passe ; un lien expiré arrive ici.
-  const [mode, setMode] = useState<'password' | 'link'>(initialLinkError ? 'link' : 'password');
-  const [sent, setSent] = useState(false);
   // `?inscription` reste dans l'URL : le nouveau lien garde le gabarit « Gardez votre club ».
   const [inscription] = useState(() => inscriptionSlug(window.location.href));
+  // SaaS S4 : un compte né du tunnel n'a pas de mot de passe ; un lien expiré arrive ici.
+  // P0 : `?inscription` (retour du tunnel) ouvre aussi en mode lien.
+  const [mode, setMode] = useState<'password' | 'link'>(initialLinkError || inscription ? 'link' : 'password');
+  const [sent, setSent] = useState(false);
 
   useEffect(() => {
     // Retire l'erreur du fragment ; la requête (`?inscription`) est conservée.

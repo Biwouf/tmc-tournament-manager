@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { CLUB_FIELDS, SUPPORT_CLUB_KEY, type Club } from '../contexts/ClubContext';
 import { FIRST_STEPS_PATH, inscriptionSlug, magicLinkRedirect, MAGIC_LINK_MESSAGES, pickAdminClub, requestMagicLink } from '../lib/magicLink';
@@ -13,7 +13,10 @@ const SignupTunnelPage = lazy(() => import('../pages/SignupTunnelPage'));
 
 // Ce sélecteur ne donne aucun droit : appartenance relue au chargement, puis garde BO + RLS.
 export default function AdminEntry({ children }: { children: (club?: Club, support?: boolean) => ReactNode }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // P0 — « premier pas » sans s : redirigé avant toute garde, connecté ou non, sur tout hôte
+  // (jamais l'écran de connexion à mot de passe sous une URL qui n'existe pas).
+  if (pathname === '/premier-pas') return <Navigate to={{ pathname: '/premiers-pas', search }} replace />;
   // SaaS S3 — le tunnel d'inscription ne dépend d'aucun club ni d'aucune session : il passe
   // avant la résolution du BO central (pas d'activation, pas de liste de clubs, pas de bandeau
   // de compte), quel que soit l'hôte — y compris le serveur de dev.

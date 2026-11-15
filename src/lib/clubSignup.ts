@@ -73,6 +73,29 @@ export function slugMessage(check: SlugCheck): string {
 
 export const isEmail = (value: string) => value.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
 
+/** Ce qui manque à l'envoi d'une étape : le champ (message affiché dessous, focus) et le texte. */
+export type FieldProblem = { field: 'name' | 'city' | 'email' | 'consent' | 'turnstile'; message: string };
+
+/** Étape 1 (P0) : bouton jamais grisé ; le premier manque, dans l'ordre de l'écran. */
+export function clubProblem({ name, city }: { name: string; city: string }): FieldProblem | null {
+  if (!name.trim()) return { field: 'name', message: 'Indiquez le nom du club.' };
+  if (name.trim().length < 2) return { field: 'name', message: 'Le nom du club compte au moins 2 caractères.' };
+  if (!city.trim()) return { field: 'city', message: 'Indiquez la ville du club.' };
+  return null;
+}
+
+/**
+ * Étape 4 (P0) : le bouton n'est jamais grisé. À l'envoi, la première chose qui manque, dans
+ * l'ordre de l'écran ; null si tout y est. Rien ne part au serveur tant qu'il en reste une.
+ */
+export function accountProblem({ email, consent, token }: { email: string; consent: boolean; token: string | null }): FieldProblem | null {
+  if (!email.trim()) return { field: 'email', message: 'Indiquez votre e-mail.' };
+  if (!isEmail(email)) return { field: 'email', message: 'Cette adresse e-mail semble incomplète. Vérifiez-la.' };
+  if (!consent) return { field: 'consent', message: 'Cochez l’acceptation des CGU.' };
+  if (!token) return { field: 'turnstile', message: 'La vérification anti-robot n’est pas terminée. Patientez quelques secondes, puis réessayez.' };
+  return null;
+}
+
 // ── Couleur ──────────────────────────────────────────────────────────────────
 
 /** Échantillons proposés sans logo (maquette) : la première teinte devient la couleur. */
