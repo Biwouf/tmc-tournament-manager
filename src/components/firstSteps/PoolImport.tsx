@@ -8,6 +8,7 @@ import {
   type CompetitionDraft, type PoolReading,
 } from '../teamMatches/teamImport';
 import { normalizeTenupPoolUrl } from '../../../shared/tenupPool.mjs';
+import { logOnboardingEvent } from '../../lib/onboardingEvents';
 import DraftFields from './DraftFields';
 
 // SaaS S6 — une équipe par le lien de sa poule Ten'Up : saison, compétition, équipe, journées et
@@ -126,8 +127,10 @@ export default function PoolImport({ club, config, onAdded, onBusy }: {
     setPhase('creating');
     setError(null);
     const name = reading.preview.teams.find((t) => t.id === teamId)?.name ?? 'L’équipe';
+    void logOnboardingEvent(supabase, club.id, 'teams_import_started');
     try {
       await createTeamFromPool(supabase, club.id, competition.id, reading, teamId);
+      void logOnboardingEvent(supabase, club.id, 'teams_imported', { count: 1 });
       setNotice(null);
       setUrl(''); setReading(null); setTeamId('');
       setPhase('idle');

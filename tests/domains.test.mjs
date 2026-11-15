@@ -15,7 +15,7 @@ const dom = new JSDOM('<div id="root"></div>', { url: 'https://admin.feelike.pro
 globalThis.window = dom.window; globalThis.document = dom.window.document;
 globalThis.localStorage = dom.window.localStorage; globalThis.sessionStorage = dom.window.sessionStorage;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-let user = { id: 'u1' }, pathname = '/', listeners = new Set(), fail = false;
+let user = { id: 'u1' }, pathname = '/', search = '', redirected = null, listeners = new Set(), fail = false;
 const alpha = { id: 'a', slug: 'alpha', name: 'Alpha Tennis', sport: 'tennis', status: 'active' };
 const beta = { ...alpha, id: 'b', slug: 'beta', name: 'Beta Tennis' };
 let rows = {}, calls = [], rpcFail = false;
@@ -56,7 +56,10 @@ function load(relative, env = {}) {
     const code = ts.transpileModule(input, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
     function req(name) {
       if (name.endsWith('/supabase')) return { supabase };
-      if (name === 'react-router-dom') return { useLocation: () => ({ pathname }), useNavigate: () => path => { pathname = path; } };
+      if (name === 'react-router-dom') return {
+        useLocation: () => ({ pathname, search }), useNavigate: () => path => { pathname = path; },
+        Navigate: ({ to }) => { redirected = to; return h('p', null, 'REDIRECT'); },
+      };
       if (name.includes('/pages/')) return { __esModule: true, default: () => h('p', null, name.split('/').at(-1)) };
       if (!name.startsWith('.')) return require(name);
       const base = resolve(dirname(file), name);
@@ -105,7 +108,7 @@ async function click(text) {
   assert.ok(button, text); await act(async () => button.click());
 }
 function reset() {
-  localStorage.clear(); sessionStorage.clear(); pathname = '/'; user = { id: 'u1' }; fail = false; rpcFail = false; calls = [];
+  localStorage.clear(); sessionStorage.clear(); pathname = '/'; search = ''; redirected = null; user = { id: 'u1' }; fail = false; rpcFail = false; calls = [];
   rows = { club_members: [{ user_id: 'u1', club_id: 'a' }, { user_id: 'u1', club_id: 'b' }], profiles: [{ id: 'u1', is_super_admin: false }], clubs: [alpha, beta] };
 }
 test('central BO: choose, change, forged choice, signout and account isolation', async () => {
@@ -202,6 +205,20 @@ test('central BO: no club required for activation/recovery/platform console', as
     assert.match(document.body.textContent, new RegExp(expected));
     await act(async () => root.unmount());
   }
+});
+test('onboarding P0: /premier-pas redirects to /premiers-pas, signed in or not, on any host, before any read', async () => {
+  for (const [host, signedIn] of [['admin.feelike.pro', true], ['admin.feelike.pro', false], ['localhost', false], ['localhost', true]]) {
+    reset(); pathname = '/premier-pas'; search = '?inscription=tc-alpha'; if (!signedIn) user = null;
+    dom.reconfigure({ url: `https://${host}/premier-pas?inscription=tc-alpha` });
+    const Admin = load('src/components/AdminEntry.tsx').default;
+    const root = await mount(Admin, () => h('p', null, 'WRONG'));
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    assert.deepEqual(redirected, { pathname: '/premiers-pas', search: '?inscription=tc-alpha' }, `${host} ${signedIn}`);
+    assert.doesNotMatch(document.body.textContent, /WRONG|LoginPage/);
+    assert.deepEqual(calls, [], 'nothing read before the redirect');
+    await act(async () => root.unmount());
+  }
+  dom.reconfigure({ url: 'https://admin.feelike.pro/' });
 });
 test('signup tunnel (SaaS S3): no session, no club, no BO chrome, on any host', async () => {
   for (const [host, signedIn] of [['admin.feelike.pro', false], ['admin.feelike.pro', true], ['localhost', false]]) {

@@ -1,6 +1,8 @@
 // SaaS S5 — règles des premiers pas : qui les voit, où en est le club, et l'écriture de l'avancement.
 import { parseClubConfig, type OnboardingState } from './clubConfig';
 import { updateClubConfigKey } from './clubConfigWrite';
+import { logOnboardingEvent } from './onboardingEvents';
+import { supabase } from './supabase';
 import type { Club } from '../contexts/ClubContext';
 import type { ClubRole } from '../contexts/ClubRoleContext';
 
@@ -102,11 +104,19 @@ export function postponeFirstSteps(clubId: string | null): Promise<OnboardingWri
   return writeOnboarding(clubId, (current) => ({ ...current, postponed_at: new Date().toISOString() }));
 }
 
-export function finishFirstSteps(clubId: string | null): Promise<OnboardingWrite> {
-  return writeOnboarding(clubId, (current) => ({ ...current, finished_at: new Date().toISOString() }));
+export async function finishFirstSteps(clubId: string | null): Promise<OnboardingWrite> {
+  const result = await writeOnboarding(clubId, (current) => ({ ...current, finished_at: new Date().toISOString() }));
+  if (!result.error) void logOnboardingEvent(supabase, clubId, 'first_steps_finished');
+  return result;
 }
 
 /** « Partager l'app » de la checklist (S8) : lien copié ou QR affiché. La première date reste. */
-export function markAppShared(clubId: string | null): Promise<OnboardingWrite> {
-  return writeOnboarding(clubId, (current) => ({ ...current, app_shared_at: current.app_shared_at ?? new Date().toISOString() }));
+export async function markAppShared(clubId: string | null): Promise<OnboardingWrite> {
+  let first = false;
+  const result = await writeOnboarding(clubId, (current) => {
+    first = !current.app_shared_at;
+    return { ...current, app_shared_at: current.app_shared_at ?? new Date().toISOString() };
+  });
+  if (!result.error && first) void logOnboardingEvent(supabase, clubId, 'app_shared');
+  return result;
 }

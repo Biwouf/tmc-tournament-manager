@@ -4,6 +4,8 @@ import { CLUB_BACKGROUND_NAME } from '../../lib/clubPosterBackground';
 import type { PosterBackground } from '../../lib/clubConfig';
 import { ensureClubPosterBackground } from '../../lib/defaultPosterBackground';
 import { skipFirstStep } from '../../lib/firstSteps';
+import { logOnboardingEvent } from '../../lib/onboardingEvents';
+import { supabase } from '../../lib/supabase';
 import { drawPosterPartners, newPartnerSeed } from '../../lib/posterPartners';
 import TeamMatchImagePreview from '../TeamMatchImagePreview';
 import type { RencontreEntry } from '../teamMatches/gridTypes';
@@ -73,7 +75,7 @@ export default function AffichesStep(props: StepProps) {
         <button type="button" className="fs-link" disabled={leaving} onClick={skip}>Passer cette étape</button>
       </div>
     )}
-    {next && done && <div className="fs-footer"><button type="button" className="fs-btn fs-btn-p" onClick={next.go}>Terminer →</button></div>}
+    {next && done && <div className="fs-footer"><button type="button" className="fs-btn fs-btn-p" onClick={next.go}>Suivant : {next.label} →</button></div>}
   </>;
 
   let body;
@@ -141,6 +143,7 @@ function Composer({ club, config, state, complete, next, entries, bg, retry }: O
     setError(null);
     try {
       setGenerated({ key: selectionKey, url: await exportPosterJpeg(posterRef.current) });
+      void logOnboardingEvent(supabase, club.id, 'poster_generated');
     } catch (err) {
       console.error('[premiers-pas] génération de l’affiche', err);
       setError('L’affiche n’a pas pu être générée. Réessayez.');
@@ -214,7 +217,7 @@ function Composer({ club, config, state, complete, next, entries, bg, retry }: O
           <button type="button" className="fs-btn fs-btn-p" disabled={!selectedMatches.length || !background || busy} onClick={generate}>
             {busy ? 'Génération…' : 'Générer l’affiche'}
           </button>
-          {done && next && <button type="button" className="fs-btn fs-btn-o" onClick={next.go}>Terminer →</button>}
+          {done && next && <button type="button" className="fs-btn fs-btn-o" onClick={next.go}>Suivant : {next.label} →</button>}
         </div>
       : <div className="fs-group fs-sticky" role="status">
           <span className="fs-note">Votre affiche est prête.</span>
@@ -230,7 +233,7 @@ function Composer({ club, config, state, complete, next, entries, bg, retry }: O
               homeName={config.brand.city || config.brand.short_name || config.brand.name || club.name}
               fileName={`story-rencontres-${weekendFileDate(weekend)}`}
             />
-            {next && <button type="button" className="fs-btn fs-btn-o" disabled={busy} onClick={next.go}>Terminer →</button>}
+            {next && <button type="button" className="fs-btn fs-btn-o" disabled={busy} onClick={next.go}>Suivant : {next.label} →</button>}
           </div>
         </div>}
 

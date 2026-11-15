@@ -25,9 +25,9 @@ export function trialBanner(club: Club | null, now = new Date()): TrialBanner | 
 
 /** Étapes des premiers pas qu'on peut reprendre depuis la checklist (ids de `FIRST_STEPS`). */
 export const REMINDER_STEPS = [
-  { id: 'actu', title: 'Votre première actu', detail: 'Annoncez l’arrivée de l’app à vos adhérents.' },
   { id: 'equipes', title: 'Vos équipes', detail: 'Importez vos équipes et leur calendrier depuis Ten’Up.' },
   { id: 'affiches', title: 'Votre affiche', detail: 'Générez l’affiche des rencontres du week-end.' },
+  { id: 'actu', title: 'Votre première actu', detail: 'Annoncez l’arrivée de l’app à vos adhérents.' },
 ] as const;
 
 /** Reportée : le parcours a été quitté sans la terminer. Terminée depuis la checklist : elle y reste. */
@@ -62,7 +62,17 @@ const list = (items: string[]) => items.length > 1 ? `${items.slice(0, -1).join(
 
 export function checklistItems({ config, sitePublished, team, passwordSet }: ChecklistFacts): ChecklistItem[] {
   const gaps = siteGaps(config);
+  const reminders = reminderSteps(config.onboarding).map((step): ChecklistItem => ({
+    id: `step:${step.id}`, title: step.title, detail: step.detail, done: config.onboarding.completed_steps.includes(step.id),
+  }));
+  // P0 (onboarding Ten'Up d'abord, §3.7) : partager l'app d'abord, puis l'affiche, le site, le
+  // bureau, et la première actu en dernier — même ordre que les premiers pas.
   const items: ChecklistItem[] = [
+    {
+      id: 'share', title: 'Partager l’app aux adhérents', done: Boolean(config.onboarding.app_shared_at),
+      detail: 'Le lien ou le QR code, sur le groupe du club.',
+    },
+    ...reminders.filter((item) => item.id !== 'step:actu'),
     {
       id: 'site', title: 'Compléter votre site', done: gaps.length === 0,
       detail: gaps.length ? `Il manque : ${list(gaps)}.` : 'Accueil, tarifs et contact sont prêts.',
@@ -77,13 +87,7 @@ export function checklistItems({ config, sitePublished, team, passwordSet }: Che
       id: 'team', title: 'Inviter votre bureau', done: team === true,
       detail: 'Un président, un trésorier, un enseignant : chacun avec son accès.',
     },
-    {
-      id: 'share', title: 'Partager l’app aux adhérents', done: Boolean(config.onboarding.app_shared_at),
-      detail: 'Le lien ou le QR code, sur le groupe du club.',
-    },
-    ...reminderSteps(config.onboarding).map((step): ChecklistItem => ({
-      id: `step:${step.id}`, title: step.title, detail: step.detail, done: config.onboarding.completed_steps.includes(step.id),
-    })),
+    ...reminders.filter((item) => item.id === 'step:actu'),
     // S8b-bis : ce que Ten'Up ne donne pas, en rappel facultatif (hors compteur).
     ...missingSiteExtras(config).map((extra): ChecklistItem => ({
       id: `extra:${extra.id}`, title: extra.title, detail: extra.detail, done: false, optional: true,

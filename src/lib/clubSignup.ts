@@ -73,6 +73,20 @@ export function slugMessage(check: SlugCheck): string {
 
 export const isEmail = (value: string) => value.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
 
+export type AccountProblem = { field: 'email' | 'consent' | 'turnstile'; message: string };
+
+/**
+ * Étape 4 (P0) : le bouton n'est jamais grisé. À l'envoi, la première chose qui manque, dans
+ * l'ordre de l'écran ; null si tout y est. Rien ne part au serveur tant qu'il en reste une.
+ */
+export function accountProblem({ email, consent, token }: { email: string; consent: boolean; token: string | null }): AccountProblem | null {
+  if (!email.trim()) return { field: 'email', message: 'Indiquez votre e-mail.' };
+  if (!isEmail(email)) return { field: 'email', message: 'Cette adresse e-mail semble incomplète. Vérifiez-la.' };
+  if (!consent) return { field: 'consent', message: 'Cochez l’acceptation des CGU.' };
+  if (!token) return { field: 'turnstile', message: 'La vérification anti-robot n’est pas terminée. Patientez quelques secondes, puis réessayez.' };
+  return null;
+}
+
 // ── Couleur ──────────────────────────────────────────────────────────────────
 
 /** Échantillons proposés sans logo (maquette) : la première teinte devient la couleur. */

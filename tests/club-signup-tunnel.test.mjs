@@ -183,3 +183,133 @@ test('aucune copie de la regex de slug ni de la liste des réservés hors de sha
     .map(file => relative(root, file));
   assert.deepEqual(offenders, []);
 });
+
+// ── Onboarding « Ten'Up d'abord », PR P0 : retouches du tunnel, rendu réel sous jsdom ───────
+async function renderTunnel({ draft, mobile = false, turnstileToken = null }) {
+  const { JSDOM } = await import('jsdom');
+  const ts = (await import('typescript')).default;
+  const vm = await import('node:vm');
+  const { createRequire } = await import('node:module');
+  const { dirname, resolve } = await import('node:path');
+  const { existsSync } = await import('node:fs');
+  const req = createRequire(join(root, 'package.json'));
+  const dom = new JSDOM('<div id="root"></div>', { url: 'https://admin.feelike.pro/inscription', pretendToBeVisual: true });
+  Object.assign(globalThis, { window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true });
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+  dom.window.matchMedia = () => ({ matches: mobile, addEventListener() {}, removeEventListener() {} });
+  dom.window.scrollTo = () => {};
+  dom.window.HTMLElement.prototype.scrollIntoView = function () {};
+  if (draft) dom.window.sessionStorage.setItem(lib.DRAFT_KEY, JSON.stringify({ ...lib.emptyDraft(), ...draft }));
+  const requests = [];
+  globalThis.fetch = async (url, init) => { requests.push({ url, form: init.body }); return Response.json({ ok: true }); };
+  // Turnstile simulé : `interaction-only` attendu, jeton remis (ou non) dès le rendu.
+  const widgets = [];
+  dom.window.turnstile = { render: (el, options) => { widgets.push(options); if (turnstileToken) options.callback(turnstileToken); return 'w1'; }, reset() {}, remove() {} };
+  const env = JSON.stringify({ DEV: true, VITE_SUPABASE_URL: 'https://x.supabase.co' });
+  const cache = new Map();
+  function read(file) {
+    if (cache.has(file)) return cache.get(file).exports;
+    const mod = { exports: {} }; cache.set(file, mod);
+    const code = ts.transpileModule(readFileSync(file, 'utf8').replaceAll('import.meta.env', env), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
+    const require = (name) => {
+      if (name.endsWith('.css') || name.startsWith('@fontsource')) return {};
+      if (name.endsWith('/lib/supabase')) return { supabase: { rpc: async () => ({ data: { available: true }, error: null }) } };
+      if (!name.startsWith('.')) return req(name);
+      const p = resolve(dirname(file), name);
+      return read([p, `${p}.ts`, `${p}.tsx`, `${p}.mjs`].find(existsSync));
+    };
+    vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: file })(require, mod, mod.exports);
+    return mod.exports;
+  }
+  const Page = read(join(root, 'src/pages/SignupTunnelPage.tsx')).default;
+  const { act, createElement: h } = req('react');
+  const { createRoot } = req('react-dom/client');
+  const { MemoryRouter } = req('react-router-dom');
+  const container = dom.window.document.getElementById('root');
+  const rootNode = createRoot(container);
+  const flush = () => act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  await act(async () => rootNode.render(h(MemoryRouter, null, h(Page))));
+  await flush();
+  const button = (name) => [...container.querySelectorAll('button')].find(b => b.textContent === name);
+  const click = async (el) => { await act(async () => el.click()); await flush(); };
+  return { dom, container, requests, widgets, button, click, flush, act, unmount: () => act(async () => rootNode.unmount()) };
+}
+
+test('P0 étape 1 : ni champ Sport ni placeholder d’exemple, nom en casse réelle ; club-signup reçoit tennis', async () => {
+  const t = await renderTunnel({});
+  try {
+    assert.doesNotMatch(t.container.textContent, /Sport|Autres sports/);
+    assert.equal(t.container.querySelectorAll('[placeholder]').length, 0);
+    assert.doesNotMatch(t.container.querySelector('#fl-club').className, /name/, 'plus de police condensée en capitales');
+  } finally { await t.unmount(); }
+  const source = readFileSync(join(root, 'src/pages/SignupTunnelPage.tsx'), 'utf8');
+  assert.doesNotMatch(source, /placeholder=|Saint-Aubin|president@votreclub/);
+  assert.doesNotMatch(readFileSync(join(root, 'src/components/signup/signup.css'), 'utf8'), /fl-input-name/);
+  assert.equal(lib.signupForm({ name: 'a', city: 'b', slug: 'abc', color: '#000000', email: 'a@b.fr', turnstileToken: 't' }).get('sport'), 'tennis');
+});
+
+test('P0 étape 2 : « Continuer » est le bouton principal, « Passer cette étape » un lien', async () => {
+  const t = await renderTunnel({ draft: { step: 2, name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau' } });
+  try {
+    assert.equal(t.button('Continuer').className, 'fl-cta');
+    assert.equal(t.button('Passer cette étape').className, 'fl-link');
+    await t.click(t.button(lib.COLOR_SAMPLES[1].label));
+    assert.equal(t.button('Passer cette étape'), undefined, 'une couleur choisie : seulement Continuer');
+    assert.equal(t.button('Continuer').className, 'fl-cta');
+  } finally { await t.unmount(); }
+});
+
+test('P0 étape 4 : bouton jamais grisé ; envoi incomplet → message et focus sur le manque, aucune requête', async () => {
+  const t = await renderTunnel({ draft: { step: 4, name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau' } });
+  try {
+    assert.equal(t.widgets[0].appearance, 'interaction-only', 'Turnstile invisible tant qu’aucun défi');
+    const submit = () => t.button('Créer mon club · 30 jours offerts');
+    const alert = () => t.container.querySelector('#fl-account-error').textContent;
+    assert.equal(submit().disabled, false);
+    await t.click(submit());
+    assert.equal(alert(), 'Indiquez votre e-mail.');
+    assert.equal(t.dom.window.document.activeElement.id, 'fl-email');
+    assert.equal(t.container.querySelector('#fl-email').getAttribute('aria-invalid'), 'true');
+    const email = t.container.querySelector('#fl-email');
+    const setter = Object.getOwnPropertyDescriptor(t.dom.window.HTMLInputElement.prototype, 'value').set;
+    await t.act(async () => { setter.call(email, 'president@club.fr'); email.dispatchEvent(new t.dom.window.Event('input', { bubbles: true })); });
+    await t.click(submit());
+    assert.equal(alert(), 'Cochez l’acceptation des CGU.');
+    assert.equal(t.dom.window.document.activeElement.id, 'fl-consent');
+    await t.click(t.container.querySelector('#fl-consent'));
+    await t.click(submit());
+    assert.match(alert(), /anti-robot n’est pas terminée/, 'jeton Turnstile pas encore reçu');
+    assert.equal(submit().disabled, false);
+    assert.deepEqual(t.requests, [], 'aucune requête tant qu’il manque quelque chose');
+    // Le jeton arrive : l'envoi part, avec tennis.
+    await t.act(async () => t.widgets[0].callback('jeton'));
+    assert.equal(alert(), '', 'message retiré quand le jeton arrive');
+    await t.click(submit());
+    assert.equal(t.requests.length, 1);
+    assert.equal(t.requests[0].form.get('sport'), 'tennis');
+    assert.equal(t.requests[0].form.get('email'), 'president@club.fr');
+  } finally { await t.unmount(); }
+});
+
+test('P0 mobile : vignette de l’app sous le titre, qui ouvre l’aperçu complet', async () => {
+  const t = await renderTunnel({ mobile: true, draft: { step: 2, name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau' } });
+  try {
+    const mini = t.container.querySelector('.fl-mini');
+    assert.ok(mini, 'vignette rendue sur mobile');
+    assert.equal(mini.previousElementSibling.tagName, 'H1', 'juste sous le titre');
+    assert.match(mini.textContent, /app-tc-nouveau\.feelike\.pro/);
+    assert.equal(t.container.querySelector('.fl-preview-toggle').textContent, 'Voir l’aperçu', 'la version complète reste');
+    await t.click(mini);
+    assert.equal(t.container.querySelector('.fl-preview-toggle').getAttribute('aria-expanded'), 'true');
+  } finally { await t.unmount(); }
+  const desktop = await renderTunnel({ draft: { step: 2, name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau' } });
+  try { assert.equal(desktop.container.querySelector('.fl-mini'), null, 'rien de plus sur ordinateur'); } finally { await desktop.unmount(); }
+});
+
+test('P0 : accountProblem dans l’ordre de l’écran', () => {
+  assert.equal(lib.accountProblem({ email: ' ', consent: true, token: 't' }).field, 'email');
+  assert.match(lib.accountProblem({ email: 'a@b', consent: true, token: 't' }).message, /incomplète/);
+  assert.equal(lib.accountProblem({ email: 'a@b.fr', consent: false, token: null }).field, 'consent');
+  assert.equal(lib.accountProblem({ email: 'a@b.fr', consent: true, token: null }).field, 'turnstile');
+  assert.equal(lib.accountProblem({ email: 'a@b.fr', consent: true, token: 't' }), null);
+});
