@@ -20,12 +20,14 @@ async function fixture({ duplicate = false } = {}) {
   const rls = await migration('20260816_multi_tenant_rls.sql');
   await db.exec(`
     CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; -- comme sur Supabase
-    CREATE SCHEMA auth;
+    CREATE SCHEMA auth; CREATE SCHEMA storage;
+    CREATE FUNCTION storage.foldername(name text) RETURNS text[] LANGUAGE sql AS $$
+      SELECT (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
       SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
       SELECT coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
-    GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
+    GRANT USAGE ON SCHEMA public, auth, storage TO anon, authenticated, service_role;
     CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, raw_app_meta_data jsonb DEFAULT '{}');
     CREATE TABLE profiles (id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE);
     CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -37,7 +39,8 @@ async function fixture({ duplicate = false } = {}) {
     INSERT INTO clubs (id, slug, name, sport, status) VALUES ('${CAC}', 'cac-tennis', 'CAC Tennis Club', 'tennis', 'active');
     INSERT INTO auth.users (id, email) SELECT ('00000000-0000-0000-0000-' || lpad(n::text, 12, '0'))::uuid,
       'user' || n || '@example.test' FROM generate_series(101, 109) n;
-    INSERT INTO profiles (id, is_super_admin) SELECT id, false FROM auth.users;
+    INSERT INTO profiles (id, is_super_admin) SELECT id, id = '${id(108)}' FROM auth.users;
+    INSERT INTO club_members (club_id, user_id, role) VALUES ('${CAC}', '${id(101)}', 'admin'), ('${CAC}', '${id(102)}', 'manager');
   `);
   await db.exec(between(rls, 'CREATE OR REPLACE FUNCTION public.auth_club_ids()', '-- ============================================================\n-- 2.'));
   for (const file of ['2026081802_super_admin_console.sql', '20260909_club_settings_public_read.sql', '2026102601_club_self_serve.sql',
@@ -154,5 +157,39 @@ test('tenup lookup SQL: throttle 20 per hour per IP, cache for the service role 
     for (const role of ['anon', 'authenticated']) {
       assert.equal(await code(f.as(role, role === 'anon' ? null : OUTSIDER, 'SELECT * FROM tenup_lookup_cache')), '42501');
     }
+  } finally { await f.db.close(); }
+});
+
+test('tenup lookup SQL: a concurrent sync writing the same id between check and insert → PT410, not PT409', async () => {
+  const f = await fixture();
+  try {
+    await f.account(301, 'nouveau@example.test');
+    // Simule `tenup-sync` qui écrit l'identifiant sur un autre club juste avant l'INSERT (après le
+    // contrôle EXISTS) : seule la contrainte d'unicité voit le conflit.
+    await f.db.exec(`
+      CREATE FUNCTION race() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+        IF NEW.tenup_club_id = '57950125' THEN UPDATE clubs SET tenup_club_id = '57950125' WHERE slug = 'tc-alpha'; END IF;
+        RETURN NEW; END $$;
+      CREATE TRIGGER race BEFORE INSERT ON clubs FOR EACH ROW EXECUTE FUNCTION race();`);
+    assert.equal(await code(f.create({ tenup: '57950125' })), 'PT410');
+    assert.equal((await f.db.query('SELECT conname FROM pg_constraint WHERE conname = $1', ['clubs_tenup_club_id_key'])).rows.length, 1, 'a table constraint');
+    // Rejeu de la migration : idempotente.
+    await f.db.exec(await migration('2026111520_tenup_club_unique.sql'));
+  } finally { await f.db.close(); }
+});
+
+test('tenup lookup SQL: CAC admins keep their legacy paths but never write into _lookup/', async () => {
+  const f = await fixture();
+  try {
+    const can = (user, path) => f.as('authenticated', user, 'SELECT can_write_club_object($1) r', [path]).then((rows) => rows[0].r);
+    assert.equal(await can(id(101), 'legacy/image.png'), true, 'CAC admin, legacy path');
+    assert.equal(await can(id(102), 'root.png'), true, 'CAC manager, root');
+    assert.equal(await can(id(101), `${CAC}/config/logo.png`), true);
+    for (const user of [id(101), id(102)]) {
+      assert.equal(await can(user, '_lookup/60820110/1-logo.webp'), false, `${user} _lookup`);
+      assert.equal(await can(user, '_lookup/x.png'), false);
+    }
+    assert.equal(await can(id(103), 'legacy/image.png'), false, 'not a CAC member');
+    assert.equal(await can(id(108), '_lookup/60820110/1-logo.webp'), true, 'super-admin (console)');
   } finally { await f.db.close(); }
 });

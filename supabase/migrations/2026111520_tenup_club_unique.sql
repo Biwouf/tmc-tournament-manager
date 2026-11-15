@@ -1,6 +1,6 @@
 -- Onboarding « Ten'Up d'abord », P1-back (brief SAAS_11 §4.3–§5.1, décisions du 14/11/2026).
 --
--- 1. `clubs.tenup_club_id` devient unique : un club Ten'Up n'a qu'un espace feelike. Un club
+-- 1. `clubs.tenup_club_id` devient unique (contrainte `clubs_tenup_club_id_key`) : un club Ten'Up n'a qu'un espace feelike. Un club
 --    `pending` tient l'identifiant comme il tient son slug (7 jours au plus, puis purge).
 --    ⚠ Les doublons existants font échouer l'index : les lister et les résoudre AVANT :
 --      SELECT tenup_club_id, array_agg(id) FROM public.clubs
@@ -14,6 +14,9 @@
 --    purgée après 48 h avec ses images `content-images/_lookup/<id>/` (Edge `club-signup-purge`).
 -- 4. `tenup_lookup_throttle(p_ip)` : 20 lectures non servies par le cache par heure et par IP,
 --    buckets `lookup-ip:<sha256>` dans `club_self_serve_attempts` (purgés après 2 jours).
+-- 5. `can_write_club_object` (Storage) : la tolérance « legacy » des admins / managers du CAC
+--    (chemins dont le 1er segment n'est pas un UUID, 20260905) exclut désormais `_lookup/`,
+--    écrit par le service role seulement.
 -- Service role seulement pour tout ce qui est nouveau. Le CAC (`internal`) n'est pas touché.
 -- Idempotente. Jamais de SQLSTATE 40001.
 BEGIN;
@@ -21,8 +24,11 @@ BEGIN;
 -- ============================================================
 -- 1. Unicité de l'identifiant Ten'Up
 -- ============================================================
-CREATE UNIQUE INDEX IF NOT EXISTS clubs_tenup_club_id_key
-  ON public.clubs (tenup_club_id) WHERE tenup_club_id IS NOT NULL;
+-- Vraie contrainte de table (NULL autorisé plusieurs fois) : son nom est celui que remonte toute
+-- violation, quel que soit le chemin d'écriture (inscription, `tenup-sync`, `tenup-site`).
+DO $$ BEGIN
+  ALTER TABLE public.clubs ADD CONSTRAINT clubs_tenup_club_id_key UNIQUE (tenup_club_id);
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 -- ============================================================
 -- 2. Création self-serve avec l'identifiant Ten'Up et le nom court
@@ -161,5 +167,26 @@ END $$;
 
 REVOKE ALL ON FUNCTION public.tenup_lookup_throttle(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.tenup_lookup_throttle(text) TO service_role;
+
+-- ============================================================
+-- 5. Storage : `_lookup/` hors de la tolérance legacy du CAC
+-- ============================================================
+-- Corps de 20260905_audit_content_permissions.sql, plus l'exclusion de `_lookup` : les logos et
+-- bandeaux lus par `tenup-lookup` (service role) ne sont ni modifiables ni supprimables par un
+-- admin du CAC. Le super-admin garde l'accès (console).
+CREATE OR REPLACE FUNCTION public.can_write_club_object(object_name text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.is_super_admin() OR EXISTS (
+    SELECT 1 FROM public.clubs c JOIN public.club_members m ON m.club_id = c.id
+    WHERE m.user_id = auth.uid() AND m.role IN ('admin', 'manager') AND c.status = 'active'
+      AND (
+        c.id::text = (storage.foldername(object_name))[1]
+        OR (c.slug = 'cac-tennis' AND
+          COALESCE((storage.foldername(object_name))[1], '') !~*
+          '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          AND COALESCE((storage.foldername(object_name))[1], '') <> '_lookup')
+      )
+  )
+$$;
 
 COMMIT;

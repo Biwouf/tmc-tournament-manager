@@ -877,7 +877,7 @@ sports, logo et bandeau. Découpage : P0 (retouches), **P1-back** (serveur, ci-d
 | Turnstile (`TURNSTILE_SECRET_KEY`, même widget que `club-signup`) | `403 turnstile` |
 | Club déjà rattaché (`clubs.tenup_club_id`, club `pending` compris) | `200 { ok, tenup_club_id, already_on_feelike: true, name? }` immédiat, sans lecture ; `name` = nom Ten'Up du cache s'il existe, **rien** du club existant |
 | Cache `tenup_lookup_cache` de moins de 24 h | `200`, `cached: true`, `read_at` = date de la lecture d'origine ; ni lecture ni décompte |
-| `tenup_lookup_throttle` : 20 lectures / h / IP (empreinte SHA-256) | `429 throttled` |
+| `tenup_lookup_throttle` : 20 lectures / h / IP (empreinte SHA-256 de `cf-connecting-ip`, réécrit par Cloudflare ; `x-forwarded-for` seulement à défaut — `_shared/client-ip.ts`, aussi utilisé par `club-signup`) | `429 throttled` |
 | Worker `kind: 'club-identity'` (page « Le club » seule, budget 8 s), délai client 10 s | `404 not_found` (404 Ten'Up, page sans JSON-LD) ; `504 tenup_unavailable` (délai, Queue-it, worker occupé ou en erreur, réponse hors schéma, worker non configuré) |
 | Logo et bandeau copiés de `cmsclub.fft.fr` dans `content-images/_lookup/<id>/<ts>-logo.<ext>` et `-banner` (signature PNG / JPEG / WebP, ≤ 5 Mo) | image illisible : champ absent, pas d'erreur |
 
@@ -897,9 +897,10 @@ lecture qui tombe pendant un import d'équipes reçoit `504 tenup_unavailable` (
 
 | Objet | Rôle |
 |---|---|
-| `clubs_tenup_club_id_key` | Index unique partiel (`WHERE tenup_club_id IS NOT NULL`). Les doublons existants font échouer la migration : les lister avant (requête en tête du fichier). Un club `pending` tient l'identifiant 7 jours, comme son slug ; un squat se libère à la main (`UPDATE clubs SET tenup_club_id = NULL WHERE id = … AND status = 'pending'`, super-admin). |
+| `clubs_tenup_club_id_key` | Contrainte `UNIQUE (tenup_club_id)` (NULL autorisé plusieurs fois) : une écriture concurrente (`tenup-sync` pendant une inscription) remonte bien `PT410`, pas `PT409`. Les doublons existants font échouer la migration : les lister avant (requête en tête du fichier). Un club `pending` tient l'identifiant 7 jours, comme son slug ; un squat se libère à la main (`UPDATE clubs SET tenup_club_id = NULL WHERE id = … AND status = 'pending'`, super-admin). |
 | `club_self_serve_create(…, p_tenup_club_id DEFAULT NULL, p_short_name DEFAULT NULL)` | Écrit `clubs.tenup_club_id` et `brand.short_name` (1 à 12 caractères). Identifiant pris → **`PT410`** (verrou consultatif par identifiant après celui du slug, l'index reste le filet). Le rejeu (même adresse, même slug, club `pending`) reste prioritaire. Ancienne signature supprimée ; service role seulement. |
 | `tenup_lookup_cache(tenup_club_id PK, payload, images, read_at)` | `payload` = nom, rue, CP, ville, sports, terrains et chemins des images `_lookup/`. Aucune policy, service role seulement. Servi 24 h, purgé après 48 h. |
+| `can_write_club_object` (Storage) | La tolérance « legacy » des admins / managers du CAC (1er segment non UUID, 20260905) exclut `_lookup/` : seuls le service role et le super-admin y écrivent. |
 | `tenup_lookup_throttle(p_ip)` | Buckets `lookup-ip:<sha256>` dans `club_self_serve_attempts` (CHECK élargi), 20 / h ; une demande refusée n'est pas comptée ; purgés avec les autres après 2 jours. |
 
 ### 14.3 P1-back — `club-signup`, `tenup-sync`, purge, nommage

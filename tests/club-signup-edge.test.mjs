@@ -348,3 +348,15 @@ test('club-signup: a club already on feelike (PT410) → 409 already_on_feelike,
   assert.deepEqual(w.removed, w.copies.map(([, to]) => to), 'copied files removed');
   assert.equal(w.otp.length, 0);
 });
+
+test('club-signup: Turnstile and the limit use cf-connecting-ip over a forged x-forwarded-for', async () => {
+  const handler = await load('club-signup');
+  const { createHash } = await import('node:crypto');
+  const w = world();
+  const request = form();
+  const forged = new Request(request.url, { method: 'POST', body: await request.formData(),
+    headers: { 'x-forwarded-for': '1.1.1.1, 198.51.100.9', 'cf-connecting-ip': '198.51.100.9' } });
+  assert.equal((await handler(forged)).status, 200);
+  assert.equal(w.effects[0], 'turnstile:198.51.100.9');
+  assert.equal(w.rpc.find(r => r.name === 'club_self_serve_throttle').args.p_ip, createHash('sha256').update('198.51.100.9').digest('hex'));
+});

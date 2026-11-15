@@ -19,6 +19,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTenupImageUrl, normalizeTenupClubProfileUrl, tenupClubIdOf, validateTenupClubProfile } from '../../../shared/tenupSite.mjs';
 import { signLookupToken, validLookupSecret } from '../_shared/lookup-token.ts';
+import { clientIp } from '../_shared/client-ip.ts';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -86,7 +87,7 @@ Deno.serve(async (req: Request) => {
   const tenupId = tenupClubIdOf(url)!;
 
   // 2. Turnstile.
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('cf-connecting-ip') || 'unknown';
+  const ip = clientIp(req); // `cf-connecting-ip` d'abord : réécrit par Cloudflare, non falsifiable
   const token = body?.turnstile_token;
   if (typeof token !== 'string' || !token || token.length > 2048) return json(403, { error: 'Vérification anti-robot requise.', reason: 'turnstile' });
   try {

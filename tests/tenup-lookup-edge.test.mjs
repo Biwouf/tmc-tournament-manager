@@ -42,7 +42,7 @@ async function setup() {
       LOOKUP_HMAC_SECRET: SECRET, TENUP_WORKER_URL: 'https://worker.example/api/extract', TENUP_WORKER_TOKEN: 'worker-token' },
     turnstile: true, clubs: [], cache: null, attempts: 0, limit: 20,
     worker: async () => Response.json(profile), image: async () => new Response(WEBP, { headers: { 'content-length': String(WEBP.length) } }),
-    calls: [], uploads: [], removed: [], workerBodies: [],
+    calls: [], uploads: [], removed: [], workerBodies: [], ips: [],
   };
   let handler;
   globalThis.Deno = { serve: (fn) => { handler = fn; }, env: { get: (key) => w.env[key] } };
@@ -61,7 +61,7 @@ async function setup() {
       },
       rpc: async (name, args) => {
         assert.equal(name, 'tenup_lookup_throttle'); assert.match(args.p_ip, /^[0-9a-f]{64}$/);
-        w.calls.push('throttle');
+        w.calls.push('throttle'); w.ips.push(args.p_ip);
         if (w.attempts >= w.limit) return { data: false, error: null };
         w.attempts++; return { data: true, error: null };
       },
@@ -89,8 +89,8 @@ async function setup() {
     throw new Error(`unexpected fetch ${href}`);
   };
   await import(`${out.href}?${Date.now()}`);
-  const ask = (body, ip = '203.0.113.7') => handler(new Request('https://edge.example/functions/v1/tenup-lookup', {
-    method: 'POST', headers: { 'x-forwarded-for': ip }, body: JSON.stringify({ turnstile_token: 'ok', ...body }) }));
+  const ask = (body, ip = '203.0.113.7', extra = {}) => handler(new Request('https://edge.example/functions/v1/tenup-lookup', {
+    method: 'POST', headers: { 'x-forwarded-for': ip, ...extra }, body: JSON.stringify({ turnstile_token: 'ok', ...body }) }));
   return { w, ask, tokens };
 }
 
@@ -219,4 +219,20 @@ test('tenup-lookup: images controlled (host, signature, size); unreadable ones a
   const profile = await workerProfile();
   w.worker = async () => Response.json({ ...profile, club: { ...profile.club, logo: 'https://evil.test/x.png' } });
   assert.equal((await ask({ url: URL_ROOT })).status, 504);
+});
+
+test('tenup-lookup: the limit uses the IP rewritten by Cloudflare, not a forged x-forwarded-for', async () => {
+  const { w, ask } = await setup();
+  const { createHash } = await import('node:crypto');
+  const hash = (ip) => createHash('sha256').update(ip).digest('hex');
+  // Le client envoie un x-forwarded-for différent à chaque appel ; Cloudflare pose la vraie IP.
+  for (const forged of ['1.1.1.1', '2.2.2.2']) {
+    w.cache = null;
+    await ask({ url: URL_ROOT }, `${forged}, 198.51.100.9`, { 'cf-connecting-ip': '198.51.100.9' });
+  }
+  assert.deepEqual(w.ips, [hash('198.51.100.9'), hash('198.51.100.9')], 'one bucket for one client');
+  // Sans en-tête Cloudflare : repli sur x-forwarded-for (comportement antérieur).
+  w.cache = null;
+  await ask({ url: URL_ROOT }, '203.0.113.7, 10.0.0.1');
+  assert.equal(w.ips.at(-1), hash('203.0.113.7'));
 });

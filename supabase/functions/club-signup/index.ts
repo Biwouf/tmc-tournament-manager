@@ -16,6 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { signupSlugProblem } from '../../../shared/clubSlug.mjs';
 import { validLookupSecret, verifyLookupToken } from '../_shared/lookup-token.ts';
+import { clientIp } from '../_shared/client-ip.ts';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -65,7 +66,7 @@ Deno.serve(async (req: Request) => {
   try { form = await req.formData(); } catch { return json(400, { error: 'Requête invalide.' }); }
 
   // 1. Turnstile, avant toute écriture.
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('cf-connecting-ip') || 'unknown';
+  const ip = clientIp(req); // `cf-connecting-ip` d'abord : réécrit par Cloudflare, non falsifiable
   const token = text(form, 'turnstile_token');
   if (!token || token.length > 2048) return json(403, { error: 'Vérification anti-robot requise.' });
   try {
