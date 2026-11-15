@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh';
+import { useScrollMemory } from '../../hooks/useScrollMemory';
 
 interface Props {
   onRefresh: () => Promise<void>;
@@ -9,6 +10,8 @@ interface Props {
 
 export default function PullToRefreshWrapper({ onRefresh, isRefreshing, children }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Ce conteneur est démonté à chaque changement de page : on retient sa position.
+  useScrollMemory(containerRef, 'list');
   const { pullProgress, isDragging } = usePullToRefresh({ onRefresh, isRefreshing, containerRef });
 
   const displayProgress = isRefreshing ? 1 : pullProgress;

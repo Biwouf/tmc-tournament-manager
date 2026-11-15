@@ -860,14 +860,93 @@ adhésion seule.
 - **Compatibilité** : champs nouveaux facultatifs dans la validation et la relecture (proposition lue
   avant, worker antérieur) ; worker et Edge déployables dans n'importe quel ordre. Pas de migration.
 
-## 14. Onboarding « Ten'Up d'abord » (brief `SAAS_11_onboarding_tenup`, décisions du 14/11/2026)
+## 14. Onboarding « Ten'Up d'abord » (brief `SAAS_11_onboarding_tenup`)
 
-Le club colle le lien Ten'Up de son club **avant** de s'inscrire ; le tunnel reprend nom, adresse,
-sports, logo et bandeau. Découpage : P0 (retouches), **P1-back** (serveur, ci-dessous), P1-front
-(écrans « Retrouvons votre club », « C'est bien votre club ? », branche manuelle), P2 (code à
-6 chiffres). P3 (recherche) reporté. Les autres PR complètent cette section.
+Livré par PR, dans l'ordre P0 → P1-back / P1-front → P2 (P3 reporté). Les décisions de Maxime
+du 14/11/2026 (`DECISIONS.md` du brief) priment sur le brief. Cette section remplace, là où
+elles diffèrent, les règles des §7, §9 et §12.
 
-### 14.1 P1-back — lecture anonyme (Edge `tenup-lookup`, `verify_jwt = false`)
+### 14.1 P0 — retouches et mesure (`feat/onboarding-p0`)
+
+**Tunnel** (`SignupTunnelPage`, §7) :
+- Plus de champ Sport : `signupForm` envoie toujours `sport=tennis` à `club-signup`.
+- Aucun placeholder d'exemple (nom, ville, e-mail) ; le nom se saisit en casse réelle (champ
+  `fl-input` ordinaire, plus de Big Shoulders en capitales).
+- Étape 2 : « Continuer » est toujours le bouton principal ; « Passer cette étape » est un
+  bouton-lien (`fl-link`), affiché seulement tant que rien n'est choisi (logo, photo, couleur).
+- Boutons des étapes 1, 3 et 4 **jamais grisés**. À l'envoi, le premier manque dans l'ordre de
+  l'écran s'affiche **sous son champ** (`#fl-<champ>-error`, `aria-invalid` + `aria-describedby`)
+  et le champ reçoit le focus :
+  - étape 1, `clubProblem` : « Indiquez le nom du club. » (2 caractères au moins), « Indiquez la
+    ville du club. » ;
+  - étape 3 : adresse refusée → focus sur le champ, dont le message est déjà dessous ; adresse en
+    cours de vérification → bouton « Vérification… », l'étape avance dès la réponse ;
+  - étape 4, `accountProblem` : « Indiquez votre e-mail. », adresse incomplète, « Cochez
+    l’acceptation des CGU. » (sous la case), jeton anti-robot pas encore reçu (sous le cadre
+    Turnstile). **Aucune requête** tant qu'il manque quelque chose.
+- Turnstile rendu avec `appearance: 'interaction-only'` : invisible sauf défi. Le widget doit
+  être en mode **Managé** dans le dashboard Cloudflare (réglage hors code).
+- Mobile (< 720 px) : vignette de l'app (120 px de haut, rencontres d'exemple, adresse
+  `app-<slug>.feelike.pro`, coupée seulement après un tiret ou avant un point) **sous le titre**
+  de chaque étape ; un tap ouvre l'aperçu complet sur
+  l'onglet App. « Voir l'aperçu » garde la version complète. Rien de plus sur ordinateur.
+- « Déjà un compte ? Connexion » reste dans l'en-tête sous 720 px.
+- La case CGU reste telle quelle (POC, juridique ignoré).
+
+**Connexion** :
+- `/premier-pas` → `/premiers-pas` (requête conservée), dans `AdminEntry`, **avant** toute garde
+  ou lecture : connecté ou non, sur tout hôte.
+- `LoginPage` s'ouvre en mode « Recevoir un lien de connexion » quand `?inscription` est présent
+  (le mot de passe reste à un clic). La garde d'auth d'`App.tsx` garde la requête jusqu'à `/login`
+  et rouvre le chemin demandé après la connexion (`loginReturnPath`, chemins internes seulement) :
+  le mode lien s'active aussi sur un hôte de club et en local. Le cas « dernier compte connu né du tunnel » n'est pas traité.
+
+**Premiers pas** (§9) : ordre `equipes` → `affiches` → `actu` → `fin`, pour ne pas annoncer une
+app vide. Un club existant dont `completed_steps = ['actu']` reprend sur `equipes` (la reprise
+prend la première étape ni faite ni passée). L'étape Affiches propose « Suivant : première
+actu → », l'actu « Terminer → » ; sans rencontre cochée, l'aperçu des affiches montre l'onglet
+« Matchs équipes ».
+
+**Checklist** (§12.3), même fond, nouvel ordre : Partager l'app · Vos équipes · Votre affiche ·
+Compléter votre site · Publier le site · Inviter votre bureau · Votre première actu · (rappels
+facultatifs du site) · Choisir un mot de passe. Les étapes des premiers pas n'y figurent que
+reportées, comme avant.
+
+**Mesure** : pas de Plausible dans le tunnel (décision n° 1). Seulement des événements internes
+après activation, dans la table **`onboarding_events`** (migration
+`2026111502_onboarding_events.sql`) plutôt que dans la clé `onboarding` : le funnel S10 se
+requête en SQL, `club_settings.config` est lu par la PWA et la vitrine, et un journal n'y a pas sa
+place (chaque écriture de clé y est une lecture-modification-écriture).
+
+| Événement | Écrit par | Quand |
+|---|---|---|
+| `club_activated` | déclencheur `clubs_onboarding_events` | `pending` → `active` (lien magique), une fois |
+| `site_published` | même déclencheur | première ouverture du site (republier ne recompte pas) |
+| `teams_import_started` | `ClubImport`, `PoolImport` | début d'import |
+| `teams_imported` `{ count }` | `ClubImport`, `PoolImport` | fin d'import, équipes créées |
+| `poster_generated` | `AffichesStep` | affiche générée |
+| `app_shared` | `markAppShared` | premier partage depuis la checklist |
+| `first_steps_finished` | `finishFirstSteps` | « Finir l'installation » |
+
+- RPC `onboarding_event_log(p_club, p_name, p_props)` `SECURITY DEFINER` : admin **membre** du
+  club actif seulement (le support super-admin est refusé, il ne fausse pas le funnel) ; noms du
+  navigateur seulement ; propriétés `{}` sauf `teams_imported` (`{ count }` entier, rien d'autre) :
+  jamais d'e-mail, de nom de club ni d'identifiant Ten'Up. Club non self-serve : renvoie `false`
+  sans rien écrire. Erreurs 42501 / 22023, jamais 40001.
+- Table sans lecture ni écriture pour `anon` / `authenticated` (la console S10 ajoutera sa
+  lecture). Client : `logOnboardingEvent` (`lib/onboardingEvents.ts`), sans attente ni échec
+  visible.
+- Le CAC (`internal`, `console`) : ni appel (écrans réservés aux clubs self-serve), ni ligne.
+
+**Tests** : `club-signup-tunnel` (rendu jsdom : Sport absent, placeholders, étape 2, envoi
+incomplet sans requête, vignette mobile), `first-steps` (ordre, reprise `['actu']` → équipes,
+événements), `dashboard-checklist` (ordre, `app_shared`), `domains` (`/premier-pas`),
+`magic-link` (`?inscription` → mode lien), `onboarding-events-sql` (PGlite).
+
+**Recette** : à 390 et 1280 px sur `localhost` (tunnel, `/premier-pas?inscription=…` → connexion
+en mode lien). Le parcours `admin.feelike.pro` via `/etc/hosts` reste à passer.
+
+### 14.2 P1-back — lecture anonyme (Edge `tenup-lookup`, `verify_jwt = false`)
 
 `POST { url, turnstile_token }`, dans cet ordre :
 
@@ -893,7 +972,7 @@ lecture qui tombe pendant un import d'équipes reçoit `504 tenup_unavailable` (
 `.` `base64url(HMAC-SHA256)`, secret `LOOKUP_HMAC_SECRET` (≥ 32 caractères, commun à
 `tenup-lookup` et `club-signup`), valable 2 h.
 
-### 14.2 P1-back — données (migration `2026111520_tenup_club_unique.sql`)
+### 14.3 P1-back — données (migration `2026111520_tenup_club_unique.sql`)
 
 | Objet | Rôle |
 |---|---|
@@ -903,7 +982,7 @@ lecture qui tombe pendant un import d'équipes reçoit `504 tenup_unavailable` (
 | `can_write_club_object` (Storage) | La tolérance « legacy » des admins / managers du CAC (1er segment non UUID, 20260905) exclut `_lookup/` : seuls le service role et le super-admin y écrivent. |
 | `tenup_lookup_throttle(p_ip)` | Buckets `lookup-ip:<sha256>` dans `club_self_serve_attempts` (CHECK élargi), 20 / h ; une demande refusée n'est pas comptée ; purgés avec les autres après 2 jours. |
 
-### 14.3 P1-back — `club-signup`, `tenup-sync`, purge, nommage
+### 14.4 P1-back — `club-signup`, `tenup-sync`, purge, nommage
 
 - **`club-signup`** (§5.1) : champs facultatifs `short_name` (≤ 12, sinon 400) et `lookup_token`.
   Jeton invalide ou expiré → `400 lookup_expired` avant toute création de compte. Jeton valide →
@@ -929,7 +1008,7 @@ lecture qui tombe pendant un import d'équipes reçoit `504 tenup_unavailable` (
   `-<ville>` si la ville n'y est pas, puis `-2`, `-3`, format self-serve seulement ; disponibilité
   par `slug_available`).
 
-### 14.4 P1-back — tests et mise en service
+### 14.5 P1-back — tests et mise en service
 
 Tests : `tests/tenup-lookup-edge.test.mjs`, `tests/tenup-lookup-worker.test.mjs`,
 `tests/tenup-lookup-sql.test.mjs` (PGlite), `tests/club-name.test.mjs` (20 noms Ten'Up réels),
@@ -940,4 +1019,4 @@ Avant le merge, dans l'ordre : lister et résoudre les doublons de `tenup_club_i
 appliquer `2026111520_tenup_club_unique.sql` ; redéployer le worker (`kind: 'club-identity'`) ;
 déployer `tenup-lookup` (secrets `TURNSTILE_SECRET_KEY`, `TENUP_WORKER_URL`, `TENUP_WORKER_TOKEN`,
 `TENUP_WORKER_BYPASS_TOKEN` s'il existe, `LOOKUP_HMAC_SECRET`) ; redéployer `club-signup`,
-`tenup-sync` et `club-signup-purge` ; rejouer `club-signup-purge-cron.sql`.
+`tenup-sync`, `club-signup-purge` et `contact-form` (IP lue dans `cf-connecting-ip`) ; rejouer `club-signup-purge-cron.sql`.

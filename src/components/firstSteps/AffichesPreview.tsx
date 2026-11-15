@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import TeamMatchImagePreview from '../TeamMatchImagePreview';
-import ActuPreview from './ActuPreview';
+import EquipesPreview from './EquipesPreview';
 import type { StepPreviewProps } from './FirstStepsFlow';
 import { usePosterPreview } from './posterSignal';
 
 // SaaS S7 — aperçu de l'étape « Vos affiches » (maquette `Stepper.dc.html`) : l'affiche réelle
 // (`TeamMatchImagePreview`, le rendu exporté) à la place du téléphone. Sans rencontre cochée :
-// l'onglet Actu, comme les autres étapes.
+// l'onglet « Matchs équipes », comme l'étape précédente (P0 : l'actu vient après les affiches).
 
 const POSTER_W = 1414;
 
@@ -34,6 +34,6 @@ function ScaledPoster() {
 
 export default function AffichesPreview(props: StepPreviewProps) {
   const { matches } = usePosterPreview();
-  if (!matches.length) return <ActuPreview {...props} />;
+  if (!matches.length) return <EquipesPreview {...props} />;
   return <div className="fs-poster-stage"><ScaledPoster /></div>;
 }

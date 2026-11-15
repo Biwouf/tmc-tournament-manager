@@ -8,6 +8,7 @@ import { useClub } from '../contexts/ClubContext';
 import { formatDate } from '../components/events/EventCard';
 import EventRegistration from '../components/events/EventRegistration';
 import type { ClubEvent, EventType } from '../types';
+import { LoadError } from '../components/layout/LoadState';
 
 const expandBlankLines = (md: string) =>
   md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
@@ -20,22 +21,23 @@ const TYPE_COLORS: Record<EventType, string> = {
   Soirée:             'bg-pink-100 text-pink-700',
 };
 
-async function fetchEvent(id: string, clubId: string | null): Promise<ClubEvent> {
+async function fetchEvent(id: string, clubId: string | null): Promise<ClubEvent | null> {
   const { data, error } = await supabase
     .from('events')
     .select('*')
     .eq('id', id)
     .eq('club_id', clubId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
-  return data as ClubEvent;
+  // Aucune ligne (retirée, non publiée) : « introuvable », pas une erreur réseau.
+  return data as ClubEvent | null;
 }
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { clubId } = useClub();
 
-  const { data: event, isLoading, isError } = useQuery({
+  const { data: event, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['event', id, clubId],
     queryFn: () => fetchEvent(id!, clubId),
     enabled: !!id,
@@ -43,14 +45,13 @@ export default function EventDetailPage() {
 
   if (isLoading) {
     return <div className="p-4 space-y-4">
-      <div className="h-6 bg-muted rounded animate-pulse w-1/3" />
-      <div className="h-40 bg-muted rounded-xl animate-pulse" />
+      <div className="sk h-6 w-1/3" role="status" aria-label="Chargement de l’événement…" />
+      <div className="sk h-40 rounded-xl" />
     </div>;
   }
 
-  if (isError || !event) {
-    return <div className="p-6 text-center text-muted-foreground">Événement introuvable.</div>;
-  }
+  if (isError) return <LoadError title="Impossible de charger l’événement" onRetry={() => void refetch()} retrying={isFetching} />;
+  if (!event) return <LoadError title="Événement introuvable" message="Il a peut-être été retiré par le club." />;
 
   const prix = !event.prix || event.prix === 0 ? 'Gratuit' : `${event.prix} €`;
 

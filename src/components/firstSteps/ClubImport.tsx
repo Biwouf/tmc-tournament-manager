@@ -11,6 +11,7 @@ import {
 import { isTenupClubUrl, normalizeTenupClubUrl } from '../../../shared/tenupClub.mjs';
 import { previewTenupClub } from '../../../shared/tenupClubClient';
 import { startTenupSiteBackground } from '../../lib/tenupSiteClient';
+import { logOnboardingEvent } from '../../lib/onboardingEvents';
 import DraftFields from './DraftFields';
 
 // SaaS S6b — toutes les équipes du club depuis la page Ten'Up de ses rencontres : lecture de la
@@ -79,10 +80,13 @@ export default function ClubImport({ club, onImported, onBusy }: {
     setPhase('importing');
     const ready = items.flatMap((p): ImportItem[] => (p.competition ? [{ teams: p.teams, competition: p.competition }] : p.draft ? [{ teams: p.teams, draft: p.draft }] : []));
     for (const p of items) if (p.error) p.teams.forEach((t) => setOutcomes((o) => ({ ...o, [t.key]: { status: 'failed', message: p.error! } })));
+    void logOnboardingEvent(supabase, club.id, 'teams_import_started');
+    let count = 0;
     await importClubTeams(supabase, club.id, saisonId, ready, (key, outcome) => {
       setOutcomes((o) => ({ ...o, [key]: outcome }));
-      if (outcome.status === 'done') onImported();
+      if (outcome.status === 'done') { count++; onImported(); }
     });
+    void logOnboardingEvent(supabase, club.id, 'teams_imported', { count });
     onImported();
     setPhase('done');
     // SaaS S8b : le worker est libre, le profil du club est lu en tâche de fond pour préremplir son

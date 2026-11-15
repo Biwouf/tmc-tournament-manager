@@ -5,7 +5,7 @@ import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import {
   courseDay,
-  courseError,
+  courseLoadError,
   getCoursePage,
   profileComplete,
   type CourseView,
@@ -24,6 +24,7 @@ import CourseSheet from '../components/courses/CourseSheet';
 import CourseCreateSheet from '../components/courses/CourseCreateSheet';
 import { CoursePushPrompt } from '../components/courses/CoursePushSettings';
 import '../components/courses/courses.css';
+import { CardSkeleton, LoadError, StaleNotice } from '../components/layout/LoadState';
 
 export default function CoursesPage() {
   const { clubId } = useClub();
@@ -158,19 +159,19 @@ export default function CoursesPage() {
           ↻
         </button>
       </div>
-      {context.isError && (
+      {/* Liste en échec : un seul message, celui de LoadError. */}
+      {context.isError && !(page.isError && !page.data) && (
         <p className="booking-error" role="alert">
-          Votre profil n’a pas pu être chargé. {courseError(context.error)}
+          Votre profil n’a pas pu être chargé. {courseLoadError(context.error)}
         </p>
       )}
-      {page.isError ? (
-        <p className="booking-error" role="alert">
-          {courseError(page.error)}
-        </p>
+      {page.isError && page.data && (
+        <StaleNotice onRetry={() => void page.refetch()} />
+      )}
+      {page.isError && !page.data ? (
+        <LoadError title="Impossible de charger les cours" onRetry={() => void page.refetch()} retrying={page.isFetching} />
       ) : page.isPending ? (
-        <div className="booking-empty" role="status">
-          Chargement des cours…
-        </div>
+        <div className="px-4 pt-2"><CardSkeleton height={96} label="Chargement des cours…" /></div>
       ) : (
         <>
           {page.data.items.length === 0 && (
@@ -260,7 +261,7 @@ export default function CoursesPage() {
           <CourseSheet title="Cours" onClose={close}>
             <p role={detail.isError ? 'alert' : 'status'}>
               {detail.isError
-                ? courseError(detail.error)
+                ? courseLoadError(detail.error)
                 : detail.isPending
                   ? 'Chargement…'
                   : 'Ce cours n’est plus visible.'}

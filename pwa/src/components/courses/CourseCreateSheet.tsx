@@ -4,7 +4,7 @@ import { parisCandidates } from '../../../../shared/parisTime';
 import {
   activeCourseTypes,
   courseAdminRead,
-  courseError,
+  courseLoadError,
   memberName,
   type CourseMemberOption,
 } from '../../lib/courses';
@@ -59,7 +59,7 @@ export default function CourseCreateSheet({
           setSearchError('');
         })
         .catch((e) => {
-          if (current) setSearchError(courseError(e));
+          if (current) setSearchError(courseLoadError(e));
         });
     }, 250);
     return () => {
@@ -109,7 +109,7 @@ export default function CourseCreateSheet({
         <p role="status">Chargement…</p>
       ) : types.isError ? (
         <p className="booking-error" role="alert">
-          {courseError(types.error)}
+          {courseLoadError(types.error)}
         </p>
       ) : types.data.length === 0 ? (
         <p className="booking-info">

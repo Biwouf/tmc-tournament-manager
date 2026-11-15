@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { uiMessage } from './uiMessage';
 export type Sex = 'female' | 'male';
 export type CourseStatus = 'pending' | 'approved' | 'denied' | 'cancelled';
 export type MyRegistration = {
@@ -255,4 +256,11 @@ export function courseError(error: unknown) {
   for (const [key, value] of Object.entries(errors))
     if (message.includes(key)) return value;
   return 'La réponse du serveur est incertaine. Actualisez le statut avant de réessayer. Une relance identique ne crée pas de doublon.';
+}
+/** Échec d'une lecture : le repli « réponse incertaine » ne vaut que pour une écriture. */
+export function courseLoadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  for (const [key, value] of Object.entries(errors))
+    if (message.includes(key)) return value;
+  return uiMessage(error, 'Chargement impossible. Réessayez.');
 }

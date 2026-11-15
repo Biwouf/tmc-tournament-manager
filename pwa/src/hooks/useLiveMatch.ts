@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LIVE_SAFETY_POLL, listenLiveTopic, matchTopic } from '../lib/liveChannel';
-import { writeLiveMatch, readLiveMatch, hasLiveMatchRevision } from '../lib/liveMatchWrites';
+import { writeLiveMatch, readLiveMatch, hasLiveMatchRevision, LiveMatchNotFound } from '../lib/liveMatchWrites';
 import type { LiveMatch } from '../types';
+import { uiMessage } from '../lib/uiMessage';
 
 /**
  * Lecture publique ; une sauvegarde en vol, autorité serveur et événements versionnés.
@@ -13,6 +14,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
   const [match, setMatch] = useState<LiveMatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingError, setSavingError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -44,9 +46,13 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
       confirmedRef.current = true;
       setConfirmed(true);
       setError(null);
+      setNotFound(false);
       setSavingError(null);
     } catch (e) {
-      if (generation.current === version && reads.current === read) setError(e instanceof Error ? e.message : 'Connexion impossible.');
+      if (generation.current !== version || reads.current !== read) return;
+      // Le message reste posé : un match déjà affiché (seed) bloque ainsi ses écritures.
+      setNotFound(e instanceof LiveMatchNotFound);
+      setError(uiMessage(e, 'Connexion impossible.'));
     } finally { if (generation.current === version && reads.current === read) setLoading(false); }
   }, [id, clubId, receive]);
 
@@ -61,6 +67,7 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     setSaving(false);
     setSavingError(null);
     setError(null);
+    setNotFound(false);
     if (!id || !clubId) return;
     const initial = seedRef.current;
     if (initial && initial.id === id && hasLiveMatchRevision(initial)) {
@@ -118,11 +125,11 @@ export function useLiveMatch(id: string | undefined, clubId: string | null, user
     } catch (e) {
       if (version === generation.current) {
         await reload();
-        if (version === generation.current) setSavingError(e instanceof Error ? e.message : 'Sauvegarde impossible.');
+        if (version === generation.current) setSavingError(uiMessage(e, 'Sauvegarde impossible.'));
       }
     } finally {
       if (version === generation.current) { busy.current = false; setSaving(false); }
     }
   }, [clubId, userId, receive, reload, match, canEdit]);
-  return { match, loading, error, saving, savingError, save, reload, confirmed };
+  return { match, loading, error, notFound, saving, savingError, save, reload, confirmed };
 }

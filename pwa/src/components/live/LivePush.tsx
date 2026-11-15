@@ -5,6 +5,7 @@ import { usePush } from '../../hooks/usePush';
 import { useLiveFollows } from '../../hooks/useLiveFollows';
 import { setLiveFollow } from '../../lib/liveFollows';
 import PushSwitchRow from '../PushSwitchRow';
+import { uiMessage } from '../../lib/uiMessage';
 
 const LIVE_TEXT = 'Soyez prévenu quand un match du club commence.';
 
@@ -125,7 +126,7 @@ export function LiveFollowButton({ clubId, userId, matchId, className = '', icon
         next ? [...new Set([...ids, matchId])] : ids.filter((id) => id !== matchId));
       onChange?.(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Impossible de modifier les alertes.');
+      setError(uiMessage(e, 'Impossible de modifier les alertes.'));
     } finally {
       setSaving(false);
     }

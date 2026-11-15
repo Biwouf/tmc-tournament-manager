@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { useCourseAction, useCourseContext } from '../hooks/useCourses';
-import { courseError, type Profile, type Sex } from '../lib/courses';
+import { courseLoadError, type Profile, type Sex } from '../lib/courses';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import { coursePushSupported, disableCoursePush } from '../lib/coursePush';
@@ -12,6 +12,7 @@ import CoursePushSettings from '../components/courses/CoursePushSettings';
 import { LivePushSettings } from '../components/live/LivePush';
 import NewsPushSettings from '../components/actu/NewsPushSettings';
 import '../components/courses/courses.css';
+import { uiMessage } from '../lib/uiMessage';
 
 function ProfileForm({
   profile,
@@ -131,7 +132,7 @@ export default function ProfilePage() {
       navigate(returnTo, { replace: true });
       await supabase.auth.signOut();
     } catch (error) {
-      setLogoutError(error instanceof Error ? error.message : 'Déconnexion impossible. Réessayez.');
+      setLogoutError(uiMessage(error, 'Déconnexion impossible. Réessayez.'));
       setLoggingOut(false);
     }
   }
@@ -150,7 +151,7 @@ export default function ProfilePage() {
         </div>
       ) : context.isError ? (
         <div className="booking-error" role="alert">
-          {courseError(context.error)}
+          {courseLoadError(context.error)}
           <button
             className="booking-button secondary"
             onClick={() => void context.refetch()}

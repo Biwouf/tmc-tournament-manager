@@ -154,6 +154,8 @@ async function mount(element, path = '/premiers-pas') {
   return async () => { await act(async () => root.unmount()); };
 }
 const page = () => h(load('src/pages/FirstStepsPage.tsx').default);
+// Onboarding P0 : événements internes (`onboarding_event_log`), nom et propriétés seulement.
+const events = () => log.filter(l => l[0] === 'rpc' && l[1] === 'onboarding_event_log').map(([, , args]) => [args.p_name, args.p_props]);
 const heroResponse = () => { globalThis.fetch = async () => new Response(new Blob(['x'], { type: 'image/webp' }), { status: 200 }); };
 
 test('display condition: self-serve trial club, admin, outside support; pending until finished or postponed', () => {
@@ -226,30 +228,48 @@ test('adding a step is one entry: breadcrumb, counter, progress and resume follo
   const Flow = load('src/components/firstSteps/FirstStepsFlow.tsx').default;
   const { FIRST_STEPS } = load('src/components/firstSteps/steps.ts');
   const { parseClubConfig } = load('src/lib/clubConfig.ts');
-  assert.deepEqual(FIRST_STEPS.map(s => s.id), ['actu', 'equipes', 'affiches', 'fin']);
+  // Onboarding P0 : les équipes d'abord, l'actu juste avant la fin.
+  assert.deepEqual(FIRST_STEPS.map(s => s.id), ['equipes', 'affiches', 'actu', 'fin']);
   const stub = (id) => ({ id, label: id === 'equipes' ? 'Vos équipes' : 'Vos affiches', isDone: (st) => st.completed_steps.includes(id),
     Component: ({ next, eyebrow }) => h("h2", { tabIndex: -1 }, `${eyebrow} ECRAN ${id} → ${next?.label}`), Preview: () => h('p', null, `APERCU ${id}`) });
-  const steps = [FIRST_STEPS[0], stub('equipes'), stub('affiches'), FIRST_STEPS.at(-1)];
+  const steps = [stub('equipes'), stub('affiches'), FIRST_STEPS[2], FIRST_STEPS.at(-1)];
   reset();
-  const config = parseClubConfig({ ...db.club_settings[0].config, onboarding: { completed_steps: ['actu'] } });
+  const config = parseClubConfig({ ...db.club_settings[0].config, onboarding: { completed_steps: ['equipes'] } });
   let unmount = await mount(h(Flow, { club: self, config, steps }));
   assert.match(text(), /Étape 2 sur 3/);
-  assert.match(text(), /ECRAN equipes → vos affiches/);
-  assert.match(text(), /APERCU equipes/);
-  assert.equal(document.querySelector('[aria-current="step"]').textContent, 'Vos équipes');
+  assert.match(text(), /ECRAN affiches → première actu/);
+  assert.match(text(), /APERCU affiches/);
+  assert.equal(document.querySelector('[aria-current="step"]').textContent, 'Vos affiches');
   assert.equal([...document.querySelectorAll('nav li')].length, 4);
   assert.equal(document.querySelector('.fs-bar div').style.width, '33%');
-  assert.ok(buttonNamed('✓Première actu'), 'past step clickable');
-  assert.ok(!buttonNamed('Vos affiches'), 'next step is not');
+  assert.ok(buttonNamed('✓Vos équipes'), 'past step clickable');
+  assert.ok(!buttonNamed('Première actu'), 'next step is not');
   await unmount();
   // Le cadre ne nomme aucune étape.
   assert.doesNotMatch(readFileSync(resolve(base, 'src/components/firstSteps/FirstStepsFlow.tsx'), 'utf8'), /'actu'|'fin'|'equipes'/);
 });
 
+const atActu = (config = {}) => reset({ ...config, onboarding: { completed_steps: ['equipes', 'affiches'] } });
+
+test('onboarding P0: a new club starts on the teams; an existing club that only published its actu resumes on the teams', async () => {
+  reset();
+  let unmount = await mount(page());
+  assert.match(text(), /Étape 1 sur 3 · 1 minute par équipe/);
+  assert.equal(document.querySelector('[aria-current="step"]').textContent, 'Vos équipes');
+  await unmount();
+  reset({ onboarding: { completed_steps: ['actu'] } });
+  unmount = await mount(page());
+  assert.match(text(), /Vos équipes, sans rien ressaisir/);
+  assert.equal(document.querySelector('[aria-current="step"]').textContent, 'Vos équipes');
+  assert.doesNotMatch(text(), /Annoncez la nouvelle à vos adhérents/);
+  await unmount();
+  assert.deepEqual(events(), [], 'opening the course writes no event');
+});
+
 test('one click publishes the prefilled actu through the shared path, with the club photo copied into the actu bucket', async () => {
-  reset(); heroResponse();
+  atActu(); heroResponse();
   const unmount = await mount(page());
-  assert.match(text(), /Étape 1 sur 3/);
+  assert.match(text(), /Étape 3 sur 3/);
   assert.match(text(), /Essai · 30 jours restants/);
   assert.match(text(), /Aucune actualité/);
   assert.equal(document.querySelector('input.fs-input').value, 'Le club a sa nouvelle app !');
@@ -271,13 +291,11 @@ test('one click publishes the prefilled actu through the shared path, with the c
   assert.match(text(), /Votre première actu est en ligne/);
   assert.match(text(), /sera sur le site quand vous le publierez/);
   assert.match(text(), /Le club a sa nouvelle app !/, 'phone shows the actu');
-  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu']);
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes', 'affiches', 'actu']);
   assert.equal(db.club_settings[0].config.brand.name, 'TC Alpha', 'other config keys kept');
   assert.equal(document.activeElement.tagName, 'H2');
-  await click('Suivant : vos équipes →');
-  assert.match(text(), /Étape 2 sur 3 · 1 minute par équipe/);
-  assert.match(text(), /Vos équipes, sans rien ressaisir/);
-  assert.match(text(), /Vos rencontres arrivent ici/);
+  await click('Terminer →');
+  assert.match(text(), /Votre app est prête/);
   await unmount();
   // ActuForm n'a plus son propre chemin d'écriture.
   const form = readFileSync(resolve(base, 'src/components/ActuForm.tsx'), 'utf8');
@@ -291,7 +309,7 @@ test('default image: club photo unreachable falls back on its URL, no club photo
   assert.deepEqual((await clubPhotoForActu(HERO)).keptImages.map(i => i.url), [HERO]);
   globalThis.fetch = async () => { throw new Error('network'); };
   assert.deepEqual((await clubPhotoForActu(HERO)).newImages, []);
-  reset({ home: {} });
+  atActu({ home: {} });
   globalThis.fetch = async () => { throw new Error('must not fetch'); };
   const unmount = await mount(page());
   assert.match(text(), /Photo facultative/);
@@ -302,7 +320,7 @@ test('default image: club photo unreachable falls back on its URL, no club photo
 });
 
 test('a retry after a failure does not publish a second actu', async () => {
-  reset(); heroResponse(); failUpload = true;
+  atActu(); heroResponse(); failUpload = true;
   const unmount = await mount(page());
   await click('Publier l’actu');
   assert.match(text(), /La publication n’a pas abouti/);
@@ -354,6 +372,7 @@ test('reload resumes at the right step; final screen: real QR code, copy, dashbo
   await act(async () => finishButtons[1].click()); await flush();
   assert.equal(where(), '/');
   assert.ok(db.club_settings[0].config.onboarding.finished_at);
+  assert.deepEqual(events(), [['first_steps_finished', {}]]);
   await unmount();
 });
 
@@ -390,12 +409,13 @@ function setValue(el, value) {
 async function paste(value) { await act(async () => setValue(document.getElementById('fs-pool-url'), value)); await flush(); }
 const isDisabled = (name) => buttonNamed(name)?.disabled;
 const season = () => { const d = new Date(); const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; return `${y}/${y + 1}`; };
-const atTeams = () => reset({ onboarding: { completed_steps: ['actu'] } });
+// Onboarding P0 : les équipes sont la première étape d'un club neuf.
+const atTeams = () => reset();
 
 test('one pool link: season, competition, team and encounters created; the phone shows them; Suivant completes the step', async () => {
   atTeams();
   const unmount = await mount(page());
-  assert.match(text(), /Étape 2 sur 3 · 1 minute par équipe/);
+  assert.match(text(), /Étape 1 sur 3 · 1 minute par équipe/);
   assert.match(text(), /Vos rencontres arrivent ici/);
   assert.equal(isDisabled('Suivant : vos affiches →'), true, 'no team yet');
   await paste('https://tenup.fft.fr/championnat/82145789');
@@ -415,6 +435,7 @@ test('one pool link: season, competition, team and encounters created; the phone
   assert.equal(db.team_equipes.length, 0, 'nothing before « Ajouter l’équipe »');
   await click('Ajouter l’équipe');
   await flush();
+  assert.deepEqual(events(), [['teams_import_started', {}], ['teams_imported', { count: 1 }]]);
   assert.equal(db.team_equipes.length, 1);
   assert.deepEqual(log.filter(l => l[0] === 'tenup').map(l => l[1]), ['competition', 'pool']);
   assert.match(text(), /TC ALPHA 1Hommes Seniors · Division 2 · 2 rencontres/);
@@ -426,9 +447,9 @@ test('one pool link: season, competition, team and encounters created; the phone
   assert.match(text(), /Votre équipe est prête\./);
   assert.ok(!text().includes('C’est bon pour l’instant'));
   await click('Suivant : vos affiches →');
-  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes']);
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes']);
   assert.match(text(), /Annoncez le week-end comme un tournoi/);
-  assert.match(text(), /Étape 3 sur 3/);
+  assert.match(text(), /Étape 2 sur 3/);
   await unmount();
 });
 
@@ -507,7 +528,7 @@ test('« Passer cette étape » records it as postponed, not done: resume skips 
   let unmount = await mount(page());
   await click('Passer cette étape');
   assert.deepEqual(db.club_settings[0].config.onboarding.skipped_steps, ['equipes']);
-  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu']);
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, []);
   assert.match(text(), /Annoncez le week-end comme un tournoi/);
   assert.match(text(), /Ajoutez d’abord une équipe/);
   await unmount();
@@ -518,7 +539,7 @@ test('« Passer cette étape » records it as postponed, not done: resume skips 
   await paste(POOL_URL); await click('Lire la poule'); await click('Ajouter l’équipe');
   await click('Suivant : vos affiches →');
   assert.deepEqual(db.club_settings[0].config.onboarding.skipped_steps, []);
-  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes']);
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes']);
   await unmount();
   const { currentStepIndex } = load('src/lib/firstSteps.ts');
   const steps = [{ id: 'a', isDone: s => s.completed_steps.includes('a') }, { id: 'b', isDone: () => false }, { id: 'fin', isDone: () => false, final: true }];
@@ -558,6 +579,7 @@ test('club link: every team listed by championship, all ticked; import creates t
   assert.match(text(), /TC ALPHA 1Hommes Seniors · Division 2 · 2 rencontres/, 'created team in the step list');
   assert.doesNotMatch(text(), /TC ALPHA 1 · Pyrénées Interclubs/, 'only failures stay in the import list');
   assert.match(text(), /TC ALPHA 3 · Pyrénées InterclubsÉquipe introuvable dans la poule/);
+  assert.deepEqual(events(), [['teams_import_started', {}], ['teams_imported', { count: 1 }]], 'imported count, nothing personal');
   assert.match(text(), /1 équipe importée\. 1 équipe en échec\./);
   assert.match(text(), /Les résultats des rencontres déjà jouées ne sont pas repris ici/);
   assert.equal([...document.querySelectorAll('a')].find((a) => a.textContent === 'Matches par équipe').getAttribute('href'), '/team-matches');
@@ -582,7 +604,7 @@ test('club page without upcoming encounter: the pool link stays available', asyn
 });
 
 // --- S7 : étape « Vos affiches » et fond aux couleurs du club ---
-const atPosters = () => reset({ onboarding: { completed_steps: ['actu', 'equipes'] } });
+const atPosters = () => reset({ onboarding: { completed_steps: ['equipes'] } });
 const soon = () => new Date(Date.now() + 60_000).toISOString();
 /** Une équipe dans la saison active : une rencontre imminente au club, une la semaine suivante. */
 function withTeam({ upcoming = true } = {}) {
@@ -603,7 +625,7 @@ test('posters: the club colours background is created once, the real poster is g
   atPosters(); withTeam();
   let unmount = await mount(page());
   await settle();
-  assert.match(text(), /Étape 3 sur 3 · 1 minute/);
+  assert.match(text(), /Étape 2 sur 3 · 1 minute/);
   assert.match(text(), /Annoncez le week-end comme un tournoi/);
   // Fond « Aux couleurs du club » : un fond normal, rangé comme ceux de la configuration du site.
   const list = () => db.club_settings[0].config.posters.team_match_backgrounds;
@@ -633,7 +655,8 @@ test('posters: the club colours background is created once, the real poster is g
   assert.match(text(), /2 \/ 8 sélectionnées/);
   assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 2);
   await click('Générer l’affiche');
-  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes', 'affiches'], 'done once generated');
+  assert.deepEqual(events(), [['poster_generated', {}]], 'onboarding event, no property');
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes', 'affiches'], 'done once generated');
   assert.match(text(), /Étape terminée/);
   assert.match(text(), /Votre affiche est prête/);
   const download = [...document.querySelectorAll('a')].find(a => a.textContent === 'Télécharger');
@@ -649,9 +672,8 @@ test('posters: the club colours background is created once, the real poster is g
   await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
   assert.ok(![...document.querySelectorAll('a')].some(a => a.textContent === 'Télécharger'), 'stale poster dropped');
   await click('Générer l’affiche');
-  await click('Terminer →');
-  assert.match(text(), /Votre app est prête/);
-  assert.match(text(), /Affiche du week-end prête/);
+  await click('Suivant : première actu →');
+  assert.match(text(), /Annoncez la nouvelle à vos adhérents/, 'the actu comes after the posters');
   await unmount();
   // Recharger puis revenir à l'étape : aucun second fond.
   unmount = await mount(page());
@@ -719,12 +741,11 @@ test('posters without team or without upcoming encounter: a clear message and «
   await settle();
   await click('Passer cette étape');
   assert.deepEqual(db.club_settings[0].config.onboarding.skipped_steps, ['affiches']);
-  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['actu', 'equipes']);
-  assert.match(text(), /Votre app est prête/);
-  assert.match(text(), /Affiche du week-end à générer/);
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes']);
+  assert.match(text(), /Annoncez la nouvelle à vos adhérents/);
   await unmount();
   unmount = await mount(page());
-  assert.match(text(), /Votre app est prête/, 'reload does not bring the skipped step back');
+  assert.match(text(), /Annoncez la nouvelle à vos adhérents/, 'reload does not bring the skipped step back');
   await unmount();
 
   atPosters(); withTeam({ upcoming: false });

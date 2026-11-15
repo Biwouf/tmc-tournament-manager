@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { startPwaUpdates } from '../../lib/pwaUpdates';
+import { uiMessage } from '../../lib/uiMessage';
 
 export default function UpdateBanner() {
   const updater = useRef<ReturnType<typeof startPwaUpdates> | null>(null);
@@ -29,7 +30,7 @@ export default function UpdateBanner() {
     } catch (cause) {
       if (updater.current !== instance) return;
       setUpdating(false);
-      setError(cause instanceof Error ? cause.message : 'Impossible d’actualiser. Réessayez.');
+      setError(uiMessage(cause, 'Impossible d’actualiser. Réessayez.'));
     }
   };
 

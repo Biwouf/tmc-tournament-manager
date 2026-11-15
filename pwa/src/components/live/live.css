@@ -1088,6 +1088,12 @@ button.live-note {
 .live-fallback a {
   min-height: 44px;
 }
+.live-fallback-back {
+  justify-self: start;
+  padding: 0 4px;
+  font-weight: 600;
+  color: hsl(var(--primary));
+}
 .live-sheet {
   margin: auto;
   width: min(520px, calc(100% - 24px));

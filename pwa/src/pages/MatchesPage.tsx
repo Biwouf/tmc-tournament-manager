@@ -14,6 +14,7 @@ import { followToastText } from '../lib/liveFollows';
 import { useAuth } from '../hooks/useAuth';
 import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
 import { LIVE_SAFETY_POLL } from '../lib/liveChannel';
+import { CardSkeleton, LoadError, StaleNotice } from '../components/layout/LoadState';
 
 async function fetchMatches(clubId: string | null): Promise<LiveMatch[]> {
   const { data, error } = await supabase
@@ -40,7 +41,7 @@ export default function MatchesPage() {
   // Canal Broadcast abonné : le polling n'est plus qu'un filet de sécurité.
   const [subscribed, setSubscribed] = useState(false);
 
-  const { data: matches, isLoading, isError } = useQuery({
+  const { data: matches, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['matches', clubId],
     queryFn: () => fetchMatches(clubId),
     staleTime: 0, // Le Live se recharge immédiatement au retour sur cet écran.
@@ -97,8 +98,8 @@ export default function MatchesPage() {
     }
   }, []);
 
-  if (isError) {
-    return <div className="p-6 text-center text-muted-foreground">Impossible de charger les matchs.</div>;
+  if (isError && !matches) {
+    return <LoadError title="Impossible de charger les matchs" onRetry={() => void refetch()} retrying={isFetching} />;
   }
 
   const liveMatches    = matches
@@ -133,13 +134,9 @@ export default function MatchesPage() {
         isMember={!!(membership.data?.is_member || membership.data?.can_manage)}
       />
 
-      {isLoading && (
-        <div className="flex flex-col gap-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-muted rounded-xl h-28 animate-pulse" />
-          ))}
-        </div>
-      )}
+      {isError && <StaleNotice onRetry={() => void refetch()}>Actualisation impossible, les scores ne sont peut-être plus à jour.</StaleNotice>}
+
+      {isLoading && <CardSkeleton height={112} label="Chargement des matchs…" />}
 
       {!isLoading && matches?.length === 0 && (
         <LiveEmptyState clubId={clubId} />

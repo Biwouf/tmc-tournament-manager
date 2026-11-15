@@ -25,6 +25,7 @@ import { competitionLabel, competitionShortLabel } from '../components/matchesEq
 import CalendarExport from '../components/matchesEquipes/CalendarExport';
 import { useAuth } from '../hooks/useAuth';
 import '../components/matchesEquipes/matchesEquipes.css';
+import { LoadError, StaleNotice } from '../components/layout/LoadState';
 
 export default function MatchesEquipesPage() {
   const { clubId } = useClub();
@@ -243,23 +244,13 @@ export default function MatchesEquipesPage() {
           pastCount={rencontres ? past.length : undefined}
         />
         {failed ? (
-          <div className="me-error" role="alert">
-            <div className="icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></svg>
-            </div>
-            <h2>Impossible de charger les rencontres</h2>
-            <p>Vérifiez votre connexion, puis réessayez.</p>
-            <button type="button" onClick={retry}>Réessayer</button>
-          </div>
+          <LoadError title="Impossible de charger les rencontres" onRetry={retry} />
         ) : loading ? (
           <MatchEquipeListSkeleton />
         ) : (
           <>
             {rencontresQuery.isError && (
-              <p className="me-stale" role="status">
-                Actualisation impossible, la liste n’est peut-être plus à jour.{' '}
-                <button type="button" onClick={() => void refetch()}>Réessayer</button>
-              </p>
+              <StaleNotice onRetry={() => void refetch()}>Actualisation impossible, la liste n’est peut-être plus à jour.</StaleNotice>
             )}
             <MatchEquipeList items={items} state={upcomingTab} />
           </>

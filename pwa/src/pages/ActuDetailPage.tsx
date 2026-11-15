@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { Actu } from '../types';
 import { focalPointStyle } from '../utils/focalPoint';
+import { LoadError } from '../components/layout/LoadState';
 
 const expandBlankLines = (md: string) =>
   md.replace(/\n{3,}/g, (m) => '\n\n' + '&nbsp;\n\n'.repeat(m.length - 2));
@@ -32,23 +33,24 @@ const markdownComponents: Components = {
   },
 };
 
-async function fetchActu(id: string, clubId: string | null): Promise<Actu> {
+async function fetchActu(id: string, clubId: string | null): Promise<Actu | null> {
   const { data, error } = await supabase
     .from('actus')
     .select('*')
     .eq('id', id)
     .eq('club_id', clubId)
     .eq('published', true)
-    .single();
+    .maybeSingle();
   if (error) throw error;
-  return data as Actu;
+  // Aucune ligne (retirée, non publiée) : « introuvable », pas une erreur réseau.
+  return data as Actu | null;
 }
 
 export default function ActuDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { clubId } = useClub();
 
-  const { data: actu, isLoading, isError } = useQuery({
+  const { data: actu, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ['actu', id, clubId],
     queryFn: () => fetchActu(id!, clubId),
     enabled: !!id,
@@ -56,14 +58,13 @@ export default function ActuDetailPage() {
 
   if (isLoading) {
     return <div className="p-4 space-y-4">
-      <div className="h-6 bg-muted rounded animate-pulse w-1/3" />
-      <div className="h-48 bg-muted rounded-xl animate-pulse" />
+      <div className="sk h-6 w-1/3" role="status" aria-label="Chargement de l’actualité…" />
+      <div className="sk h-48 rounded-xl" />
     </div>;
   }
 
-  if (isError || !actu) {
-    return <div className="p-6 text-center text-muted-foreground">Actualité introuvable.</div>;
-  }
+  if (isError) return <LoadError title="Impossible de charger l’actualité" onRetry={() => void refetch()} retrying={isFetching} />;
+  if (!actu) return <LoadError title="Actualité introuvable" message="Elle a peut-être été retirée par le club." />;
 
   const publishedDate = actu.published_at
     ? new Date(actu.published_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
