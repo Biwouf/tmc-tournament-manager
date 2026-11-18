@@ -104,6 +104,11 @@ test('Team commands: rules flow to Live, results, slots, WO, concurrency, member
   await command('confirm',{revision:await revision()},104);
   let encounter=(await db.query('SELECT * FROM team_rencontres WHERE id=$1',[id(14)])).rows[0];
   assert.equal(encounter.score_club,3);assert.equal(encounter.score_adverse,2);assert.ok(encounter.confirmed_at);
+  await db.exec(await migration('2026111801_team_photo_crops'));
+  await as(104,`UPDATE team_rencontres SET photo_crops='{"https://x/p.jpg":{"x":20,"y":30,"zoom":1.5}}' WHERE id=$1`,[id(14)]);
+  encounter=(await db.query('SELECT * FROM team_rencontres WHERE id=$1',[id(14)])).rows[0];
+  assert.ok(encounter.confirmed_at,'recadrer une photo ne déconfirme pas la rencontre');assert.equal(encounter.photo_crops['https://x/p.jpg'].zoom,1.5);
+  await assert.rejects(as(104,`UPDATE team_rencontres SET photo_crops='[]' WHERE id=$1`,[id(14)]),/photo_crops_object/);
   await as(104,'UPDATE live_matches SET scored_by=$1 WHERE id=$2',[id(104),m.id]);
   assert.ok((await db.query('SELECT confirmed_at FROM team_rencontres WHERE id=$1',[id(14)])).rows[0].confirmed_at,'takeover alone does not invalidate score');
   await as(104,"UPDATE live_matches SET status='live',winner=NULL,finished_at=NULL WHERE id=$1",[m.id]);

@@ -13,8 +13,11 @@ const { createElement: h, act } = req('react'); const { createRoot } = req('reac
 const config = { brand: { name: 'Club' }, partners: [] };
 const pending = [];
 const club = { name: 'Club' };
+const updates = [];
+const supabase = { from: table => ({ update: values => ({ eq: (_c1, id) => ({ eq: async (_c2, clubId) => { updates.push({ table, values, id, clubId }); return { error: null }; } }) }) }) };
 const mocks = {
-  '/contexts/ClubContext.tsx': { useClub: () => ({ club }) },
+  '/contexts/ClubContext.tsx': { useClub: () => ({ club, clubId: 'c1' }) },
+  '/lib/supabase.ts': { supabase },
   '/hooks/useClubConfig.ts': { useClubConfig: () => ({ config, loading: false }) },
   '/poster/renderResultPoster.ts': { resultPosterFooterHeight: () => 190, renderResultPoster: input => new Promise((resolve, reject) => pending.push({ input, resolve, reject })) },
 };
@@ -104,5 +107,54 @@ test('Without uploaded photos, the detailed results model is preselected', async
     await click(button('Générer')); await wait();
     assert.equal(pending[0].input.model, 'details');
     assert.equal(document.querySelectorAll('input[type=radio]')[1].checked, true);
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('Photo crop is restored from the rencontre and saved after a pause', async () => {
+  pending.length = 0; updates.length = 0;
+  const photo = props.rencontre.photo_urls[0];
+  const other = 'https://example.test/other.jpg';
+  const rencontre = { ...props.rencontre, id: 'r-crop', photo_urls: [photo, other], photo_crops: { [photo]: { x: 20, y: 30, zoom: 1.5 } } };
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () => root.render(h(Component, { ...props, rencontre })));
+    await click(button('Générer')); await wait();
+    assert.deepEqual(pending.at(-1).input.crop, { x: 20, y: 30, zoom: 1.5 });
+    assert.equal(updates.filter(update => update.id === 'r-crop').length, 0);
+    const zoom = document.querySelector('input[aria-label="Zoom"]');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(zoom, '2');
+      zoom.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 1100)); });
+    const mine = () => updates.filter(update => update.id === 'r-crop');
+    assert.deepEqual(mine(), [{ table: 'team_rencontres', id: 'r-crop', clubId: 'c1', values: { photo_crops: { [photo]: { x: 20, y: 30, zoom: 2 } } } }]);
+    assert.match(document.body.textContent, /Cadrage enregistré pour cette photo/);
+    // Switching photos: the other one starts centred, and coming back restores the saved crop.
+    const select = document.querySelector('select');
+    await act(async () => { select.value = other; select.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    await wait();
+    assert.deepEqual(pending.at(-1).input.crop, { x: 50, y: 50, zoom: 1 });
+    await act(async () => { select.value = photo; select.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    await wait();
+    assert.deepEqual(pending.at(-1).input.crop, { x: 20, y: 30, zoom: 2 });
+    assert.equal(mine().length, 1);
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('A crop change is saved when the preview closes before the pause ends', async () => {
+  pending.length = 0; updates.length = 0;
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () => root.render(h(Component, { ...props, rencontre: { ...props.rencontre, id: 'r-close' } })));
+    await click(button('Générer')); await wait();
+    const x = document.querySelector('input[aria-label="Focus horizontal"]');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(x, '10');
+      x.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await click(button('Fermer'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    assert.deepEqual(updates.filter(update => update.id === 'r-close').map(update => update.values.photo_crops), [{ [props.rencontre.photo_urls[0]]: { x: 10, y: 50, zoom: 1 } }]);
   } finally { await act(async () => root.unmount()); }
 });

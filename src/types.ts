@@ -352,9 +352,14 @@ export interface TeamRencontre {
   score_adverse: number | null;
   wo: boolean;
   photo_urls: string[];
+  /** Cadrage du visuel « Esprit d'équipe » par URL de photo (migration 2026111801). */
+  photo_crops?: Record<string, PhotoCrop>;
   created_at: string;
   updated_at: string;
 }
+
+/** Focus horizontal/vertical en % de la photo, zoom de 1 à 3. */
+export interface PhotoCrop { x: number; y: number; zoom: number }
 
 // ─── Clubs (multi-tenant, SaaS S2 — migration 2026102601) ───────────────────
 /** `pending` : inscription self-serve pas encore confirmée par le lien magique, jamais résolue. */

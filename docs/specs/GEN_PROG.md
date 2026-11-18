@@ -38,7 +38,13 @@ ses propres réglages (modèle, photo, cadrage, tirage des partenaires). Dès 2 
 multiples). Chaque visuel : modèle « Esprit d'équipe » (photo de la
 rencontre ou image importée sur le moment, non enregistrée) ou « Résultats détaillés ». Le
 modèle « Esprit d'équipe » est présélectionné dès que la rencontre a au moins une photo envoyée
-(BO ou PWA), sinon « Résultats détaillés ».
+(BO ou PWA), sinon « Résultats détaillés ». Le **cadrage** (focus x/y, zoom) d'une photo de la
+rencontre est **enregistré automatiquement** 1 s après le dernier réglage (ou tout de suite au
+changement de photo / à la fermeture de l'aperçu) dans `team_rencontres.photo_crops`
+(`{ "<url>": { x, y, zoom } }`, migration `2026111801`) et repris partout où la photo resservira :
+page rencontre, `/medias`, actu générée. Une image importée garde un cadrage local, non enregistré.
+Recadrer ne déconfirme pas la rencontre (`guard_team_encounter` ignore `photo_crops`, comme
+`photo_urls`).
 
 ---
 
