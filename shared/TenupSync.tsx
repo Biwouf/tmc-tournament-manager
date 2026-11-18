@@ -9,6 +9,8 @@ type Result = { imported: number; preserved: number; confirmed: boolean };
 export interface TenupSyncProps {
   sourceUrl?: string | null; syncedAt?: string | null; sourceSide?: number | null;
   clubName: string; opponent: string; date: string; lines: ExistingLine[];
+  /** Jour changé par le club : la synchro le conserve (migration 2026111802). */
+  dateManuelle?: boolean;
   preview: (url: string) => Promise<Preview>;
   apply: (id: string, side: number) => Promise<Result>;
   onSynced: () => void;
@@ -53,7 +55,7 @@ export default function TenupSync(props: TenupSyncProps) {
     {props.syncedAt && <p className="mt-2 text-xs text-muted-foreground">Synchronisé depuis <a className="underline" href={props.sourceUrl ?? undefined} target="_blank" rel="noreferrer">Ten’Up</a> le {new Date(props.syncedAt).toLocaleString('fr-FR')}.</p>}
     {result && <p role="status" className="mt-3 text-sm">{result.imported} résultat(s) importé(s) depuis Ten’Up. {result.confirmed ? 'Rencontre confirmée.' : 'Vérifiez les résultats avant de confirmer la rencontre.'}</p>}
     {open && <div className="mt-4 space-y-4">
-      <p className="text-sm text-muted-foreground">Récupérez les résultats publiés après la rencontre. Ten’Up fait foi : compositions, scores, date et adversaire déjà saisis (y compris en live) seront remplacés.</p>
+      <p className="text-sm text-muted-foreground">Récupérez les résultats publiés après la rencontre. Ten’Up fait foi : compositions, scores, date et adversaire déjà saisis (y compris en live) seront remplacés. Une date modifiée par le club est conservée.</p>
       <form className="space-y-3" onSubmit={e => { e.preventDefault(); void run(async () => { setPreview(null); setChecked(false); setResult(null); setSide(props.sourceSide ?? null); setPreview(await props.preview(props.sourceUrl ?? url)); }); }}>
         <label className="block text-sm font-medium">Lien de la rencontre Ten’Up
           <input required type="url" maxLength={500} value={props.sourceUrl ?? url} readOnly={!!props.sourceUrl} disabled={busy}
@@ -67,7 +69,9 @@ export default function TenupSync(props: TenupSyncProps) {
         <h3 className="font-semibold">{preview.teams[0]} — {preview.teams[1]}</h3>
         <p className="text-sm">Ten’Up : {preview.date.split('-').reverse().join('/')} · Score {preview.scores.join(' – ')}</p>
         <p className="text-sm">Votre rencontre : {formatClubName(props.clubName)} — {formatClubName(props.opponent)} · {new Date(props.date).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}</p>
-        {dateMismatch && <p role="alert" className="text-sm text-amber-800">Les dates diffèrent : la date Ten’Up remplacera celle de la rencontre (heure conservée). Vérifiez qu’il s’agit bien de la bonne rencontre.</p>}
+        {dateMismatch && (props.dateManuelle
+          ? <p role="status" className="text-sm text-muted-foreground">Les dates diffèrent : la date a été modifiée par le club, elle sera conservée.</p>
+          : <p role="alert" className="text-sm text-amber-800">Les dates diffèrent : la date Ten’Up remplacera celle de la rencontre (heure conservée). Vérifiez qu’il s’agit bien de la bonne rencontre.</p>)}
         <fieldset disabled={busy || props.sourceSide != null} className="space-y-2"><legend className="mb-2 text-sm font-semibold">Quelle équipe représente votre club ?</legend>
           {preview.teams.map((team, index) => <label key={index} className="flex min-h-11 items-center gap-3 rounded-lg border border-border p-3 text-sm">
             <input type="radio" name={`tenup-side-${preview.id}`} checked={side === index} onChange={() => { setSide(index); setChecked(false); }} />{team}

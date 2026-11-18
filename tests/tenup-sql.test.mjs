@@ -56,6 +56,7 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existi
   await db.exec(await migration('2026101106_tenup_overwrite'));
   await db.exec(await migration('2026102604_tenup_retired'));
   await db.exec(await migration('2026111301_tenup_forfeit'));
+  await db.exec(await migration('2026111802_tenup_date_manuelle'));
   await db.exec(`UPDATE team_competitions SET format='3S1D' WHERE id='${id(11)}'`);
   const url='https://tenup.fft.fr/championnat/1/division/2/phase/3/poule/4/rencontre/5';
   const begin=(source=url,user=103,club=id(1))=>as(user,'SELECT team_tenup_begin($1,$2,$3) AS value',[club,id(14),source]).then(r=>r[0].value.id);
@@ -105,6 +106,7 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existi
   assert.equal(lines[0].score,'2-6 3-6');assert.equal(lines[0].gagnant,'adverse');
   assert.deepEqual(lines[1].joueurs_club,[{prenom:'Alicia',nom:'Officielle',classement:'15/5'}]);
   assert.equal(lines[2].joueurs_club[0].member_id,id(103),'member link kept for the same player');
+  assert.equal(r.date_manuelle,false,'a Ten’Up date change does not mark the date as manual');
   await assert.rejects(begin(url.replace('/5','/6')),/autre lien/);
   pid=await begin();await attach(pid);
   await db.exec(`UPDATE team_rencontres SET club_adverse='Autre' WHERE id='${id(14)}'`);
@@ -117,6 +119,18 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existi
   await db.exec(`UPDATE clubs SET status='active' WHERE id='${id(1)}'`);
   await db.query("UPDATE team_tenup_previews SET expires_at=now()-interval '1 minute' WHERE id=$1",[pid]);
   await assert.rejects(apply(pid),/expiré/);
+  // A new hour on the same day is not a manual date: the next sync still applies Ten'Up's day.
+  await db.exec(`UPDATE team_rencontres SET date_heure='2026-09-22 14:00+02' WHERE id='${id(14)}'`);
+  assert.equal((await db.query('SELECT date_manuelle FROM team_rencontres')).rows[0].date_manuelle,false);
+  // The club moved the day (captains agreed without updating Ten'Up): the sync keeps it.
+  await db.exec(`UPDATE team_rencontres SET date_heure='2026-09-20 14:00+02' WHERE id='${id(14)}'`);
+  assert.equal((await db.query('SELECT date_manuelle FROM team_rencontres')).rows[0].date_manuelle,true);
+  await resetRate();pid=await begin();await attach(pid,{...corrected,teams:['Club 1','Nouveau nom']});
+  await apply(pid);
+  r=(await db.query(`SELECT *,to_char(date_heure AT TIME ZONE 'Europe/Paris','YYYY-MM-DD HH24:MI') AS local FROM team_rencontres`)).rows[0];
+  assert.equal(r.local,'2026-09-20 14:00','a day changed by the club is kept');
+  assert.equal(r.club_adverse,'Nouveau nom','the opponent is still updated');
+  assert.equal(r.date_manuelle,true);
   // Reversed home/away: a different composition, a linked live and an existing
   // result are all overwritten by the official sheet.
   await db.exec('DELETE FROM team_match_lines; DELETE FROM team_tenup_previews');
@@ -136,6 +150,7 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existi
   const live=(await db.query('SELECT * FROM live_matches')).rows[0];
   assert.equal(live.status,'finished');assert.equal(live.winner,'j2');assert.equal(live.set1_j1,2);assert.equal(live.team_result_confirmed,true);
   assert.equal(live.j1_prenom,'Bob');assert.equal(live.j2_prenom,'Alice');assert.equal(live.j2_club,'Club 1');
+  assert.equal((await db.query("SELECT to_char(match_date,'YYYY-MM-DD') AS d FROM live_matches")).rows[0].d,'2026-09-20','the linked live follows the kept date');
   r=(await db.query('SELECT * FROM team_rencontres')).rows[0];assert.ok(r.confirmed_at);assert.equal(r.club_adverse,'Club 1','Ten’Up opponent name replaces the local one');
   // A global score entered without detailed lines is replaced as well.
   await db.exec('DELETE FROM team_match_lines');

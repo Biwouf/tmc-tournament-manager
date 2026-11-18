@@ -998,6 +998,15 @@ L’entrée **« Synchroniser Ten’Up »** du menu d’actions « ⋮ » de l�
 
 Le lot réutilise le même chemin que la synchro unitaire (`tenup-sync` puis `team_tenup_apply`), sans relecture rencontre par rencontre : le côté du club est connu et Ten’Up fait foi ; l’avertissement est donné une fois dans la fenêtre avant le lancement. Les rencontres passent **une à la fois**, un aperçu toutes les 21 s au plus, ce qui reste sous le quota de `team_tenup_begin` (3 aperçus/minute/utilisateur) ; si le quota est déjà entamé, la rencontre est relancée une fois après 61 s. Une feuille pas encore publiée ou illisible est marquée « Non importée » avec le message du serveur, sans interrompre le lot. « Arrêter » prend effet avant la rencontre suivante. Chaque ligne a un fond animé selon son statut (classes `tenup-row-*` de `src/index.css`) : neutre en attente, balayage aux couleurs du club pendant l’import, remplissage vert une fois importée, rouge avec un léger tremblement en cas d’échec ; animations coupées si `prefers-reduced-motion`. Aucune migration.
 
+### Date modifiée par le club (18/11/2026)
+
+La synchronisation Ten’Up (unitaire ou groupée) remplace le jour de la rencontre par celui de la feuille, heure de Paris conservée, **sauf si le club a changé ce jour** : les capitaines s’accordent souvent sur une autre date sans mettre Ten’Up à jour.
+
+- `team_rencontres.date_manuelle` passe à vrai, par trigger, dès qu’une écriture autre que la synchro change le **jour** de `date_heure` (« Changer la date » en PWA, formulaire du BO, tout autre chemin). Changer seulement l’heure ne compte pas, si bien qu’un report officiel publié sur Ten’Up reste rattrapé par la synchro.
+- La rencontre créée (depuis une poule Ten’Up ou à la main) part à faux. Le marqueur ne redescend jamais tout seul.
+- Quand il est vrai, la synchro garde la date, met quand même à jour le nom de l’adversaire, et reporte la date de la rencontre sur les lives liés.
+- L’aperçu de la synchro unitaire le signale : « la date a été modifiée par le club, elle sera conservée ».
+
 ### Création d’une équipe depuis Ten’Up
 
 Les divisions acceptent un libellé libre (1–160 caractères), par exemple « Groupe A ». L’administrateur peut lire le lien complet de la poule depuis le formulaire de création d’équipe. La liste conserve chaque identifiant Ten’Up, même si plusieurs équipes du même club participent au championnat ou à la même division. Le nom du club suggère les équipes plausibles ; le choix et la confirmation du calendrier restent explicites. Le numéro d’équipe local est modifiable.
