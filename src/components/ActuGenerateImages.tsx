@@ -5,6 +5,7 @@ import { drawPosterPartners, newPartnerSeed } from '../lib/posterPartners';
 import type { RencontreEntry } from './teamMatches/gridTypes';
 import { competitionLabel, etapeLabel } from './teamMatches/teamMatchLabels';
 import { finalResult } from './teamMatches/poster/resultPoster';
+import { savedPhotoCrop } from './teamMatches/poster/photoCrops';
 import { renderResultPoster, type ResultPosterInput } from './teamMatches/poster/renderResultPoster';
 import type { TeamMatchLine } from '../types';
 
@@ -80,7 +81,7 @@ export default function ActuGenerateImages({ chosen, lines, onChange }: {
       </p>
       {!loading && visualEntries.map(e => (
         <PosterRender key={renderKey(e)} input={{
-          rencontre: e.rencontre, lines: lines[e.rencontre.id], config, partners, model: 'photo', photo: photoOf(e), crop: { x: 50, y: 50, zoom: 1 },
+          rencontre: e.rencontre, lines: lines[e.rencontre.id], config, partners, model: 'photo', photo: photoOf(e), crop: savedPhotoCrop(e.rencontre, photoOf(e)),
           result: finalResult(e.rencontre, lines[e.rencontre.id], e.competition.format)!,
           clubName: config.brand.name || club?.name || 'Notre club',
           heading: competitionLabel(e.competition), stage: `Équipe ${e.equipe.numero} · ${etapeLabel(e.etape)}`,

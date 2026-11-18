@@ -5,6 +5,7 @@ import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../../.
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamMatchLine, TeamRencontre } from '../../../types';
 import { competitionLabel, etapeLabel } from '../teamMatchLabels';
 import PhotoFocusPicker from './PhotoFocusPicker';
+import { DEFAULT_PHOTO_CROP, savePhotoCrop, savedPhotoCrop } from './photoCrops';
 import { finalResult } from './resultPoster';
 import { renderResultPoster, resultPosterFooterHeight, type ResultPosterInput } from './renderResultPoster';
 
@@ -41,11 +42,15 @@ export default function ResultPosterSection(props: Props) {
 
 function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, result, onFileChange }: Props & { result: { club: number; adverse: number } }) {
   const { config, loading } = useClubConfig();
-  const { club } = useClub();
+  const { club, clubId } = useClub();
   // Photos de la rencontre déjà envoyées : on part du modèle qui les met en valeur.
   const [model, setModel] = useState<'photo' | 'details'>(rencontre.photo_urls.length > 0 ? 'photo' : 'details');
   const [photo, setPhoto] = useState(rencontre.photo_urls[0] || '');
-  const [crop, setCrop] = useState({ x: 50, y: 50, zoom: 1 });
+  const [crop, setCrop] = useState(() => savedPhotoCrop(rencontre, photo));
+  const [cropSave, setCropSave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  /** Enregistrement du cadrage en attente (debounce), exécuté tout de suite si on change de photo ou ferme l'aperçu. */
+  const pendingCropSave = useRef<(() => void) | null>(null);
+  const cropSavable = rencontre.photo_urls.includes(photo);
   const [uploadError, setUploadError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -75,6 +80,20 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
     return () => { cancelled = true; clearTimeout(timer); };
   }, [input, loading, needsPhoto, retry]);
   useEffect(() => () => { uploadRequest.current++; }, []);
+  // Seules les photos de la rencontre ont un cadrage enregistré ; une image importée reste locale.
+  useEffect(() => {
+    const saved = savedPhotoCrop(rencontre, photo);
+    if (!cropSavable || (saved.x === crop.x && saved.y === crop.y && saved.zoom === crop.zoom)) { pendingCropSave.current = null; return; }
+    const save = () => {
+      pendingCropSave.current = null;
+      setCropSave('saving');
+      savePhotoCrop(clubId, rencontre, photo, crop).then(() => setCropSave('saved'), () => setCropSave('error'));
+    };
+    pendingCropSave.current = save;
+    const timer = window.setTimeout(save, 1000);
+    return () => clearTimeout(timer);
+  }, [crop, photo, cropSavable, clubId, rencontre]);
+  useEffect(() => () => pendingCropSave.current?.(), []);
   const current = rendered?.input === input && !loading && !needsPhoto;
   const url = current ? rendered?.url : undefined;
   const error = current ? rendered?.error : undefined;
@@ -85,7 +104,9 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
   useEffect(() => () => reportFile(null), []);
   function choosePhoto(value: string) {
     uploadRequest.current++;
-    setPhoto(value); setCrop({ x: 50, y: 50, zoom: 1 }); setUploadError(''); setUploading(false);
+    pendingCropSave.current?.();
+    setPhoto(value); setCrop(rencontre.photo_urls.includes(value) ? savedPhotoCrop(rencontre, value) : DEFAULT_PHOTO_CROP);
+    setCropSave('idle'); setUploadError(''); setUploading(false);
   }
   async function importPhoto(file?: File) {
     if (!file) return;
@@ -132,6 +153,13 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
           {key === 'x' ? 'Focus horizontal' : key === 'y' ? 'Focus vertical' : 'Zoom'}
           <input aria-label={key === 'x' ? 'Focus horizontal' : key === 'y' ? 'Focus vertical' : 'Zoom'} type="range" className="mt-2 block w-full" min={key === 'zoom' ? 1 : 0} max={key === 'zoom' ? 3 : 100} step={key === 'zoom' ? 0.05 : 1} value={crop[key]} onChange={event => setCrop(previous => ({ ...previous, [key]: Number(event.target.value) }))} />
         </label>)}
+        <p role="status" className={`text-xs sm:col-span-3 ${cropSave === 'error' ? 'text-red-600' : 'text-muted-foreground'}`}>
+          {!cropSavable ? 'Le cadrage d’une image importée n’est pas enregistré.'
+            : cropSave === 'saving' ? 'Enregistrement du cadrage…'
+            : cropSave === 'saved' ? 'Cadrage enregistré pour cette photo.'
+            : cropSave === 'error' ? 'Cadrage non enregistré. Modifiez-le pour réessayer.'
+            : 'Le cadrage est enregistré automatiquement pour cette photo.'}
+        </p>
       </fieldset>}
     </div>}
     {model === 'photo' && photo && <PhotoFocusPicker key={photo} photo={photo} crop={crop} frameHeight={frameHeight} onChange={setCrop} />}
