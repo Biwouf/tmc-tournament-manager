@@ -187,7 +187,7 @@ Deno.serve(async req => {
     const { error: recordError } = await client.rpc('post_gen_record', { p_club: body.club_id, p_input_tokens: usage.input_tokens, p_output_tokens: usage.output_tokens });
     if (recordError) log({ club_id: clubId, status: 'record_failed', code: recordError.code });
     const modelWarnings = Array.isArray(output.warnings) ? output.warnings.map(w => str(w, 300)).filter(Boolean).slice(0, 10) : [];
-    log({ club_id: clubId, status: 'ok', rencontres: facts.length, ...usage, latency_ms: Date.now() - started });
+    log({ club_id: clubId, status: 'ok', rencontres: facts.length, anchors: Object.keys(anchors).length, ...usage, latency_ms: Date.now() - started });
     return json(200, {
       titre: str(output.titre, 120),
       text: texte,
