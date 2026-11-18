@@ -72,10 +72,12 @@ export default function EventDetailPage() {
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_COLORS[event.type]}`}>
             {event.type}
           </span>
-          <span className="text-sm text-muted-foreground ml-auto">{prix}</span>
         </div>
         <h1 className="text-2xl font-bold text-foreground leading-tight">{event.titre}</h1>
         <p className="text-sm text-muted-foreground">{formatDate(event)}</p>
+        <p className="self-start rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+          Tarif <span className="ml-1 text-base font-bold text-foreground">{prix}</span>
+        </p>
         {clubId && <EventRegistration clubId={clubId} eventId={event.id} />}
         <div className="markdown-body text-foreground mt-2">
           <ReactMarkdown remarkPlugins={[remarkBreaks]} rehypePlugins={editorialRehypePlugins}>{expandBlankLines(event.description)}</ReactMarkdown>

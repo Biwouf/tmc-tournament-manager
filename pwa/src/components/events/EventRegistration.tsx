@@ -54,7 +54,9 @@ function SectionsSummary({ sections }: { sections: EventSection[] }) {
               {s.heure_debut && `${formatTime(s.heure_debut)} · `}
               {s.titre}
             </span>
-            <span className="text-muted-foreground">{s.prix ? `${s.prix} €` : 'Gratuit'}</span>
+            {s.prix !== null && (
+              <span className="text-muted-foreground">{s.prix > 0 ? `${s.prix} €` : 'Gratuit'}</span>
+            )}
             {left !== null && (
               <span className={left === 0 ? 'text-red-700' : 'text-muted-foreground'}>
                 · {left === 0 ? 'complet' : `${left} place${left > 1 ? 's' : ''}`}
