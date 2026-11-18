@@ -1086,10 +1086,12 @@ d'identifiant écrit (`internal`) et ne voit pas les premiers pas.
 vignette de l'app sur l'écran 01 ni sur la carte (ses rencontres d'exemple passeraient pour le vrai
 calendrier du club) : elle apparaît à l'écran 03.
 
-**Champ du lien** : toute erreur affichée sous le champ (lien invalide, 404, 429, 504, hors ligne) le
-marque `aria-invalid="true"` (WCAG 3.3.1). **Écran 03** : chapô « Votre e-mail sert à vous reconnecter.
-Pas de mot de passe, pas de carte bancaire. ». Le titre (`.fl-h1`) coupe en `overflow-wrap: break-word` :
-un mot n'est coupé que s'il dépasse seul (nom long), jamais « RETROUVON / S ».
+**Champ du lien** : `aria-invalid="true"` seulement quand le lien est en cause — lien mal formé ou
+club introuvable (404) (WCAG 3.3.1) ; 429, 403, 500, 504 et hors ligne affichent leur message sous
+le champ sans le marquer en erreur. **Écran 03** : chapô « Votre e-mail sert à vous reconnecter.
+Pas de mot de passe, pas de carte bancaire. ». Le titre (`.fl-h1`, `clamp(48px, 5vw, 64px)`) coupe en
+`overflow-wrap: break-word` : un mot n'est coupé que s'il dépasse seul (nom long), jamais « RETROUVON / S »
+(76 px max coupait « Retrouvons » dans la colonne de 340 px à 1440 px).
 
 **Tests** : `club-signup-tunnel` (logique : lien, codes, assainissement, carte, adresse courte, en-tête,
 envoi, brouillon, lien gardé ; rendu jsdom avec Edge simulée : parcours Ten'Up complet, attributs ARIA,

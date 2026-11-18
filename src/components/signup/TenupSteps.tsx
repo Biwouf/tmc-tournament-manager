@@ -91,7 +91,7 @@ export function FindStep({ draft, update, title, siteKey, endpoint, notice, onFo
         <label htmlFor="fl-tenup-url" className="fl-label">Lien de votre club sur Ten’Up</label>
         <input id="fl-tenup-url" className="fl-input" type="url" inputMode="url" autoComplete="off" autoCapitalize="none" spellCheck={false}
           maxLength={500} value={value} readOnly={busy}
-          aria-invalid={Boolean(message)} aria-describedby={message ? 'fl-tenup-help fl-tenup-error' : 'fl-tenup-help'}
+          aria-invalid={Boolean(fieldError) || failure?.kind === 'not_found'} aria-describedby={message ? 'fl-tenup-help fl-tenup-error' : 'fl-tenup-help'}
           onPaste={() => { pasted.current = true; }}
           onChange={event => {
             const next = event.target.value;

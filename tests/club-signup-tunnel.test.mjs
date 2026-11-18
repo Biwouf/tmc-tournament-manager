@@ -676,7 +676,8 @@ test('P1 écran 01 : introuvable, trop de demandes, anti-robot, erreur — messa
       await t.settle(10);
       assert.match(t.container.querySelector('#fl-tenup-error').textContent, message, String(status));
       assert.equal(t.container.querySelector('#fl-tenup-error').getAttribute('role'), 'alert');
-      assert.equal(t.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'true', `${status} : champ marqué en erreur (WCAG 3.3.1)`);
+      // Seul un club introuvable met le lien en cause (WCAG 3.3.1) ; 429 / 403 / 500 ne disent rien du lien.
+      assert.equal(t.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), String(status === 404), `${status} : aria-invalid`);
       assert.equal(document.activeElement.id, 'fl-tenup-url', 'focus sur le champ');
       assert.equal(Boolean(t.container.querySelector('.fl-field .fl-ghost')), manual, `${status} : « Saisir à la main » sous le champ`);
       assert.equal(t.widgets.length, 1); assert.equal(t.requests.length, 1);
@@ -695,7 +696,7 @@ test('P1 écran 01 : hors ligne → message, aucune requête ; Ten’Up injoigna
     await offline.type('fl-tenup-url', LINK);
     await offline.click(offline.button('Trouver mon club'));
     assert.equal(offline.container.querySelector('#fl-tenup-error').textContent, 'Pas de connexion internet. Vérifiez votre réseau puis réessayez.');
-    assert.equal(offline.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'true');
+    assert.equal(offline.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'false', 'hors ligne : le lien n’est pas en cause');
     assert.deepEqual(offline.requests, []);
     assert.ok(offline.button('Réessayer'));
   } finally { await offline.unmount(); }
@@ -707,7 +708,7 @@ test('P1 écran 01 : hors ligne → message, aucune requête ; Ten’Up injoigna
     await t.click(t.button('Trouver mon club'));
     await t.settle(10);
     assert.match(t.container.querySelector('#fl-tenup-error').textContent, /^Ten’Up ne répond pas pour le moment\./);
-    assert.equal(t.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'true', '504 : champ marqué en erreur');
+    assert.equal(t.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'false', '504 : le lien n’est pas en cause');
     assert.equal(t.button('Réessayer').className, 'fl-cta fl-cta-wide', 'Réessayer en principal');
     assert.equal(t.button('Continuer à la main').className, 'fl-ghost fl-cta-wide', 'Continuer à la main en secondaire');
     await t.click(t.button('Réessayer'));
