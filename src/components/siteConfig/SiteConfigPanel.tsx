@@ -309,7 +309,7 @@ export default function SiteConfigPanel({
         >
           ▶
         </span>
-        <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+        <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
           {group.label}
         </h2>
         <span

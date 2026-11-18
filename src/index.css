@@ -4,15 +4,15 @@
 :root {
   /* Thème v2 (brief back office §4.7) : fond chaud #f8f7f6, neutres peu saturés. */
   --background: 30 14% 97%;
-  --foreground: 355 20% 15%;
+  --foreground: 354 14% 15%;     /* #2a2021, encre fixe (thème v2) */
   --card: 0 0% 100%;
-  --card-foreground: 355 20% 15%;
+  --card-foreground: 354 14% 15%;
   --popover: 0 0% 100%;
-  --popover-foreground: 355 20% 15%;
+  --popover-foreground: 354 14% 15%;
   --primary: 355 81% 50%;          /* #e51828 */
   --primary-foreground: 0 0% 100%;
   --secondary: 355 80% 73%;        /* #f1818a */
-  --secondary-foreground: 355 20% 15%;
+  --secondary-foreground: 354 14% 15%;
   --muted: 355 12% 95%;
   --muted-foreground: 355 10% 40%;
   --accent: 355 75% 88%;           /* #f9c9cd */

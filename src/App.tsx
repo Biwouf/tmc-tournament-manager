@@ -70,7 +70,7 @@ function NoClubAccess({ clubName }: { clubName: string | null }) {
         </p>
         <button
           onClick={() => supabase.auth.signOut()}
-          className="mt-6 w-full rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+          className="mt-6 w-full min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
         >
           Se déconnecter
         </button>

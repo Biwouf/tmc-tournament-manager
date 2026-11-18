@@ -246,7 +246,7 @@ export default function LiveScorePage() {
             </Link>
             <button
               onClick={handleLogout}
-              className="rounded-lg border border-slate-200 text-slate-600 text-sm px-3 py-2 hover:bg-slate-50 transition"
+              className="min-h-11 rounded-lg border border-slate-200 text-slate-600 text-sm px-3 py-2 hover:bg-slate-50 transition"
             >
               Se déconnecter
             </button>
@@ -292,7 +292,7 @@ export default function LiveScorePage() {
               <div className="mt-6 flex justify-end gap-2">
                 <button
                   onClick={() => setTakeoverDialog(null)}
-                  className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+                  className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
                 >
                   Annuler
                 </button>
@@ -358,7 +358,7 @@ export default function LiveScorePage() {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setCourtDialog(null)}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+                className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
               >
                 Annuler
               </button>

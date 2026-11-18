@@ -32,7 +32,7 @@ export default function ResultPosterSection(props: Props) {
   const result = useMemo(() => finalResult(rencontre, lines, format), [rencontre, lines, format]);
   return <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Visuel du résultat</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Visuel du résultat</h2>
       <button type="button" className={button} disabled={!result} aria-expanded={open && !!result} onClick={() => setOpen(!open)}>
         {open ? 'Fermer l’aperçu' : 'Générer le visuel'}
       </button>

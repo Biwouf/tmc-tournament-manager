@@ -121,7 +121,7 @@ export default function EventsPage() {
           <div>
             <Link
               to="/"
-              className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+              className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
             >
               ← Accueil
             </Link>
@@ -130,7 +130,7 @@ export default function EventsPage() {
           </div>
           <button
             onClick={handleLogout}
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Se déconnecter
           </button>

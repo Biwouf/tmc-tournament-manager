@@ -206,7 +206,7 @@ export default function SuperAdminPage() {
           </div>
           <Link
             to="/"
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             ← Accueil
           </Link>
@@ -215,7 +215,7 @@ export default function SuperAdminPage() {
 
       <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
         <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Créer un club
           </h2>
           <form
@@ -288,7 +288,7 @@ export default function SuperAdminPage() {
         </section>
 
         <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Clubs de la plateforme
           </h2>
 
@@ -507,7 +507,7 @@ function InviteAdminPanel({
           type="button"
           onClick={() => run('generate-link')}
           disabled={busy || !email.trim()}
-          className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-60"
+          className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-60"
         >
           {loading === 'generate-link' ? '...' : 'Générer un lien à copier'}
         </button>

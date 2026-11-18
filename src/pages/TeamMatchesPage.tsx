@@ -95,7 +95,7 @@ export default function TeamMatchesPage() {
                   key={v.key}
                   type="button"
                   onClick={() => setView(v.key)}
-                  className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                  className={`min-h-11 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                     view === v.key
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:bg-muted'

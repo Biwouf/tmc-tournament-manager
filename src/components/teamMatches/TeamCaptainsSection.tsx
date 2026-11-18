@@ -61,7 +61,7 @@ export default function TeamCaptainsSection({ clubId, equipeId }: Props) {
 
   return (
     <section>
-      <h2 className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-primary">Capitaines</h2>
+      <h2 className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Capitaines</h2>
       <p className="mb-4 text-sm text-muted-foreground">
         Ils peuvent changer la date des rencontres de l’équipe depuis l’app. À redéclarer à chaque saison.
       </p>

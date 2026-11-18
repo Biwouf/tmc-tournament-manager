@@ -282,7 +282,7 @@ export default function EventRegistrationsPage() {
       <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-semibold tracking-tight">Inscrits — {event?.titre ?? ''}</h1>
-          <Link to="/events" className="mt-2 inline-block text-sm text-muted-foreground hover:underline">
+          <Link to="/events" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
             ← Retour à la liste
           </Link>
         </div>

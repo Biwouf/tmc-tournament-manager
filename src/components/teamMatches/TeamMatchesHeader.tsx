@@ -19,7 +19,7 @@ export default function TeamMatchesHeader({ title, subtitle, backTo, backLabel, 
         <div className="min-w-0">
           <Link
             to={backTo}
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+            className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
           >
             ← {backLabel}
           </Link>
@@ -30,7 +30,7 @@ export default function TeamMatchesHeader({ title, subtitle, backTo, backLabel, 
           {actions}
           <button
             onClick={handleLogout}
-            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Se déconnecter
           </button>

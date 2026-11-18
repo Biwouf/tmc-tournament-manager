@@ -163,7 +163,7 @@ export default function TournamentPage({ user }: Props) {
         <div className="container mx-auto px-4 py-8">
           <Link
             to="/tmc-planning"
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
+            className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
           >
             ← Tous les tournois
           </Link>

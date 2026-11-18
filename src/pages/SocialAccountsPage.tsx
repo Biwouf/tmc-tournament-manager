@@ -121,7 +121,7 @@ export default function SocialAccountsPage() {
           </div>
           <Link
             to="/"
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             ← Accueil
           </Link>
@@ -130,7 +130,7 @@ export default function SocialAccountsPage() {
 
       <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
         <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Facebook
           </h2>
 

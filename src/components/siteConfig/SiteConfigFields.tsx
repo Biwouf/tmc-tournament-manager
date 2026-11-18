@@ -380,34 +380,16 @@ export function ImageField({
             accept="image/*"
             ariaLabel={spec.label}
             ownDropZone={false}
+            // « Retirer » d'un fichier en attente revient à l'image enregistrée ; sans fichier en
+            // attente, il efface l'image enregistrée (même `onClear` qu'avant).
+            fileName={file?.name ?? (value ? 'Image actuelle' : null)}
+            onClear={onClear}
             onFiles={(files) => void handlePick(files[0])}
           />
           {formatError && (
             <p role="alert" className="text-xs font-medium text-destructive">{formatError}</p>
           )}
-          {file ? (
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{file.name}</span>
-              <span>— sera envoyée à l’enregistrement.</span>
-              <button
-                type="button"
-                onClick={onClear}
-                className="rounded-md border border-border bg-card px-2 py-1 font-medium transition hover:bg-muted"
-              >
-                Annuler
-              </button>
-            </div>
-          ) : (
-            value && (
-              <button
-                type="button"
-                onClick={onClear}
-                className="self-start rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-destructive transition hover:bg-destructive/10"
-              >
-                Retirer l’image
-              </button>
-            )
-          )}
+          {file && <p className="text-xs text-muted-foreground">Envoyée à l’enregistrement du panneau.</p>}
         </div>
       </div>
       {/* Aucune image : rien à cadrer, et un sélecteur sur du vide n'aurait rien à montrer. */}
