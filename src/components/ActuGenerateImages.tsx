@@ -5,9 +5,11 @@ import { drawPosterPartners, newPartnerSeed } from '../lib/posterPartners';
 import type { RencontreEntry } from './teamMatches/gridTypes';
 import { competitionLabel, etapeLabel } from './teamMatches/teamMatchLabels';
 import { finalResult } from './teamMatches/poster/resultPoster';
-import { savedPhotoCrop } from './teamMatches/poster/photoCrops';
-import { renderResultPoster, type ResultPosterInput } from './teamMatches/poster/renderResultPoster';
-import type { TeamMatchLine } from '../types';
+import { savedPhotoCrop, useCropAutoSave } from './teamMatches/poster/photoCrops';
+import PhotoCropControls from './teamMatches/poster/PhotoCropControls';
+import PhotoFocusPicker from './teamMatches/poster/PhotoFocusPicker';
+import { renderResultPoster, resultPosterFooterHeight, type ResultPosterInput } from './teamMatches/poster/renderResultPoster';
+import type { PhotoCrop, TeamMatchLine } from '../types';
 
 /** Une image retenue : visuel « Esprit d'équipe » (PNG en data URL) ou photo de rencontre. */
 export type ActuImagePick = { kind: 'visuel' | 'photo'; src: string; rencontreId: string; adversaire: string };
@@ -40,13 +42,23 @@ export default function ActuGenerateImages({ chosen, lines, onChange }: {
   const [partnerSeed] = useState(newPartnerSeed);
   const partners = useMemo(() => drawPosterPartners(config.partners.filter(p => p.logo || p.name), partnerSeed), [config.partners, partnerSeed]);
   const [visualPhoto, setVisualPhoto] = useState<Record<string, string>>({});
+  /** Cadrage réglé sur cette page, par rencontre (et pour sa photo) ; sinon celui enregistré. */
+  const [visualCrop, setVisualCrop] = useState<Record<string, { photo: string; crop: PhotoCrop }>>({});
+  /** Rencontre dont le cadrage est ouvert. */
+  const [editing, setEditing] = useState<string | null>(null);
   const [rendered, setRendered] = useState<Record<string, string | null>>({});
+  /** Dernier rendu réussi par rencontre : vignette affichée pendant le rendu du nouveau cadrage. */
+  const [lastRendered, setLastRendered] = useState<Record<string, string>>({});
   const [placements, setPlacements] = useState<Record<string, Placement>>({});
 
   const visualEntries = chosen.filter(e => e.rencontre.photo_urls.length > 0 && lines[e.rencontre.id] &&
     finalResult(e.rencontre, lines[e.rencontre.id], e.competition.format));
   const photoOf = (e: RencontreEntry) => visualPhoto[e.rencontre.id] ?? e.rencontre.photo_urls[0];
-  const renderKey = (e: RencontreEntry) => `${e.rencontre.id}|${photoOf(e)}`;
+  const cropOf = (e: RencontreEntry) => {
+    const local = visualCrop[e.rencontre.id];
+    return local?.photo === photoOf(e) ? local.crop : savedPhotoCrop(e.rencontre, photoOf(e));
+  };
+  const renderKey = (e: RencontreEntry) => { const c = cropOf(e); return `${e.rencontre.id}|${photoOf(e)}|${c.x}|${c.y}|${c.zoom}`; };
   const items: Item[] = [
     ...visualEntries.map(e => {
       const value = rendered[renderKey(e)];
@@ -60,8 +72,8 @@ export default function ActuGenerateImages({ chosen, lines, onChange }: {
   const une = items.filter(item => placementOf(item).une);
   const texte = items.filter(item => placementOf(item).texte);
   const ready = [...une, ...texte].every(item => item.src !== null);
-  // Change dès qu'une case change, ou qu'un visuel change de photo ou finit son rendu.
-  const describe = (item: Item) => item.kind === 'visuel' ? `${item.key}:${photoOf(item.entry)}:${item.src ? 1 : 0}` : item.key;
+  // Change dès qu'une case change, ou qu'un visuel change de photo ou de cadrage, ou finit son rendu.
+  const describe = (item: Item) => item.kind === 'visuel' ? `${item.key}:${renderKey(item.entry)}:${item.src ? 1 : 0}` : item.key;
   const signature = `${une.map(describe).join('|')}#${texte.map(describe).join('|')}`;
   const report = useEffectEvent(() => onChange({ une: une.flatMap(pick), texte: texte.flatMap(pick), ready }));
   useEffect(() => { report(); }, [signature]);
@@ -81,21 +93,26 @@ export default function ActuGenerateImages({ chosen, lines, onChange }: {
       </p>
       {!loading && visualEntries.map(e => (
         <PosterRender key={renderKey(e)} input={{
-          rencontre: e.rencontre, lines: lines[e.rencontre.id], config, partners, model: 'photo', photo: photoOf(e), crop: savedPhotoCrop(e.rencontre, photoOf(e)),
+          rencontre: e.rencontre, lines: lines[e.rencontre.id], config, partners, model: 'photo', photo: photoOf(e), crop: cropOf(e),
           result: finalResult(e.rencontre, lines[e.rencontre.id], e.competition.format)!,
           clubName: config.brand.name || club?.name || 'Notre club',
           heading: competitionLabel(e.competition), stage: `Équipe ${e.equipe.numero} · ${etapeLabel(e.etape)}`,
-        }} onDone={url => setRendered(previous => ({ ...previous, [renderKey(e)]: url }))} />
+        }} onDone={url => {
+          setRendered(previous => ({ ...previous, [renderKey(e)]: url }));
+          if (url) setLastRendered(previous => ({ ...previous, [e.rencontre.id]: url }));
+        }} />
       ))}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {items.map(item => {
           const placement = placementOf(item);
           const isKept = placement.une || placement.texte;
+          // Pendant le rendu d'un nouveau cadrage, la vignette précédente reste affichée, estompée.
+          const shown = item.src ?? (item.kind === 'visuel' && !item.failed ? lastRendered[item.entry.rencontre.id] : undefined);
           return (
             <div key={item.key} className={`space-y-2 rounded-xl border p-2 ${isKept ? 'border-primary ring-1 ring-primary' : 'border-border'}`}>
               <div className="relative">
-                {item.src
-                  ? <img src={item.src} alt="" className={`aspect-[4/5] w-full rounded-lg object-cover ${isKept ? '' : 'opacity-30'}`} />
+                {shown
+                  ? <img src={shown} alt="" className={`aspect-[4/5] w-full rounded-lg object-cover ${isKept && item.src ? '' : isKept ? 'opacity-60' : 'opacity-30'}`} />
                   : <div className="flex aspect-[4/5] w-full items-center justify-center rounded-lg bg-muted p-2 text-center text-xs text-muted-foreground">
                       {item.failed ? 'Visuel indisponible' : 'Préparation du visuel…'}
                     </div>}
@@ -108,6 +125,12 @@ export default function ActuGenerateImages({ chosen, lines, onChange }: {
                   {item.entry.rencontre.photo_urls.map((url, index) => <option key={url} value={url}>Photo {index + 1}</option>)}
                 </select>
               )}
+              {item.kind === 'visuel' && (
+                <button type="button" aria-expanded={editing === item.entry.rencontre.id} className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium hover:bg-muted"
+                  onClick={() => setEditing(editing === item.entry.rencontre.id ? null : item.entry.rencontre.id)}>
+                  {editing === item.entry.rencontre.id ? 'Fermer le cadrage' : 'Recadrer'}
+                </button>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
                 <label className="flex items-center gap-1.5"><input type="checkbox" className="accent-primary" disabled={item.failed} checked={placement.une} onChange={() => toggle(item, 'une')} />À la une</label>
                 <label className="flex items-center gap-1.5"><input type="checkbox" className="accent-primary" disabled={item.failed} checked={placement.texte} onChange={() => toggle(item, 'texte')} />Dans le texte</label>
@@ -116,7 +139,32 @@ export default function ActuGenerateImages({ chosen, lines, onChange }: {
           );
         })}
       </div>
+      {visualEntries.filter(e => e.rencontre.id === editing).map(e => (
+        <CropEditor key={e.rencontre.id} entry={e} photo={photoOf(e)} crop={cropOf(e)}
+          frameHeight={1350 - resultPosterFooterHeight(partners.length) - 150}
+          onChange={crop => setVisualCrop(previous => ({ ...previous, [e.rencontre.id]: { photo: photoOf(e), crop } }))}
+          onClose={() => setEditing(null)} />
+      ))}
     </fieldset>
+  );
+}
+
+/** Cadrage du visuel d'une rencontre, enregistré pour sa photo comme dans `/medias`. */
+function CropEditor({ entry, photo, crop, frameHeight, onChange, onClose }: {
+  entry: RencontreEntry; photo: string; crop: PhotoCrop; frameHeight: number;
+  onChange: (crop: PhotoCrop) => void; onClose: () => void;
+}) {
+  const { clubId } = useClub();
+  const status = useCropAutoSave(clubId, entry.rencontre, photo, crop);
+  return (
+    <div className="mt-4 space-y-4 rounded-xl border border-border p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">Cadrage du visuel · {entry.rencontre.club_adverse}</p>
+        <button type="button" className="rounded-lg border border-border px-3 py-1 text-xs font-medium hover:bg-muted" onClick={onClose}>Fermer</button>
+      </div>
+      <PhotoCropControls crop={crop} onChange={onChange} status={status} />
+      <PhotoFocusPicker key={photo} photo={photo} crop={crop} frameHeight={frameHeight} onChange={onChange} />
+    </div>
   );
 }
 
@@ -125,9 +173,12 @@ function PosterRender({ input, onDone }: { input: ResultPosterInput; onDone: (ur
   const done = useEffectEvent(onDone);
   useEffect(() => {
     let cancelled = false;
-    renderResultPoster(input).then(url => { if (!cancelled) done(url); }).catch(() => { if (!cancelled) done(null); });
-    return () => { cancelled = true; };
-    // Rendu une seule fois par rencontre et par photo (la clé du composant change avec elles).
+    // Petit délai : pendant qu'on fait glisser le cadrage, seul le dernier réglage est rendu.
+    const timer = window.setTimeout(() => {
+      renderResultPoster(input).then(url => { if (!cancelled) done(url); }).catch(() => { if (!cancelled) done(null); });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // Rendu une seule fois par rencontre, photo et cadrage (la clé du composant change avec eux).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;

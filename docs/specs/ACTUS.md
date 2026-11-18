@@ -443,7 +443,7 @@ base, puis crée un **brouillon** d'actu avec les visuels et photos des rencontr
    **contexte de classement** (200 car.) facultatifs, **non conservés** en base.
 3. **Images de l'actu** (`components/ActuGenerateImages.tsx`) : pour chaque rencontre cochée
    terminée qui a des photos, un visuel **« Esprit d'équipe »** (même rendu que `/medias`,
-   `renderResultPoster` modèle `photo`, cadrage enregistré de la photo — centré à défaut —, partenaires tirés une fois pour la page ;
+   `renderResultPoster` modèle `photo`, cadrage enregistré de la photo — centré à défaut —, réglable sur place via « Recadrer » (focus x/y, zoom, enregistré automatiquement comme dans `/medias`), partenaires tirés une fois pour la page ;
    choix de la photo du visuel si la rencontre en a plusieurs), puis les photos des rencontres.
    Chaque image a **deux cases indépendantes** : **« À la une »** (galerie en tête de l'actu,
    dans l'ordre affiché) et **« Dans le texte »** (après le paragraphe qui raconte sa
