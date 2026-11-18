@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../../lib/supabase';
 import type { PhotoCrop, TeamRencontre } from '../../../types';
 
@@ -27,4 +28,33 @@ export function savePhotoCrop(clubId: string | null, rencontre: Pick<TeamRencont
   });
   queue = run;
   return run;
+}
+
+/** `local` : image importée, dont le cadrage n'est pas enregistré. */
+export type CropSaveStatus = 'local' | 'idle' | 'saving' | 'saved' | 'error';
+
+/**
+ * Enregistre le cadrage d'une photo de la rencontre 1 s après le dernier réglage ; tout de suite
+ * si la photo change ou si le composant est démonté (aperçu fermé) avant ce délai.
+ */
+export function useCropAutoSave(clubId: string | null, rencontre: Pick<TeamRencontre, 'id' | 'photo_crops' | 'photo_urls'>, photo: string, crop: PhotoCrop): CropSaveStatus {
+  const savable = rencontre.photo_urls.includes(photo);
+  const [state, setState] = useState<{ photo: string; status: CropSaveStatus }>({ photo, status: 'idle' });
+  const pending = useRef<(() => void) | null>(null);
+  // Déclaré avant le debounce : au changement de photo, ce nettoyage part avant celui qui annule le minuteur.
+  useEffect(() => () => pending.current?.(), [photo]);
+  useEffect(() => {
+    const saved = savedPhotoCrop(rencontre, photo);
+    if (!savable || (saved.x === crop.x && saved.y === crop.y && saved.zoom === crop.zoom)) { pending.current = null; return; }
+    const save = () => {
+      pending.current = null;
+      setState({ photo, status: 'saving' });
+      savePhotoCrop(clubId, rencontre, photo, crop).then(() => setState({ photo, status: 'saved' }), () => setState({ photo, status: 'error' }));
+    };
+    pending.current = save;
+    const timer = window.setTimeout(save, 1000);
+    return () => clearTimeout(timer);
+  }, [crop, photo, savable, clubId, rencontre]);
+  if (!savable) return 'local';
+  return state.photo === photo ? state.status : 'idle';
 }
