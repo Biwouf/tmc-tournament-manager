@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import type { TeamRencontre } from '../../types';
+import FileDrop from '../FileDrop';
 import {
   STORAGE_BUCKETS,
   clubPath,
@@ -41,7 +42,7 @@ export default function TeamPhotosSection({ rencontre, onChange }: Props) {
     return true;
   };
 
-  const handleAdd = async (files: FileList | null) => {
+  const handleAdd = async (files: File[] | null) => {
     if (!files || files.length === 0) return;
     setError(null);
     setBusy(true);
@@ -112,16 +113,12 @@ export default function TeamPhotosSection({ rencontre, onChange }: Props) {
         )}
       </div>
 
-      <input
-        type="file"
+      <FileDrop
         accept="image/jpeg,image/png"
         multiple
         disabled={busy}
-        onChange={(e) => {
-          handleAdd(e.target.files);
-          e.target.value = '';
-        }}
-        className="block w-full text-sm"
+        ariaLabel="Photos de la rencontre"
+        onFiles={(files) => void handleAdd(files)}
       />
       <p className="mt-1 text-xs text-muted-foreground">JPEG/PNG, max 10 Mo par fichier.</p>
 

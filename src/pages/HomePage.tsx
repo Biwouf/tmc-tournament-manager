@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
+import { formatIsoDateFr } from '../lib/dates';
 import type { TournamentEntry } from '../types';
 
 interface Props {
@@ -118,7 +119,7 @@ export default function HomePage({ user }: Props) {
                 <Link to={`/tmc-planning/${entry.id}`} className="block">
                   <h3 className="text-lg font-semibold text-card-foreground">{entry.config.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {entry.config.startDate} → {entry.config.endDate}
+                    {formatIsoDateFr(entry.config.startDate)} → {formatIsoDateFr(entry.config.endDate)}
                   </p>
                   <p className="mt-2 text-sm text-foreground">
                     {entry.config.tournaments.length} tableau{entry.config.tournaments.length > 1 ? 'x' : ''}

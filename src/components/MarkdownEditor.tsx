@@ -6,6 +6,7 @@ import { editorialRehypePlugins } from '../lib/markdown';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { STORAGE_BUCKETS, clubPath, sanitizeFilename } from '../lib/storage';
+import FileDrop from './FileDrop';
 
 export interface MarkdownEditorProps {
   value: string;
@@ -299,7 +300,7 @@ export default function MarkdownEditor({
   return (
     <div className="mt-1">
       <div className="flex items-center justify-between gap-2 rounded-t-lg border border-border bg-muted/40 px-2 py-1">
-        <div className="flex gap-1 text-xs">
+        <div className="flex shrink-0 gap-1 text-xs">
           <button
             type="button"
             onClick={() => setTab('write')}
@@ -324,7 +325,8 @@ export default function MarkdownEditor({
           </button>
         </div>
         {tab === 'write' && (
-          <div className="flex items-center gap-0.5">
+          // Défilement interne sous ~430 px : la barre ne pousse plus la page en largeur.
+          <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
             <ToolbarButton
               onClick={() => applyInline('bold')}
               disabled={inlineDisabled}
@@ -409,16 +411,12 @@ export default function MarkdownEditor({
 
           {imageMode === 'file' ? (
             <div className="space-y-2">
-              <input
-                type="file"
+              <FileDrop
                 accept="image/jpeg,image/png"
                 disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
-                  e.target.value = '';
-                }}
-                className="block w-full text-xs"
+                compact
+                ariaLabel="Image à insérer"
+                onFiles={(files) => handleFileUpload(files[0])}
               />
               {uploading && (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">

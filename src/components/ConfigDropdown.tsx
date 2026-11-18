@@ -58,7 +58,7 @@ export default function ConfigDropdown({ config, onUpdate }: Props) {
       {/* Dropdown panel */}
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 rounded-xl border border-border bg-popover text-popover-foreground shadow-xl"
-          style={{ width: editing ? '900px' : '420px', maxHeight: '80vh', overflowY: 'auto' }}>
+          style={{ width: editing ? '900px' : '420px', maxWidth: 'calc(100vw - 2rem)', maxHeight: '80vh', overflowY: 'auto' }}>
 
           {!editing ? (
             /* ── Summary view ── */

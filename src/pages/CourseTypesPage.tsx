@@ -14,6 +14,7 @@ import {
   CourseShell,
 } from "../components/courses/CourseUI";
 import { useCourseAdmin } from "../hooks/useCourseAdmin";
+import FileDrop from "../components/FileDrop";
 export default function CourseTypesPage() {
   const { clubId } = useClub();
   const [rows, setRows] = useState<CourseType[]>([]);
@@ -114,19 +115,25 @@ export default function CourseTypesPage() {
             onChange={(e) => setName(e.target.value)}
           />
         </label>
-        <label className="block">
+        <div className="block">
           Image facultative · JPEG, PNG, WebP · 5 Mo
-          <input
-            key={fileKey}
-            className="course-field"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
-              setUploadPath(null);
-            }}
-          />
-        </label>
+          <div className="mt-1">
+            <FileDrop
+              key={fileKey}
+              accept="image/jpeg,image/png,image/webp"
+              ariaLabel="Image du type de cours"
+              fileName={file?.name}
+              onFiles={(files) => {
+                setFile(files[0] ?? null);
+                setUploadPath(null);
+              }}
+              onClear={() => {
+                setFile(null);
+                setUploadPath(null);
+              }}
+            />
+          </div>
+        </div>
         {path && (
           <div className="flex items-center gap-4">
             <img

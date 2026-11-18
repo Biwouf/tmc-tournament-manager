@@ -9,6 +9,7 @@ import { moveMatches } from '../moveMatch';
 import { exportScheduleCsv } from '../exportScheduleCsv';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
+import { formatIsoDateFr } from '../lib/dates';
 
 interface Props {
   user: User;
@@ -166,12 +167,12 @@ export default function TournamentPage({ user }: Props) {
           >
             ← Tous les tournois
           </Link>
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight break-words sm:text-3xl">
             {isNew ? 'Nouveau tournoi' : entry!.config.name}
           </h1>
           {!isNew && entry?.config.startDate && (
             <p className="mt-2 text-muted-foreground">
-              {entry.config.startDate} → {entry.config.endDate}
+              {formatIsoDateFr(entry.config.startDate)} → {formatIsoDateFr(entry.config.endDate)}
             </p>
           )}
         </div>
@@ -212,7 +213,7 @@ export default function TournamentPage({ user }: Props) {
                   Supprimer le tournoi
                 </button>
               ) : (
-                <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5">
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5">
                   <span className="text-sm text-destructive">Confirmer la suppression ?</span>
                   <button
                     onClick={handleDelete}

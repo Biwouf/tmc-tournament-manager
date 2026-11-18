@@ -102,12 +102,14 @@ const NEUTRALS: Record<string, [saturation: number, lightness: number]> = {
   '--foreground': [20, 15],
   '--card-foreground': [20, 15],
   '--popover-foreground': [20, 15],
-  '--muted': [70, 94],
-  '--muted-foreground': [20, 45],
-  '--border': [50, 88],
-  '--input': [50, 88],
+  // Thème v2 du BO (brief back office §4.7, 18/11/2026) : neutres à ≤ 12 % de saturation,
+  // pour que la couleur du club ne teinte plus tout le BO (lavande pour un club bleu).
+  '--muted': [12, 95],
+  '--muted-foreground': [10, 40],
+  '--border': [10, 89],
+  '--input': [10, 85],
   // Bas du dégradé de `body` (BO uniquement) — la PWA reçoit le token sans l'utiliser.
-  '--background-tint': [60, 97],
+  '--background-tint': [8, 97],
 };
 
 /** Tous les tokens que ce module pilote, pour pouvoir aussi les RETIRER (config vidée). */
