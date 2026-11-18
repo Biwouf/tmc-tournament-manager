@@ -541,7 +541,7 @@ export default function EventForm() {
                       min="0"
                       step="0.01"
                       value={sec.prix}
-                      placeholder="Gratuit"
+                      placeholder="Non affiché"
                       onChange={(e) => updateSection(sec.key, { prix: e.target.value })}
                       className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     />

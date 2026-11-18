@@ -302,7 +302,7 @@ const { data } = await supabase
 
 **`EventsPage.tsx`** — uniquement les événements à venir (filtre client sur `date_debut` / `date_fin`), triés par `date_debut` ASC. Chaque carte : badge type coloré, titre, dates, image (si présente), prix (ou "Gratuit"). État vide : "Aucun événement à venir".
 
-**`EventDetailPage.tsx`** — toutes les infos, `description` Markdown rendu via `react-markdown` + `rehype-raw` (pour le `<u>` du MarkdownEditor). Bouton retour vers `/evenements`.
+**`EventDetailPage.tsx`** — toutes les infos ; le prix de l'événement complet est mis en avant sous les dates (encart « Tarif », ou « Gratuit »), avant le bloc d'inscription. `description` Markdown rendu via `react-markdown` + `rehype-raw` (pour le `<u>` du MarkdownEditor). Bouton retour vers `/evenements`.
 
 ### Badges par type (cohérent avec le BO)
 
@@ -388,7 +388,7 @@ Migration `2026111001_event_sections.sql`. Un événement peut se découper en p
 (ex. soirée pickleball : animation avec jauge, puis repas sans jauge). Sans section, rien ne change.
 
 - **`event_sections`** : `titre`, `position` (ordre), `heure_debut` (optionnel), `prix` (optionnel,
-  vide = gratuit), `capacity` (jauge de la section, `null` = illimitée). Lecture publique (club
+  vide = non affiché, 0 = « Gratuit »), `capacity` (jauge de la section, `null` = illimitée). Lecture publique (club
   actif), écriture admin/manager (`can_manage_club_content`) avec un `event_id` du même club.
   Édition dans le formulaire BO (bloc « Sections » : ajout, ordre ↑↓, retrait). La duplication
   d'un événement copie ses sections.
