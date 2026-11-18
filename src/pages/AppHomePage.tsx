@@ -73,7 +73,7 @@ export default function AppHomePage() {
           </div>
           <button
             onClick={handleLogout}
-            className="shrink-0 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted sm:mt-1"
+            className="shrink-0 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted sm:mt-1"
           >
             Se déconnecter
           </button>
@@ -89,7 +89,7 @@ export default function AppHomePage() {
           {isSuperAdmin && (
             <section>
               <div className="flex items-baseline gap-3.5 mb-3.5">
-                <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary m-0">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground m-0">
                   Plateforme
                 </h2>
                 <span
@@ -117,7 +117,7 @@ export default function AppHomePage() {
           {sections.map((section) => (
             <section key={section.id}>
               <div className="flex items-baseline gap-3.5 mb-3.5">
-                <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary m-0">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground m-0">
                   {section.label}
                 </h2>
                 <span

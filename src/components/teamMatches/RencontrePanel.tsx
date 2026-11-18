@@ -86,7 +86,7 @@ export default function RencontrePanel({
         <button
           type="button"
           onClick={onOpenPoster}
-          className="mt-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+          className="mt-2 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
         >
           Générer une affiche
         </button>

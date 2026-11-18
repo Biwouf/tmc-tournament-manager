@@ -94,7 +94,7 @@ export default function TeamMatchScoreModal({ line, onClose, onSaved }: Props) {
           )}
           <button
             onClick={onClose}
-            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Annuler
           </button>

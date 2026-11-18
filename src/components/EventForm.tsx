@@ -355,13 +355,13 @@ export default function EventForm() {
             <h1 className="text-3xl font-semibold tracking-tight">
               {isEdit ? "Modifier l'événement" : 'Nouvel événement'}
             </h1>
-            <Link to="/events" className="mt-2 inline-block text-sm text-muted-foreground hover:underline">
+            <Link to="/events" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
               ← Retour à la liste
             </Link>
           </div>
           <button
             onClick={handleLogout}
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Se déconnecter
           </button>
@@ -443,21 +443,14 @@ export default function EventForm() {
               <FileDrop
                 accept="image/jpeg,image/png"
                 ariaLabel="Image de l’événement"
+                fileName={imageFile?.name ?? (imagePreviewUrl ? 'Image actuelle' : null)}
+                onClear={handleRemoveImage}
                 onFiles={(files) => handleImageChange(files[0] ?? null)}
               />
             </div>
             {errors.image && <p className="mt-1 text-xs text-red-600">{errors.image}</p>}
             {imagePreviewUrl && (
-              <div className="mt-3 flex items-start gap-4">
-                <img src={imagePreviewUrl} alt="Aperçu" className="h-32 w-32 rounded-lg object-cover" />
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
-                >
-                  Supprimer l'image
-                </button>
-              </div>
+              <img src={imagePreviewUrl} alt="Aperçu" className="mt-3 h-32 w-32 rounded-lg object-cover" />
             )}
           </div>
 
@@ -645,7 +638,7 @@ export default function EventForm() {
           <div className="flex justify-end gap-3">
             <Link
               to="/events"
-              className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+              className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
             >
               Annuler
             </Link>

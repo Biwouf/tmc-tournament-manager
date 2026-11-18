@@ -57,7 +57,7 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
     const computed = computeScore(lines, format);
     return (
       <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
           Score final
         </h2>
         <p className="mb-3 text-xs text-muted-foreground">
@@ -80,7 +80,7 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
           <button
             onClick={handleRecompute}
             disabled={saving}
-            className="ml-auto rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+            className="ml-auto min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
           >
             {saving ? '...' : 'Recalculer'}
           </button>
@@ -92,7 +92,7 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
 
   return (
     <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-      <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-primary">Score final</h2>
+      <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Score final</h2>
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <label className="block text-xs text-muted-foreground">Notre score</label>

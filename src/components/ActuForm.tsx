@@ -317,13 +317,13 @@ export default function ActuForm() {
             <h1 className="text-3xl font-semibold tracking-tight">
               {isEdit ? "Modifier l'actu" : 'Nouvelle actu'}
             </h1>
-            <Link to="/actus" className="mt-2 inline-block text-sm text-muted-foreground hover:underline">
+            <Link to="/actus" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
               ← Retour à la liste
             </Link>
           </div>
           <button
             onClick={handleLogout}
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Se déconnecter
           </button>
@@ -369,6 +369,10 @@ export default function ActuForm() {
                 accept="image/jpeg,image/png"
                 multiple
                 ariaLabel="Images de l’actu"
+                fileName={(() => {
+                  const count = visibleExistingItems.length + newFiles.length;
+                  return count === 0 ? null : `${count} image${count > 1 ? 's' : ''}`;
+                })()}
                 onFiles={handleAddFiles}
               />
             </div>
@@ -510,7 +514,7 @@ export default function ActuForm() {
           <div className="flex flex-wrap justify-end gap-3">
             <Link
               to="/actus"
-              className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+              className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
             >
               Annuler
             </Link>

@@ -79,7 +79,7 @@ export function CourseShell({
         ))}
       </nav>
       <header className="course-page-heading">
-        <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Gestion du club
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">{title}</h1>

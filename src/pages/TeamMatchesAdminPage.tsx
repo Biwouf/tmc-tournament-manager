@@ -221,7 +221,7 @@ function SaisonsSection({
 
   return (
     <section>
-      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary mb-4">Saisons</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-4">Saisons</h2>
 
       <div className="mb-4 flex gap-2">
         <input
@@ -475,7 +475,7 @@ function CompetitionsSection({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Compétitions</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Compétitions</h2>
         <div className="flex items-center gap-3">
           <select
             value={selectedSaisonId}
@@ -697,7 +697,7 @@ function CompetitionsSection({
               <button
                 onClick={() => setShowForm(false)}
                 disabled={prefilling || saving}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+                className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
               >
                 Annuler
               </button>
@@ -787,7 +787,7 @@ function EquipesSection({
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Équipes</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Équipes</h2>
         <button
           onClick={() => {
             setError(null);

@@ -6,7 +6,10 @@ interface Props {
   onFiles: (files: File[]) => void;
   multiple?: boolean;
   disabled?: boolean;
-  /** Nom du fichier retenu : affiché à la place de l'invite, le bouton devient « Remplacer ». */
+  /**
+   * Fichier(s) déjà retenu(s) — nom, « Image actuelle », « 3 images »… : affiché à la place de
+   * l'invite ; le bouton devient « Remplacer » (« Ajouter des fichiers » en `multiple`).
+   */
   fileName?: string | null;
   /** Avec `fileName`, affiche « Retirer ». */
   onClear?: () => void;
@@ -97,7 +100,10 @@ export default function FileDrop({
             }}
           />
           <span className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 font-medium text-foreground">
-            {fileName ? 'Remplacer' : multiple ? 'Choisir des fichiers' : 'Choisir un fichier'}
+            {/* En multiple, de nouveaux fichiers s'AJOUTENT à ceux déjà là : pas de « Remplacer ». */}
+            {fileName
+              ? multiple ? 'Ajouter des fichiers' : 'Remplacer'
+              : multiple ? 'Choisir des fichiers' : 'Choisir un fichier'}
           </span>
           {/* Sur téléphone, on ne glisse pas de fichier : l'invite n'y occupe pas de place. */}
           <span className={`min-w-0 truncate text-muted-foreground ${fileName ? '' : 'hidden sm:inline'}`}>
@@ -109,7 +115,7 @@ export default function FileDrop({
             type="button"
             onClick={onClear}
             disabled={disabled}
-            className={`${text} font-medium text-muted-foreground underline-offset-2 transition hover:text-foreground hover:underline`}
+            className={`${text} min-h-11 px-2 font-medium text-muted-foreground underline-offset-2 transition hover:text-foreground hover:underline`}
           >
             Retirer
           </button>

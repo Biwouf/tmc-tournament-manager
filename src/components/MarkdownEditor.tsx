@@ -56,7 +56,7 @@ function ToolbarButton({ onClick, disabled, title, children, active }: ToolbarBu
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`rounded px-2 py-0.5 text-xs font-medium transition ${
+      className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded px-2 py-0.5 text-xs font-medium transition sm:min-h-0 sm:min-w-0 ${
         disabled
           ? 'opacity-40 cursor-not-allowed text-muted-foreground'
           : active
@@ -299,12 +299,12 @@ export default function MarkdownEditor({
 
   return (
     <div className="mt-1">
-      <div className="flex items-center justify-between gap-2 rounded-t-lg border border-border bg-muted/40 px-2 py-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-lg border border-border bg-muted/40 px-2 py-1">
         <div className="flex shrink-0 gap-1 text-xs">
           <button
             type="button"
             onClick={() => setTab('write')}
-            className={`rounded px-2 py-0.5 transition ${
+            className={`min-h-11 rounded px-2 py-0.5 transition sm:min-h-0 ${
               tab === 'write'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:bg-muted'
@@ -315,7 +315,7 @@ export default function MarkdownEditor({
           <button
             type="button"
             onClick={() => setTab('preview')}
-            className={`rounded px-2 py-0.5 transition ${
+            className={`min-h-11 rounded px-2 py-0.5 transition sm:min-h-0 ${
               tab === 'preview'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:bg-muted'
@@ -325,8 +325,9 @@ export default function MarkdownEditor({
           </button>
         </div>
         {tab === 'write' && (
-          // Défilement interne sous ~430 px : la barre ne pousse plus la page en largeur.
-          <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+          // Passe à la ligne sur téléphone plutôt que défiler : un défilement sans indice cachait
+          // le bouton image hors de l'écran.
+          <div className="flex min-w-0 flex-wrap items-center gap-0.5">
             <ToolbarButton
               onClick={() => applyInline('bold')}
               disabled={inlineDisabled}

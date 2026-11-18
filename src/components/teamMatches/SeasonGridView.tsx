@@ -67,7 +67,7 @@ function Block({
   return (
     <section className={done ? 'opacity-75' : undefined}>
       <div className="mb-2.5 flex items-center gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
           {competitionLabel(block.competition)}
         </h2>
         {done && (

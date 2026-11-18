@@ -268,7 +268,7 @@ export default function TeamRencontrePage() {
         actions={
           <Link
             to={`/team-matches/rencontre/${rencontre.id}/edit`}
-            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Modifier
           </Link>
@@ -343,7 +343,7 @@ export default function TeamRencontrePage() {
         <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Matches de la rencontre
               </h2>
               {expected > 0 && (

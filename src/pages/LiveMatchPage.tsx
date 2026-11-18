@@ -134,13 +134,13 @@ export default function LiveMatchPage() {
         <div className="container mx-auto flex items-start justify-between px-4 py-8">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Match en direct</h1>
-            <Link to="/live-score" className="mt-2 inline-block text-sm text-muted-foreground hover:underline">
+            <Link to="/live-score" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
               ← Retour à la liste
             </Link>
           </div>
           <button
             onClick={handleLogout}
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Se déconnecter
           </button>

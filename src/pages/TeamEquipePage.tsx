@@ -297,7 +297,7 @@ export default function TeamEquipePage() {
         {/* Phase de poule */}
         <section>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Phase de poule
             </h2>
             {canQualify && (
@@ -331,7 +331,7 @@ export default function TeamEquipePage() {
         {equipe.qualifiee === true && (
           <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Phase finale
               </h2>
               <button
@@ -563,7 +563,7 @@ function QualifModal({
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Annuler
           </button>

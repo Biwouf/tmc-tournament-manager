@@ -99,9 +99,9 @@ function readableOn(background: Hsl, ink: Hsl): Hsl {
  * bordures rosées.
  */
 const NEUTRALS: Record<string, [saturation: number, lightness: number]> = {
-  '--foreground': [20, 15],
-  '--card-foreground': [20, 15],
-  '--popover-foreground': [20, 15],
+  // Pas d'encre ici (`--foreground`, `--card-foreground`, `--popover-foreground`) : depuis les
+  // finitions du thème v2, le texte du BO est à l'encre chaude FIXE `INK` d'`index.css`, quelle
+  // que soit la couleur du club (brief back office §4.7).
   // Thème v2 du BO (brief back office §4.7, 18/11/2026) : neutres à ≤ 12 % de saturation,
   // pour que la couleur du club ne teinte plus tout le BO (lavande pour un club bleu).
   '--muted': [12, 95],
@@ -111,6 +111,9 @@ const NEUTRALS: Record<string, [saturation: number, lightness: number]> = {
   // Bas du dégradé de `body` (BO uniquement) — la PWA reçoit le token sans l'utiliser.
   '--background-tint': [8, 97],
 };
+
+/** Encre du BO, `#2a2021` : même valeur que `--foreground` dans `src/index.css`. */
+const INK: Hsl = { h: 354, s: 14, l: 15 };
 
 /** Tous les tokens que ce module pilote, pour pouvoir aussi les RETIRER (config vidée). */
 export const THEMED_TOKENS = [
@@ -163,7 +166,7 @@ export function clubThemeTokens(colors: ClubColors): Record<string, string> {
   const cap = primary.s;
   const secondary = (colors.secondary && hexToHsl(colors.secondary)) || tint(primary.h, 80, 73, cap);
   const accent = (colors.accent && hexToHsl(colors.accent)) || tint(primary.h, 75, 88, cap);
-  const ink = tint(primary.h, 20, 15, cap);
+  const ink = INK;
 
   const tokens: Record<string, string> = {
     '--primary': format(primary),

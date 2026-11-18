@@ -42,7 +42,7 @@ export default function SignupRequests({ clubId, onChanged }: { clubId: string; 
     finally { lock.current = false; setBusy(null); }
   }
   return <section>
-    <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Demandes d’inscription ({rows.filter(r => r.status === 'pending').length})</h2><button type="button" className="course-button" disabled={loading || !!busy} onClick={() => void load()}>Actualiser</button></div>
+    <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Demandes d’inscription ({rows.filter(r => r.status === 'pending').length})</h2><button type="button" className="course-button" disabled={loading || !!busy} onClick={() => void load()}>Actualiser</button></div>
     {error && <p role="alert" className="mb-3 text-destructive">{error}</p>}
     {success && <p role="status" className="mb-3 text-foreground">{success}</p>}
     {loading ? <p role="status">Chargement des demandes…</p> : rows.length === 0 ? <p className="text-sm text-muted-foreground">Aucune demande d’inscription.</p> : <div className="space-y-3">{rows.map(r => <div key={r.user_id} className="rounded-2xl border bg-card p-6 shadow-sm">
