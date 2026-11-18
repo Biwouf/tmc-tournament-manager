@@ -443,7 +443,7 @@ base, puis crée un **brouillon** d'actu avec les visuels et photos des rencontr
    **contexte de classement** (200 car.) facultatifs, **non conservés** en base.
 3. **Images de l'actu** (`components/ActuGenerateImages.tsx`) : pour chaque rencontre cochée
    terminée qui a des photos, un visuel **« Esprit d'équipe »** (même rendu que `/medias`,
-   `renderResultPoster` modèle `photo`, cadrage enregistré de la photo — centré à défaut —, partenaires tirés une fois pour la page ;
+   `renderResultPoster` modèle `photo`, cadrage enregistré de la photo — centré à défaut —, réglable sur place via « Recadrer » (focus x/y, zoom, enregistré automatiquement comme dans `/medias`), partenaires tirés une fois pour la page ;
    choix de la photo du visuel si la rencontre en a plusieurs), puis les photos des rencontres.
    Chaque image a **deux cases indépendantes** : **« À la une »** (galerie en tête de l'actu,
    dans l'ordre affiché) et **« Dans le texte »** (après le paragraphe qui raconte sa
@@ -464,8 +464,10 @@ base, puis crée un **brouillon** d'actu avec les visuels et photos des rencontr
    en `![](url)` juste après le paragraphe qui raconte leur rencontre : chaque fait porte un
    repère (`ref` : `R1`, `R2`…), Claude rend le texte paragraphe par paragraphe en citant les
    repères racontés, la fonction en tire `anchors`. Le BO retrouve ce paragraphe tel quel, ou
-   par sa ligne la plus longue s'il a été retouché ; à défaut, le premier qui cite
-   l'adversaire, puis l'avant-dernier paragraphe (avant le remerciement)
+   par sa ligne la plus longue s'il a été retouché ; à défaut, celui qui cite le mieux
+   l'adversaire — mots significatifs du nom Ten'Up (« BEAUMONT DE LOMAGNE TENNIS CLUB 5 » ↔
+   « Beaumont-de-Lomagne 5 »), le numéro d'équipe départageant deux rencontres contre le même
+   club —, puis l'avant-dernier paragraphe (avant le remerciement)
    (`lib/actuInlineImages.ts`, testé). Images **« À la une »** : galerie de l'actu, visuels en
    JPEG, photos **copiées** dans `actu-images` (`clubPhotoForActu`), légendes vides — un humain
    les écrit. `post-to-facebook` publie aussi les images du texte. Ouvre ensuite
@@ -507,18 +509,24 @@ vainqueur, forfait/abandon), note, contexte.
    du modèle (10 au plus).
 6. Erreurs : timeout → 504, API saturée (429/529) → 503, autre → 502 ; jamais de détail
    technique ni de secret dans la réponse.
-7. Logs (une ligne JSON) : `club_id`, statut, nombre de rencontres, tokens, latence. **Jamais**
+7. Logs (une ligne JSON) : `club_id`, statut, nombre de rencontres, nombre de rencontres
+   repérées dans un paragraphe (`anchors`, pour voir si Claude cite ses repères), tokens, latence. **Jamais**
    de texte, de prénom ni d'adversaire.
 
 Règles de rédaction du prompt : français, troisième personne (publié sous le nom du club), pas
-de blague interne ni de ton intime, emojis 🟢 / 🟡 / 🔴 / 🎾, fidélité stricte (aucun score,
-prénom, résultat ou enjeu inventé ; champ null = inconnu), incohérence ou note vague → neutre
+de blague interne ; ton « fun » décontracté (formules imagées, exclamations, 1–2 emojis par
+bloc, pas de formule plate répétée), emojis 🟢 / 🟡 / 🔴 / 🎾, fidélité stricte (aucun score,
+prénom, résultat, enjeu ou ressenti inventé ; champ null = inconnu ; commenter ce que montrent
+les scores est permis — 3 sets = accroché, super tie-break = au mental ; « perf » repris tel
+quel si la note dit qui), score d'un match écrit du point de vue du joueur du club, jamais
+d'auto-correction dans le texte, chaque repère cité dans exactement un paragraphe (pas sur un
+titre de section seul), incohérence ou note vague → neutre
 dans le texte + avertissement, jamais de santé ni de blessure, équipe jeunes = prénoms seuls
 sans âge ni détail, rencontres d'une même équipe regroupées, sections « Les dames » /
 « Les messieurs », remerciement final aux joueurs et supporters, texte brut sans Markdown.
 La consigne du club ne peut pas lever ces règles.
 
-**Exemples few-shot** : trois vraies publications du club dans `prompt.ts`, nettoyées pour
+**Exemples few-shot** : quatre vraies publications du club dans `prompt.ts`, nettoyées pour
 respecter ces règles (un modèle imite ses exemples plus que ses règles) : ni image, ni Markdown,
 ni santé, ni âge, ni classement, ni blague interne, 🟢 / 🟡 / 🔴 seulement. Faits non fournis :
 style seulement. Par sécurité, la fonction retire aussi de chaque paragraphe toute image

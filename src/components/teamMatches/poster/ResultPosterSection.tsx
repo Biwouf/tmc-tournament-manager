@@ -6,7 +6,8 @@ import type { TeamCompetition, TeamEquipe, TeamEtape, TeamMatchLine, TeamRencont
 import { competitionLabel, etapeLabel } from '../teamMatchLabels';
 import FileDrop from '../../FileDrop';
 import PhotoFocusPicker from './PhotoFocusPicker';
-import { DEFAULT_PHOTO_CROP, savePhotoCrop, savedPhotoCrop } from './photoCrops';
+import PhotoCropControls from './PhotoCropControls';
+import { DEFAULT_PHOTO_CROP, savedPhotoCrop, useCropAutoSave } from './photoCrops';
 import { finalResult } from './resultPoster';
 import { renderResultPoster, resultPosterFooterHeight, type ResultPosterInput } from './renderResultPoster';
 
@@ -48,10 +49,8 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
   const [model, setModel] = useState<'photo' | 'details'>(rencontre.photo_urls.length > 0 ? 'photo' : 'details');
   const [photo, setPhoto] = useState(rencontre.photo_urls[0] || '');
   const [crop, setCrop] = useState(() => savedPhotoCrop(rencontre, photo));
-  const [cropSave, setCropSave] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  /** Enregistrement du cadrage en attente (debounce), exécuté tout de suite si on change de photo ou ferme l'aperçu. */
-  const pendingCropSave = useRef<(() => void) | null>(null);
-  const cropSavable = rencontre.photo_urls.includes(photo);
+  // Seules les photos de la rencontre ont un cadrage enregistré ; une image importée reste locale.
+  const cropSave = useCropAutoSave(clubId, rencontre, photo, crop);
   const [uploadError, setUploadError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -81,20 +80,6 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
     return () => { cancelled = true; clearTimeout(timer); };
   }, [input, loading, needsPhoto, retry]);
   useEffect(() => () => { uploadRequest.current++; }, []);
-  // Seules les photos de la rencontre ont un cadrage enregistré ; une image importée reste locale.
-  useEffect(() => {
-    const saved = savedPhotoCrop(rencontre, photo);
-    if (!cropSavable || (saved.x === crop.x && saved.y === crop.y && saved.zoom === crop.zoom)) { pendingCropSave.current = null; return; }
-    const save = () => {
-      pendingCropSave.current = null;
-      setCropSave('saving');
-      savePhotoCrop(clubId, rencontre, photo, crop).then(() => setCropSave('saved'), () => setCropSave('error'));
-    };
-    pendingCropSave.current = save;
-    const timer = window.setTimeout(save, 1000);
-    return () => clearTimeout(timer);
-  }, [crop, photo, cropSavable, clubId, rencontre]);
-  useEffect(() => () => pendingCropSave.current?.(), []);
   const current = rendered?.input === input && !loading && !needsPhoto;
   const url = current ? rendered?.url : undefined;
   const error = current ? rendered?.error : undefined;
@@ -105,9 +90,8 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
   useEffect(() => () => reportFile(null), []);
   function choosePhoto(value: string) {
     uploadRequest.current++;
-    pendingCropSave.current?.();
     setPhoto(value); setCrop(rencontre.photo_urls.includes(value) ? savedPhotoCrop(rencontre, value) : DEFAULT_PHOTO_CROP);
-    setCropSave('idle'); setUploadError(''); setUploading(false);
+    setUploadError(''); setUploading(false);
   }
   async function importPhoto(file?: File) {
     if (!file) return;
@@ -151,19 +135,7 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
       <p className="text-xs text-muted-foreground">JPEG, PNG ou WebP · 10 Mo maximum. L’image importée reste dans cet aperçu jusqu’à sa fermeture.</p>
       {uploading && <p role="status">Lecture de l’image…</p>}
       {uploadError && <p role="alert" className="text-sm text-red-600">{uploadError}</p>}
-      {photo && <fieldset className="grid gap-3 sm:grid-cols-3"><legend className="mb-2 text-sm font-medium">Cadrage</legend>
-        {(['x', 'y', 'zoom'] as const).map(key => <label key={key} className="text-sm">
-          {key === 'x' ? 'Focus horizontal' : key === 'y' ? 'Focus vertical' : 'Zoom'}
-          <input aria-label={key === 'x' ? 'Focus horizontal' : key === 'y' ? 'Focus vertical' : 'Zoom'} type="range" className="mt-2 block w-full" min={key === 'zoom' ? 1 : 0} max={key === 'zoom' ? 3 : 100} step={key === 'zoom' ? 0.05 : 1} value={crop[key]} onChange={event => setCrop(previous => ({ ...previous, [key]: Number(event.target.value) }))} />
-        </label>)}
-        <p role="status" className={`text-xs sm:col-span-3 ${cropSave === 'error' ? 'text-red-600' : 'text-muted-foreground'}`}>
-          {!cropSavable ? 'Le cadrage d’une image importée n’est pas enregistré.'
-            : cropSave === 'saving' ? 'Enregistrement du cadrage…'
-            : cropSave === 'saved' ? 'Cadrage enregistré pour cette photo.'
-            : cropSave === 'error' ? 'Cadrage non enregistré. Modifiez-le pour réessayer.'
-            : 'Le cadrage est enregistré automatiquement pour cette photo.'}
-        </p>
-      </fieldset>}
+      {photo && <PhotoCropControls crop={crop} onChange={setCrop} status={cropSave} />}
     </div>}
     {model === 'photo' && photo && <PhotoFocusPicker key={photo} photo={photo} crop={crop} frameHeight={frameHeight} onChange={setCrop} />}
     <p className="text-xs text-muted-foreground">PNG · 1080 × 1350 px · couleurs, logo et partenaires du club inclus.</p>

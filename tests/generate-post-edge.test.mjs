@@ -176,7 +176,7 @@ test('generate-post: admin + quota before Claude, facts from the database, count
     assert.match(sent, /"note": "perf"/);
     for (const surname of ['Martin', 'DUPONT', 'Durand', 'Roux', 'user-token', 'admin']) assert.ok(!sent.includes(surname), `${surname} is not sent to Claude`);
     const okLog = JSON.parse(logs.at(-1));
-    assert.deepEqual(Object.keys(okLog).sort(), ['club_id', 'fn', 'input_tokens', 'latency_ms', 'output_tokens', 'rencontres', 'status']);
+    assert.deepEqual(Object.keys(okLog).sort(), ['anchors', 'club_id', 'fn', 'input_tokens', 'latency_ms', 'output_tokens', 'rencontres', 'status']);
     assert.ok(!logs.join('\n').match(/Paul|Jean|TC Voisin|Les messieurs|sk-secret/), 'logs carry neither content nor names');
     assert.match(sent, /"ref": "R1"/);
 
@@ -216,4 +216,24 @@ test('team spirit visuals go inline, right after the paragraph about their encou
     'Récap !\n\nCôté dames\n🔴 Défaite 0-3 à Montauban en Challenge d’Hiver.\n\n![](u)\n\nMerci !');
   assert.equal(insertInlineImages('Intro\n\nAutre chose\n\nFin', [{ anchor: 'paragraphe disparu après réécriture', adversaire: 'Rival', url: 'u' }]),
     'Intro\n\nAutre chose\n\n![](u)\n\nFin', 'anchor lost: fallback before the last paragraph');
+  // Week-end du 15/11/2026 sans repère de Claude : noms Ten'Up complets, texte en noms courts,
+  // deux rencontres contre Léojac et deux contre Beaumont-de-Lomagne.
+  const weekend = [
+    'Un week-end bien chargé ! 🎾',
+    'Les dames\n🔴 Équipe 2 contre Léojac (domicile) : défaite 3-0.',
+    '🔴 Équipe 1 contre Montauban (extérieur) : défaite 3-0.',
+    'Les messieurs\n🟢 Équipe 4 contre Beaumont-de-Lomagne 5 (domicile) : victoire 2-1 !',
+    '🟢 Équipe 1 contre Saint-Étienne 1 (domicile) : victoire 2-1 !',
+    '🔴 Équipe 1 à Beaumont-de-Lomagne 1 (extérieur) : défaite 2-1.',
+    '🔴 Équipe 3 à Léojac 1 (extérieur) : défaite 3-0.',
+    'Bravo à tous ! 🎾❤️',
+  ];
+  const placed = insertInlineImages(weekend.join('\n\n'), [
+    { adversaire: 'BEAUMONT DE LOMAGNE TENNIS CLUB 1', url: 'b1' },
+    { adversaire: 'LEOJAC TENNIS CLUB 1', url: 'l1' },
+    { adversaire: 'BEAUMONT DE LOMAGNE TENNIS CLUB 5', url: 'b5' },
+    { adversaire: 'LEOJAC TENNIS CLUB 2', url: 'l2' },
+    { adversaire: 'SAINT ETIENNE TENNIS CLUB 1', url: 's1' },
+  ]).split('\n\n');
+  assert.deepEqual(placed, [weekend[0], weekend[1], '![](l2)', weekend[2], weekend[3], '![](b5)', weekend[4], '![](s1)', weekend[5], '![](b1)', weekend[6], '![](l1)', weekend[7]]);
 });

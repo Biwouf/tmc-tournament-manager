@@ -127,6 +127,9 @@ rencontre depuis sa fiche ; comme au BO, la rencontre repasse alors à confirmer
 - `team_rencontre_set_date(club, rencontre, date)` (SECURITY DEFINER) : seul chemin d'écriture
   de la date côté PWA. Il remet lui-même `confirmed_at`/`confirmed_by` à `NULL`, car
   `guard_team_encounter` ne le fait pas quand l'écriture vient du propriétaire de la fonction.
+- Un changement de jour marque la rencontre `date_manuelle` (trigger, 18/11/2026) : la
+  synchronisation Ten'Up ne remettra plus la date de la feuille. Voir `TEAM_MATCHES.md`,
+  *Date modifiée par le club*.
 
 ### Photos de rencontre — 26 octobre 2026
 - Section *Photos* sur la fiche rencontre (`TeamPhotos`) : grille visible de tous (bucket public).

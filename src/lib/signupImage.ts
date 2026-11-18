@@ -56,3 +56,21 @@ export async function prepareSignupImage(file: File, kind: 'logo' | 'photo'): Pr
 export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   return (await fetch(dataUrl)).blob();
 }
+
+/**
+ * Onboarding Ten'Up d'abord (écran 02) : teintes du logo copié par `tenup-lookup` dans notre
+ * stockage public (CORS ouvert). Lecture impossible → `[]`, la carte propose les échantillons.
+ */
+export async function paletteFromUrl(url: string): Promise<string[]> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return [];
+    const bitmap = await createImageBitmap(await response.blob());
+    const thumb = document.createElement('canvas');
+    thumb.width = 48; thumb.height = 48;
+    const ctx = thumb.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(bitmap, 0, 0, 48, 48);
+    bitmap.close();
+    return extractPalette(ctx.getImageData(0, 0, 48, 48).data);
+  } catch { return []; }
+}
