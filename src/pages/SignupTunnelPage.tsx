@@ -2,12 +2,16 @@ import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'r
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { signupSlugProblem } from '../../shared/clubSlug.mjs';
+import { formatClubName, shortNameFor } from '../../shared/clubName.mjs';
 import {
-  accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, loadDraft, saveDraft, signupConfig, slugify,
-  slugMessage, submitClubSignup, suggestSlug, type FieldProblem, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
+  accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, loadDraft, rememberTenupLink, saveDraft, signupConfig, slugify,
+  slugMessage, stepPosition, submitClubSignup, suggestSlug,
+  type FieldProblem, type LookupResult, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
 } from '../lib/clubSignup';
-import { dataUrlToBlob, prepareSignupImage, SIGNUP_IMAGE_TYPES } from '../lib/signupImage';
+import { tidyCase } from '../lib/tenupSiteImport';
+import { dataUrlToBlob, paletteFromUrl, prepareSignupImage, SIGNUP_IMAGE_TYPES } from '../lib/signupImage';
 import Turnstile, { type TurnstileHandle } from '../components/signup/Turnstile';
+import { AlreadyStep, ConfirmStep, FindStep } from '../components/signup/TenupSteps';
 import { AppPreview, SitePreview } from '../components/signup/SignupPreview';
 import '@fontsource/instrument-sans/latin-400';
 import '@fontsource/instrument-sans/latin-500';
@@ -18,13 +22,14 @@ import '@fontsource/big-shoulders-display/latin-900';
 import '@fontsource-variable/manrope';
 import '../components/signup/signup.css';
 
-// SaaS S3 — tunnel public `admin.feelike.pro/inscription` (docs/specs/SAAS_ONBOARDING.md §7).
-// Monté par AdminEntry hors de toute résolution de club et de toute session. Quatre étapes,
-// puis la confirmation ; tout est écrit en une fois par `club-signup` à l'étape 4.
+// SaaS S3 — tunnel public `admin.feelike.pro/inscription` (docs/specs/SAAS_ONBOARDING.md §7, §14).
+// Monté par AdminEntry hors de toute résolution de club et de toute session. P1 « Ten'Up d'abord » :
+// 01 lien Ten'Up → 02 « C'est bien votre club ? » → 03 e-mail ; ou 01 → M1-M3 (saisie manuelle) → 03.
+// Tout est écrit en une fois par `club-signup` à l'écran 03.
 
 const CONFIG = signupConfig(import.meta.env);
 const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/club-signup`;
-const STEP_LABELS = ['Club', 'Logo', 'Adresse', 'Compte'];
+const LOOKUP_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tenup-lookup`;
 
 /** Champ qui reçoit le focus pour chaque manque (Turnstile : son cadre, par ref). */
 const FIELD_IDS = { name: 'fl-club', city: 'fl-city', email: 'fl-email', consent: 'fl-consent', turnstile: '' } as const;
@@ -81,6 +86,8 @@ function Tunnel() {
   // Étape 3 : envoyée pendant la vérification de l'adresse → on avance dès qu'elle aboutit.
   const [advance, setAdvance] = useState(false);
   const [preview, setPreview] = useState<{ open: boolean; tab: 'site' | 'app' }>({ open: false, tab: 'site' });
+  // Écran 01 : message venu de la création (lecture Ten'Up expirée).
+  const [findNotice, setFindNotice] = useState('');
   const turnstile = useRef<TurnstileHandle>(null);
   const turnstileBox = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -115,13 +122,42 @@ function Tunnel() {
   }, [step, draft.slug]);
 
   const update = (patch: Partial<SignupDraft>) => { setError(''); setMissing(null); setAdvance(false); setDraft(current => ({ ...current, ...patch })); };
-  const go = (next: SignupStep) => { setError(''); setStatus(''); setMissing(null); setAdvance(false); setDraft(current => ({ ...current, step: next })); };
+  const go = (next: SignupStep) => { setError(''); setStatus(''); setMissing(null); setAdvance(false); setFindNotice(''); setDraft(current => ({ ...current, step: next })); };
+
+  /** 02 : le club lu. Même club relu (jeton expiré) → les retouches sont gardées. */
+  function found(result: LookupResult) {
+    const same = draft.mode === 'tenup' && draft.tenup?.tenup_club_id === result.tenup_club_id;
+    const name = same ? draft.name : formatClubName(result.name);
+    const sample = COLOR_SAMPLES[0].colors[0];
+    update({
+      mode: 'tenup', tenup: result, alreadyName: null, logo: null, photo: null, name,
+      city: same ? draft.city : tidyCase(result.city ?? ''),
+      shortName: same && draft.shortNameEdited ? draft.shortName : shortNameFor(name).slice(0, 12),
+      shortNameEdited: same && draft.shortNameEdited,
+      ...(same ? {} : { slug: '', slugEdited: false, sample: null, palette: [], color: result.logo_url ? BRAND_FALLBACK : sample }),
+    });
+    go('confirm');
+    // Couleur tirée du logo (copié dans notre stockage) : la première teinte est choisie.
+    if (!same && result.logo_url) {
+      void paletteFromUrl(result.logo_url).then(palette => setDraft(current => current.tenup?.tenup_club_id !== result.tenup_club_id ? current
+        : palette.length ? { ...current, palette: palette.slice(0, 3), color: palette[0] } : { ...current, color: sample }));
+    }
+  }
+  /** 01b : rien du club existant, seulement le nom Ten'Up s'il est connu. */
+  function already(tenupClubId: string, tenupName: string | null) {
+    const known = draft.tenup?.tenup_club_id === tenupClubId ? draft.name : null;
+    update({ mode: 'tenup', alreadyName: tenupName ? formatClubName(tenupName) : known });
+    go('already');
+  }
+  const manual = () => { update({ mode: 'manual' }); go(1); };
+  /** « Ce n'est pas mon club » (01b, 02) : retour à 01, champ vidé. */
+  const notMine = () => { update({ tenupUrl: '', tenup: null, alreadyName: null }); go('find'); };
 
   const name = draft.name.trim();
   const city = draft.city.trim();
   const slugReady = slugCheck.state === 'available' || slugCheck.state === 'error';
   useEffect(() => {
-    if (advance && step === 3 && slugReady) go(4);
+    if (advance && step === 3 && slugReady) go('account');
     else if (advance && slugCheck.state === 'unavailable') { setAdvance(false); document.getElementById('fl-slug')?.focus(); }
   }, [advance, step, slugReady, slugCheck.state]);
   const suggestion = slugCheck.state === 'unavailable' && slugCheck.reason === 'taken' ? suggestSlug(draft.slug, city) : null;
@@ -145,6 +181,9 @@ function Tunnel() {
 
   function applyFailure(outcome: Extract<SignupOutcome, { ok: false }>, email: string, resend: boolean) {
     if (outcome.resetTurnstile) turnstile.current?.reset();
+    // P1 : club rattaché entre-temps → 01b ; jeton de lecture expiré → on relit le club (lien gardé).
+    if (outcome.lookup === 'already' && !resend) { update({ alreadyName: draft.name.trim() || null }); go('already'); return; }
+    if (outcome.lookup === 'expired' && !resend) { go('find'); setFindNotice(outcome.message); return; }
     let message = outcome.message;
     // Nouvelle adresse e-mail, même slug : le club en attente du premier envoi le garde.
     if (outcome.slugReason === 'taken' && draft.sent?.slug === draft.slug && draft.sent.email !== email) {
@@ -152,8 +191,10 @@ function Tunnel() {
     }
     if (outcome.slugReason) setSlugCheck({ state: 'unavailable', reason: outcome.slugReason });
     setError(message);
-    // Un renvoi qui échoue reste sur la confirmation ; une création, à l'étape à corriger.
-    if (!resend && outcome.step !== step) setDraft(current => ({ ...current, step: outcome.step }));
+    // Un renvoi qui échoue reste sur la confirmation ; une création, à l'étape à corriger
+    // (en branche Ten'Up, adresse et images se corrigent sur la carte).
+    const target: SignupStep = outcome.step === 4 ? 'account' : draft.mode === 'tenup' ? 'confirm' : outcome.step;
+    if (!resend && target !== step) setDraft(current => ({ ...current, step: target }));
   }
 
   /** Le premier manque : message sous son champ, focus dessus. */
@@ -169,7 +210,7 @@ function Tunnel() {
   /** Étape 3 : adresse refusée → focus sur le champ (son message est dessous) ; en cours de
    *  vérification → on avance dès la réponse. */
   function submitSlug() {
-    if (slugReady) go(4);
+    if (slugReady) go('account');
     else if (slugCheck.state === 'unavailable') document.getElementById('fl-slug')?.focus();
     else setAdvance(true);
   }
@@ -195,10 +236,16 @@ function Tunnel() {
       const [logo, photo] = resend ? [null, null] : await Promise.all([
         draft.logo ? dataUrlToBlob(draft.logo) : null, draft.photo ? dataUrlToBlob(draft.photo) : null,
       ]);
+      // Branche Ten'Up : jeton de lecture et nom court ; logo et bandeau sont copiés par le serveur.
+      const tenup = draft.mode === 'tenup' && draft.tenup ? { lookupToken: draft.tenup.lookup_token, shortName: draft.shortName } : {};
       const outcome = await submitClubSignup(fetch, ENDPOINT, {
-        name, city, slug: draft.slug, color: draft.color, email, turnstileToken: token, logo, photo,
+        name, city, slug: draft.slug, color: draft.color, email, turnstileToken: token, logo, photo, ...tenup,
       });
       if (outcome.ok) {
+        // Branche manuelle : le lien Ten'Up collé en 01 préremplira l'étape Équipes (autre onglet).
+        if (draft.mode === 'manual' && draft.tenupUrl.trim()) {
+          try { rememberTenupLink(window.localStorage, draft.slug, draft.tenupUrl); } catch { /* stockage indisponible */ }
+        }
         if (resend) { turnstile.current?.reset(); setStatus(`Lien renvoyé à ${email}.`); }
         else setDraft(current => ({ ...current, step: 'sent', sent: { email, slug: current.slug } }));
         setToken(null);
@@ -206,14 +253,17 @@ function Tunnel() {
     } finally { setBusy(false); }
   }
 
-  const previewData = { name: draft.name, city: draft.city, slug: draft.slug, color: draft.color, logo: draft.logo, photo: draft.photo };
-  const kicker = (index: number, time: string) => <span className="fl-kicker">Étape {index} sur 4 · {time}</span>;
+  const fromTenup = draft.mode === 'tenup' ? draft.tenup : null;
+  const previewData = { name: draft.name, city: draft.city, slug: draft.slug, color: draft.color,
+    logo: draft.logo ?? fromTenup?.logo_url ?? null, photo: draft.photo ?? fromTenup?.banner_url ?? null };
+  const kicker = (time: string) => <span className="fl-kicker">{time}</span>;
   const openPreview = () => {
     setPreview({ open: true, tab: 'app' });
     window.requestAnimationFrame(() => document.getElementById('fl-preview-body')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   // P0 : sur mobile, l'app reste visible sous le titre ; « Voir l'aperçu » garde la version complète.
-  const mini = mobile && (
+  // P1 : pas de vignette sur la carte « C'est bien votre club ? » (ses rencontres d'exemple passeraient pour le vrai calendrier).
+  const mini = mobile && step !== 'find' && step !== 'already' && step !== 'confirm' && (
     <button type="button" className="fl-mini" aria-controls="fl-preview-body" onClick={openPreview}>
       <span className="fl-mini-phone" aria-hidden="true"><AppPreview data={previewData} /></span>
       <span className="fl-mini-text">
@@ -227,31 +277,44 @@ function Tunnel() {
   const alert = <div role="alert" className="fl-alert">{error}</div>;
   const back = (to: SignupStep, label = 'Retour') => <button type="button" className="fl-ghost" onClick={() => go(to)}>{label}</button>;
 
-  const current = step === 'sent' ? 5 : step;
+  const position = stepPosition(draft);
 
   return (
     <div className="fl">
       <header className="fl-head">
         <div className="fl-head-row">
           <Logo />
-          <ol className="fl-steps" aria-label="Étapes">
-            {STEP_LABELS.map((label, i) => (
-              <li key={label} className={i + 1 === current ? 'current' : i + 1 < current ? 'done' : ''} aria-current={i + 1 === current ? 'step' : undefined}>
-                <span className="fl-step-label">0{i + 1} · {label}</span>
-                <span className="fl-sr">{i + 1 < current ? ' (fait)' : ''}</span>
-              </li>
-            ))}
-          </ol>
+          {position && (
+            <div className="fl-progress">
+              <span className="fl-count">{position.index > position.total ? 'C’est presque fini' : `Étape ${position.index} sur ${position.total}`}</span>
+              <span className="fl-bar" aria-hidden="true">
+                {Array.from({ length: position.total }, (_, i) => <span key={i} className={i < position.index ? 'on' : ''} />)}
+              </span>
+            </div>
+          )}
           <span className="fl-head-login">Déjà un compte ? <Link to="/login">Connexion</Link></span>
         </div>
       </header>
 
       <main className="fl-main">
         <section className="fl-form" aria-label="Inscription">
+          {step === 'find' && (
+            <FindStep draft={draft} update={update} title={title} siteKey={CONFIG.siteKey} endpoint={LOOKUP_ENDPOINT} notice={findNotice}
+              onFound={found} onAlready={already} onManual={manual} />
+          )}
+
+          {step === 'already' && <AlreadyStep name={draft.alreadyName} title={title} onNotMine={notMine} />}
+
+          {step === 'confirm' && draft.tenup && (
+            <ConfirmStep draft={{ ...draft, tenup: draft.tenup }} update={update} title={title} error={alert}
+              slugCheck={slugCheck} setSlugCheck={setSlugCheck} onConfirm={() => go('account')} onNotMine={notMine} />
+          )}
+
           {step === 1 && (
             <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submitClub(); }}>
-              {kicker(1, '15 secondes')}
-              {title('Comment s’appelle votre club ?')}
+              <button type="button" className="fl-link" onClick={() => go('find')}>← Retrouver mon club sur Ten’Up</button>
+              {kicker('15 secondes')}
+              {title('Comment s’appelle votre club\u00a0?')}
               <p className="fl-lede">Votre site et votre app se construisent pendant que vous tapez.</p>
               <div className="fl-field">
                 <label htmlFor="fl-club" className="fl-label">Nom du club</label>
@@ -276,7 +339,7 @@ function Tunnel() {
 
           {step === 2 && (
             <div className="fl-step">
-              {kicker(2, '20 secondes')}
+              {kicker('20 secondes')}
               {title('Votre logo, votre photo. On s’occupe du reste.')}
               <label className="fl-drop">
                 <input type="file" accept={SIGNUP_IMAGE_TYPES.join(',')} aria-describedby="fl-logo-help" disabled={busy}
@@ -338,7 +401,7 @@ function Tunnel() {
 
           {step === 3 && (
             <form className="fl-step" onSubmit={event => { event.preventDefault(); submitSlug(); }}>
-              {kicker(3, '10 secondes')}
+              {kicker('10 secondes')}
               {title('Votre adresse sur le circuit.')}
               <div className="fl-field">
                 <label htmlFor="fl-slug" className="fl-label">Adresse du club</label>
@@ -370,11 +433,11 @@ function Tunnel() {
             </form>
           )}
 
-          {step === 4 && (
+          {step === 'account' && (
             <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submitAccount(); }}>
-              {kicker(4, 'dernière ligne droite')}
-              {title('Gardez votre club.')}
-              <p className="fl-lede">Tout ce que vous voyez dans l’aperçu est enregistré. Il ne manque que l’e-mail de l’administrateur du club.</p>
+              {kicker('dernière ligne droite')}
+              {title(`Gardez ${(draft.mode === 'tenup' && draft.shortName.trim()) || name || 'votre club'}`)}
+              <p className="fl-lede">Votre e-mail sert à vous reconnecter. Pas de mot de passe, pas de carte bancaire.</p>
               <div className="fl-field">
                 <label htmlFor="fl-email" className="fl-label">Votre e-mail</label>
                 <input id="fl-email" className="fl-input" type="email" autoComplete="email" inputMode="email" maxLength={254} required
@@ -400,7 +463,7 @@ function Tunnel() {
                 </button>
                 <span className="fl-small">Sans carte bancaire. Un lien de connexion vous attend dans votre boîte mail.</span>
               </div>
-              <button type="button" className="fl-link" onClick={() => go(3)}>← Retour</button>
+              <button type="button" className="fl-link" onClick={() => go(draft.mode === 'tenup' && draft.tenup ? 'confirm' : 3)}>← Retour</button>
             </form>
           )}
 
@@ -419,7 +482,7 @@ function Tunnel() {
                 <button type="button" className="fl-cta" disabled={busy || !token} onClick={() => void submit(true)}>
                   {busy ? 'Envoi…' : 'Renvoyer le lien'}
                 </button>
-                <button type="button" className="fl-ghost" onClick={() => { update({ email: draft.sent!.email }); go(4); }}>Changer d’adresse</button>
+                <button type="button" className="fl-ghost" onClick={() => { update({ email: draft.sent!.email }); go('account'); }}>Changer d’adresse</button>
               </div>
             </div>
           )}

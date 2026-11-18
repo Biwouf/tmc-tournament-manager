@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import type { Club } from '../../contexts/ClubContext';
@@ -12,22 +12,33 @@ import { isTenupClubUrl, normalizeTenupClubUrl } from '../../../shared/tenupClub
 import { previewTenupClub } from '../../../shared/tenupClubClient';
 import { startTenupSiteBackground } from '../../lib/tenupSiteClient';
 import { logOnboardingEvent } from '../../lib/onboardingEvents';
+import { rememberedTenupLink } from '../../lib/clubSignup';
 import DraftFields from './DraftFields';
 
 // SaaS S6b — toutes les équipes du club depuis la page Ten'Up de ses rencontres : lecture de la
 // page (1 lecture), choix (tout coché), compétitions (1 lecture par championnat nouveau, champs
 // manquants demandés), puis une lecture et une création par poule. Logique : `clubImport.ts`.
+// Onboarding P1 : `tenupClubId` connu → aucun champ, la page des rencontres est lue d'office
+// (`autoRead`, une fois) ; sinon le champ est prérempli du lien saisi au tunnel (`rememberedTenupLink`).
 
 type Phase = 'idle' | 'reading' | 'select' | 'preparing' | 'needs' | 'importing' | 'done';
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
-export default function ClubImport({ club, onImported, onBusy }: {
+export default function ClubImport({ club, tenupClubId = null, autoRead = false, onImported, onBusy }: {
   club: Club;
+  /** Identifiant Ten'Up du club (`clubs.tenup_club_id`) : plus de lien à coller. */
+  tenupClubId?: string | null;
+  /** Avec `tenupClubId`, lit la page dès l'arrivée (pas d'équipe encore importée). */
+  autoRead?: boolean;
   /** Une équipe vient d'être créée : la liste et l'aperçu se relisent. */
   onImported: () => void;
   onBusy: (busy: boolean) => void;
 }) {
-  const [url, setUrl] = useState('');
+  const known = tenupClubId ? `https://tenup.fft.fr/club/${tenupClubId}/competitions/rencontres` : null;
+  const [url, setUrl] = useState(() => {
+    if (known) return known;
+    try { return rememberedTenupLink(window.localStorage, club.slug) ?? ''; } catch { return ''; }
+  });
   const [urlError, setUrlError] = useState<string | null>(null);
   const [phase, setPhaseState] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +49,7 @@ export default function ClubImport({ club, onImported, onBusy }: {
   // Par championnat, les champs que TEN'UP n'a pas permis de déduire : eux seuls sont demandés.
   const [asked, setAsked] = useState<Record<string, ReturnType<typeof missingFields>>>({});
   const [outcomes, setOutcomes] = useState<Record<string, TeamOutcome>>({});
+  const started = useRef(false);
   const setPhase = (next: Phase) => { setPhaseState(next); onBusy(['reading', 'preparing', 'importing'].includes(next)); };
 
   const changeUrl = (value: string) => {
@@ -48,6 +60,7 @@ export default function ClubImport({ club, onImported, onBusy }: {
 
   const read = async () => {
     if (!isTenupClubUrl(url)) return;
+    started.current = true;
     setPhase('reading'); setError(null);
     try {
       const saison = await ensureSeason(supabase, club.id);
@@ -67,6 +80,10 @@ export default function ClubImport({ club, onImported, onBusy }: {
       setPhase('idle');
     }
   };
+
+  useEffect(() => {
+    if (known && autoRead && !started.current) void read();
+  }, [known, autoRead]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selection = groups
     .map((group) => ({ group, teams: group.teams.filter((t) => !t.imported && !unchecked.has(t.key)) }))
@@ -123,7 +140,13 @@ export default function ClubImport({ club, onImported, onBusy }: {
   const importedTeams = groups.flatMap((g) => g.teams).filter((t) => outcomes[t.key] && (phase !== 'done' || outcomes[t.key].status === 'failed'));
 
   return <>
-    {phase === 'idle' && (
+    {phase === 'idle' && known && (
+      <div className="fs-actions">
+        <button type="button" className="fs-btn fs-btn-p" onClick={read}>{error ? 'Réessayer' : 'Trouver mes équipes'}</button>
+      </div>
+    )}
+
+    {phase === 'idle' && !known && (
       <div className="fs-group">
         <label className="fs-label" htmlFor="fs-club-url">Lien des rencontres de votre club sur TEN’UP</label>
         <input id="fs-club-url" className="fs-input" type="url" inputMode="url" value={url} aria-invalid={Boolean(urlError)}

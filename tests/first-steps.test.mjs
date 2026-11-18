@@ -603,6 +603,37 @@ test('club page without upcoming encounter: the pool link stays available', asyn
   await unmount();
 });
 
+// --- Onboarding P1 : étape Équipes sans lien quand le club vient de Ten'Up ---
+test('onboarding P1: tenup_club_id known → no link field, the club page is read on arrival', async () => {
+  atTeams(); db.clubs = [{ id: 'c1', tenup_club_id: '60820110' }];
+  tenup.club = { club: 'TC ALPHA', skipped: 0, teams: [{ pool_url: POOL_URL, competition: 'Pyrénées Interclubs', team: 'TC ALPHA 1', level: 'Départemental', category: 'Senior', genre: 'Homme', dates: ['dimanche 22 novembre 2026'] }] };
+  const unmount = await mount(page());
+  for (let i = 0; i < 4; i++) await flush();
+  assert.equal(document.getElementById('fs-club-url'), null, 'no link to paste');
+  assert.match(text(), /Vos équipes arrivent de TEN’UP/);
+  assert.deepEqual(log.filter(l => l[0] === 'tenup').map(l => l[1]), ['club'], 'read once, without a click');
+  assert.match(text(), /1 équipe trouvée sur TEN’UP/);
+  assert.ok(buttonNamed('Importer 1 équipe'));
+  await click('Annuler');
+  assert.ok(buttonNamed('Trouver mes équipes'), 'a read can be started again, still without a link');
+  assert.equal(document.getElementById('fs-club-url'), null);
+  await unmount();
+});
+
+test('onboarding P1: no tenup_club_id → the link typed in the signup tunnel is prefilled, for this club only', async () => {
+  atTeams();
+  window.localStorage.setItem('feelike_signup_tenup_link', JSON.stringify({ slug: 'tc-alpha', url: 'https://tenup.fft.fr/club/60820110' }));
+  let unmount = await mount(page());
+  assert.equal(document.getElementById('fs-club-url').value, 'https://tenup.fft.fr/club/60820110/competitions/rencontres');
+  assert.deepEqual(log.filter(l => l[0] === 'tenup'), [], 'nothing read before the click');
+  await unmount();
+  window.localStorage.setItem('feelike_signup_tenup_link', JSON.stringify({ slug: 'autre-club', url: 'https://tenup.fft.fr/club/60820110' }));
+  unmount = await mount(page());
+  assert.equal(document.getElementById('fs-club-url').value, '');
+  await unmount();
+  window.localStorage.removeItem('feelike_signup_tenup_link');
+});
+
 // --- S7 : étape « Vos affiches » et fond aux couleurs du club ---
 const atPosters = () => reset({ onboarding: { completed_steps: ['equipes'] } });
 const soon = () => new Date(Date.now() + 60_000).toISOString();
