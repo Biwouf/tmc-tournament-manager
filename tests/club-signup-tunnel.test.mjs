@@ -565,7 +565,7 @@ test('P1 parcours Ten’Up complet : lien → carte préremplie → e-mail → c
     // 02 : la carte.
     assert.match(text(), /Étape 2 sur 3/);
     assert.equal(document.activeElement.tagName, 'H1', 'focus sur le titre à l’arrivée');
-    assert.equal(document.activeElement.textContent, 'C’est bien votre club ?');
+    assert.equal(document.activeElement.textContent, 'C’est bien votre club\u00a0?');
     const card = t.container.querySelector('section.fl-card');
     assert.equal(card.getAttribute('aria-labelledby'), 'fl-card-name');
     assert.equal(card.querySelector('#fl-card-name').textContent, 'Moissac Tennis Club');
@@ -603,6 +603,7 @@ test('P1 parcours Ten’Up complet : lien → carte préremplie → e-mail → c
     // 03 : l'accès.
     assert.match(text(), /Étape 3 sur 3/);
     assert.equal(t.container.querySelector('h1').textContent, 'Gardez Moissac');
+    assert.equal(t.container.querySelector('.fl-lede').textContent, 'Votre e-mail sert à vous reconnecter. Pas de mot de passe, pas de carte bancaire.');
     await t.type('fl-email', 'president@moissac-tc.fr');
     await t.click(t.container.querySelector('#fl-consent'));
     await t.click(t.button('Créer mon club · 30 jours offerts'));
@@ -657,7 +658,7 @@ test('P1 écran 01 : lecture en cours — bouton occupé, champ en lecture seule
     assert.equal(status.textContent, 'Ten’Up met un peu de temps à répondre…');
     await t.act(async () => release());
     await t.settle(10);
-    assert.match(t.container.textContent, /C’est bien votre club \?/);
+    assert.match(t.container.textContent, /C’est bien votre club\u00a0\?/);
   } finally { await t.unmount(); }
 });
 
@@ -675,12 +676,13 @@ test('P1 écran 01 : introuvable, trop de demandes, anti-robot, erreur — messa
       await t.settle(10);
       assert.match(t.container.querySelector('#fl-tenup-error').textContent, message, String(status));
       assert.equal(t.container.querySelector('#fl-tenup-error').getAttribute('role'), 'alert');
+      assert.equal(t.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'true', `${status} : champ marqué en erreur (WCAG 3.3.1)`);
       assert.equal(document.activeElement.id, 'fl-tenup-url', 'focus sur le champ');
       assert.equal(Boolean(t.container.querySelector('.fl-field .fl-ghost')), manual, `${status} : « Saisir à la main » sous le champ`);
       assert.equal(t.widgets.length, 1); assert.equal(t.requests.length, 1);
       if (status === 404) {
         await t.click(t.container.querySelector('.fl-field .fl-ghost'));
-        assert.match(t.container.textContent, /Comment s’appelle votre club \?/);
+        assert.match(t.container.textContent, /Comment s’appelle votre club\u00a0\?/);
         assert.equal(t.container.querySelector('#fl-club').value, '', 'le nom n’est pas connu, rien à reporter');
       }
     } finally { await t.unmount(); }
@@ -693,6 +695,7 @@ test('P1 écran 01 : hors ligne → message, aucune requête ; Ten’Up injoigna
     await offline.type('fl-tenup-url', LINK);
     await offline.click(offline.button('Trouver mon club'));
     assert.equal(offline.container.querySelector('#fl-tenup-error').textContent, 'Pas de connexion internet. Vérifiez votre réseau puis réessayez.');
+    assert.equal(offline.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'true');
     assert.deepEqual(offline.requests, []);
     assert.ok(offline.button('Réessayer'));
   } finally { await offline.unmount(); }
@@ -704,6 +707,7 @@ test('P1 écran 01 : hors ligne → message, aucune requête ; Ten’Up injoigna
     await t.click(t.button('Trouver mon club'));
     await t.settle(10);
     assert.match(t.container.querySelector('#fl-tenup-error').textContent, /^Ten’Up ne répond pas pour le moment\./);
+    assert.equal(t.container.querySelector('#fl-tenup-url').getAttribute('aria-invalid'), 'true', '504 : champ marqué en erreur');
     assert.equal(t.button('Réessayer').className, 'fl-cta fl-cta-wide', 'Réessayer en principal');
     assert.equal(t.button('Continuer à la main').className, 'fl-ghost fl-cta-wide', 'Continuer à la main en secondaire');
     await t.click(t.button('Réessayer'));
@@ -790,7 +794,7 @@ test('P1 écran 02 : « Ce n’est pas le bon club » ; adresse courte prise →
     await full.click(full.button('Oui, c’est mon club'));
     await full.act(async () => { await new Promise(r => setTimeout(r, 30)); });
     assert.equal(document.activeElement.id, 'fl-slug');
-    assert.match(full.container.textContent, /C’est bien votre club \?/);
+    assert.match(full.container.textContent, /C’est bien votre club\u00a0\?/);
     await full.type('fl-slug', 'moissac-82');
     await full.settle();
     assert.match(full.container.querySelector('#fl-slug-msg').textContent, /✕/, 'toujours prise selon la base simulée');
@@ -836,7 +840,7 @@ test('P1 : brouillon conservé au rechargement, en 01 comme en 02', async () => 
   } finally { await again.unmount(); }
   const third = await renderTunnel({ rawDraft: raw, turnstileToken: 'jeton', respond: network(), palette: LOGO_PALETTE });
   try {
-    assert.match(third.container.textContent, /C’est bien votre club \?/, 'retour sur la carte, sans relire Ten’Up');
+    assert.match(third.container.textContent, /C’est bien votre club\u00a0\?/, 'retour sur la carte, sans relire Ten’Up');
     assert.deepEqual(third.requests, []);
     assert.match(third.container.textContent, /Nom court · écran d’accueilMTC/);
     assert.match(third.container.textContent, /Adresse webmtc\.feelike\.pro/);
@@ -874,7 +878,7 @@ test('P1 écran 03 : 409 déjà sur feelike → 01b ; 400 lecture expirée → 0
   }
 });
 
-test('P1 mobile : bouton principal collé en bas dans le flux, pas de vignette avant la carte', async () => {
+test('P1 mobile : bouton principal collé en bas dans le flux, pas de vignette jusqu’à la carte comprise', async () => {
   const css = readFileSync(join(root, 'src/components/signup/signup.css'), 'utf8');
   const mobile = css.slice(css.indexOf('@media (max-width: 719px)'));
   assert.match(mobile, /\.fl-sticky \{ position: sticky; bottom: 0;/);
@@ -886,7 +890,8 @@ test('P1 mobile : bouton principal collé en bas dans le flux, pas de vignette a
     await t.type('fl-tenup-url', LINK);
     await t.click(t.button('Trouver mon club'));
     await t.settle();
-    assert.ok(t.container.querySelector('.fl-mini'), 'vignette dès la carte');
-    assert.match(t.container.querySelector('.fl-mini-host').textContent, /app-moissac-tc\.feelike\.pro/);
+    assert.ok(t.container.textContent.includes('C’est bien votre club\u00a0?'));
+    // Ses rencontres d'exemple passeraient pour le vrai calendrier du club.
+    assert.equal(t.container.querySelector('.fl-mini'), null, 'pas de vignette sur la carte');
   } finally { await t.unmount(); }
 });

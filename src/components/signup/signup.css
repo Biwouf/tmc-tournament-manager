@@ -50,7 +50,7 @@
 .fl-form { flex: 1 1 420px; max-width: 540px; min-width: 0; padding: 56px 40px 48px; display: flex; flex-direction: column; gap: 26px; }
 .fl-step { display: flex; flex-direction: column; gap: 26px; animation: fl-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .fl-kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fl-clay); }
-.fl-h1 { margin: 0; font-family: var(--display); font-weight: 900; text-transform: uppercase; font-size: clamp(48px, 5vw, 76px); line-height: 0.86; outline: none; overflow-wrap: anywhere; }
+.fl-h1 { margin: 0; font-family: var(--display); font-weight: 900; text-transform: uppercase; font-size: clamp(48px, 5vw, 76px); line-height: 0.86; outline: none; overflow-wrap: break-word; }
 .fl-lede { margin: 0; font-size: 17px; line-height: 1.55; color: var(--fl-stone-400); }
 .fl-note { margin: 0; font-size: 15px; line-height: 1.5; color: var(--fl-stone-400); }
 .fl-field { display: flex; flex-direction: column; gap: 10px; }

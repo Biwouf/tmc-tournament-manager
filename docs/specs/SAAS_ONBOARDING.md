@@ -1083,7 +1083,13 @@ rencontres (`/club/<id>/competitions/rencontres`) est lue dès l'arrivée tant q
 d'identifiant écrit (`internal`) et ne voit pas les premiers pas.
 
 **Mobile** : bouton principal collé en bas dans le flux (`position: sticky`), cibles ≥ 44 px ; pas de
-vignette de l'app avant la carte.
+vignette de l'app sur l'écran 01 ni sur la carte (ses rencontres d'exemple passeraient pour le vrai
+calendrier du club) : elle apparaît à l'écran 03.
+
+**Champ du lien** : toute erreur affichée sous le champ (lien invalide, 404, 429, 504, hors ligne) le
+marque `aria-invalid="true"` (WCAG 3.3.1). **Écran 03** : chapô « Votre e-mail sert à vous reconnecter.
+Pas de mot de passe, pas de carte bancaire. ». Le titre (`.fl-h1`) coupe en `overflow-wrap: break-word` :
+un mot n'est coupé que s'il dépasse seul (nom long), jamais « RETROUVON / S ».
 
 **Tests** : `club-signup-tunnel` (logique : lien, codes, assainissement, carte, adresse courte, en-tête,
 envoi, brouillon, lien gardé ; rendu jsdom avec Edge simulée : parcours Ten'Up complet, attributs ARIA,

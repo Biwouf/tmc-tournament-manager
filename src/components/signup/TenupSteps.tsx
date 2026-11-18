@@ -91,7 +91,7 @@ export function FindStep({ draft, update, title, siteKey, endpoint, notice, onFo
         <label htmlFor="fl-tenup-url" className="fl-label">Lien de votre club sur Ten’Up</label>
         <input id="fl-tenup-url" className="fl-input" type="url" inputMode="url" autoComplete="off" autoCapitalize="none" spellCheck={false}
           maxLength={500} value={value} readOnly={busy}
-          aria-invalid={Boolean(fieldError)} aria-describedby={message ? 'fl-tenup-help fl-tenup-error' : 'fl-tenup-help'}
+          aria-invalid={Boolean(message)} aria-describedby={message ? 'fl-tenup-help fl-tenup-error' : 'fl-tenup-help'}
           onPaste={() => { pasted.current = true; }}
           onChange={event => {
             const next = event.target.value;
@@ -233,7 +233,7 @@ export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugChe
 
   return (
     <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submit(); }}>
-      {title('C’est bien votre club ?')}
+      {title('C’est bien votre club\u00a0?')}
       <section className="fl-card" aria-labelledby="fl-card-name">
         <div className="fl-card-banner" style={{ background: draft.color }}>
           {tenup.banner_url && images.banner !== 'error' && (

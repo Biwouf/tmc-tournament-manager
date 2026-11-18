@@ -262,7 +262,8 @@ function Tunnel() {
     window.requestAnimationFrame(() => document.getElementById('fl-preview-body')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   // P0 : sur mobile, l'app reste visible sous le titre ; « Voir l'aperçu » garde la version complète.
-  const mini = mobile && step !== 'find' && step !== 'already' && (
+  // P1 : pas de vignette sur la carte « C'est bien votre club ? » (ses rencontres d'exemple passeraient pour le vrai calendrier).
+  const mini = mobile && step !== 'find' && step !== 'already' && step !== 'confirm' && (
     <button type="button" className="fl-mini" aria-controls="fl-preview-body" onClick={openPreview}>
       <span className="fl-mini-phone" aria-hidden="true"><AppPreview data={previewData} /></span>
       <span className="fl-mini-text">
@@ -313,7 +314,7 @@ function Tunnel() {
             <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submitClub(); }}>
               <button type="button" className="fl-link" onClick={() => go('find')}>← Retrouver mon club sur Ten’Up</button>
               {kicker('15 secondes')}
-              {title('Comment s’appelle votre club ?')}
+              {title('Comment s’appelle votre club\u00a0?')}
               <p className="fl-lede">Votre site et votre app se construisent pendant que vous tapez.</p>
               <div className="fl-field">
                 <label htmlFor="fl-club" className="fl-label">Nom du club</label>
@@ -436,7 +437,7 @@ function Tunnel() {
             <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submitAccount(); }}>
               {kicker('dernière ligne droite')}
               {title(`Gardez ${(draft.mode === 'tenup' && draft.shortName.trim()) || name || 'votre club'}`)}
-              <p className="fl-lede">Tout ce que vous voyez dans l’aperçu est enregistré. Il ne manque que l’e-mail de l’administrateur du club.</p>
+              <p className="fl-lede">Votre e-mail sert à vous reconnecter. Pas de mot de passe, pas de carte bancaire.</p>
               <div className="fl-field">
                 <label htmlFor="fl-email" className="fl-label">Votre e-mail</label>
                 <input id="fl-email" className="fl-input" type="email" autoComplete="email" inputMode="email" maxLength={254} required
