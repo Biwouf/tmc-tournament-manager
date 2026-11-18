@@ -277,7 +277,7 @@ export default function TeamRencontrePage() {
 
       <main className="container mx-auto max-w-3xl px-4 py-8 space-y-8">
         {!rencontre.wo && clubId && <TenupSync key={rencontre.id} sourceUrl={rencontre.tenup_url} sourceSide={rencontre.tenup_side} syncedAt={rencontre.tenup_synced_at}
-          clubName={club?.name ?? 'Notre club'} opponent={rencontre.club_adverse} date={rencontre.date_heure} lines={lines}
+          clubName={club?.name ?? 'Notre club'} opponent={rencontre.club_adverse} date={rencontre.date_heure} dateManuelle={rencontre.date_manuelle} lines={lines}
           {...tenupClient(supabase, clubId, rencontre.id)} onSynced={() => void load(true)} />}
         {/* Informations de la rencontre */}
         <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">

@@ -347,6 +347,8 @@ export interface TeamRencontre {
   etape_id: string;
   club_adverse: string;
   date_heure: string;          // ISO 8601
+  /** Jour changé par le club : la synchro Ten'Up ne l'écrase pas (migration 2026111802). */
+  date_manuelle?: boolean;
   domicile: boolean;
   score_club: number | null;
   score_adverse: number | null;

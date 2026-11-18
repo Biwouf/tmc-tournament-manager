@@ -114,7 +114,8 @@ export default function TenupBatchSync({
             <p className="mb-4 text-sm text-muted-foreground">
               Rencontres créées depuis Ten’Up et pas encore synchronisées. Ten’Up fait foi :
               compositions, scores, date et adversaire déjà saisis (y compris en live) seront
-              remplacés. Comptez environ 20 secondes par rencontre.
+              remplacés, sauf une date modifiée par le club. Comptez environ 20 secondes par
+              rencontre.
             </p>
             <label className="mb-4 flex items-center gap-2 text-sm font-medium">
               Rencontres des
