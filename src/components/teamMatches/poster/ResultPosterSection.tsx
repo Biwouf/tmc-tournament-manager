@@ -4,6 +4,7 @@ import { useClubConfig } from '../../../hooks/useClubConfig';
 import { MAX_POSTER_PARTNERS, drawPosterPartners, newPartnerSeed } from '../../../lib/posterPartners';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamMatchLine, TeamRencontre } from '../../../types';
 import { competitionLabel, etapeLabel } from '../teamMatchLabels';
+import FileDrop from '../../FileDrop';
 import PhotoFocusPicker from './PhotoFocusPicker';
 import PhotoCropControls from './PhotoCropControls';
 import { DEFAULT_PHOTO_CROP, savedPhotoCrop, useCropAutoSave } from './photoCrops';
@@ -126,9 +127,11 @@ function ResultPosterEditor({ rencontre, lines, competition, equipe, etape, resu
           {rencontre.photo_urls.map((value, index) => <option key={value} value={value}>Photo {index + 1}</option>)}
         </select>
       </label>}
-      <label className="block text-sm font-medium">Importer ma propre image
-        <input type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block w-full text-sm" onChange={event => { void importPhoto(event.target.files?.[0]); event.target.value = ''; }} />
-      </label>
+      <div className="text-sm font-medium">Importer ma propre image
+        <div className="mt-2 font-normal">
+          <FileDrop accept="image/jpeg,image/png,image/webp" ariaLabel="Importer ma propre image" onFiles={files => { void importPhoto(files[0]); }} />
+        </div>
+      </div>
       <p className="text-xs text-muted-foreground">JPEG, PNG ou WebP · 10 Mo maximum. L’image importée reste dans cet aperçu jusqu’à sa fermeture.</p>
       {uploading && <p role="status">Lecture de l’image…</p>}
       {uploadError && <p role="alert" className="text-sm text-red-600">{uploadError}</p>}

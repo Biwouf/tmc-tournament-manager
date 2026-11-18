@@ -166,11 +166,11 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
       )}
 
       <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
           <h2 className="text-2xl font-semibold tracking-tight text-card-foreground">
             Planning des Matches
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setViewMode('calendar')}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition ${

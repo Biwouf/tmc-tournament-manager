@@ -63,17 +63,17 @@ export default function AppHomePage() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div className="flex items-center gap-4">
-            <img src={logo} alt={clubName} className="h-16 w-16 object-contain" />
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">Administration de {clubName}</h1>
+        <div className="container mx-auto flex flex-col items-start gap-4 px-4 py-8 sm:flex-row sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <img src={logo} alt={clubName} className="h-16 w-16 shrink-0 object-contain" />
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight break-words sm:text-3xl">Administration de {clubName}</h1>
               <p className="mt-2 text-muted-foreground">Affiche, events, programmation…</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="mt-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
+            className="shrink-0 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted sm:mt-1"
           >
             Se déconnecter
           </button>

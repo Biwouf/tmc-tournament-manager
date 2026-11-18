@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
+import FileDrop from './FileDrop';
 import type { Actu, ActuFocalPoint } from '../types';
 import { DEFAULT_FOCAL_POINT, actuImageProblem, saveActu } from '../lib/actuWrites';
 
@@ -142,7 +143,7 @@ export default function ActuForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleAddFiles = (files: FileList | null) => {
+  const handleAddFiles = (files: File[] | null) => {
     if (!files || files.length === 0) return;
     const accepted: NewFile[] = [];
     let imgError: string | undefined;
@@ -363,16 +364,14 @@ export default function ActuForm() {
             <label className="block text-sm font-medium text-foreground">
               Images (JPEG/PNG, max 5 Mo par fichier — facultatif)
             </label>
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              multiple
-              onChange={(e) => {
-                handleAddFiles(e.target.files);
-                e.target.value = '';
-              }}
-              className="mt-1 block w-full text-sm"
-            />
+            <div className="mt-1">
+              <FileDrop
+                accept="image/jpeg,image/png"
+                multiple
+                ariaLabel="Images de l’actu"
+                onFiles={handleAddFiles}
+              />
+            </div>
             {errors.image && <p className="mt-1 text-xs text-red-600">{errors.image}</p>}
 
             {(visibleExistingItems.length > 0 || newFiles.length > 0) && (

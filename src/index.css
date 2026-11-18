@@ -2,7 +2,8 @@
 @source "../shared";
 
 :root {
-  --background: 0 0% 99%;
+  /* Thème v2 (brief back office §4.7) : fond chaud #f8f7f6, neutres peu saturés. */
+  --background: 30 14% 97%;
   --foreground: 355 20% 15%;
   --card: 0 0% 100%;
   --card-foreground: 355 20% 15%;
@@ -12,18 +13,18 @@
   --primary-foreground: 0 0% 100%;
   --secondary: 355 80% 73%;        /* #f1818a */
   --secondary-foreground: 355 20% 15%;
-  --muted: 355 70% 94%;
-  --muted-foreground: 355 20% 45%;
+  --muted: 355 12% 95%;
+  --muted-foreground: 355 10% 40%;
   --accent: 355 75% 88%;           /* #f9c9cd */
   --accent-foreground: 355 60% 35%;
   --destructive: 355 81% 45%;
   --destructive-foreground: 0 0% 98%;
-  --border: 355 50% 88%;
-  --input: 355 50% 88%;
+  --border: 355 10% 89%;
+  --input: 355 10% 85%;
   --ring: 355 81% 50%;
   /* Bas du dégradé de `body`. Token à part plutôt que valeur littérale : comme tous les
      neutres ci-dessus, il suit la teinte du club (`src/lib/theme.ts`). */
-  --background-tint: 355 60% 97%;
+  --background-tint: 355 8% 97%;
   --radius: 0.8rem;
 }
 
@@ -94,10 +95,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Manrope", "Segoe UI", sans-serif;
-    background-image:
-      radial-gradient(circle at 8% 12%, hsl(var(--accent) / 0.45), transparent 35%),
-      radial-gradient(circle at 92% 0%, hsl(var(--secondary) / 0.15), transparent 32%),
-      linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background-tint)));
+    /* Thème v2 : plus de halos aux couleurs du club, la marque est réservée à l'action. */
+    background-image: linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background-tint)));
     min-height: 100vh;
   }
 }

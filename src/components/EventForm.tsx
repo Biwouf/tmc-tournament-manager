@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import MarkdownEditor from './MarkdownEditor';
+import FileDrop from './FileDrop';
 import { EVENT_TYPES, type ClubEvent, type EventSection, type EventType } from '../types';
 import {
   STORAGE_BUCKETS,
@@ -438,12 +439,13 @@ export default function EventForm() {
           {/* Image */}
           <div>
             <label className="block text-sm font-medium text-foreground">Image (JPEG/PNG, max 5 Mo)</label>
-            <input
-              type="file"
-              accept="image/jpeg,image/png"
-              onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
-              className="mt-1 block w-full text-sm"
-            />
+            <div className="mt-1">
+              <FileDrop
+                accept="image/jpeg,image/png"
+                ariaLabel="Image de l’événement"
+                onFiles={(files) => handleImageChange(files[0] ?? null)}
+              />
+            </div>
             {errors.image && <p className="mt-1 text-xs text-red-600">{errors.image}</p>}
             {imagePreviewUrl && (
               <div className="mt-3 flex items-start gap-4">

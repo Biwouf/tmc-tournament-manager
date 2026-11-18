@@ -7,6 +7,7 @@
 // TOURNOI TMC (`GlobalConfig`, `TENNIS_RANKINGS`).
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import type { FieldSpec } from '../../lib/clubConfigWrite';
+import FileDrop from '../FileDrop';
 
 const INPUT_CLASS =
   'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring';
@@ -371,20 +372,15 @@ export function ImageField({
           />
         )}
         <div className="flex min-w-0 basis-56 flex-1 flex-col gap-2">
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            {isDragging ? 'Déposez l’image ici' : 'Glissez une image ici ou choisissez un fichier.'}
+          <p className={isDragging ? 'text-sm text-muted-foreground' : 'sr-only'} aria-live="polite">
+            {isDragging ? 'Déposez l’image ici' : ''}
           </p>
-          <input
-            type="file"
-            aria-label={spec.label}
+          {/* Le dépôt reste géré par la carte entière (ci-dessus), d'où `ownDropZone={false}`. */}
+          <FileDrop
             accept="image/*"
-            onChange={(e) => {
-              const picked = e.target.files?.[0];
-              if (picked) void handlePick(picked);
-              // Permet de re-choisir le même fichier après un « Annuler ».
-              e.target.value = '';
-            }}
-            className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-muted-foreground hover:file:bg-muted"
+            ariaLabel={spec.label}
+            ownDropZone={false}
+            onFiles={(files) => void handlePick(files[0])}
           />
           {formatError && (
             <p role="alert" className="text-xs font-medium text-destructive">{formatError}</p>
