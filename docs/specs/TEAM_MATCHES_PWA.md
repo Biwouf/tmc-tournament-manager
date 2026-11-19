@@ -243,6 +243,44 @@ PWA parcours visiteur, BO. **PR1 — SQL** (`2026111901_team_compo_players.sql`)
 Déploiement : appliquer `2026111901_team_compo_players.sql` (aucun client ne l'utilise encore).
 Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
 
+**PR2 — PWA, côté capitaine** (`2026111902_team_compo_user_id.sql` + PWA) :
+
+- `team_compo_get` renvoie aussi `user_id` des membres retenus, **seulement à qui peut modifier**
+  (`null` pour un lecteur simple) : l'éditeur en a besoin pour renvoyer la liste à `team_compo_save`.
+- Section **« Compo »** de la fiche rencontre (`TeamLineupSection`), entre l'en-tête et « Matchs »,
+  masquée pour une rencontre WO :
+  - visiteur, rencontre pas encore commencée : « Qui joue ? Connectez-vous » + `Se connecter`
+    (retour sur la fiche) / `Créer un compte` ; rien une fois la rencontre commencée (la feuille de
+    match publique prend le relais). Même rendu qu'une compo existe ou non ;
+  - compo vide : « Compo pas encore saisie » + « Romain Escaffre, capitaine, l'ajoutera ici avant la
+    rencontre. » ; pour l'admin ou le capitaine, texte d'invitation + `Choisir les joueurs`. Rencontre
+    commencée sans compo : rien, sauf pour qui peut encore la saisir ;
+  - compo saisie : liste par nom (initiales, moi en rouge, sans compte en pointillé, étiquettes
+    « Vous » et « Capitaine », classement), nombre de joueurs, note « Visible uniquement par les
+    personnes connectées. », lien `Modifier` pour l'admin ou le capitaine, « Compo enregistrée » 3 s
+    après un enregistrement.
+- Feuille **« Choisir les joueurs »** (`TeamLineupEditor`, sur `TeamSheet`) : recherche « Rechercher
+  ou saisir un nom » ; puces `Tous` / `Hommes` / `Femmes` avec effectifs, présélectionnées selon le
+  genre de la compétition (une recherche parcourt tout le club) ; groupe « Retenus · N » en tête, figé
+  à l'ouverture (un joueur décoché ne saute pas) ; reste du club par nom ; ligne entière cochable
+  (`role="checkbox"`, 56 px, case 26 px). Nom introuvable : « Aucun membre du club ne s'appelle
+  « … » » + carte « Ajouter …, sans compte » (sexe facultatif) ; si des membres correspondent en
+  partie, ils sont listés et l'ajout sans compte vient en dernier. Pied fixe : indication de nombre
+  (`role="status"`, orange sous le minimum, jamais bloquante ; en mixte « 5 joueurs · 3 femmes,
+  2 hommes ») et `Enregistrer la compo`, jamais grisé. Erreurs en `role="alert"` : doublon, version
+  périmée avec `Recharger`, droits, hors ligne (les choix sont gardés). Fermer avec des changements
+  demande « Abandonner vos changements ? ».
+- Le bouton « Photographier la compo » devient **« Saisir la feuille de match »** (« Par photo ou à
+  la main ») ; état vide des matchs : « Matchs à venir » et « Saisissez la feuille de match, par
+  photo ou à la main. »
+- Textes partagés avec le futur écran du BO : `shared/teamCompoCopy.mjs`.
+- Reste pour la PR3 (parcours visiteur) : carte « Vous jouez cette rencontre », fraîcheur
+  (« Mise à jour il y a 2 h par… »), feuille au-delà de 6 joueurs, groupes Dames / Messieurs en
+  mixte, résumé sur les cartes de la liste, retour sur la rencontre après inscription.
+
+Déploiement : appliquer `2026111902_team_compo_user_id.sql` **avant** la PWA.
+Tests : `npm run test:team-compo` (`tests/team-lineup-client.test.mjs` en plus).
+
 ## Déploiement et recette
 
 Appliquer sur la base de développement, dans cet ordre, avant de déployer les clients :
