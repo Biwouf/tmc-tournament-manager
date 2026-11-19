@@ -192,6 +192,57 @@ Déploiement : appliquer `2026101105_team_compo.sql` et `2026101201_team_compo_s
 (`supabase secrets set`), déployer la fonction `compo-scan`, puis la PWA.
 Tests : `npm run test:team-compo` (rapprochement, SQL PGlite, Edge Function simulée, parcours UI).
 
+## Compo d'équipe (liste des joueurs retenus) — 19 novembre 2026
+
+Avant la rencontre, le capitaine (ou un admin) tient **une liste simple des joueurs qui
+joueront**, choisis dans tout le club ou saisis à la main pour une personne sans compte. Pas de
+places, de paires, de disponibilités ni de brouillon : l'affectation aux simples et doubles reste
+la feuille de match du jour J (section précédente). **Toute personne connectée** voit la liste,
+membre ou non ; **un visiteur ne la voit jamais**, même après la rencontre.
+
+Livraison en 4 PR (brief `docs/briefs/compo-equipes/`) : SQL (cette section), PWA capitaine,
+PWA parcours visiteur, BO. **PR1 — SQL** (`2026111901_team_compo_players.sql`) :
+
+- **Faille corrigée** : `team_lines_public_read` laissait un visiteur lire `joueurs_club` d'un
+  match saisi à l'avance. Un visiteur ne lit plus une ligne de `team_match_lines` qu'une fois la
+  rencontre commencée (`date_heure <= now()`), ou si le match est en live ou a un gagnant
+  (`team_line_public`). Les scores restent publics pendant et après la rencontre. Le broadcast
+  `team_broadcast` n'envoie que `rencontre_id` : rien à changer.
+- **Compte connecté sans adhésion** (demande en attente, autre club) : il lit désormais
+  `team_saisons` → `team_rencontres` d'un club actif, et `team_match_lines` aux mêmes conditions
+  qu'un visiteur (policies `*_authenticated_public_read`, même règle que les lives en
+  `2026093001`). Avant, `tenant_isolation` lui renvoyait une liste vide là où un visiteur voyait tout.
+- **Tables** `team_match_players` (un membre `user_id`, ou un invité `guest_prenom`/`guest_nom`/
+  `guest_sex` facultatif ; `notified_at` réservé à l'option P1 « Prévenir les joueurs ») et
+  `team_match_compos` (en-tête : `revision`, `updated_at`, `updated_by`). **Aucun accès direct**,
+  ni anon ni authenticated : tout passe par les RPC ci-dessous. Unicité d'un membre par rencontre,
+  et d'un invité par nom normalisé (`team_compo_name_key` : casse, espaces, accents).
+- **Droit d'écriture** `team_can_compose` = `team_can_reschedule` (admin/manager ou capitaine de
+  l'équipe), club actif.
+- **RPC** (EXECUTE `authenticated` seulement) :
+  - `team_compo_get(club, rencontre)` → `players [{id, is_guest, prenom, nom, initials, classement,
+    is_captain, is_me, sex}]` triés par nom, `captains`, `version` (révision, 0 = jamais
+    enregistrée), `updated_at`, `updated_by {prenom, nom, role: capitaine|admin}`, `can_edit`,
+    `min_players = max(simples, 2 × doubles)`, `simples`, `doubles`, `format`, `genre`. Le sexe
+    n'est renvoyé qu'en compétition mixte ou à qui peut modifier. Le classement est affiché à tous.
+  - `team_compo_summaries(club, rencontres[])` (200 ids au plus) → pour chaque rencontre ayant au
+    moins un joueur : `count`, `is_me`, `preview` (3 au plus : moi, puis capitaines, puis par nom ;
+    prénom et initiales), `updated_at`. Une seule requête pour la liste « Matchs équipes ».
+  - `team_compo_candidates(club, rencontre)` (`team_can_compose`) → membres au nom renseigné,
+    avec classement, sexe et `is_captain`. `team_member_roster` reste inchangé pour ses usages.
+  - `team_compo_save(club, rencontre, players, version)` (`team_can_compose`) : `players` =
+    `[{user_id}]`, `[{id}]` (invité déjà présent) ou `[{prenom, nom?, sex?}]` ; 30 entrées au plus,
+    liste vide autorisée. Enregistre en **diff** (ids et `notified_at` stables), incrémente la
+    révision et renvoie `team_compo_get`.
+- **Codes d'erreur** (message stable, traduit côté client par `shared/teamCompoCopy`) :
+  `COMPO_AUTH_REQUIRED` (42501), `COMPO_NOT_FOUND` (P0002), `COMPO_FORBIDDEN` (42501),
+  `COMPO_INVALID` / `COMPO_TOO_LARGE` / `PLAYER_NOT_MEMBER` (22023), `DUPLICATE_PLAYER` (23505,
+  `DETAIL` = nom du joueur), `COMPO_STALE` (**PT409**, jamais 40001 ; `DETAIL` = prénom de l'auteur
+  de la dernière version).
+
+Déploiement : appliquer `2026111901_team_compo_players.sql` (aucun client ne l'utilise encore).
+Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
+
 ## Déploiement et recette
 
 Appliquer sur la base de développement, dans cet ordre, avant de déployer les clients :
