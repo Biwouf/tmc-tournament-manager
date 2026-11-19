@@ -42,7 +42,7 @@ Mêmes règles que `AGENTS.md` (Codex) — garder les deux fichiers synchronisé
 - Avant chaque copie, vérifier que la destination est ignorée par Git (`git check-ignore -q -- <chemin>`) et non suivie (`git ls-files -- <chemin>` ne retourne rien). Sinon, ne pas copier et signaler le problème.
 - Ne jamais écraser une destination existante, y compris un lien symbolique. Une source absente est simplement ignorée.
 - Ne jamais afficher le contenu de ces fichiers, le consigner dans les logs ou le versionner, même avec `git add -f`. Ne copier aucun autre fichier de secrets.
-- Ces valeurs donnent accès aux mêmes services que le checkout principal ; la copie n'autorise pas à modifier ou déployer les services distants.
+- Ces valeurs donnent accès aux mêmes services que le checkout principal ; la copie n'autorise pas, à elle seule, à modifier ou déployer les services distants (cf. « Déploiements » pour ce qui est permis).
 - `docs/briefs/` est gitignoré : copier aussi le brief de la tâche depuis le checkout principal s'il est nécessaire.
 
 **Commandes utiles :**
@@ -88,9 +88,51 @@ séquence à 2 chiffres : `YYYYMMDDNN` — ex. `2026042601_actus.sql` puis
 `2026042602_actus_image_urls.sql`. Sinon `supabase db push` échoue avec
 `duplicate key value violates unique constraint "schema_migrations_pkey"`.
 
-Application : via le dashboard Supabase (SQL Editor) ou `supabase db push` en CLI.
+Application : `supabase db push` en CLI (cf. « Déploiements » ci-dessous) ; le SQL Editor
+n'alimente pas le journal `supabase_migrations.schema_migrations`.
 Pour connaître le schéma actuel d'une table, lire la dernière migration qui la concerne
 — ne pas supposer depuis les types TypeScript.
+
+### Déploiements : Supabase DEV et worker Ten'Up
+
+**Supabase DEV : automatique.** Quand une tâche ajoute une migration ou modifie une Edge
+Function, l'agent l'applique lui-même sur le projet DEV (`hnhsmefrcihpnkxbrxmr`) avant de
+rendre la main, sans attendre qu'on le lui demande.
+
+- **Cible.** Ne jamais se fier au lien existant : le checkout principal et plusieurs
+  worktrees sont liés à la **PROD** (`ettausmxxxyfgmxxhvvx`). Dans le worktree, lancer
+  `supabase link --project-ref hnhsmefrcihpnkxbrxmr`, puis vérifier que
+  `supabase/.temp/project-ref` contient bien cet identifiant avant tout push.
+- **Migrations.** Avant de numéroter, vérifier les versions déjà prises sur `origin/main`, dans
+  les worktrees frères et dans le journal de DEV. Ensuite, `supabase db push --dry-run`
+  doit lister uniquement les migrations de la tâche (sinon, s'arrêter et signaler), puis
+  `supabase db push`. Ne jamais lancer `supabase migration repair`. Si DEV contient des
+  versions poussées depuis d'autres branches, mettre la branche à jour sur `origin/main`, puis
+  pousser depuis un `--workdir` temporaire qui contient aussi les migrations manquantes copiées
+  des worktrees frères, avec `--include-all`. Ne jamais modifier une migration déjà poussée sur
+  DEV : en ajouter une nouvelle.
+- **Edge Functions.** `supabase functions deploy <nom> --project-ref hnhsmefrcihpnkxbrxmr`
+  pour chaque fonction modifiée, y compris celles qui importent un fichier modifié de
+  `supabase/functions/_shared/`.
+- **Hors automatisme.** Secrets Edge ou Vault, scripts pg_cron et réglages Auth restent
+  manuels : les lister à l'utilisateur avec la valeur attendue, sans afficher de secret.
+- Dans le compte rendu, indiquer ce qui a été appliqué sur DEV (versions, fonctions).
+
+**Supabase PROD : jamais sans demande explicite** de l'utilisateur dans le message (aucun
+`db push` ni `functions deploy` vers `ettausmxxxyfgmxxhvvx`, aucune requête d'écriture).
+
+**Worker Ten'Up (Vercel) : après feu vert.** Il n'existe qu'un projet,
+`tmc-tenup-worker-check`, qui sert la prod et n'est pas redéployé au merge. Quand une tâche
+modifie `services/tenup-worker/` :
+1. Intégrer `origin/main` dans la branche (sinon le déploiement écrase les correctifs déjà
+   en prod), puis vérifier les fichiers envoyés avec `--dry --json`.
+2. Demander le feu vert dans le chat, avec la commande exacte, et attendre un « oui »
+   explicite de l'utilisateur. Un feu vert ne vaut que pour ce déploiement-là.
+3. Déployer depuis la racine du worktree, sous Node 24 (le Node 22.19.0 de nvm est un binaire
+   x86_64) :
+   `npx vercel@62.0.0 deploy --prod --cwd services/tenup-worker --project tmc-tenup-worker-check --scope biwoufs-projects`
+4. Vérifier que le déploiement est `Ready` (`npx vercel@62.0.0 inspect <url>`), puis demander
+   à l'utilisateur de lancer une synchro Ten'Up pour valider.
 
 ### Maintenance de la documentation
 
