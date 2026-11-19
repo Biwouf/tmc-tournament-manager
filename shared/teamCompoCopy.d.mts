@@ -1,0 +1,23 @@
+export function compoNameKey(value: unknown): string;
+export function splitGuestName(value: unknown): { prenom: string; nom: string };
+export function playersLabel(n: number): string;
+export function formatLabel(simples: number, doubles: number): string;
+export function countHint(count: number, minPlayers: number | null, simples: number | null): { text: string; short: boolean };
+export function mixedCountLabel(sexes: (string | null)[]): string;
+export const COMPO_COPY: {
+  title: string; note: string; edit: string;
+  emptyTitle: string; emptyMember: (captain: string | null) => string; emptyEditor: string; choose: string;
+  lockedTitle: string; lockedText: string; login: string; signup: string;
+  sheetTitle: string; sheetSubtitle: (simples: number, doubles: number) => string; search: string;
+  filterLabel: string; filters: { all: string; male: string; female: string };
+  retained: (n: number) => string; clubGroup: (filter: 'all' | 'male' | 'female') => string;
+  captain: string; guest: string; you: string; sexUnknown: string; rankUnknown: string;
+  noMember: (name: string) => string; addGuest: (name: string) => string; addGuestQuoted: (name: string) => string;
+  guestNote: string; guestSex: string; sexOptions: [string, string][];
+  cancel: string; add: string; save: string; saving: string; saved: string;
+  discardTitle: string; keepEditing: string; discard: string;
+  duplicate: (name: string) => string; reload: string; loadError: string; retry: string;
+  sheetFeuille: string; sheetFeuilleHint: string;
+};
+export function compoErrorMessage(error: unknown, options?: { offline?: boolean }): string;
+export function isStaleCompo(error: unknown): boolean;
