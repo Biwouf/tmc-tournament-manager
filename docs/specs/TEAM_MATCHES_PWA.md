@@ -250,28 +250,34 @@ Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
 - Section **« Compo »** de la fiche rencontre (`TeamLineupSection`), entre l'en-tête et « Matchs »,
   masquée pour une rencontre WO :
   - visiteur, rencontre pas encore commencée : « Qui joue ? Connectez-vous » + `Se connecter`
-    (retour sur la fiche) / `Créer un compte` ; rien une fois la rencontre commencée (la feuille de
-    match publique prend le relais). Même rendu qu'une compo existe ou non ;
+    (« Vous reviendrez ici juste après. », vrai pour la connexion seulement) / `Créer un compte` ;
+    c'est alors le seul bouton de connexion de la fiche. Rien une fois la rencontre commencée (la
+    feuille de match publique prend le relais). Même rendu qu'une compo existe ou non ;
   - compo vide : « Compo pas encore saisie » + « Romain Escaffre, capitaine, l'ajoutera ici avant la
     rencontre. » ; pour l'admin ou le capitaine, texte d'invitation + `Choisir les joueurs`. Rencontre
     commencée sans compo : rien, sauf pour qui peut encore la saisir ;
   - compo saisie : liste par nom (initiales, moi en rouge, sans compte en pointillé, étiquettes
     « Vous » et « Capitaine », classement), nombre de joueurs, note « Visible uniquement par les
-    personnes connectées. », lien `Modifier` pour l'admin ou le capitaine, « Compo enregistrée » 3 s
-    après un enregistrement.
+    personnes connectées. », « N joueurs · Modifier » pour l'admin ou le capitaine, « Compo
+    enregistrée » 3 s après un enregistrement. À la fermeture de la feuille, le focus revient au titre
+    « Compo ».
 - Feuille **« Choisir les joueurs »** (`TeamLineupEditor`, sur `TeamSheet`) : recherche « Rechercher
   ou saisir un nom » ; puces `Tous` / `Hommes` / `Femmes` avec effectifs, présélectionnées selon le
-  genre de la compétition (une recherche parcourt tout le club) ; groupe « Retenus · N » en tête, figé
-  à l'ouverture (un joueur décoché ne saute pas) ; reste du club par nom ; ligne entière cochable
-  (`role="checkbox"`, 56 px, case 26 px). Nom introuvable : « Aucun membre du club ne s'appelle
-  « … » » + carte « Ajouter …, sans compte » (sexe facultatif) ; si des membres correspondent en
-  partie, ils sont listés et l'ajout sans compte vient en dernier. Pied fixe : indication de nombre
+  genre de la compétition, masquées si les membres n'ont pas pu être chargés (« Impossible de charger
+  les membres du club. » + `Réessayer`). Une recherche parcourt tout le club : « Tous » s'allume, et
+  choisir une puce efface la recherche. Groupe « Retenus · N » en tête (N = lignes affichées), figé à
+  l'ouverture (un joueur décoché ne saute pas) ; un retenu qui a quitté le club y est marqué « N'est
+  plus membre du club » ; reste du club par nom ; ligne entière cochable (`role="checkbox"`, 56 px,
+  case 26 px) ; classement en pastille, rien s'il n'est pas renseigné (NC est un vrai classement).
+  Nom introuvable : « Aucun membre du club ne s'appelle « … » » + carte « Ajouter …, sans compte »
+  (sexe facultatif, « Non précisé » par défaut) ; si des membres correspondent en partie, ils sont
+  listés et l'ajout sans compte vient en dernier ; un invité déjà dans la liste n'est pas reproposé. Pied fixe : indication de nombre
   (`role="status"`, orange sous le minimum, jamais bloquante ; en mixte « 5 joueurs · 3 femmes,
   2 hommes ») et `Enregistrer la compo`, jamais grisé. Erreurs en `role="alert"` : doublon, version
   périmée avec `Recharger`, droits, hors ligne (les choix sont gardés). Fermer avec des changements
-  demande « Abandonner vos changements ? ».
-- Le bouton « Photographier la compo » devient **« Saisir la feuille de match »** (« Par photo ou à
-  la main ») ; état vide des matchs : « Matchs à venir » et « Saisissez la feuille de match, par
+  demande « Abandonner vos changements ? » (focus sur `Continuer à modifier`).
+- Le bouton « Photographier la compo » devient **« Saisir la feuille de match »**, en bouton
+  secondaire (le bouton plein reste « Choisir les joueurs ») ; état vide des matchs : « Matchs à venir » et « Saisissez la feuille de match, par
   photo ou à la main. »
 - Textes partagés avec le futur écran du BO : `shared/teamCompoCopy.mjs`.
 - Reste pour la PR3 (parcours visiteur) : carte « Vous jouez cette rencontre », fraîcheur

@@ -48,6 +48,8 @@ export default function TeamRencontrePage() {
   const [dateDraft, setDateDraft] = useState<string | null>(null);
   const [dateSaving, setDateSaving] = useState(false);
   const [dateError, setDateError] = useState('');
+  // Heure d'ouverture de la fiche : suffit pour savoir si la rencontre a commencé (règle pure au rendu).
+  const [openedAt] = useState(() => Date.now());
   const action = useTeamAction(clubId, id);
   const queryClient = useQueryClient();
   // Broadcast `live:club:<id>` : cette rencontre, ses matches ou un live lié ont changé.
@@ -142,12 +144,12 @@ export default function TeamRencontrePage() {
   const login = <Link to="/login" state={fromHere(location)} className="flex min-h-12 w-full items-center justify-center rounded-xl border border-border bg-card px-4 text-[15px] font-semibold">Se connecter pour suivre la rencontre</Link>;
   // Feuille de match du jour J (photo des deux feuilles) : « compo » désigne désormais la liste des joueurs.
   const photoButton = freeSimples.length > 0 && competition.singles_set3_format
-    && <button onClick={() => setComposing(true)} className="flex min-h-12 w-full flex-col items-center justify-center rounded-xl bg-primary p-3 text-primary-foreground">
-      <span className="font-semibold">{COMPO_COPY.sheetFeuille}</span>
-      <span className="text-sm opacity-90">{COMPO_COPY.sheetFeuilleHint}</span>
-    </button>;
+    && <button onClick={() => setComposing(true)} className="min-h-12 w-full rounded-xl border border-border bg-card p-3 font-semibold">{COMPO_COPY.sheetFeuille}</button>;
   const manualButton = lines.length < expected
     && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl border border-border bg-card p-3 font-semibold">Ajouter un match manuellement</button>;
+  const started = inPlay || lines.some(l => l.live_match_id || l.gagnant) || new Date(rencontre.date_heure).getTime() <= openedAt;
+  // Le verrou de la compo porte déjà « Se connecter » : pas de second bouton de connexion avant la rencontre.
+  const lineupLocked = !user && !rencontre.wo && !started;
   return <div className="tr-page space-y-5 p-4">
     <section className="rounded-2xl border border-border bg-card p-5">
       <p className="text-xs font-semibold uppercase text-muted-foreground">{competition.nom} · Équipe {equipe.numero}</p>
@@ -170,8 +172,8 @@ export default function TeamRencontrePage() {
     </section>
     {query.isError && <StaleNotice onRetry={() => void query.refetch()}>Actualisation impossible, les scores affichés peuvent avoir changé.</StaleNotice>}
     {clubId && !rencontre.wo && <TeamLineupSection clubId={clubId} rencontreId={id} signedIn={!!user}
-      started={inPlay || lines.some(l => l.live_match_id || l.gagnant) || new Date(rencontre.date_heure).getTime() <= Date.now()} />}
-    {!user && lines.length > 0 && login}
+      started={started} />}
+    {!user && !lineupLocked && lines.length > 0 && login}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Matchs</h2><span className="text-xs text-muted-foreground">{completed}/{expected} résultats validés</span></div>
     {/* Aucun match : le membre voit comment commencer, l'invité ce qui viendra (maquettes rencontre-membre / -invite). */}
@@ -180,7 +182,7 @@ export default function TeamRencontrePage() {
       <p className="text-sm text-muted-foreground">{manage
         ? 'Saisissez la feuille de match, par photo ou à la main.'
         : 'Les joueurs et les scores s’afficheront ici dès qu’ils seront saisis par le club.'}</p>
-      {manage ? <>{photoButton}{manualButton}</> : !user && login}
+      {manage ? <>{photoButton}{manualButton}</> : !user && !lineupLocked && login}
     </div>}
     <div className="space-y-3">{lines.map(line => {
       const live = lives.find(m => m.id === line.live_match_id);

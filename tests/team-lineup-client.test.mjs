@@ -24,11 +24,11 @@ const candidates = [
 ];
 const base = { captains: [{ prenom: 'Romain', nom: 'Escaffre' }], updated_at: null, updated_by: null,
   min_players: 3, simples: 3, doubles: 1, format: '3S1D', genre: 'hommes' };
-let lineup; let saved = []; let saveError = null;
+let lineup; let saved = []; let saveError = null; let candidatesError = null;
 const mocks = {
   '/lib/supabase.ts': { supabase: { rpc: async (name, args) => {
     if (name === 'team_compo_get') return { data: lineup, error: null };
-    if (name === 'team_compo_candidates') return { data: candidates, error: null };
+    if (name === 'team_compo_candidates') return candidatesError ? { data: null, error: candidatesError } : { data: candidates, error: null };
     if (name === 'team_compo_save') {
       saved.push(args);
       if (saveError) return { data: null, error: saveError };
@@ -72,7 +72,10 @@ test('Visiteur : verrou avec connexion et inscription, aucune lecture de la comp
   const unmount = await render({ signedIn: false });
   try {
     assert.match(document.body.textContent, /Qui joue \? Connectez-vous/);
-    assert.ok([...document.querySelectorAll('a')].some(a => a.textContent === 'Créer un compte'));
+    assert.deepEqual([...document.querySelectorAll('a')].map(a => a.textContent), ['Se connecter', 'Créer un compte']);
+    // « Vous reviendrez ici » ne décrit que la connexion (l'inscription ne ramène pas encore ici).
+    const login = [...document.querySelectorAll('a')][0];
+    assert.equal(document.getElementById(login.getAttribute('aria-describedby')).textContent, 'Vous reviendrez ici juste après.');
   } finally { await unmount(); }
 });
 
@@ -94,6 +97,7 @@ test('Membre : compo vide qui nomme le capitaine, puis liste avec Capitaine et S
     assert.deepEqual([...document.querySelectorAll('li')].map(li => li.getAttribute('aria-label')),
       ['Romain Escaffre, Capitaine, 30', 'Paul Girard, Sans compte']);
     assert.equal(button('Modifier'), undefined);
+    assert.match(document.querySelector('section').textContent, /2 joueurs/);
   } finally { await unmount(); }
 });
 
@@ -108,6 +112,10 @@ test('Capitaine : filtre Hommes, coche, invité sans compte, doublon refusé, en
     assert.equal(document.querySelector('[role=radio][aria-checked=true]').textContent, 'Hommes 2');
     assert.ok(row('Romain Escaffre') && row('Julien Marty'));
     assert.equal(row('Claire Dupont'), undefined);
+    // Classement non renseigné : aucune pastille (NC est un vrai classement FFT).
+    await click(button('Tous'));
+    assert.equal(row('Hugo Daran').textContent, 'Hugo DaranClassement non renseigné');
+    await click(button('Hommes'));
     assert.match(row('Romain Escaffre').getAttribute('aria-label'), /Capitaine/);
     assert.match(document.querySelector('[role=status]').textContent, /Il faut au moins 3 joueurs pour les 3 simples/);
 
@@ -115,19 +123,24 @@ test('Capitaine : filtre Hommes, coche, invité sans compte, doublon refusé, en
     await click(row('Julien Marty'));
     assert.equal(row('Julien Marty').getAttribute('aria-checked'), 'true');
 
-    // Nom introuvable : carte « sans compte », sexe facultatif.
+    // Une recherche porte sur tout le club : la puce « Tous » le montre.
     await type('Paul Girard');
+    assert.equal(document.querySelector('[role=radiogroup] [aria-checked=true]').textContent, 'Tous 4');
+    // Sexe de l'invité : « Non précisé » par défaut, quel que soit le filtre.
+    assert.equal([...document.querySelectorAll('[role=radio][aria-checked=true]')].at(-1).textContent, 'Non précisé');
     assert.match(document.body.textContent, /Aucun membre du club ne s’appelle « Paul Girard »/);
     assert.match(document.body.textContent, /Ajouter Paul Girard, sans compte/);
     await click([...document.querySelectorAll('[role=radio]')].find(b => b.textContent === 'Homme'));
     await click(button('Ajouter'));
     assert.equal(row('Paul Girard').getAttribute('aria-checked'), 'true');
     assert.match(document.querySelector('[role=status]').textContent, /3 joueurs retenus · il en faut au moins 3 pour 3 simples/);
+    // L'en-tête des retenus compte les lignes qu'il montre (l'invité ; les membres cochés restent à leur place).
+    assert.equal([...document.querySelectorAll('h3')].find(x => x.textContent.startsWith('Retenus')).textContent, 'Retenus · 1');
 
-    // Même invité une seconde fois (casse et accents ignorés) : refusé.
+    // Même invité une seconde fois (casse et accents ignorés) : plus proposé, sa ligne est là.
     await type('paul GIRÂRD');
-    await click(button('Ajouter'));
-    assert.match(document.querySelector('[role=alert]').textContent, /Paul Girard est déjà dans la compo/);
+    assert.equal(button('Ajouter'), undefined);
+    assert.equal(row('Paul Girard').getAttribute('aria-checked'), 'true');
 
     // Une recherche partielle liste les membres, puis propose l'ajout sans compte en dernier.
     await type('Mar');
@@ -141,6 +154,18 @@ test('Capitaine : filtre Hommes, coche, invité sans compte, doublon refusé, en
     assert.match(document.body.textContent, /Compo enregistrée/);
     assert.equal(document.querySelector('dialog'), null);
   } finally { await unmount(); }
+});
+
+test('Capitaine : échec du chargement des membres, sans faux compteurs', async () => {
+  lineup = { ...base, players: [], version: 0, can_edit: true };
+  candidatesError = { message: 'boom' };
+  const unmount = await render();
+  try {
+    await click(button('Choisir les joueurs')); await wait();
+    assert.match(document.querySelector('[role=alert]').textContent, /Impossible de charger les membres du club/);
+    assert.equal(document.querySelector('[role=radiogroup]'), null, 'pas de puces « Tous 0 »');
+    assert.match(button('Réessayer').className, /min-h-11/);
+  } finally { candidatesError = null; await unmount(); }
 });
 
 test('Capitaine : version périmée, abandon des changements', async () => {
@@ -160,13 +185,15 @@ test('Capitaine : version périmée, abandon des changements', async () => {
     assert.match(document.querySelector('[role=alert]').textContent, /Romain vient de modifier la compo/);
     assert.ok(button('Recharger'));
     // Fermer avec des changements : confirmation.
-    await click(document.querySelector('[aria-label=Fermer]'));
+    await click(document.querySelector('[aria-label=Fermer]')); await wait();
     assert.match(document.body.textContent, /Abandonner vos changements \?/);
+    assert.equal(document.activeElement.textContent, 'Continuer à modifier', 'la confirmation reçoit le focus');
     await click(button('Continuer à modifier'));
     assert.ok(row('Paul Girard'));
     await click(document.querySelector('[aria-label=Fermer]'));
-    await click(button('Abandonner'));
+    await click(button('Abandonner')); await wait();
     assert.equal(document.querySelector('dialog'), null);
+    assert.equal(document.activeElement.id, 'compo-title', 'le focus revient à la section');
     // Un invité gardé est renvoyé par son id.
     saveError = null; saved = [];
     await click(button('Modifier')); await wait();

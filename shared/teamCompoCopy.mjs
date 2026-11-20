@@ -49,7 +49,8 @@ export const COMPO_COPY = {
   emptyEditor: 'Choisissez les joueurs dans tout le club. Les personnes connectées verront la liste dès que vous l’enregistrez.',
   choose: 'Choisir les joueurs',
   lockedTitle: 'Qui joue ? Connectez-vous',
-  lockedText: 'La compo est visible par toute personne connectée. Vous reviendrez ici juste après.',
+  lockedText: 'La compo est visible par toute personne connectée.',
+  loginReturn: 'Vous reviendrez ici juste après.',
   login: 'Se connecter',
   signup: 'Créer un compte',
   sheetTitle: 'Choisir les joueurs',
@@ -81,9 +82,10 @@ export const COMPO_COPY = {
   duplicate: name => `${name} est déjà dans la compo.`,
   reload: 'Recharger',
   loadError: 'Impossible de charger la compo.',
+  candidatesError: 'Impossible de charger les membres du club.',
+  notMember: 'N’est plus membre du club',
   retry: 'Réessayer',
   sheetFeuille: 'Saisir la feuille de match',
-  sheetFeuilleHint: 'Par photo ou à la main',
 };
 
 /** Message affiché pour une erreur des RPC de compo (supabase-js : `message`, `details`). */
@@ -96,7 +98,7 @@ export function compoErrorMessage(error, { offline = false } = {}) {
   if (code.includes('DUPLICATE_PLAYER')) return COMPO_COPY.duplicate(detail || 'Ce joueur');
   if (code.includes('COMPO_FORBIDDEN')) return 'Seuls le capitaine de l’équipe et les administrateurs peuvent modifier la compo.';
   if (code.includes('COMPO_TOO_LARGE')) return 'La compo compte au plus 30 joueurs.';
-  if (code.includes('PLAYER_NOT_MEMBER')) return 'Un des joueurs choisis n’est plus membre du club. Rechargez la liste.';
+  if (code.includes('PLAYER_NOT_MEMBER')) return 'Un joueur n’est plus membre du club : décochez-le, puis enregistrez.';
   if (code.includes('COMPO_AUTH_REQUIRED')) return 'Connectez-vous pour voir la compo.';
   if (offline || !code || /fetch|network/i.test(code)) {
     return 'Hors ligne : la compo n’est pas enregistrée. Vos choix sont gardés, réessayez dès le retour du réseau.';

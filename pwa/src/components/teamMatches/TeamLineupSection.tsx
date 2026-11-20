@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fromHere } from '../layout/useGoBack';
@@ -42,6 +42,11 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  // À la fermeture de la feuille (Échap, ✕, abandon, enregistrement), le focus revient au titre de la section.
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const [wasEditing, setWasEditing] = useState(false);
+  useEffect(() => { if (!editing && wasEditing) titleRef.current?.focus(); }, [editing, wasEditing]);
+  const openEditor = () => { setEditing(true); setWasEditing(true); };
   const query = useQuery({
     queryKey: lineupKey(clubId, rencontreId), enabled: signedIn,
     queryFn: () => fetchLineup(clubId, rencontreId),
@@ -60,7 +65,8 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
       <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-center">
         <p className="font-bold">{T.lockedTitle}</p>
         <p className="text-sm text-muted-foreground">{T.lockedText}</p>
-        <Link to="/login" state={fromHere(location)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 font-semibold text-primary-foreground">{T.login}</Link>
+        <Link to="/login" state={fromHere(location)} aria-describedby="compo-login-return" className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-4 font-semibold text-primary-foreground">{T.login}</Link>
+        <p id="compo-login-return" className="-mt-1 text-xs text-muted-foreground">{T.loginReturn}</p>
         <Link to="/inscription" className="flex min-h-11 items-center justify-center text-sm font-semibold text-primary underline underline-offset-2">{T.signup}</Link>
       </div>
     </section>;
@@ -86,17 +92,18 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
   const reload = () => { setEditing(false); void query.refetch(); };
 
   return <section aria-labelledby="compo-title" className="space-y-3">
-    <div className="flex items-baseline justify-between gap-3">
-      <h2 id="compo-title" className="text-lg font-bold">{T.title}</h2>
-      {players.length > 0 && lineup.can_edit
-        ? <button onClick={() => setEditing(true)} className="-mr-2 min-h-11 px-2 text-sm font-semibold text-primary underline underline-offset-2">{T.edit}</button>
-        : players.length > 0 ? <span className="text-sm text-muted-foreground">{playersLabel(players.length)}</span> : null}
+    <div className="flex items-center justify-between gap-3">
+      <h2 id="compo-title" ref={titleRef} tabIndex={-1} className="text-lg font-bold outline-none">{T.title}</h2>
+      {players.length > 0 && <span className="flex items-center gap-1 text-sm text-muted-foreground">
+        {playersLabel(players.length)}
+        {lineup.can_edit && <>{' · '}<button onClick={openEditor} className="-mr-2 min-h-11 px-2 font-semibold text-primary underline underline-offset-2">{T.edit}</button></>}
+      </span>}
     </div>
     {saved && <p role="status" className="rounded-xl bg-muted px-4 py-2 text-sm font-semibold">{T.saved}</p>}
     {players.length === 0 ? <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-center">
       <p className="font-bold">{T.emptyTitle}</p>
       <p className="text-sm text-muted-foreground">{lineup.can_edit ? T.emptyEditor : T.emptyMember(captain)}</p>
-      {lineup.can_edit && <button onClick={() => setEditing(true)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.choose}</button>}
+      {lineup.can_edit && <button onClick={openEditor} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.choose}</button>}
     </div> : <>
       <ul aria-label={`Compo, ${playersLabel(players.length)}`} className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
         {players.map(player => <PlayerLine key={player.id} player={player} />)}

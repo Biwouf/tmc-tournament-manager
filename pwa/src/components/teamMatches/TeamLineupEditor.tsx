@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import TeamSheet from './TeamSheet';
 import { COMPO_COPY as T, compoErrorMessage, compoNameKey, countHint, isStaleCompo, mixedCountLabel, splitGuestName } from '../../../../shared/teamCompoCopy.mjs';
@@ -54,11 +54,20 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ message: string; stale: boolean } | null>(null);
+  const keepEditingRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  // La confirmation prend le focus ; à son retour, la recherche le reprend.
+  const [wasConfirming, setWasConfirming] = useState(false);
+  useEffect(() => {
+    if (confirming) keepEditingRef.current?.focus();
+    else if (wasConfirming) searchRef.current?.focus();
+  }, [confirming, wasConfirming]);
 
   const byId = useMemo(() => new Map(candidates.map(c => [c.id, c])), [candidates]);
   // Un retenu qui a quitté le club n'est plus candidat : on garde son nom lu dans la compo.
   const person = (userId: string): (Person & Partial<LineupCandidate>) =>
     byId.get(userId) ?? lineup.players.find(p => p.user_id === userId) ?? { prenom: '', nom: '' };
+  const leftClub = (userId: string) => !!candidatesQuery.data && !byId.has(userId);
   const checkedGuests = guests.filter(g => g.checked);
   const count = selected.size + checkedGuests.length;
   const dirty = selected.size !== initialMembers.length || initialMembers.some(id => !selected.has(id))
@@ -68,31 +77,31 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
     ? mixedCountLabel([...[...selected].map(id => person(id).sex ?? null), ...checkedGuests.map(g => g.sex)]) : null;
 
   const counts = { all: candidates.length, male: candidates.filter(c => c.sex === 'male').length, female: candidates.filter(c => c.sex === 'female').length };
-  // Pendant une recherche, tout le club est parcouru : le filtre ne doit pas cacher un nom tapé.
+  // Pendant une recherche, tout le club est parcouru : le filtre ne doit pas cacher un nom tapé,
+  // et les puces montrent « Tous », le filtre réellement appliqué.
+  const applied: Filter = search.trim() ? 'all' : filter;
   const club = candidates.filter(c => !pinned.has(c.id) && (search.trim() ? matches(c, search) : filter === 'all' || c.sex === filter));
   const retainedMembers = [...pinned].filter(id => matches(person(id), search));
   const retainedGuests = guests.filter(g => matches(g, search));
   const typed = search.trim();
   const exactMember = typed.length >= 2 && candidates.some(c => nameKey(c) === compoNameKey(typed) || compoNameKey(`${c.nom} ${c.prenom}`) === compoNameKey(typed));
   const partialMembers = candidates.filter(c => matches(c, typed));
-  const canAddGuest = typed.length >= 2 && !exactMember;
+  // Un invité déjà dans la liste (coché ou non) apparaît dans les retenus : pas de second ajout.
+  const exactGuest = guests.some(g => compoNameKey(fullName(g)) === compoNameKey(typed));
+  const canAddGuest = typed.length >= 2 && !exactMember && !exactGuest;
 
   const toggleMember = (id: string) => { setError(null); setSelected(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; }); };
   const toggleGuest = (key: string) => { setError(null); setGuests(prev => prev.map(g => g.key === key ? { ...g, checked: !g.checked } : g)); };
-  const openGuestForm = () => setGuestForm({ ...splitGuestName(typed), sex: filter === 'all' ? null : filter });
-  // Un invité déjà coché au même nom est refusé ; un invité décoché au même nom est recoché.
+  const openGuestForm = () => setGuestForm({ ...splitGuestName(typed), sex: null });
+  // La carte n'apparaît que pour un nom absent des invités (`exactGuest`) : pas de doublon possible ici.
   const addGuest = (form: { prenom: string; nom: string; sex: LineupSex }) => {
     if (!form.prenom) return;
-    const key = compoNameKey(fullName(form));
-    const same = guests.find(g => compoNameKey(fullName(g)) === key);
-    if (same?.checked) { setError({ message: T.duplicate(fullName(same)), stale: false }); return; }
-    if (same) setGuests(prev => prev.map(g => g === same ? { ...g, checked: true } : g));
-    else setGuests(prev => [...prev, { key: `new-${prev.length}-${key}`, ...form, checked: true }]);
+    setGuests(prev => [...prev, { key: `new-${prev.length}-${compoNameKey(fullName(form))}`, ...form, checked: true }]);
     setGuestForm(null);
     setSearch('');
     setError(null);
   };
-  const close = () => { if (saving) return; if (dirty) setConfirming(true); else onClose(); };
+  const close = () => { if (saving) return; if (dirty) { setConfirming(true); setWasConfirming(true); } else onClose(); };
   const save = async () => {
     if (saving) return;
     setSaving(true);
@@ -109,32 +118,37 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
   };
 
   const memberSubtitle = (p: Person & Partial<LineupCandidate>) => p.is_captain ? T.captain : p.classement ? null : T.rankUnknown;
+  const retainedRows = retainedMembers.length + retainedGuests.length;
   const guestSubtitle = (g: GuestDraft) => [T.guest, sexWord(g.sex)].filter(Boolean).join(' · ');
 
   return <TeamSheet title={T.sheetTitle} onClose={close} busy={saving}>
     {confirming ? <div className="space-y-3" role="alertdialog" aria-label={T.discardTitle}>
       <p className="text-[15px] font-semibold">{T.discardTitle}</p>
-      <button onClick={() => setConfirming(false)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.keepEditing}</button>
+      <button ref={keepEditingRef} onClick={() => setConfirming(false)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.keepEditing}</button>
       <button onClick={onClose} className="min-h-12 w-full rounded-xl border border-border p-3 font-semibold">{T.discard}</button>
     </div> : <>
       {lineup.simples != null && lineup.doubles != null && <p className="-mt-3 mb-3 text-sm text-muted-foreground">{T.sheetSubtitle(lineup.simples, lineup.doubles)}</p>}
-      <input type="search" value={search} onChange={event => { setSearch(event.target.value); setGuestForm(null); }}
+      <input ref={searchRef} type="search" value={search} onChange={event => { setSearch(event.target.value); setGuestForm(null); }}
         placeholder={T.search} aria-label={T.search}
         className="min-h-12 w-full rounded-xl border border-border bg-muted px-4 text-[15px]" />
-      <div role="radiogroup" aria-label={T.filterLabel} className="mt-3 flex flex-wrap gap-2">
-        {(['all', 'male', 'female'] as const).map(key => <button key={key} role="radio" aria-checked={filter === key} onClick={() => setFilter(key)}
-          className={`min-h-11 rounded-full border px-4 text-[15px] font-semibold ${filter === key ? 'border-foreground bg-foreground text-background' : 'border-border bg-card'}`}>
+      {candidatesQuery.data && <div role="radiogroup" aria-label={T.filterLabel} className="mt-3 flex flex-wrap gap-2">
+        {/* Choisir un filtre pendant une recherche efface la recherche : la puce dit alors vrai. */}
+        {(['all', 'male', 'female'] as const).map(key => <button key={key} role="radio" aria-checked={applied === key} onClick={() => { setFilter(key); setSearch(''); setGuestForm(null); }}
+          className={`min-h-11 rounded-full border px-4 text-[15px] font-semibold ${applied === key ? 'border-foreground bg-foreground text-background' : 'border-border bg-card'}`}>
           {T.filters[key]} <span className="font-medium opacity-70">{counts[key]}</span>
         </button>)}
-      </div>
+      </div>}
 
-      {candidatesQuery.isError && <p role="alert" className="mt-4 text-sm text-red-700">{T.loadError} <button className="underline" onClick={() => void candidatesQuery.refetch()}>{T.retry}</button></p>}
+      {candidatesQuery.isError && <div role="alert" className="mt-4 flex items-center justify-between gap-3 text-sm text-red-700">
+        <span>{T.candidatesError}</span>
+        <button className="min-h-11 shrink-0 px-2 font-semibold underline" onClick={() => void candidatesQuery.refetch()}>{T.retry}</button>
+      </div>}
       {candidatesQuery.isPending && <div className="mt-4 space-y-2" role="status" aria-label="Chargement des membres…"><div className="sk h-14 rounded-xl" /><div className="sk h-14 rounded-xl" /></div>}
 
-      {(retainedMembers.length > 0 || retainedGuests.length > 0) && <>
-        <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{T.retained(count)}</h3>
+      {retainedRows > 0 && <>
+        <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{T.retained(retainedRows)}</h3>
         <ul className="mt-1 divide-y divide-border">
-          {retainedMembers.map(id => { const p = person(id); return <PlayerRow key={id} name={fullName(p)} subtitle={memberSubtitle(p)} rank={p.classement ?? 'NC'} checked={selected.has(id)} onToggle={() => toggleMember(id)} />; })}
+          {retainedMembers.map(id => { const p = person(id); return <PlayerRow key={id} name={fullName(p)} subtitle={leftClub(id) ? T.notMember : memberSubtitle(p)} rank={p.classement} checked={selected.has(id)} onToggle={() => toggleMember(id)} />; })}
           {retainedGuests.map(g => <PlayerRow key={g.key} name={fullName(g)} subtitle={guestSubtitle(g)} checked={g.checked} onToggle={() => toggleGuest(g.key)} />)}
         </ul>
       </>}
@@ -143,14 +157,14 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
         {club.length > 0 && <>
           <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{T.clubGroup(typed ? 'all' : filter)}</h3>
           <ul className="mt-1 divide-y divide-border">
-            {club.map(c => <PlayerRow key={c.id} name={fullName(c)} subtitle={memberSubtitle(c)} rank={c.classement ?? 'NC'} checked={selected.has(c.id)} onToggle={() => toggleMember(c.id)} />)}
+            {club.map(c => <PlayerRow key={c.id} name={fullName(c)} subtitle={memberSubtitle(c)} rank={c.classement} checked={selected.has(c.id)} onToggle={() => toggleMember(c.id)} />)}
           </ul>
         </>}
         {canAddGuest && partialMembers.length === 0 && <p className="mt-4 text-sm text-muted-foreground">{T.noMember(typed)}</p>}
         {canAddGuest && !guestForm && partialMembers.length > 0 && <button onClick={openGuestForm}
           className="mt-2 min-h-12 w-full rounded-xl border border-dashed border-border px-4 text-left text-[15px] font-semibold">{T.addGuestQuoted(typed)}</button>}
         {canAddGuest && (guestForm || partialMembers.length === 0) && (() => {
-          const form = guestForm ?? { ...splitGuestName(typed), sex: filter === 'all' ? null : filter };
+          const form = guestForm ?? { ...splitGuestName(typed), sex: null };
           return <div className="mt-3 rounded-2xl border border-primary p-4">
             <p className="text-[17px] font-bold">{T.addGuest(fullName(form))}</p>
             <p className="mt-1 text-sm text-muted-foreground">{T.guestNote}</p>
@@ -162,7 +176,7 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button onClick={() => { setGuestForm(null); setSearch(''); }} className="min-h-12 rounded-xl border border-border font-semibold">{T.cancel}</button>
-              <button onClick={() => addGuest(form)}className="min-h-12 rounded-xl bg-primary font-semibold text-primary-foreground">{T.add}</button>
+              <button onClick={() => addGuest(form)} className="min-h-12 rounded-xl bg-primary font-semibold text-primary-foreground">{T.add}</button>
             </div>
           </div>;
         })()}
