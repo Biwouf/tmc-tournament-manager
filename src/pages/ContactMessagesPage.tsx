@@ -14,9 +14,9 @@
 // `ip_hash` n'est jamais demandé au serveur, donc jamais affiché : c'est une donnée
 // anti-spam, elle n'a rien à faire sous les yeux d'un administrateur de club.
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
+import PageHeader from '../components/layout/PageHeader';
 
 // Généreux et fixe (brief §6) : une pagination pour un volume qu'on n'a pas encore mesuré
 // serait de la complexité spéculative. À revoir le jour où un club l'atteint.
@@ -79,23 +79,13 @@ export default function ContactMessagesPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Messages</h1>
-            <p className="mt-2 text-muted-foreground">
-              Les messages envoyés depuis le formulaire de contact du site de{' '}
-              <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>.
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            ← Accueil
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Messages"
+        description={<>
+          Les messages envoyés depuis le formulaire de contact du site de{' '}
+          <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>.
+        </>}
+      />
 
       <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
         <section>

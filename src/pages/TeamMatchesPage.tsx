@@ -83,7 +83,7 @@ export default function TeamMatchesPage() {
   return (
     <div className="min-h-screen">
       <TeamMatchesHeader
-        title="Matches par équipe"
+        title="Rencontres"
         subtitle="Grille de saison — cliquez une cellule pour saisir un score."
         backTo="/"
         backLabel="Accueil"

@@ -30,6 +30,7 @@ import ContactMessagesPage from './pages/ContactMessagesPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import FirstStepsGate from './components/firstSteps/FirstStepsGate';
+import AdminLayout from './components/layout/AdminLayout';
 import TeamMatchesPage from './pages/TeamMatchesPage';
 import TeamMatchesAdminPage from './pages/TeamMatchesAdminPage';
 import TeamEquipePage from './pages/TeamEquipePage';
@@ -157,43 +158,47 @@ function GuardedRoutes({ user }: { user: User | null }) {
           <Route path="/forgot-password" element={<PasswordRecoveryPage key="forgot" />} />
           <Route path="/reset-password" element={<PasswordRecoveryPage key="reset" reset />} />
         <Route path="/login" element={user ? <Navigate to={{ pathname: loginReturnPath(state), search }} replace /> : <LoginPage />} />
-        <Route path="/" element={auth(<FirstStepsGate><AppHomePage /></FirstStepsGate>)} />
         <Route path="/premiers-pas" element={auth(<Suspense fallback={null}><FirstStepsPage /></Suspense>)} />
-        <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
-        <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
-        <Route path="/tournament/:id" element={<RedirectTournament />} />
-        <Route path="/medias" element={auth(<MediaGeneratorPage />)} />
-        <Route path="/programmation-image" element={<Navigate to="/medias" replace />} />
-        <Route path="/events" element={auth(<EventsPage />)} />
-        <Route path="/events/new" element={auth(<EventForm />)} />
-        <Route path="/events/:id/edit" element={auth(<EventForm />)} />
-        <Route path="/events/:id/registrations" element={auth(<EventRegistrationsPage />)} />
-        <Route path="/live-score" element={auth(<LiveScorePage />)} />
-        <Route path="/live-score/new" element={auth(<LiveMatchForm />)} />
-        <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />
-        <Route path="/actus" element={auth(<ActusPage />)} />
-        <Route path="/actus/new" element={auth(<ActuForm />)} />
-        <Route path="/actus/generer" element={auth(adminOnly(<ActuGeneratePage />))} />
-        <Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
-        <Route path="/team-matches" element={auth(<TeamMatchesPage />)} />
-        <Route path="/team-matches/admin" element={auth(<TeamMatchesAdminPage />)} />
-        <Route path="/team-matches/equipe/:id" element={auth(<TeamEquipePage />)} />
-        <Route path="/team-matches/rencontre/new" element={auth(<TeamRencontreForm />)} />
-        <Route path="/team-matches/rencontre/:id" element={auth(<TeamRencontrePage />)} />
-        <Route path="/team-matches/rencontre/:id/edit" element={auth(<TeamRencontreForm />)} />
-        <Route path="/courses" element={auth(adminOnly(<CoursesPage />))} />
-        <Route path="/courses/new" element={auth(adminOnly(<CourseFormPage key="new" />))} />
-        <Route path="/courses/types" element={auth(adminOnly(<CourseTypesPage />))} />
-        <Route path="/courses/:id/edit" element={auth(adminOnly(<CourseFormPage />))} />
-        <Route path="/courses/:id/registrations" element={auth(adminOnly(<CourseRegistrationsPage />))} />
-        <Route path="/admin/members" element={auth(adminOnly(<MembersPage />))} />
-        <Route path="/admin/site" element={auth(adminOnly(<SiteConfigPage />))} />
-        <Route path="/admin/social" element={auth(adminOnly(<SocialAccountsPage />))} />
-        <Route path="/admin/messages" element={auth(adminOnly(<ContactMessagesPage />))} />
-        {/* PR5-bis — l'écran Membres absorbe l'ancienne page d'invitation ; l'URL est
-            documentée dans le README et peut traîner dans un favori. */}
-        <Route path="/admin/invite" element={<Navigate to="/admin/members" replace />} />
-        <Route path="/super-admin" element={auth(superAdminOnly(<SuperAdminPage />))} />
+        {/* PR-BO1 — barre latérale + `<Outlet/>` autour de toutes les pages protégées. Hors layout :
+            connexion, mots de passe, invitation, premiers pas (plein écran). */}
+        <Route element={user ? <AdminLayout user={user} /> : auth(<></>)}>
+          <Route path="/" element={auth(<FirstStepsGate><AppHomePage /></FirstStepsGate>)} />
+          <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
+          <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
+          <Route path="/tournament/:id" element={<RedirectTournament />} />
+          <Route path="/medias" element={auth(<MediaGeneratorPage />)} />
+          <Route path="/programmation-image" element={<Navigate to="/medias" replace />} />
+          <Route path="/events" element={auth(<EventsPage />)} />
+          <Route path="/events/new" element={auth(<EventForm />)} />
+          <Route path="/events/:id/edit" element={auth(<EventForm />)} />
+          <Route path="/events/:id/registrations" element={auth(<EventRegistrationsPage />)} />
+          <Route path="/live-score" element={auth(<LiveScorePage />)} />
+          <Route path="/live-score/new" element={auth(<LiveMatchForm />)} />
+          <Route path="/live-score/:id" element={auth(<LiveMatchPage />)} />
+          <Route path="/actus" element={auth(<ActusPage />)} />
+          <Route path="/actus/new" element={auth(<ActuForm />)} />
+          <Route path="/actus/generer" element={auth(adminOnly(<ActuGeneratePage />))} />
+          <Route path="/actus/:id/edit" element={auth(<ActuForm />)} />
+          <Route path="/team-matches" element={auth(<TeamMatchesPage />)} />
+          <Route path="/team-matches/admin" element={auth(<TeamMatchesAdminPage />)} />
+          <Route path="/team-matches/equipe/:id" element={auth(<TeamEquipePage />)} />
+          <Route path="/team-matches/rencontre/new" element={auth(<TeamRencontreForm />)} />
+          <Route path="/team-matches/rencontre/:id" element={auth(<TeamRencontrePage />)} />
+          <Route path="/team-matches/rencontre/:id/edit" element={auth(<TeamRencontreForm />)} />
+          <Route path="/courses" element={auth(adminOnly(<CoursesPage />))} />
+          <Route path="/courses/new" element={auth(adminOnly(<CourseFormPage key="new" />))} />
+          <Route path="/courses/types" element={auth(adminOnly(<CourseTypesPage />))} />
+          <Route path="/courses/:id/edit" element={auth(adminOnly(<CourseFormPage />))} />
+          <Route path="/courses/:id/registrations" element={auth(adminOnly(<CourseRegistrationsPage />))} />
+          <Route path="/admin/members" element={auth(adminOnly(<MembersPage />))} />
+          <Route path="/admin/site" element={auth(adminOnly(<SiteConfigPage />))} />
+          <Route path="/admin/social" element={auth(adminOnly(<SocialAccountsPage />))} />
+          <Route path="/admin/messages" element={auth(adminOnly(<ContactMessagesPage />))} />
+          {/* PR5-bis — l'écran Membres absorbe l'ancienne page d'invitation ; l'URL est
+              documentée dans le README et peut traîner dans un favori. */}
+          <Route path="/admin/invite" element={<Navigate to="/admin/members" replace />} />
+          <Route path="/super-admin" element={auth(superAdminOnly(<SuperAdminPage />))} />
+        </Route>
         <Route path="/accept-invite" element={<AcceptInvitePage />} />
       </Routes>
     </>

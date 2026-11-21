@@ -109,7 +109,7 @@ export default function TeamMatchesAdminPage() {
   return (
     <div className="min-h-screen">
       <TeamMatchesHeader
-        title="Admin — Matches par équipe"
+        title="Rencontres"
         subtitle="Gérer les saisons, les compétitions et les équipes du club."
         backTo="/team-matches"
         backLabel="Matches par équipe"

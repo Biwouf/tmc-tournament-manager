@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { invokeEdgeFunction } from '../lib/functions';
@@ -14,6 +14,7 @@ import { competitionLabel, etapeLabelCourt } from '../components/teamMatches/tea
 import { formatRencontreDate } from '../components/teamMatches/poster/posterHelpers';
 import type { RencontreEntry } from '../components/teamMatches/gridTypes';
 import type { TeamMatchLine } from '../types';
+import PageHeader from '../components/layout/PageHeader';
 
 // Génération d'une actu depuis des rencontres par équipe (docs/specs/ACTUS.md, « Génération
 // depuis des rencontres ») : l'admin coche des rencontres, Claude rédige (Edge Function
@@ -68,13 +69,11 @@ export default function ActuGeneratePage() {
   const { saisons, error, ready, saisonId, selectSaison } = useTeamSaisons();
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <Link to="/actus" className="text-sm text-muted-foreground hover:text-foreground">← Actus</Link>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Actu depuis les rencontres</h1>
-          <p className="mt-2 text-muted-foreground">Cochez les rencontres, générez le texte, ajustez-le puis créez le brouillon d’actu avec ses images.</p>
-        </div>
-      </header>
+      <PageHeader
+        title="Actu depuis les rencontres"
+        breadcrumb={[{ label: 'Actus', to: '/actus' }]}
+        description="Cochez les rencontres, générez le texte, ajustez-le puis créez le brouillon d’actu avec ses images."
+      />
       <main className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
         {error ? <p className="text-sm text-destructive">Erreur de chargement : {error}</p>
           : !ready ? <p className="text-sm text-muted-foreground">Chargement des saisons…</p>

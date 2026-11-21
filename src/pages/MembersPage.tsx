@@ -11,7 +11,7 @@ import MemberProfileEditor from '../components/courses/MemberProfileEditor';
 // policy d'écriture. Le serveur est la barrière — les contrôles désactivés ci-dessous
 // ne sont que du confort.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CourseShell } from '../components/courses/CourseUI';
+import PageHeader from '../components/layout/PageHeader';
 import {
   listClubMembers,
   removeClubMember,
@@ -158,7 +158,12 @@ export default function MembersPage() {
   };
 
   return (
-    <CourseShell title="Membres">
+    <>
+      <PageHeader
+        title="Adhérents"
+        description="Invitez les membres du club, complétez leurs profils et gérez leurs accès."
+      />
+      <main className="course-workspace mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
       <div className="space-y-8">
         {clubId && <SignupRequests key={clubId} clubId={clubId} onChanged={load} />}
         <InvitePanel clubName={club?.name ?? 'ce club'} clubId={clubId} onInvited={load} />
@@ -274,7 +279,8 @@ export default function MembersPage() {
           )}
         </section>
       </div>
-    </CourseShell>
+      </main>
+    </>
   );
 }
 

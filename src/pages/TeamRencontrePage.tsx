@@ -264,7 +264,7 @@ export default function TeamRencontrePage() {
       <TeamMatchesHeader
         title={rencontre.club_adverse}
         backTo={backTo}
-        backLabel="Retour à l'équipe"
+        backLabel="Équipe"
         actions={
           <Link
             to={`/team-matches/rencontre/${rencontre.id}/edit`}

@@ -135,10 +135,8 @@ export default function CourseRegistrationsPage() {
           ✓ {notice}
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link to="/courses" className="course-back">
-          ← Retour aux cours
-        </Link>
+      {/* « ← Retour aux cours » : remplacé par le fil d'Ariane du `PageHeader` (PR-BO1). */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <button className="course-button" onClick={reload}>
           Actualiser
         </button>
