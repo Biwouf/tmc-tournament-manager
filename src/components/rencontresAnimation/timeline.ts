@@ -232,3 +232,13 @@ export function buildRencontresStoryParts(matches: TeamMatch[], maxSeconds = STO
   const parts = splitStoryParts(screens.length, (i, j) => part(i, j).total, maxSeconds);
   return parts.length ? parts.map(([i, j]) => part(i, j)) : [buildRencontresTimeline(matches)];
 }
+
+/**
+ * Story partagée depuis les premiers pas (W1) : la vidéo entière sous 30 s, sinon seulement la
+ * première partie de `buildRencontresStoryParts` (les suivantes restent dans /medias). L'aperçu
+ * montre cette même timeline : ce qu'on voit est ce qu'on publie.
+ */
+export function shareableStory(matches: TeamMatch[], maxSeconds = STORY_MAX_SECONDS): { tl: RencontresTimeline; parts: number; fullSeconds: number } {
+  const parts = buildRencontresStoryParts(matches, maxSeconds);
+  return { tl: parts[0], parts: parts.length, fullSeconds: parts.length > 1 ? buildRencontresTimeline(matches).total : parts[0].total };
+}

@@ -27,3 +27,34 @@ export function usePosterPreview(): PosterPreviewState {
     () => state,
   );
 }
+
+// W1 — l'aperçu animé de la story vit dans l'étape (lecteur, encodage, partage) mais s'affiche à
+// droite sur grand écran (maquette `05d`) : l'aperçu y pose un emplacement, l'étape y rend son
+// lecteur par un portail. Sur petit écran, le lecteur reste dans l'étape (maquette `05a`).
+let slot: HTMLElement | null = null;
+const slotListeners = new Set<() => void>();
+
+export function setStorySlot(node: HTMLElement | null): void {
+  if (slot === node) return;
+  slot = node;
+  slotListeners.forEach((listener) => listener());
+}
+
+export function useStorySlot(): HTMLElement | null {
+  return useSyncExternalStore(
+    (listener) => { slotListeners.add(listener); return () => { slotListeners.delete(listener); }; },
+    () => slot,
+  );
+}
+
+/** Vrai tant que `query` correspond (faux sans `matchMedia`, comme sous jsdom). */
+export function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      const list = window.matchMedia?.(query);
+      list?.addEventListener?.('change', listener);
+      return () => list?.removeEventListener?.('change', listener);
+    },
+    () => window.matchMedia?.(query).matches ?? false,
+  );
+}

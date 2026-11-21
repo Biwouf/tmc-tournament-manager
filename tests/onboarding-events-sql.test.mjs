@@ -36,7 +36,7 @@ async function fixture() {
     INSERT INTO profiles (id, is_super_admin) SELECT id, id = '${SUPER}' FROM auth.users;
   `);
   await db.exec(between(rls, 'CREATE OR REPLACE FUNCTION public.auth_club_ids()', '-- ============================================================\n-- 2.'));
-  for (const file of ['2026081802_super_admin_console.sql', '20260909_club_settings_public_read.sql', '2026102601_club_self_serve.sql', '2026111401_club_site_publish.sql', '2026111502_onboarding_events.sql']) {
+  for (const file of ['2026081802_super_admin_console.sql', '20260909_club_settings_public_read.sql', '2026102601_club_self_serve.sql', '2026111401_club_site_publish.sql', '2026111502_onboarding_events.sql', '2026111903_onboarding_video_events.sql']) {
     await db.exec(await migration(file));
   }
   // Club self-serve déjà activé (l'activation par lien magique est testée par club-signup-sql).
@@ -81,6 +81,35 @@ test('onboarding-events SQL: a self-serve club admin records the five browser ev
       await assert.rejects(log(f, SELF_ADMIN, SELF, name, props), (error) => error.code === '22023', `${name} ${JSON.stringify(props)}`);
     }
     assert.equal((await events(f)).length, 5);
+  } finally { await f.db.close(); }
+});
+
+test('onboarding-events SQL (W1): the four video events, with only their short properties', async () => {
+  const f = await fixture();
+  try {
+    assert.deepEqual(await log(f, SELF_ADMIN, SELF, 'video_previewed'), [{ r: true }]);
+    assert.deepEqual(await log(f, SELF_ADMIN, SELF, 'video_exported', { seconds: 14, ms: 12980, bytes: 7104331 }), [{ r: true }]);
+    assert.deepEqual(await log(f, SELF_ADMIN, SELF, 'video_shared', { method: 'share' }), [{ r: true }]);
+    assert.deepEqual(await log(f, SELF_ADMIN, SELF, 'video_shared', { method: 'download' }), [{ r: true }]);
+    assert.deepEqual(await log(f, SELF_ADMIN, SELF, 'video_export_failed', { reason: 'encode' }), [{ r: true }]);
+    assert.deepEqual(await log(f, SELF_ADMIN, SELF, 'video_export_failed', { reason: 'share' }), [{ r: true }]);
+    assert.deepEqual((await events(f)).map(e => e[1]), ['video_previewed', 'video_exported', 'video_shared', 'video_shared', 'video_export_failed', 'video_export_failed']);
+    assert.deepEqual((await events(f))[1][2], { seconds: 14, ms: 12980, bytes: 7104331 });
+    for (const [name, props] of [
+      ['video_previewed', { seconds: 3 }],
+      ['video_exported', {}], ['video_exported', { seconds: 14, ms: 1 }], ['video_exported', { seconds: 14, ms: 1, bytes: -1 }],
+      ['video_exported', { seconds: 14.5, ms: 1, bytes: 1 }], ['video_exported', { seconds: '14', ms: 1, bytes: 1 }],
+      ['video_exported', { seconds: 14, ms: 1, bytes: 1, club: 'Moissac' }],
+      ['video_shared', {}], ['video_shared', { method: 'email' }], ['video_shared', { method: 'share', to: 'a@b.fr' }],
+      ['video_export_failed', { reason: 'VideoEncoder: out of memory' }], ['video_export_failed', {}]]) {
+      await assert.rejects(log(f, SELF_ADMIN, SELF, name, props), (error) => error.code === '22023', `${name} ${JSON.stringify(props)}`);
+    }
+    assert.equal((await events(f)).length, 6);
+    // Toujours rien pour le CAC, et toujours réservé aux admins.
+    assert.deepEqual(await log(f, CAC_ADMIN, CAC, 'video_previewed'), [{ r: false }]);
+    await assert.rejects(log(f, SELF_MEMBER, SELF, 'video_previewed'), (error) => error.code === '42501');
+    const source = await migration('2026111903_onboarding_video_events.sql');
+    assert.doesNotMatch(source.replace(/^--.*$/gm, ''), /40001/);
   } finally { await f.db.close(); }
 });
 

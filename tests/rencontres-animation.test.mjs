@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRencontresTimeline, buildRencontresStoryParts, splitOpponent, dayParts, toAnimRencontre } from '../src/components/rencontresAnimation/timeline.ts';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import vm from 'node:vm';
+import { buildRencontresTimeline, buildRencontresStoryParts, shareableStory, splitOpponent, dayParts, toAnimRencontre } from '../src/components/rencontresAnimation/timeline.ts';
 
 let id = 0;
 const r = (date, time, opponent, location = 'home', extra = {}) => ({
@@ -94,4 +97,62 @@ test('Facebook story: one part under 30 s, otherwise split between screens, each
   assert.deepEqual(p8.map((tl) => tl.days.map((d) => d.date)), [['2026-11-14'], ['2026-11-15']]);
   assert.ok(p8.every((tl) => tl.total <= 30 && tl.recap));
   assert.equal(buildRencontresStoryParts(eight, 60).length, 1);
+});
+
+test('Onboarding (W1): under 30 s the whole story is shared; above, only the first part, the full length kept to say so', () => {
+  const day = (date, n) => Array.from({ length: n }, (_, i) => r(date, '09:00', `CLUB${i} TC 1`));
+  const three = day('2026-11-22', 3);
+  const one = shareableStory(three);
+  assert.deepEqual([one.parts, one.tl, one.fullSeconds], [1, buildRencontresTimeline(three), buildRencontresTimeline(three).total]);
+  const eight = [...day('2026-11-21', 4), ...day('2026-11-22', 4)];
+  const first = shareableStory(eight);
+  assert.equal(first.parts, 2);
+  assert.deepEqual(first.tl, buildRencontresStoryParts(eight)[0]);
+  assert.deepEqual(first.tl.days.map((d) => d.date), ['2026-11-21']);
+  assert.ok(first.tl.total <= 30);
+  assert.equal(first.fullSeconds, buildRencontresTimeline(eight).total);
+});
+
+// `encodeAnimation.ts` sans navigateur : WebCodecs, canvas et muxer simulés, rendu neutralisé.
+function loadEncoder() {
+  const ts = createRequire(import.meta.url)('typescript');
+  const file = new URL('../src/components/programmeAnimation/encodeAnimation.ts', import.meta.url);
+  const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const mod = { exports: {} };
+  const stubs = {
+    'mp4-muxer': { ArrayBufferTarget: class { buffer = new ArrayBuffer(8); }, Muxer: class { constructor(o) { this.target = o.target; } addVideoChunk() {} finalize() {} } },
+    './palette': { animationPalette: () => ({}) },
+    './renderFrame': { renderFrame() {} },
+    '../rencontresAnimation/renderFrame': { renderRencontresFrame() {} },
+  };
+  vm.runInThisContext(`(function(require,module,exports){${code}\n})`)((name) => stubs[name] ?? {}, mod, mod.exports);
+  return mod.exports;
+}
+
+test('Encoding bitrate: 8 Mb/s by default (/medias), 4 Mb/s when asked (onboarding share)', async () => {
+  const configured = [];
+  globalThis.VideoEncoder = class {
+    static async isConfigSupported(config) { return { supported: config.codec === 'avc1.640032' }; }
+    state = 'configured'; encodeQueueSize = 0;
+    configure(config) { configured.push(config.bitrate); }
+    encode() {} async flush() {} close() { this.state = 'closed'; }
+  };
+  globalThis.VideoFrame = class { close() {} };
+  globalThis.OffscreenCanvas = class { getContext() { return {}; } };
+  // Le `MessageChannel` de `yieldTask` garderait le processus ouvert : un tour de boucle suffit ici.
+  const Channel = globalThis.MessageChannel;
+  globalThis.MessageChannel = class { port1 = {}; port2 = { postMessage: () => setImmediate(() => this.port1.onmessage()) }; };
+  try {
+    const { pickEncoderConfig, encodeAnimation, DEFAULT_BITRATE, SHARE_BITRATE } = loadEncoder();
+    assert.deepEqual([DEFAULT_BITRATE, SHARE_BITRATE], [8_000_000, 4_000_000]);
+    assert.equal((await pickEncoderConfig(1080, 1920)).bitrate, 8_000_000);
+    assert.equal((await pickEncoderConfig(1080, 1920, SHARE_BITRATE)).bitrate, 4_000_000);
+    const tl = { W: 1080, H: 1920, total: 0.2 };
+    await encodeAnimation({ kind: 'rencontres', tl, color: '#f26524', texts: {}, assets: {} }, () => {});
+    await encodeAnimation({ kind: 'rencontres', tl, color: '#f26524', texts: {}, assets: {}, bitrate: SHARE_BITRATE }, () => {});
+    assert.deepEqual(configured, [8_000_000, 4_000_000], 'the job bitrate reaches the encoder, /medias unchanged');
+  } finally {
+    delete globalThis.VideoEncoder; delete globalThis.VideoFrame; delete globalThis.OffscreenCanvas;
+    globalThis.MessageChannel = Channel;
+  }
 });

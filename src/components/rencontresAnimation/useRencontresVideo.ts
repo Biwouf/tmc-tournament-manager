@@ -1,7 +1,7 @@
 // Moteur de la story « Prochaines rencontres » (MP4 1080 × 1920) : polices, logos, détection de
 // l'encodeur, export avec progression et annulation. Partagé par la section de /medias
 // (`RencontresAnimationSection`, avec lecteur et publication Facebook) et par l'étape « Vos
-// affiches » des premiers pas (SaaS S7b, téléchargement seul) : une seule implémentation.
+// affiches » des premiers pas (aperçu animé et partage à 4 Mb/s depuis W1) : une seule implémentation.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TeamMatch } from '../../types';
 import { toBitmap } from '../programmeAnimation/bitmaps';
@@ -23,6 +23,9 @@ export type RencontresVideoInput = {
   /** Nom posé dans le bloc du club sur chaque carte (la ville du club). */
   homeName: string;
 };
+
+// Réexporté pour l'étape « Vos affiches » : elle reconnaît une annulation sans charger le worker.
+export { ExportCancelled };
 
 const TITLE = 'Prochaines rencontres';
 
@@ -69,11 +72,12 @@ export function useRencontresVideo({ matches, partnerLogos, color, logo, logoInv
     };
   }, [tl.W, tl.H]);
 
-  /** Encode une timeline (la vidéo entière ou une partie de story) ; progression effacée à la fin. */
-  function encode(timeline: RencontresTimeline, kickerSuffix = ''): Promise<Blob> {
+  /** Encode une timeline (la vidéo entière ou une partie de story) ; progression effacée à la fin.
+   *  `bitrate` : 8 Mb/s par défaut (/medias), 4 Mb/s pour le partage des premiers pas. */
+  function encode(timeline: RencontresTimeline, kickerSuffix = '', bitrate?: number): Promise<Blob> {
     setProgress({ frame: 0, frames: Math.round(timeline.total * 30) });
     return exportMp4(
-      { kind: 'rencontres', tl: timeline, color: palette.red, texts: { ...texts, kicker: texts.kicker + kickerSuffix }, assets: assets! },
+      { kind: 'rencontres', tl: timeline, color: palette.red, texts: { ...texts, kicker: texts.kicker + kickerSuffix }, assets: assets!, bitrate },
       (frame, frames) => setProgress({ frame, frames }),
       () => cancelRef.current,
     ).finally(() => setProgress(null));

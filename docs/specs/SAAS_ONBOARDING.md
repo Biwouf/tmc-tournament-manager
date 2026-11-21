@@ -579,6 +579,10 @@ autres :
 
 ### 11.2 Parcours
 
+> Depuis W1 (§11.4), la story vidéo est en vedette et l'affiche passe en action secondaire : les
+> points 1 à 4 ci-dessous décrivent le parcours S7/S7b d'origine ; sélection et fond restent les
+> mêmes, repliés sous « Modifier ».
+
 1. **Rencontres à annoncer** : la sélection de `PosterPanel`, extraite dans
    `teamMatches/poster/posterSelection.ts` (semaine courante présélectionnée, 8 au plus, semaine
    suivante puis « Plus tard », « Tout prendre »), saison retenue par `useTeamSaisons`, rencontres
@@ -625,6 +629,54 @@ les trois couleurs, en desktop et à 390 px.
 
 Aucune opération hors code : pas de migration, pas d'Edge Function. Le bucket `content-images` et
 ses policies (`20260822_config_storage_tenant.sql`) servent déjà aux fonds.
+
+### 11.4 La story vidéo en vedette (W1, brief `SAAS_11_onboarding_tenup` §13.2)
+
+Recette du 19/11/2026 : la vidéo d'abord, l'affiche ensuite. Maquettes `wow/05a` à `05d` (sans la
+carte QR de `05d` : W1b abandonné).
+
+- **Aperçu animé** (`StoryPlayer`) : `renderRencontresFrame` en temps réel dans un canvas, la
+  fonction de l'export (ce qu'on voit est ce qu'on publie), **sans aucun encodage**. Démarre seul,
+  muet, en boucle, avec la sélection de `posterSelection.ts` déjà faite (semaine courante). Bouton
+  Pause/Lire (vrai bouton, clavier, WCAG 2.2.2), pastille « Aperçu », barre de lecture. Aucun
+  contrôle de son (il n'y a pas de piste audio). `prefers-reduced-motion` : image fixe de l'écran
+  final (`tl.end + 2,5 s` : logo, « Venez nous encourager ! ») et bouton Lire.
+- **Place** : dans l'étape jusqu'à 860 px (`05a`) ; au-delà, dans le panneau de droite (`05d`) par
+  un portail vers l'emplacement que pose `AffichesPreview` (`setStorySlot` / `useStorySlot`,
+  `posterSignal.ts`). Sur petit écran, « Voir l'aperçu » montre l'affiche.
+- **Étape terminée après 3 s d'aperçu** affiché onglet visible (pause comprise), sans attendre
+  l'encodage (décision 1 du §13.5) ; l'affiche téléchargée la termine aussi.
+- **Encodage au clic seulement**, à **4 Mb/s** (`SHARE_BITRATE` ; `/medias` reste à 8 Mb/s) :
+  aperçu figé, anneau en %, « On prépare votre vidéo… Encore N secondes environ. Restez sur cette
+  page. » (estimation d'après le rythme mesuré, ~1 s par seconde de vidéo avant), « Annuler » à la
+  place de « Modifier ». Le worker continue onglet caché.
+- **Partage** (`storyShare.ts`) : écran tactile (`pointer: coarse`) dont `navigator.canShare({ files })`
+  accepte un MP4 → « Partager la vidéo » → `navigator.share({ files })`. Si l'encodage a fait
+  perdre le geste (`NotAllowedError`), l'écran « Votre vidéo est prête. » garde « Partager la
+  vidéo » : un toucher suffit, sans réencoder. Feuille fermée (`AbortError`) : rien. Ailleurs
+  (ordinateur) : « Télécharger la vidéo · MP4 », téléchargement seul, pas de QR ni de dépôt du MP4
+  (décision 2). Prête : « Télécharger · MP4, N Mo ». Une nouvelle coche invalide la vidéo.
+- **Plus de 30 s** (`shareableStory`) : seulement la 1ʳᵉ partie de `buildRencontresStoryParts`,
+  avec « · 1/2 » au surtitre comme dans `/medias`, et la note « Vos rencontres font N s de vidéo :
+  on partage la 1ʳᵉ partie (M s). La suite est dans Médias. » L'aperçu montre cette partie.
+- **Sans encodeur** (`encoderOk === false`) : l'aperçu reste, le bouton devient « Télécharger
+  l'affiche », note « Ce navigateur ne sait pas créer la vidéo ».
+- **Affiche** : « Télécharger l'affiche (image) », un clic (`exportPosterJpeg` puis
+  téléchargement direct), `poster_generated`. Le fond « Aux couleurs du club » est toujours créé à
+  l'entrée ; la vidéo n'en dépend pas (échec du fond : l'affiche est désactivée, la vidéo non).
+- **Musique** : aucune en V1. `encodeAnimation` garde le conteneur MP4 / `mp4-muxer`, qui accepte
+  une piste `audio` à côté de la vidéo : rien ne ferme la porte (décision 6).
+- Barre d'actions collée en bas (`.fs-sticky`) seulement liste ouverte : fermée, elle masquait le
+  bas de l'aperçu à 390 px.
+
+Mesures (banc local, Chrome du Mac de dev, worker, 4 Mb/s) : 3 rencontres → 14 s de vidéo,
+**7,3 Mo**, encodée en 4,7 / 3,5 / 3,5 s (**médiane 3,5 s**) ; 8 rencontres → 1ʳᵉ partie de 25 s,
+12,5 Mo, 6,3 s. Android réel non mesuré.
+
+Tests : `first-steps` (aperçu sans encodage, 3 s = étape faite, débit 4 Mb/s, téléchargement,
+partage simulé avec geste perdu / annulation / échec, `prefers-reduced-motion`, sans encodeur,
+échec d'encodage, sans rencontre), `rencontres-animation` (`shareableStory`, débit transmis à
+l'encodeur, 8 Mb/s par défaut), `onboarding-events-sql` (événements `video_*`).
 
 ## 12. Tableau de bord (S8, brief `SAAS_09_S8_tableau_de_bord.md`)
 
@@ -925,12 +977,18 @@ place (chaque écriture de clé y est une lecture-modification-écriture).
 | `teams_import_started` | `ClubImport`, `PoolImport` | début d'import |
 | `teams_imported` `{ count }` | `ClubImport`, `PoolImport` | fin d'import, équipes créées |
 | `poster_generated` | `AffichesStep` | affiche générée |
+| `video_previewed` | `AffichesStep` (W1) | aperçu animé vu 3 s |
+| `video_exported` `{ seconds, ms, bytes }` | `AffichesStep` (W1) | MP4 encodé : durée, temps d'encodage, poids |
+| `video_shared` `{ method: share\|download }` | `AffichesStep` (W1) | feuille de partage menée au bout, ou téléchargement |
+| `video_export_failed` `{ reason: encode\|share }` | `AffichesStep` (W1) | encodage ou partage en échec (code court, jamais le message) |
 | `app_shared` | `markAppShared` | premier partage depuis la checklist |
 | `first_steps_finished` | `finishFirstSteps` | « Finir l'installation » |
 
 - RPC `onboarding_event_log(p_club, p_name, p_props)` `SECURITY DEFINER` : admin **membre** du
   club actif seulement (le support super-admin est refusé, il ne fausse pas le funnel) ; noms du
-  navigateur seulement ; propriétés `{}` sauf `teams_imported` (`{ count }` entier, rien d'autre) :
+  navigateur seulement ; propriétés `{}` sauf `teams_imported` (`{ count }` entier, rien d'autre) et
+  les `video_*` de W1 (migration `2026111903_onboarding_video_events.sql`, clés exactes ci-dessus,
+  entiers ≥ 0 ou valeurs énumérées) :
   jamais d'e-mail, de nom de club ni d'identifiant Ten'Up. Club non self-serve : renvoie `false`
   sans rien écrire. Erreurs 42501 / 22023, jamais 40001.
 - Table sans lecture ni écriture pour `anon` / `authenticated` (la console S10 ajoutera sa
