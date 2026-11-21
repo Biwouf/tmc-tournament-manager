@@ -143,17 +143,21 @@ export default function TeamRencontrePage() {
   const manage = canEdit && !rencontre.wo;
   const login = <Link to="/login" state={fromHere(location)} className="flex min-h-12 w-full items-center justify-center rounded-xl border border-border bg-card px-4 text-[15px] font-semibold">Se connecter pour suivre la rencontre</Link>;
   // Feuille de match du jour J (photo des deux feuilles) : « compo » désigne désormais la liste des joueurs.
+  // Rencontre commencée (heure prévue passée) : prendre les feuilles en photo devient l'action principale.
+  const started = inPlay || lines.some(l => l.live_match_id || l.gagnant) || new Date(rencontre.date_heure).getTime() <= openedAt;
   const photoButton = freeSimples.length > 0 && competition.singles_set3_format
-    && <button onClick={() => setComposing(true)} className="min-h-12 w-full rounded-xl border border-border bg-card p-3 font-semibold">{COMPO_COPY.sheetFeuille}</button>;
+    && <button onClick={() => setComposing(true)} className={`min-h-12 w-full rounded-xl p-3 font-semibold ${started ? 'bg-primary text-primary-foreground' : 'border border-border bg-card'}`}>{COMPO_COPY.sheetFeuille}</button>;
   const manualButton = lines.length < expected
     && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl border border-border bg-card p-3 font-semibold">Ajouter un match manuellement</button>;
-  const started = inPlay || lines.some(l => l.live_match_id || l.gagnant) || new Date(rencontre.date_heure).getTime() <= openedAt;
   // Le verrou de la compo porte déjà « Se connecter » : pas de second bouton de connexion avant la rencontre.
   const lineupLocked = !user && !rencontre.wo && !started;
   const title = `${club?.name ? formatClubName(club.name) : 'Notre club'} – ${formatClubName(rencontre.club_adverse)}`;
   // « Dimanche 22 novembre », heure de Paris.
   const dayLabel = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
     .format(new Date(rencontre.date_heure)).replace(/^./, c => c.toUpperCase());
+  const lineupSection = clubId && !rencontre.wo && <TeamLineupSection clubId={clubId} rencontreId={id} signedIn={!!user}
+    started={started} when={`${dayLabel} · ${parisHour(new Date(rencontre.date_heure))} · ${rencontre.domicile ? 'Au club' : 'À l’extérieur'}`}
+    contextLabel={`${title}, ${dayLabel.toLowerCase()}`} />;
   return <div className="tr-page space-y-5 p-4">
     <section className="rounded-2xl border border-border bg-card p-5">
       <p className="text-xs font-semibold uppercase text-muted-foreground">{competition.nom} · Équipe {equipe.numero}</p>
@@ -175,9 +179,7 @@ export default function TeamRencontrePage() {
       <p className="mt-1 text-xs text-muted-foreground">3e set des simples : {competition.singles_set3_format === 'super_tiebreak' ? 'super tie-break' : competition.singles_set3_format === 'normal' ? 'set classique' : 'à configurer'} · doubles : super tie-break</p>
     </section>
     {query.isError && <StaleNotice onRetry={() => void query.refetch()}>Actualisation impossible, les scores affichés peuvent avoir changé.</StaleNotice>}
-    {clubId && !rencontre.wo && <TeamLineupSection clubId={clubId} rencontreId={id} signedIn={!!user}
-      started={started} when={`${dayLabel} · ${parisHour(new Date(rencontre.date_heure))} · ${rencontre.domicile ? 'Au club' : 'À l’extérieur'}`}
-      contextLabel={`${title}, ${dayLabel.toLowerCase()}`} />}
+    {!started && lineupSection}
     {!user && !lineupLocked && lines.length > 0 && login}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Matchs</h2><span className="text-xs text-muted-foreground">{completed}/{expected} résultats validés</span></div>
@@ -185,7 +187,7 @@ export default function TeamRencontrePage() {
     {lines.length === 0 && <div className="space-y-3 rounded-xl border border-dashed border-border p-5 text-center">
       <h3 className="font-bold">{manage ? 'Aucun match pour l’instant' : 'Matchs à venir'}</h3>
       <p className="text-sm text-muted-foreground">{manage
-        ? 'Saisissez la feuille de match, par photo ou à la main.'
+        ? 'Photographiez les feuilles de match des deux équipes, ou ajoutez les matchs à la main.'
         : 'Les joueurs et les scores s’afficheront ici dès qu’ils seront saisis par le club.'}</p>
       {manage ? <>{photoButton}{manualButton}</> : !user && !lineupLocked && login}
     </div>}
@@ -221,6 +223,8 @@ export default function TeamRencontrePage() {
         className={`min-h-12 w-full rounded-xl border border-primary p-3 font-semibold disabled:opacity-40 ${ready ? 'bg-primary text-primary-foreground' : 'text-primary'}`}>Vérifier et confirmer la rencontre</button>}
       {rencontre.confirmed_at && <p className="text-sm text-muted-foreground">Chaque membre peut corriger un résultat. La rencontre sera alors à confirmer à nouveau.</p>}
     </>}
+    {/* Une fois la rencontre commencée, la compo passe sous les matchs : la feuille de match prime. */}
+    {started && lineupSection}
     {clubId && <TeamPhotos clubId={clubId} rencontreId={id} photoUrls={rencontre.photo_urls} userId={user?.id ?? null} canAdd={!!canReschedule.data} onChanged={() => void query.refetch()} />}
     {creating && clubId && <CreateTeamMatch detail={detail} clubId={clubId} onClose={close} />}
     {composing && clubId && <TeamCompoSheet detail={detail} clubId={clubId} slots={freeSimples} onClose={close} />}

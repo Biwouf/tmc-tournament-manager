@@ -134,7 +134,7 @@ export const COMPO_COPY = {
   notMemberError: names => `${names.join(', ')} ne ${names.length > 1 ? 'font' : 'fait'} plus partie du club. Retirez-${names.length > 1 ? 'les' : 'le'} de la compo.`,
   cannotEdit: 'La compo ne peut pas être modifiée pour l’instant : l’identité de certains joueurs n’a pas été reçue. Rechargez la page ; si le problème continue, prévenez un administrateur.',
   retry: 'Réessayer',
-  sheetFeuille: 'Saisir la feuille de match',
+  sheetFeuille: 'Photographier les feuilles de match',
 };
 
 /** Message affiché pour une erreur des RPC de compo (supabase-js : `message`, `details`). */

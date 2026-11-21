@@ -29,6 +29,7 @@ const mocks = {
 const modules = new Map();
 function load(file) {
   for (const [suffix, value] of Object.entries(mocks)) if (file.endsWith(suffix)) return value;
+  if (file.endsWith('.css')) return {};
   if (modules.has(file)) return modules.get(file).exports;
   const module = { exports: {} }; modules.set(file, module);
   const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -179,5 +180,43 @@ test('Connexion : texte de contexte, retour sur la rencontre avec le toast, ?ret
   unmount = await mount(h(Login), { path: '/login?returnTo=%2F%2Fevil.test', route: '/login' });
   try {
     assert.doesNotMatch(document.body.textContent, /voir la compo/);
+  } finally { await unmount(); }
+});
+
+test('Fiche : avant la rencontre la compo prime, après son heure la photo des feuilles de match', async () => {
+  // Détail de rencontre simulé : aucune ligne, format 3S1D, règle du 3e set connue.
+  const detail = date => ({ rencontre: { id: 'r', club_adverse: 'TC GRISOLLES 1', date_heure: date, domicile: true, wo: false, score_club: null, score_adverse: null, confirmed_at: null, revision: 0, photo_urls: [] },
+    competition: { nom: 'GAN 35', format: '3S1D', singles_set3_format: 'normal' }, equipe: { numero: 1 }, lines: [], lives: [] });
+  let current;
+  const real = load(resolve(src, 'lib/teamMatches.ts'));
+  Object.assign(mocks, {
+    '/lib/teamMatches.ts': { ...real, fetchTeamDetail: async () => current },
+    '/hooks/useAuth.ts': { useAuth: () => ({ user: { id: 'u1' }, loading: false }) },
+    '/hooks/useCourses.ts': { useCourseContext: () => ({ data: { is_member: true, can_manage: false }, isError: false }) },
+    '/hooks/useLiveTopic.ts': { LIVE_SAFETY_POLL: 120000, useLiveTopic: () => false },
+    '/hooks/useTeamAction.ts': { useTeamAction: () => ({ busy: false, error: '', clearError() {}, run: async () => null }) },
+    '/components/teamMatches/TeamPhotos.tsx': { default: () => null },
+  });
+  mocks['/lib/supabase.ts'].supabase.rpc = async name => ({ data: name === 'team_compo_get' ? lineup : name === 'team_can_reschedule' ? true : [], error: null });
+  lineup = { ...base, genre: 'hommes', can_edit: true, players: [] };
+  const Page = load(resolve(src, 'pages/TeamRencontrePage.tsx')).default;
+  const order = () => [...document.querySelectorAll('h2')].map(x => x.textContent).filter(t => t === 'Compo' || t === 'Matchs');
+  const photo = () => button('Photographier les feuilles de match');
+
+  current = detail(new Date(Date.now() + 3 * 86400000).toISOString());
+  let unmount = await mount(h(Page)); await wait();
+  try {
+    assert.deepEqual(order(), ['Compo', 'Matchs']);
+    assert.match(button('Choisir les joueurs').className, /bg-primary/);
+    assert.doesNotMatch(photo().className, /bg-primary/, 'la photo reste secondaire avant la rencontre');
+  } finally { await unmount(); }
+
+  current = detail(new Date(Date.now() - 3600000).toISOString());
+  unmount = await mount(h(Page)); await wait();
+  try {
+    assert.deepEqual(order(), ['Matchs', 'Compo'], 'la compo passe sous les matchs');
+    assert.match(photo().className, /bg-primary/, 'la photo devient l’action principale');
+    assert.doesNotMatch(button('Choisir les joueurs').className, /bg-primary/);
+    assert.match(document.body.textContent, /Photographiez les feuilles de match des deux équipes, ou ajoutez les matchs à la main\./);
   } finally { await unmount(); }
 });

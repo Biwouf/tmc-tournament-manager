@@ -165,7 +165,8 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
     {players.length === 0 ? <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-center">
       <p className="font-bold">{T.emptyTitle}</p>
       <p className="text-sm text-muted-foreground">{lineup.can_edit ? T.emptyEditor : T.emptyMember(captain)}</p>
-      {lineup.can_edit && <button ref={chooseRef} onClick={openEditor} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.choose}</button>}
+      {/* Rencontre commencée : la photo des feuilles de match devient l'action principale. */}
+      {lineup.can_edit && <button ref={chooseRef} onClick={openEditor} className={`min-h-12 w-full rounded-xl p-3 font-semibold ${started ? 'border border-border bg-card' : 'bg-primary text-primary-foreground'}`}>{T.choose}</button>}
     </div> : <>
       {/* Liste tronquée : pas d'intertitres, dont les compteurs ne diraient pas ce qu'on voit. */}
       <PlayerList players={truncated ? players.slice(0, INLINE_MAX) : players} genre={lineup.genre} grouped={grouped && !truncated} />

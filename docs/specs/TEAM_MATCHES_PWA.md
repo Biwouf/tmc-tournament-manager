@@ -285,9 +285,13 @@ Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
   club. Retirez-le de la compo. » Erreurs en `role="alert"` : doublon, version
   périmée avec `Recharger`, droits, hors ligne (les choix sont gardés). Fermer avec des changements
   demande « Abandonner vos changements ? » (focus sur `Continuer à modifier`).
-- Le bouton « Photographier la compo » devient **« Saisir la feuille de match »**, en bouton
-  secondaire (le bouton plein reste « Choisir les joueurs ») ; état vide des matchs : « Matchs à venir » et « Saisissez la feuille de match, par
-  photo ou à la main. »
+- Le bouton « Photographier la compo » devient **« Photographier les feuilles de match »** (21/11/2026 ;
+  « Saisir la feuille de match » ne disait pas qu'il s'agit d'une photo). Avant l'heure de la
+  rencontre, il est secondaire et la section « Compo » vient avant « Matchs » (bouton plein :
+  « Choisir les joueurs »). Une fois l'heure passée (ou un match en live / avec un résultat), la photo
+  devient le bouton plein, « Choisir les joueurs » passe en secondaire et la section « Compo » descend
+  sous les matchs. État vide des matchs : « Matchs à venir » et « Photographiez les feuilles de match
+  des deux équipes, ou ajoutez les matchs à la main. »
 - Textes partagés avec le futur écran du BO : `shared/teamCompoCopy.mjs`.
 - Le parcours visiteur est livré par la PR3 (ci-dessous).
 
