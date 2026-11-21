@@ -42,4 +42,10 @@ export async function saveLineup(clubId: string, rencontreId: string, players: L
   return data as TeamLineup;
 }
 
+/**
+ * Garde-fou : un membre retenu reçu sans `user_id` (serveur pas à jour, lecteur sans droit) serait
+ * effacé par `team_compo_save`, qui reçoit la liste entière. On n'ouvre pas l'édition dans ce cas.
+ */
+export const lineupEditable = (lineup: TeamLineup) => lineup.players.every(p => p.is_guest || !!p.user_id);
+
 export const fullName = (p: { prenom: string; nom: string }) => `${p.prenom} ${p.nom}`.trim();

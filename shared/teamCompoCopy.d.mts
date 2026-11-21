@@ -8,7 +8,7 @@ export const COMPO_COPY: {
   title: string; note: string; edit: string;
   emptyTitle: string; emptyMember: (captain: string | null) => string; emptyEditor: string; choose: string;
   lockedTitle: string; lockedText: string; loginReturn: string; login: string; signup: string;
-  sheetTitle: string; sheetSubtitle: (simples: number, doubles: number) => string; search: string;
+  sheetTitle: string; sheetSubtitle: (simples: number, doubles: number) => string; genreLabel: (genre: string) => string | null; search: string;
   filterLabel: string; filters: { all: string; male: string; female: string };
   retained: (n: number) => string; clubGroup: (filter: 'all' | 'male' | 'female') => string;
   captain: string; guest: string; you: string; sexUnknown: string; rankUnknown: string;
@@ -16,7 +16,7 @@ export const COMPO_COPY: {
   guestNote: string; guestSex: string; sexOptions: [string, string][];
   cancel: string; add: string; save: string; saving: string; saved: string;
   discardTitle: string; keepEditing: string; discard: string;
-  duplicate: (name: string) => string; reload: string; loadError: string; candidatesError: string; notMember: string; retry: string;
+  duplicate: (name: string) => string; reload: string; loadError: string; candidatesError: string; notMember: string; notMemberError: (names: string[]) => string; cannotEdit: string; retry: string;
   sheetFeuille: string;
 };
 export function compoErrorMessage(error: unknown, options?: { offline?: boolean }): string;

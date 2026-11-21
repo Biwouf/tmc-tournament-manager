@@ -259,21 +259,29 @@ Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
   - compo saisie : liste par nom (initiales, moi en rouge, sans compte en pointillé, étiquettes
     « Vous » et « Capitaine », classement), nombre de joueurs, note « Visible uniquement par les
     personnes connectées. », « N joueurs · Modifier » pour l'admin ou le capitaine, « Compo
-    enregistrée » 3 s après un enregistrement. À la fermeture de la feuille, le focus revient au titre
-    « Compo ».
-- Feuille **« Choisir les joueurs »** (`TeamLineupEditor`, sur `TeamSheet`) : recherche « Rechercher
+    enregistrée » 3 s après un enregistrement. À la fermeture de la feuille, le focus revient au bouton
+    qui l'ouvre (« Modifier », ou « Choisir les joueurs » si la compo est restée vide).
+  - garde-fou : si un membre retenu arrive sans `user_id` (serveur sans `2026111902`), la feuille ne
+    s'ouvre pas et un message demande de recharger. Enregistrer aurait effacé ce joueur.
+- Feuille **« Choisir les joueurs »** (`TeamLineupEditor`, sur `TeamSheet`) : sous-titre « Tout le
+  club · 3 simples, 1 double · Rencontre messieurs » (dames, garçons, filles ; rien en mixte) ; recherche « Rechercher
   ou saisir un nom » ; puces `Tous` / `Hommes` / `Femmes` avec effectifs, présélectionnées selon le
   genre de la compétition, masquées si les membres n'ont pas pu être chargés (« Impossible de charger
   les membres du club. » + `Réessayer`). Une recherche parcourt tout le club : « Tous » s'allume, et
-  choisir une puce efface la recherche. Groupe « Retenus · N » en tête (N = lignes affichées), figé à
-  l'ouverture (un joueur décoché ne saute pas) ; un retenu qui a quitté le club y est marqué « N'est
+  choisir une puce efface la recherche. Groupe « Retenus · N » en tête (N = joueurs cochés, comme le
+  pied de la feuille) : un joueur coché y remonte, un joueur décoché y reste jusqu'à la fermeture ;
+  une personne cochée hors du genre de la rencontre porte la mention « Femme · Rencontre messieurs »,
+  sans rien bloquer ; un retenu qui a quitté le club y est marqué « N'est
   plus membre du club » ; reste du club par nom ; ligne entière cochable (`role="checkbox"`, 56 px,
   case 26 px) ; classement en pastille, rien s'il n'est pas renseigné (NC est un vrai classement).
   Nom introuvable : « Aucun membre du club ne s'appelle « … » » + carte « Ajouter …, sans compte »
-  (sexe facultatif, « Non précisé » par défaut) ; si des membres correspondent en partie, ils sont
+  (sexe facultatif, prérempli selon la rencontre : Homme en messieurs, Femme en dames, « Non précisé »
+  en mixte) ; si des membres correspondent en partie, ils sont
   listés et l'ajout sans compte vient en dernier ; un invité déjà dans la liste n'est pas reproposé. Pied fixe : indication de nombre
   (`role="status"`, orange sous le minimum, jamais bloquante ; en mixte « 5 joueurs · 3 femmes,
-  2 hommes ») et `Enregistrer la compo`, jamais grisé. Erreurs en `role="alert"` : doublon, version
+  2 hommes »), masquée si les membres n'ont pas pu être chargés, et `Enregistrer la compo`, jamais
+  grisé. Un retenu sorti du club est nommé avant tout envoi : « Léa Partie ne fait plus partie du
+  club. Retirez-le de la compo. » Erreurs en `role="alert"` : doublon, version
   périmée avec `Recharger`, droits, hors ligne (les choix sont gardés). Fermer avec des changements
   demande « Abandonner vos changements ? » (focus sur `Continuer à modifier`).
 - Le bouton « Photographier la compo » devient **« Saisir la feuille de match »**, en bouton

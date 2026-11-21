@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fromHere } from '../layout/useGoBack';
 import TeamLineupEditor from './TeamLineupEditor';
 import { COMPO_COPY as T, playersLabel } from '../../../../shared/teamCompoCopy.mjs';
-import { LINEUP_SUMMARIES_KEY, fetchLineup, fullName, lineupKey, type LineupPlayer, type TeamLineup } from '../../lib/teamLineup';
+import { LINEUP_SUMMARIES_KEY, fetchLineup, fullName, lineupEditable, lineupKey, type LineupPlayer, type TeamLineup } from '../../lib/teamLineup';
 
 /** Pastille d'initiales : moi en rouge plein, membre en gris, sans compte en pointillé. */
 function Initials({ player }: { player: LineupPlayer }) {
@@ -42,11 +42,16 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
-  // À la fermeture de la feuille (Échap, ✕, abandon, enregistrement), le focus revient au titre de la section.
+  const [blocked, setBlocked] = useState(false);
+  // À la fermeture de la feuille (Échap, ✕, abandon, enregistrement), le focus revient au bouton qui
+  // l'ouvre (« Modifier », ou « Choisir les joueurs » si la compo est restée vide), sinon au titre.
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
+  const chooseRef = useRef<HTMLButtonElement>(null);
   const [wasEditing, setWasEditing] = useState(false);
-  useEffect(() => { if (!editing && wasEditing) titleRef.current?.focus(); }, [editing, wasEditing]);
-  const openEditor = () => { setEditing(true); setWasEditing(true); };
+  useEffect(() => {
+    if (!editing && wasEditing) (editRef.current ?? chooseRef.current ?? titleRef.current)?.focus();
+  }, [editing, wasEditing]);
   const query = useQuery({
     queryKey: lineupKey(clubId, rencontreId), enabled: signedIn,
     queryFn: () => fetchLineup(clubId, rencontreId),
@@ -83,6 +88,8 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
   // Rencontre jouée sans compo saisie : rien à annoncer, sauf à qui peut encore la saisir.
   if (!players.length && started && !lineup.can_edit) return null;
   const captain = lineup.captains[0] ? fullName(lineup.captains[0]) : null;
+  // Garde-fou : sans user_id d'un membre retenu, enregistrer l'effacerait. On n'ouvre pas la feuille.
+  const openEditor = () => { if (!lineupEditable(lineup)) { setBlocked(true); return; } setEditing(true); setWasEditing(true); };
   const done = (fresh: TeamLineup) => {
     queryClient.setQueryData(lineupKey(clubId, rencontreId), fresh);
     void queryClient.invalidateQueries({ queryKey: [LINEUP_SUMMARIES_KEY, clubId] });
@@ -96,14 +103,15 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
       <h2 id="compo-title" ref={titleRef} tabIndex={-1} className="text-lg font-bold outline-none">{T.title}</h2>
       {players.length > 0 && <span className="flex items-center gap-1 text-sm text-muted-foreground">
         {playersLabel(players.length)}
-        {lineup.can_edit && <>{' · '}<button onClick={openEditor} className="-mr-2 min-h-11 px-2 font-semibold text-primary underline underline-offset-2">{T.edit}</button></>}
+        {lineup.can_edit && <>{' · '}<button ref={editRef} onClick={openEditor} className="-mr-2 min-h-11 px-2 font-semibold text-primary underline underline-offset-2">{T.edit}</button></>}
       </span>}
     </div>
+    {blocked && <p role="alert" className="text-sm text-red-700">{T.cannotEdit}</p>}
     {saved && <p role="status" className="rounded-xl bg-muted px-4 py-2 text-sm font-semibold">{T.saved}</p>}
     {players.length === 0 ? <div className="space-y-3 rounded-2xl border border-border bg-card p-5 text-center">
       <p className="font-bold">{T.emptyTitle}</p>
       <p className="text-sm text-muted-foreground">{lineup.can_edit ? T.emptyEditor : T.emptyMember(captain)}</p>
-      {lineup.can_edit && <button onClick={openEditor} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.choose}</button>}
+      {lineup.can_edit && <button ref={chooseRef} onClick={openEditor} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.choose}</button>}
     </div> : <>
       <ul aria-label={`Compo, ${playersLabel(players.length)}`} className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
         {players.map(player => <PlayerLine key={player.id} player={player} />)}

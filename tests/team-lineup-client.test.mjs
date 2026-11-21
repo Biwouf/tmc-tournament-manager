@@ -118,24 +118,40 @@ test('Capitaine : filtre Hommes, coche, invité sans compte, doublon refusé, en
     await click(button('Hommes'));
     assert.match(row('Romain Escaffre').getAttribute('aria-label'), /Capitaine/);
     assert.match(document.querySelector('[role=status]').textContent, /Il faut au moins 3 joueurs pour les 3 simples/);
+    // Mention discrète du genre de la rencontre.
+    assert.match(document.querySelector('dialog').textContent, /Tout le club · 3 simples, 1 double · Rencontre messieurs/);
 
     await click(row('Romain Escaffre'));
     await click(row('Julien Marty'));
     assert.equal(row('Julien Marty').getAttribute('aria-checked'), 'true');
+    // Un joueur coché remonte dans les retenus ; l'en-tête suit le pied de la feuille.
+    const groups = () => [...document.querySelectorAll('dialog ul')].map(ul => [...ul.querySelectorAll('[role=checkbox]')].map(r => r.getAttribute('aria-label').split(',')[0]));
+    assert.deepEqual(groups()[0], ['Romain Escaffre', 'Julien Marty']);
+    assert.equal([...document.querySelectorAll('h3')].find(x => x.textContent.startsWith('Retenus')).textContent, 'Retenus · 2');
+    // Décoché, il reste à sa place jusqu'à la fermeture.
+    await click(row('Julien Marty'));
+    assert.deepEqual(groups()[0], ['Romain Escaffre', 'Julien Marty']);
+    assert.equal([...document.querySelectorAll('h3')].find(x => x.textContent.startsWith('Retenus')).textContent, 'Retenus · 1');
+    await click(row('Julien Marty'));
+    // Une femme cochée dans une rencontre messieurs : mention, rien n'est bloqué.
+    await click(button('Tous'));
+    await click(row('Claire Dupont'));
+    assert.match(row('Claire Dupont').getAttribute('aria-label'), /Femme · Rencontre messieurs/);
+    await click(row('Claire Dupont'));
+    await click(button('Hommes'));
 
     // Une recherche porte sur tout le club : la puce « Tous » le montre.
     await type('Paul Girard');
     assert.equal(document.querySelector('[role=radiogroup] [aria-checked=true]').textContent, 'Tous 4');
-    // Sexe de l'invité : « Non précisé » par défaut, quel que soit le filtre.
-    assert.equal([...document.querySelectorAll('[role=radio][aria-checked=true]')].at(-1).textContent, 'Non précisé');
+    // Sexe de l'invité prérempli selon la rencontre (messieurs → Homme).
+    assert.equal([...document.querySelectorAll('[role=radio][aria-checked=true]')].at(-1).textContent, 'Homme');
     assert.match(document.body.textContent, /Aucun membre du club ne s’appelle « Paul Girard »/);
     assert.match(document.body.textContent, /Ajouter Paul Girard, sans compte/);
     await click([...document.querySelectorAll('[role=radio]')].find(b => b.textContent === 'Homme'));
     await click(button('Ajouter'));
     assert.equal(row('Paul Girard').getAttribute('aria-checked'), 'true');
     assert.match(document.querySelector('[role=status]').textContent, /3 joueurs retenus · il en faut au moins 3 pour 3 simples/);
-    // L'en-tête des retenus compte les lignes qu'il montre (l'invité ; les membres cochés restent à leur place).
-    assert.equal([...document.querySelectorAll('h3')].find(x => x.textContent.startsWith('Retenus')).textContent, 'Retenus · 1');
+    assert.equal([...document.querySelectorAll('h3')].find(x => x.textContent.startsWith('Retenus')).textContent, 'Retenus · 3');
 
     // Même invité une seconde fois (casse et accents ignorés) : plus proposé, sa ligne est là.
     await type('paul GIRÂRD');
@@ -150,6 +166,8 @@ test('Capitaine : filtre Hommes, coche, invité sans compte, doublon refusé, en
 
     await click(button('Enregistrer la compo')); await wait();
     assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { user_id: 'u2' }, { prenom: 'Paul', nom: 'Girard', sex: 'male' }]);
+    // Le faux serveur renvoie une compo vide : le bouton d'ouverture est encore « Choisir les joueurs ».
+    assert.equal(document.activeElement.textContent, 'Choisir les joueurs', 'le focus revient au bouton d’ouverture');
     assert.equal(saved[0].p_version, 0);
     assert.match(document.body.textContent, /Compo enregistrée/);
     assert.equal(document.querySelector('dialog'), null);
@@ -165,6 +183,7 @@ test('Capitaine : échec du chargement des membres, sans faux compteurs', async 
     assert.match(document.querySelector('[role=alert]').textContent, /Impossible de charger les membres du club/);
     assert.equal(document.querySelector('[role=radiogroup]'), null, 'pas de puces « Tous 0 »');
     assert.match(button('Réessayer').className, /min-h-11/);
+    assert.equal(document.querySelector('dialog [role=status]'), null, 'pas d’indication de nombre sans membres');
   } finally { candidatesError = null; await unmount(); }
 });
 
@@ -193,11 +212,40 @@ test('Capitaine : version périmée, abandon des changements', async () => {
     await click(document.querySelector('[aria-label=Fermer]'));
     await click(button('Abandonner')); await wait();
     assert.equal(document.querySelector('dialog'), null);
-    assert.equal(document.activeElement.id, 'compo-title', 'le focus revient à la section');
+    assert.equal(document.activeElement.textContent, 'Modifier', 'Échap / Abandonner : focus sur « Modifier »');
     // Un invité gardé est renvoyé par son id.
     saveError = null; saved = [];
     await click(button('Modifier')); await wait();
     await click(button('Enregistrer la compo')); await wait();
     assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { id: 'g1' }]);
+  } finally { await unmount(); }
+});
+
+test('Garde-fou : un membre reçu sans user_id bloque l’édition au lieu d’effacer la compo', async () => {
+  lineup = { ...base, version: 2, can_edit: true, players: [
+    { id: 'p1', user_id: null, is_guest: false, prenom: 'Romain', nom: 'Escaffre', initials: 'RE', classement: '30', is_captain: true, is_me: false, sex: 'male' },
+  ] };
+  saved = []; saveError = null;
+  const unmount = await render();
+  try {
+    await click(button('Modifier')); await wait();
+    assert.equal(document.querySelector('dialog'), null, 'la feuille ne s’ouvre pas');
+    assert.match(document.querySelector('[role=alert]').textContent, /La compo ne peut pas être modifiée pour l’instant/);
+    assert.equal(saved.length, 0);
+  } finally { await unmount(); }
+});
+
+test('Joueur sorti du club : nommé, rien n’est envoyé', async () => {
+  lineup = { ...base, version: 2, can_edit: true, players: [
+    { id: 'p9', user_id: 'u9', is_guest: false, prenom: 'Léa', nom: 'Partie', initials: 'LP', classement: null, is_captain: false, is_me: false, sex: 'male' },
+  ] };
+  saved = []; saveError = null;
+  const unmount = await render();
+  try {
+    await click(button('Modifier')); await wait();
+    assert.match(row('Léa Partie').getAttribute('aria-label'), /N’est plus membre du club/);
+    await click(button('Enregistrer la compo')); await wait();
+    assert.equal(saved.length, 0);
+    assert.match(document.querySelector('dialog [role=alert]').textContent, /Léa Partie ne fait plus partie du club\. Retirez-le de la compo\./);
   } finally { await unmount(); }
 });

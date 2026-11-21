@@ -55,6 +55,8 @@ export const COMPO_COPY = {
   signup: 'Créer un compte',
   sheetTitle: 'Choisir les joueurs',
   sheetSubtitle: (simples, doubles) => `Tout le club · ${formatLabel(simples, doubles)}`,
+  /** Mention discrète du genre de la rencontre (rien en mixte). */
+  genreLabel: genre => ({ hommes: 'Rencontre messieurs', femmes: 'Rencontre dames', garcons: 'Rencontre garçons', filles: 'Rencontre filles' })[genre] ?? null,
   search: 'Rechercher ou saisir un nom',
   filterLabel: 'Filtrer par sexe',
   filters: { all: 'Tous', male: 'Hommes', female: 'Femmes' },
@@ -84,6 +86,8 @@ export const COMPO_COPY = {
   loadError: 'Impossible de charger la compo.',
   candidatesError: 'Impossible de charger les membres du club.',
   notMember: 'N’est plus membre du club',
+  notMemberError: names => `${names.join(', ')} ne ${names.length > 1 ? 'font' : 'fait'} plus partie du club. Retirez-${names.length > 1 ? 'les' : 'le'} de la compo.`,
+  cannotEdit: 'La compo ne peut pas être modifiée pour l’instant : l’identité de certains joueurs n’a pas été reçue. Rechargez la page ; si le problème continue, prévenez un administrateur.',
   retry: 'Réessayer',
   sheetFeuille: 'Saisir la feuille de match',
 };
@@ -98,7 +102,7 @@ export function compoErrorMessage(error, { offline = false } = {}) {
   if (code.includes('DUPLICATE_PLAYER')) return COMPO_COPY.duplicate(detail || 'Ce joueur');
   if (code.includes('COMPO_FORBIDDEN')) return 'Seuls le capitaine de l’équipe et les administrateurs peuvent modifier la compo.';
   if (code.includes('COMPO_TOO_LARGE')) return 'La compo compte au plus 30 joueurs.';
-  if (code.includes('PLAYER_NOT_MEMBER')) return 'Un joueur n’est plus membre du club : décochez-le, puis enregistrez.';
+  if (code.includes('PLAYER_NOT_MEMBER')) return 'Un joueur ne fait plus partie du club. Retirez-le de la compo.';
   if (code.includes('COMPO_AUTH_REQUIRED')) return 'Connectez-vous pour voir la compo.';
   if (offline || !code || /fetch|network/i.test(code)) {
     return 'Hors ligne : la compo n’est pas enregistrée. Vos choix sont gardés, réessayez dès le retour du réseau.';
