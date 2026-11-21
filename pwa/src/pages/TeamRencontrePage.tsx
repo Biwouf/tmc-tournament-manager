@@ -22,7 +22,7 @@ import { announceLiveStart } from '../lib/liveFollows';
 import TeamResultSheet from '../components/teamMatches/TeamResultSheet';
 import TeamPhotos from '../components/teamMatches/TeamPhotos';
 import TeamLineupSection from '../components/teamMatches/TeamLineupSection';
-import { COMPO_COPY } from '../../../shared/teamCompoCopy.mjs';
+import { COMPO_COPY, parisHour } from '../../../shared/teamCompoCopy.mjs';
 import { ResultChip } from '../components/matchesEquipes/ResultChip';
 import { scoreIssue, type ResultIssue } from '../components/matchesEquipes/result';
 import { LoadError, StaleNotice } from '../components/layout/LoadState';
@@ -150,10 +150,14 @@ export default function TeamRencontrePage() {
   const started = inPlay || lines.some(l => l.live_match_id || l.gagnant) || new Date(rencontre.date_heure).getTime() <= openedAt;
   // Le verrou de la compo porte déjà « Se connecter » : pas de second bouton de connexion avant la rencontre.
   const lineupLocked = !user && !rencontre.wo && !started;
+  const title = `${club?.name ? formatClubName(club.name) : 'Notre club'} – ${formatClubName(rencontre.club_adverse)}`;
+  // « Dimanche 22 novembre », heure de Paris.
+  const dayLabel = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' })
+    .format(new Date(rencontre.date_heure)).replace(/^./, c => c.toUpperCase());
   return <div className="tr-page space-y-5 p-4">
     <section className="rounded-2xl border border-border bg-card p-5">
       <p className="text-xs font-semibold uppercase text-muted-foreground">{competition.nom} · Équipe {equipe.numero}</p>
-      <h1 className="mt-2 text-2xl font-bold">{club?.name ? formatClubName(club.name) : 'Notre club'} – {formatClubName(rencontre.club_adverse)}</h1>
+      <h1 className="mt-2 text-2xl font-bold">{title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{new Date(rencontre.date_heure).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} · {rencontre.domicile ? 'Au club' : 'À l’extérieur'}</p>
       {/* Une rencontre confirmée ne se replanifie plus par ce raccourci. */}
       {canReschedule.data && !rencontre.confirmed_at && <button onClick={() => { setDateError(''); setDateDraft(toLocalInput(rencontre.date_heure)); }} className="-ml-1 mt-1 min-h-11 px-1 text-sm font-semibold text-primary underline underline-offset-2 active:opacity-60">Changer la date</button>}
@@ -172,7 +176,8 @@ export default function TeamRencontrePage() {
     </section>
     {query.isError && <StaleNotice onRetry={() => void query.refetch()}>Actualisation impossible, les scores affichés peuvent avoir changé.</StaleNotice>}
     {clubId && !rencontre.wo && <TeamLineupSection clubId={clubId} rencontreId={id} signedIn={!!user}
-      started={started} />}
+      started={started} when={`${dayLabel} · ${parisHour(new Date(rencontre.date_heure))} · ${rencontre.domicile ? 'Au club' : 'À l’extérieur'}`}
+      contextLabel={`${title}, ${dayLabel.toLowerCase()}`} />}
     {!user && !lineupLocked && lines.length > 0 && login}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Matchs</h2><span className="text-xs text-muted-foreground">{completed}/{expected} résultats validés</span></div>

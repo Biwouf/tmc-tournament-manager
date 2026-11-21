@@ -5,7 +5,7 @@ import PasswordInput from '../components/PasswordInput';
 import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-import { signupError, signupReturnTo, validateSignup, TENNIS_RANKINGS, type SignupFields } from '../lib/signup';
+import { isRencontrePath, signupError, signupReturnTo, validateSignup, TENNIS_RANKINGS, type SignupFields } from '../lib/signup';
 
 // Champs de 48 px, texte 16 px : pas de zoom automatique d'iOS au focus.
 const inputClass = 'min-h-12 w-full rounded-xl border border-border bg-background px-3.5 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -90,7 +90,7 @@ export default function SignupPage({ confirmed = false }: { confirmed?: boolean 
       const { error } = await supabase.rpc('course_signup_my_profile', { p_club: clubId, p_prenom: profile.prenom, p_nom: profile.nom, p_sex: profile.sex, p_classement: profile.classement, p_request_id: requestId.current });
       if (error) throw error;
       await cache.invalidateQueries();
-      navigate(returnTo, { replace: true });
+      navigate(returnTo, { replace: true, state: isRencontrePath(returnTo) ? { welcome: 'compo' } : undefined });
     } catch (err) { setError(signupError(err)); }
     finally { busy.current = false; setLoading(false); }
   }
@@ -103,7 +103,7 @@ export default function SignupPage({ confirmed = false }: { confirmed?: boolean 
     <h1 className="sr-only">Créer un compte</h1>
     <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-5 shadow-sm">
       {sent ? <div role="status" className="space-y-4"><p>Vérifiez votre boîte mail pour activer votre compte.</p><p className="text-sm text-muted-foreground">Pensez à vérifier vos spams. Votre accès membre sera ensuite soumis à la validation du club.</p></div>
-      : confirmed ? <div role="status" className="space-y-4"><p>{authLoading ? 'Vérification du compte…' : user ? 'Votre demande est enregistrée. Le club doit la valider pour vous accorder un accès membre.' : 'Connectez-vous pour retrouver votre demande. Si le lien a expiré, demandez un nouveau mot de passe.'}</p><Link className="block py-3 text-primary underline" to={user ? returnTo : '/login'}>{user ? 'Continuer' : 'Se connecter'}</Link></div>
+      : confirmed ? <div role="status" className="space-y-4"><p>{authLoading ? 'Vérification du compte…' : user ? 'Votre demande est enregistrée. Le club doit la valider pour vous accorder un accès membre.' : 'Connectez-vous pour retrouver votre demande. Si le lien a expiré, demandez un nouveau mot de passe.'}</p><Link className="block py-3 text-primary underline" to={user ? returnTo : `/login${returnTo !== '/actu' ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`} state={user && isRencontrePath(returnTo) ? { welcome: 'compo' } : undefined}>{user ? 'Continuer' : 'Se connecter'}</Link></div>
       : user && !created.current ? <p role="status">Vous êtes déjà connecté·e. Retrouvez votre accès au club dans votre espace.</p>
       : <form id="signup-form" onSubmit={submit} aria-busy={loading} className="space-y-4">
         <div>

@@ -1,5 +1,6 @@
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import MatchEquipeCell from './MatchEquipeCell';
+import type { CardCompo } from '../../lib/teamLineup';
 import { competitionLabel } from './labels';
 
 export interface EnrichedRencontre {
@@ -14,6 +15,8 @@ export interface EnrichedRencontre {
 interface Props {
   items: EnrichedRencontre[];
   state: 'upcoming' | 'past';
+  /** Compo à montrer sur la carte d'une rencontre ; `undefined` = rien. */
+  compoFor?: (rencontreId: string) => CardCompo | undefined;
 }
 
 interface CompGroup { comp: TeamCompetition; items: EnrichedRencontre[] }
@@ -54,7 +57,7 @@ function groupByDay(items: EnrichedRencontre[], state: Props['state']): DayGroup
   return state === 'past' ? list.reverse() : list;
 }
 
-export default function MatchEquipeList({ items, state }: Props) {
+export default function MatchEquipeList({ items, state, compoFor }: Props) {
   if (items.length === 0) {
     return (
       <p className="me-empty">
@@ -72,7 +75,7 @@ export default function MatchEquipeList({ items, state }: Props) {
             <span className="n">{day.count} rencontre{day.count > 1 ? 's' : ''}</span>
           </h2>
           {day.comps.map(({ comp, items: rows }) => (
-            <CompSection key={comp.id} comp={comp} rows={rows} state={state} />
+            <CompSection key={comp.id} comp={comp} rows={rows} state={state} compoFor={compoFor} />
           ))}
         </section>
       ))}
@@ -80,7 +83,7 @@ export default function MatchEquipeList({ items, state }: Props) {
   );
 }
 
-function CompSection({ comp, rows, state }: { comp: TeamCompetition; rows: EnrichedRencontre[]; state: Props['state'] }) {
+function CompSection({ comp, rows, state, compoFor }: { comp: TeamCompetition; rows: EnrichedRencontre[]; state: Props['state']; compoFor?: Props['compoFor'] }) {
   return (
     <>
       <h3 className="me-comp">{competitionLabel(comp)}</h3>
@@ -94,6 +97,7 @@ function CompSection({ comp, rows, state }: { comp: TeamCompetition; rows: Enric
               state={state}
               isLive={isLive}
               isPending={isPending}
+              compo={compoFor?.(rencontre.id)}
             />
           </li>
         ))}

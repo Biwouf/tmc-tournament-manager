@@ -4,7 +4,15 @@ export function playersLabel(n: number): string;
 export function formatLabel(simples: number, doubles: number): string;
 export function countHint(count: number, minPlayers: number | null, simples: number | null): { text: string; short: boolean };
 export function mixedCountLabel(sexes: (string | null)[]): string;
+export function parisHour(date: Date): string;
+export function freshnessLabel(updatedAt: string | Date, now?: Date): string;
+export function updatedLine(updatedAt: string, by: { prenom: string; nom: string; role: string } | null, now?: Date): string;
+export function previewNames(names: string[], count: number): string;
 export const COMPO_COPY: {
+  loginContext: (label: string | null | undefined) => string; welcomeBack: string; youPlayTitle: string; youPlay: string;
+  compoToCome: string; lockedCard: string; lockedBanner: string; cardLabel: (count: number, isMe: boolean) => string;
+  cardLockedLabel: string; seeAll: (n: number) => string; sheetList: (n: number) => string;
+  groups: { female: string; male: string; none: string };
   title: string; note: string; edit: string;
   emptyTitle: string; emptyMember: (captain: string | null) => string; emptyEditor: string; choose: string;
   lockedTitle: string; lockedText: string; loginReturn: string; login: string; signup: string;

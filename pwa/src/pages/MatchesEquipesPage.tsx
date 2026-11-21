@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
@@ -26,6 +26,9 @@ import CalendarExport from '../components/matchesEquipes/CalendarExport';
 import { useAuth } from '../hooks/useAuth';
 import '../components/matchesEquipes/matchesEquipes.css';
 import { LoadError, StaleNotice } from '../components/layout/LoadState';
+import { fromHere } from '../components/layout/useGoBack';
+import { LINEUP_SUMMARIES_KEY, fetchLineupSummaries, type CardCompo } from '../lib/teamLineup';
+import { COMPO_COPY } from '../../../shared/teamCompoCopy.mjs';
 
 export default function MatchesEquipesPage() {
   const { clubId } = useClub();
@@ -210,6 +213,24 @@ export default function MatchesEquipesPage() {
 
   const items = upcomingTab === 'upcoming' ? upcoming : past;
 
+  // Compo sur les cartes des rencontres pas encore commencées (brief compo-equipes §0 bis) :
+  // un seul appel pour toute la liste, jamais en anonyme ; le visiteur voit un cadenas.
+  const location = useLocation();
+  const notStarted = useMemo(() => upcoming.filter((x) => !x.isLive && !x.isPending).map((x) => x.rencontre.id), [upcoming]);
+  const summariesQuery = useQuery({
+    queryKey: [LINEUP_SUMMARIES_KEY, clubId, notStarted],
+    enabled: !!user && !!clubId && notStarted.length > 0,
+    queryFn: () => fetchLineupSummaries(clubId!, notStarted),
+    placeholderData: keepPreviousData,
+  });
+  const compoFor = (rencontreId: string): CardCompo | undefined => {
+    if (upcomingTab !== 'upcoming' || !notStarted.includes(rencontreId)) return undefined;
+    if (!user) return 'locked';
+    if (!summariesQuery.data) return undefined;
+    return summariesQuery.data.find((s) => s.rencontre_id === rencontreId) ?? null;
+  };
+  const showLockedBanner = !user && upcomingTab === 'upcoming' && notStarted.length > 0;
+
   // Première requête en échec sans donnée à montrer : écran d'erreur. Une actualisation qui
   // échoue sur une liste déjà affichée ne laisse qu'un bandeau discret.
   const failed = [saisonsQuery, equipesQuery, rencontresQuery].find((q) => q.isError && !q.data);
@@ -252,7 +273,14 @@ export default function MatchesEquipesPage() {
             {rencontresQuery.isError && (
               <StaleNotice onRetry={() => void refetch()}>Actualisation impossible, la liste n’est peut-être plus à jour.</StaleNotice>
             )}
-            <MatchEquipeList items={items} state={upcomingTab} />
+            {showLockedBanner && (
+              <div className="mx-4 mb-3 flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z" /></svg>
+                <p className="flex-1 text-sm">{COMPO_COPY.lockedBanner}</p>
+                <Link to="/login" state={fromHere(location)} className="flex min-h-11 shrink-0 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground">{COMPO_COPY.login}</Link>
+              </div>
+            )}
+            <MatchEquipeList items={items} state={upcomingTab} compoFor={compoFor} />
           </>
         )}
       </PullToRefreshWrapper>

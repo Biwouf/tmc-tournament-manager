@@ -1,7 +1,10 @@
 import { TENNIS_RANKINGS } from '../../../shared/tennisRankings';
 export { TENNIS_RANKINGS };
 export type SignupFields = { prenom: string; nom: string; email: string; sex: string; classement: string; password: string };
-export const signupReturnTo = (value: string | null) => value && /^\/cours(?:\?|$)/.test(value) ? value : '/actu';
+/** Fiche d'une rencontre par équipe : la compo y attend la personne qui vient de se connecter. */
+export const isRencontrePath = (value: string | null | undefined) => !!value && /^\/matches-equipes\/[\w-]+$/.test(value);
+// Chemins internes connus seulement (pas d'URL externe, pas de `//`) : les cours et une fiche rencontre.
+export const signupReturnTo = (value: string | null) => value && (/^\/cours(?:\?|$)/.test(value) || isRencontrePath(value)) ? value : '/actu';
 export function validateSignup(f: SignupFields): string | null {
   if (!f.prenom.trim() || !f.nom.trim() || f.prenom.trim().length > 100 || f.nom.trim().length > 100 || !f.email.trim()) return 'Renseignez votre prénom, nom et email.';
   if (!['female', 'male'].includes(f.sex)) return 'Choisissez votre sexe.';

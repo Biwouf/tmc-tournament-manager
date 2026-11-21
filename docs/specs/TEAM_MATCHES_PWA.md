@@ -289,11 +289,39 @@ Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
   secondaire (le bouton plein reste « Choisir les joueurs ») ; état vide des matchs : « Matchs à venir » et « Saisissez la feuille de match, par
   photo ou à la main. »
 - Textes partagés avec le futur écran du BO : `shared/teamCompoCopy.mjs`.
-- Reste pour la PR3 (parcours visiteur) : carte « Vous jouez cette rencontre », fraîcheur
-  (« Mise à jour il y a 2 h par… »), feuille au-delà de 6 joueurs, groupes Dames / Messieurs en
-  mixte, résumé sur les cartes de la liste, retour sur la rencontre après inscription.
+- Le parcours visiteur est livré par la PR3 (ci-dessous).
 
 Déploiement : appliquer `2026111902_team_compo_user_id.sql` **avant** la PWA.
+
+**PR3 — PWA, parcours visiteur** (sans migration) :
+
+- **Cartes de la liste « Matchs équipes »** (`TeamCompoSummary` dans `MatchEquipeCell`), rencontres
+  pas encore commencées seulement :
+  - connecté : jusqu'à 3 pastilles d'initiales (moi en rouge, sans compte en pointillé, « +N ») puis
+    les prénoms (« Claire, Marie, Sophie +1 ») ; si je joue, « Vous jouez » + « 5 joueurs » ; liste
+    vide : cercle en pointillé + « Compo à venir ». Un seul appel `team_compo_summaries` pour toute la
+    liste (clé `['team-compo-summaries', club, ids]`, invalidée après un enregistrement), jamais en
+    anonyme ;
+  - visiteur : bandeau « Connectez-vous pour voir qui joue chaque rencontre. » + `Se connecter`, et
+    « Compo réservée aux connectés » avec un cadenas sur chaque carte à venir ;
+  - les pastilles sont décoratives : l'`aria-label` de la carte gagne « Vous jouez, compo de 5
+    joueurs », « compo de 4 joueurs », « compo à venir » ou « compo réservée aux personnes connectées ».
+- **Fiche rencontre** : carte « Vous jouez cette rencontre » (date, heure, lieu) si je suis retenu ;
+  fraîcheur « Mise à jour il y a 2 h par Romain Escaffre, capitaine » (« il y a 5 min », « hier à
+  18h42 », « le 12 nov. à 9h », heure de Paris, `freshnessLabel`) ; jusqu'à 6 joueurs dans la fiche,
+  au-delà les 6 premiers + `Voir les 10 joueurs`, qui ouvre la feuille « Compo · 10 joueurs ». En
+  mixte, la liste est groupée « Dames · 4 », « Messieurs · 5 », « Sexe non précisé · 1 » (dans la
+  feuille, et dans la fiche quand elle montre tout).
+- **Retour sur la même rencontre** : `Se connecter` passe `state.from` et le contexte de la rencontre ;
+  `/login` affiche « Connectez-vous pour voir la compo de CAC – TC Grisolles 1, dimanche 22 novembre.
+  Vous reviendrez ensuite sur la rencontre. » et accepte aussi `?returnTo=` (rechargement, texte
+  générique). `Créer un compte` porte `?returnTo=/matches-equipes/:id` : `signupReturnTo` accepte
+  désormais une fiche rencontre (en plus de `/cours`), y compris via l'e-mail de confirmation et le
+  lien « Se connecter » de la page de confirmation. Au retour, toast « Vous êtes connecté. Voici la
+  compo. » et focus sur le titre « Compo » ; la marque est retirée de l'historique (pas de toast au
+  rechargement). Une demande d'adhésion en attente voit la compo (décision 1).
+
+Tests : `npm run test:team-compo` (`tests/team-compo-visitor-client.test.mjs`).
 Tests : `npm run test:team-compo` (`tests/team-lineup-client.test.mjs` en plus).
 
 ## Déploiement et recette

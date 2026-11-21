@@ -5,6 +5,8 @@ import { fromHere } from '../layout/useGoBack';
 import { formatClubName } from '../../../../shared/formatClubName';
 import { ResultChip } from './ResultChip';
 import { ISSUE_LABEL, outcome } from './result';
+import TeamCompoSummary from './TeamCompoSummary';
+import { compoCardLabel, type CardCompo } from '../../lib/teamLineup';
 
 interface Props {
   rencontre: TeamRencontre;
@@ -13,6 +15,8 @@ interface Props {
   state: 'upcoming' | 'past';
   isLive: boolean;
   isPending?: boolean;
+  /** Compo de la rencontre (à venir seulement) ; absent = rien à montrer. */
+  compo?: CardCompo;
 }
 
 // Lucide `home` / `plane`, même graisse de trait : la forme et le contraste clair/foncé
@@ -44,7 +48,7 @@ function opponentName(name: string): string {
   return name.replace(/\s+(\d+)$/, ' $1');
 }
 
-export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLive, isPending }: Props) {
+export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLive, isPending, compo }: Props) {
   const location = useLocation();
   // Même nom formaté pour le titre visible et l'aria-label.
   const opponent = formatClubName(rencontre.club_adverse);
@@ -92,6 +96,7 @@ export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLiv
     `Équipe ${equipe.numero}`,
     past ? etapeLabel(etape) : spokenTime(date),
     status,
+    compo !== undefined && compoCardLabel(compo),
   ].filter(Boolean).join(', ');
 
   return (
@@ -117,6 +122,7 @@ export default function MatchEquipeCell({ rencontre, equipe, etape, state, isLiv
             ? etapeLabel(etape)
             : <span className={`me-time${unusualTime ? ' emph' : ''}`}>{shortTime(date)}</span>}
         </span>
+        {compo !== undefined && <TeamCompoSummary compo={compo} />}
       </span>
       <span className="me-trail">{trail}</span>
       <span className="me-chev" aria-hidden="true" />
