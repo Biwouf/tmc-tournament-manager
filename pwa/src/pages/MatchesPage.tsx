@@ -10,6 +10,7 @@ import type { LiveMatch } from '../types';
 import MatchCard from '../components/matches/MatchCard';
 import LiveEmptyState from '../components/matches/LiveEmptyState';
 import { LivePushBanner } from '../components/live/LivePush';
+import InterviewInvite from '../components/interviews/InterviewInvite';
 import { followToastText } from '../lib/liveFollows';
 import { useAuth } from '../hooks/useAuth';
 import { subscribeToMatchList } from '../lib/liveMatchesSubscription';
@@ -127,6 +128,8 @@ export default function MatchesPage() {
           {flash}
         </div>
       )}
+
+      <InterviewInvite clubId={clubId} userId={user?.id ?? null} />
 
       <LivePushBanner
         clubId={clubId}
