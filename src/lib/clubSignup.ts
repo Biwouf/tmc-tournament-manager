@@ -4,6 +4,7 @@
 import { signupSlugProblem } from '../../shared/clubSlug.mjs';
 import { BRAND_FALLBACK } from '../../shared/brandTokens.mjs';
 import { normalizeTenupClubProfileUrl } from '../../shared/tenupSite.mjs';
+import { LOGO_VARIANTS, type LogoChanges, type LogoSource, type LogoVariantName, type LogoVerdict } from '../../shared/tenupLogo.mjs';
 
 export { BRAND_FALLBACK };
 
@@ -147,6 +148,13 @@ export type LookupResult = {
   sports: string[];
   courts?: number;
   logo_url?: string; banner_url?: string;
+  /** W3 (brief §13.4) : logo nettoyé par le worker. Absents d'une lecture antérieure ou en échec. */
+  logo_verdict?: LogoVerdict;
+  logo_clean_url?: string;
+  logo_variants?: Record<LogoVariantName, string>;
+  logo_changes?: LogoChanges;
+  logo_palette?: string[];
+  logo_source?: LogoSource;
   cached: boolean;
   read_at: string;
   lookup_token: string;
@@ -192,7 +200,40 @@ export function parseLookupResult(raw: unknown): LookupResult | null {
   };
   const optional = { street: text(r.street, 200), postal_code: text(r.postal_code, 20), city: text(r.city, 80), courts, logo_url: https(r.logo_url), banner_url: https(r.banner_url) };
   for (const [key, value] of Object.entries(optional)) if (value !== undefined) Object.assign(result, { [key]: value });
-  return result;
+  // W3 : le logo retouché n'a de sens qu'à côté de l'original.
+  const verdict = ['cleaned', 'unchanged', 'monogram'].includes(r.logo_verdict as string) ? r.logo_verdict as LogoVerdict : undefined;
+  if (!result.logo_url || !verdict) return result;
+  const palette = Array.isArray(r.logo_palette) ? r.logo_palette.filter((c): c is string => typeof c === 'string' && /^#[0-9a-f]{6}$/.test(c)).slice(0, 4) : [];
+  const source = r.logo_source as Record<string, unknown> | undefined;
+  const logo: Partial<LookupResult> = { logo_verdict: verdict, ...(palette.length ? { logo_palette: palette } : {}),
+    ...(source && Number.isInteger(source.width) && Number.isInteger(source.height) && ['png', 'jpeg', 'webp'].includes(source.format as string)
+      ? { logo_source: { width: source.width as number, height: source.height as number, format: source.format as LogoSource['format'] } } : {}) };
+  if (verdict === 'cleaned') {
+    const variants = r.logo_variants as Record<string, unknown> | undefined;
+    const urls = variants && typeof variants === 'object' ? LOGO_VARIANTS.map(name => https(variants[name])) : [];
+    const changes = r.logo_changes as Record<string, unknown> | undefined;
+    if (urls.length !== LOGO_VARIANTS.length || urls.some(u => !u) || !https(r.logo_clean_url) || !changes
+      || !(changes.background === null || ['black', 'white', 'color'].includes(changes.background as string))) return result; // hors contrat : l'original
+    logo.logo_clean_url = https(r.logo_clean_url);
+    logo.logo_variants = Object.fromEntries(LOGO_VARIANTS.map((name, i) => [name, urls[i]!])) as Record<LogoVariantName, string>;
+    logo.logo_changes = { background: changes.background as LogoChanges['background'], trimmed: changes.trimmed === true, upscaled: changes.upscaled === true };
+  }
+  return Object.assign(result, logo);
+}
+
+/** Choix du logo à l'écran 02 (W3) : le retouché par défaut (décision 4 du §13.5). */
+export type LogoChoice = 'clean' | 'original';
+
+/**
+ * Le logo à montrer pour le club lu : `retouched` vrai quand le worker l'a modifié (la ligne
+ * avant / après s'affiche) ; `src` null → initiales (pas de logo, ou logo trop petit).
+ * `card` pour la pastille de 64 px, `full` pour l'aperçu et le panneau.
+ */
+export function tenupLogo(tenup: LookupResult, choice: LogoChoice): { retouched: boolean; card: string | null; full: string | null } {
+  if (!tenup.logo_url || tenup.logo_verdict === 'monogram') return { retouched: false, card: null, full: null };
+  const retouched = tenup.logo_verdict === 'cleaned' && Boolean(tenup.logo_variants);
+  if (retouched && choice === 'clean') return { retouched, card: tenup.logo_variants!['avatar-256'], full: tenup.logo_clean_url ?? tenup.logo_variants!['clean-1024'] };
+  return { retouched, card: tenup.logo_url, full: tenup.logo_url };
 }
 
 /** Un code de `tenup-lookup` → la suite de l'écran 01 (brief §3.1, états). */
@@ -316,6 +357,8 @@ export type SignupDraft = {
   tenup: LookupResult | null;
   /** Écran 01b : nom Ten'Up du club déjà inscrit, s'il est connu. */
   alreadyName: string | null;
+  /** W3 : logo retouché (par défaut) ou original Ten'Up ; part dans `logo_variant`. */
+  logoChoice: LogoChoice;
   name: string;
   city: string;
   slug: string;
@@ -338,7 +381,7 @@ export const DRAFT_KEY = 'feelike_signup_draft';
 export const MAX_STORED_IMAGE = 1_500_000;
 
 export const emptyDraft = (): SignupDraft => ({
-  step: 'find', mode: 'tenup', tenupUrl: '', tenup: null, alreadyName: null,
+  step: 'find', mode: 'tenup', tenupUrl: '', tenup: null, alreadyName: null, logoChoice: 'clean',
   name: '', city: '', slug: '', slugEdited: false, shortName: '', shortNameEdited: false, color: BRAND_FALLBACK, palette: [],
   sample: null, email: '', sent: null, logo: null, photo: null,
 });
@@ -366,6 +409,7 @@ export function loadDraft(storage: Pick<Storage, 'getItem'>): SignupDraft {
   return {
     step, mode,
     tenupUrl: str(raw.tenupUrl, 500), tenup, alreadyName: str(raw.alreadyName, 160) || null,
+    logoChoice: raw.logoChoice === 'original' ? 'original' : 'clean',
     name: str(raw.name, 80), city: str(raw.city, 80), slug: cleanSlugInput(str(raw.slug, 32)),
     slugEdited: raw.slugEdited === true,
     shortName: str(raw.shortName, MAX_SHORT_NAME), shortNameEdited: raw.shortNameEdited === true,
@@ -405,6 +449,8 @@ export type SignupPayload = {
   logo?: Blob | null; photo?: Blob | null;
   /** Branche Ten'Up seulement : jeton de `tenup-lookup` (logo et bandeau copiés côté serveur) et nom court. */
   lookupToken?: string; shortName?: string;
+  /** W3 : seulement quand le logo Ten'Up a été retouché. */
+  logoVariant?: LogoChoice;
 };
 
 export type SignupOutcome =
@@ -427,6 +473,7 @@ export function signupForm(payload: SignupPayload): FormData {
   if (payload.photo) form.set('photo', payload.photo, fileName('photo', payload.photo));
   if (payload.lookupToken) form.set('lookup_token', payload.lookupToken);
   if (payload.shortName?.trim()) form.set('short_name', payload.shortName.trim());
+  if (payload.lookupToken && payload.logoVariant) form.set('logo_variant', payload.logoVariant);
   return form;
 }
 const fileName = (base: string, blob: Blob) => `${base}.${blob.type.split('/')[1] || 'bin'}`;

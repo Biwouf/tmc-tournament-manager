@@ -71,7 +71,7 @@ function world() {
       return q;
     },
     storage: { from: (bucket) => ({
-      copy: async (from, to) => { w.copies.push([from, to]); return { error: w.copyError ?? null }; },
+      copy: async (from, to) => { w.copies.push([from, to]); return { error: w.copyError ?? (w.copyFails?.(from) ? { message: 'x' } : null) }; },
       upload: async (path, data, options) => { assert.equal(bucket, 'content-images'); w.uploads.push({ path, type: options.contentType, size: data.length }); return { error: null }; },
       remove: async (paths) => { w.removed.push(...paths); return { error: null }; },
       getPublicUrl: (path) => ({ data: { publicUrl: `https://project.supabase.co/storage/v1/object/public/${bucket}/${path}` } }),
@@ -359,4 +359,67 @@ test('club-signup: Turnstile and the limit use cf-connecting-ip over a forged x-
   assert.equal((await handler(forged)).status, 200);
   assert.equal(w.effects[0], 'turnstile:198.51.100.9');
   assert.equal(w.rpc.find(r => r.name === 'club_self_serve_throttle').args.p_ip, createHash('sha256').update('198.51.100.9').digest('hex'));
+});
+
+// ── W3 : logo retouché (brief SAAS_11 §13.4) ─────────────────────────────────
+const W3_VARIANTS = ['clean-1024', 'avatar-256', 'maskable-512', 'maskable-192', 'any-512', 'apple-180', 'email-128'];
+const cleanedCache = () => ({ name: 'MOISSAC TENNIS CLUB', logo_path: '_lookup/60820110/1-logo.jpg', banner_path: null, logo_verdict: 'cleaned',
+  logo_variants: Object.fromEntries(W3_VARIANTS.map((n) => [n, `_lookup/60820110/1-logo-${n}.png`])) });
+
+test('club-signup W3: retouched logo by default, original kept, variants copied to config/logo/, logo_choice', async () => {
+  const handler = await load('club-signup');
+  const { signLookupToken } = await lookupTokens();
+  const token = await signLookupToken(LOOKUP_SECRET, '60820110', new Date().toISOString());
+  const signup = async (fields = {}, cache = cleanedCache(), setup = () => {}) => {
+    const w = world(); w.env.LOOKUP_HMAC_SECRET = LOOKUP_SECRET; w.cache['60820110'] = cache; setup(w);
+    const response = await handler(form({ lookup_token: token, logo: undefined, photo: undefined, ...fields }));
+    return { w, status: response.status, create: w.rpc.find(r => r.name === 'club_self_serve_create')?.args };
+  };
+
+  let { w, status, create } = await signup();
+  assert.equal(status, 200);
+  const club = create.p_club;
+  assert.deepEqual(w.copies.map(([from, to]) => [from, to.replace(/\d{13}/, 'T')]), [
+    ['_lookup/60820110/1-logo.jpg', `${club}/config/T-logo.jpg`],
+    ...W3_VARIANTS.map((n) => [`_lookup/60820110/1-logo-${n}.png`, `${club}/config/logo/T-${n}.png`])]);
+  assert.match(create.p_logo, new RegExp(`/${club}/config/logo/\\d+-clean-1024\\.png$`), 'retouched by default');
+  assert.match(create.p_logo_original, new RegExp(`/${club}/config/\\d+-logo\\.jpg$`));
+  assert.deepEqual(Object.keys(create.p_logo_variants), W3_VARIANTS);
+  assert.deepEqual(create.p_logo_choice, { verdict: 'cleaned', choice: 'clean' });
+
+  ({ create } = await signup({ logo_variant: 'original' }));
+  assert.equal(create.p_logo, create.p_logo_original, 'original chosen');
+  assert.deepEqual(create.p_logo_choice, { verdict: 'cleaned', choice: 'original' });
+  assert.ok(create.p_logo_variants, 'variants kept to switch back later');
+
+  // Une variante non copiée : les autres retirées, l'original comme avant, sans événement.
+  ({ w, create } = await signup({}, cleanedCache(), (w) => { w.copyFails = (from) => from.endsWith('-apple-180.png'); }));
+  assert.match(create.p_logo, /\d+-logo\.jpg$/);
+  for (const key of ['p_logo_original', 'p_logo_variants', 'p_logo_choice']) assert.equal(key in create, false, key);
+  assert.equal(w.removed.filter((p) => p.includes('/config/logo/')).length, 5);
+
+  // Monogramme : pas de logo posé, l'original reste restaurable.
+  ({ create } = await signup({}, { ...cleanedCache(), logo_verdict: 'monogram', logo_variants: undefined }));
+  assert.equal(create.p_logo, null);
+  assert.match(create.p_logo_original, /\d+-logo\.jpg$/);
+  assert.deepEqual(create.p_logo_choice, { verdict: 'monogram', choice: 'monogram' });
+  // Logo déjà propre : comme avant, avec l'événement.
+  ({ create } = await signup({}, { ...cleanedCache(), logo_verdict: 'unchanged', logo_variants: undefined }));
+  assert.match(create.p_logo, /\d+-logo\.jpg$/);
+  assert.deepEqual(create.p_logo_choice, { verdict: 'unchanged', choice: 'original' });
+  // Lecture d'avant W3 (pas de verdict) : appel de P1 inchangé.
+  ({ create } = await signup({}, { logo_path: '_lookup/60820110/1-logo.jpg' }));
+  for (const key of ['p_logo_original', 'p_logo_variants', 'p_logo_choice']) assert.equal(key in create, false, key);
+  // Variantes hors du dossier de la lecture : jamais copiées.
+  ({ w, create } = await signup({}, { ...cleanedCache(), logo_variants: { ...cleanedCache().logo_variants, 'email-128': '57950125/config/x.png' } }));
+  assert.equal(w.copies.length, 1);
+  assert.equal('p_logo_variants' in create, false);
+  // Logo envoyé par le formulaire : il l'emporte, rien de W3.
+  ({ w, create } = await signup({ logo: new Blob([PNG], { type: 'image/png' }) }));
+  assert.equal(w.copies.length, 0);
+  assert.equal('p_logo_choice' in create, false);
+  // Valeur inconnue : refusée avant tout compte.
+  ({ w, status } = await signup({ logo_variant: 'ia' }));
+  assert.equal(status, 400);
+  assert.equal(w.accounts.length, 0);
 });

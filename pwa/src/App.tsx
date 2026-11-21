@@ -26,7 +26,7 @@ import { useClubConfig } from './hooks/useClubConfig';
 import { applyClubTheme } from './lib/theme';
 import { hideSplash, rememberSplashBrand } from './lib/splash';
 import { reconcileCoursePush } from './lib/coursePush';
-import { buildAppIcons } from './lib/appIcons';
+import { buildAppIcons, iconsFromVariants, variantsFor } from './lib/appIcons';
 import { useScrollMemory } from './hooks/useScrollMemory';
 import OfflineNotice from './components/layout/OfflineNotice';
 import { AppLoading } from './components/layout/LoadState';
@@ -159,6 +159,14 @@ function AppShell() {
       { src: absoluteLogo, sizes: config.brand.logo ? '192x192' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
       { src: absoluteLogo, sizes: config.brand.logo ? '512x512' : 'any', type: config.brand.logo ? 'image/png' : 'image/svg+xml' },
     ]);
+    // W3 : logo retouché à l'inscription → ses variantes, sans dessin.
+    const variants = variantsFor(config.brand.logo, config.brand.logo_variants);
+    if (variants) {
+      const fromVariants = iconsFromVariants(variants);
+      publish(fromVariants.icons);
+      setLink('apple-touch-icon', fromVariants.apple180);
+      return () => { if (url) URL.revokeObjectURL(url); };
+    }
     void buildAppIcons(absoluteLogo).then(icons => {
       if (cancelled || !icons) return;
       publish([

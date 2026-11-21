@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as tenupLogo from '../shared/tenupLogo.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import { coursesFixtureSQL, id } from './helpers/courses-fixture.mjs';
 const migration = await readFile(new URL('../supabase/migrations/2026092002_public_club_brand.sql', import.meta.url), 'utf8');
@@ -48,6 +49,7 @@ test('PWA hook: public RPC is scoped to current club, without membership or acco
   vm.runInNewContext(code, { exports: module.exports, require(name) {
     if (name === '@tanstack/react-query') return { useQuery: opts => { options = opts; return {}; } };
     if (name === '../contexts/ClubContext') return { useClub: () => ({ clubId: 'tc-moissac-id' }) };
+    if (name === '../../../shared/tenupLogo.mjs') return tenupLogo; // W3 : variantes du logo retouché
     if (name === '../lib/supabase') return { supabase: { rpc: async (...args) => { calls.push(args); return { data: { brand: { logo: 'moissac.png', color: '#123456' } }, error: null }; } } };
     throw new Error('Unexpected dependency: ' + name);
   } });
@@ -55,6 +57,7 @@ test('PWA hook: public RPC is scoped to current club, without membership or acco
   assert.equal(options.enabled, true);
   assert.deepEqual(Array.from(options.queryKey), ['club-config','tc-moissac-id']);
   assert.equal((await options.queryFn()).brand.logo, 'moissac.png');
+  assert.equal((await options.queryFn()).brand.logo_variants, undefined, 'W3 : sans variantes, rien');
   assert.equal(calls[0][0], 'club_public_brand');
   assert.equal(calls[0][1].p_club, 'tc-moissac-id');
 });

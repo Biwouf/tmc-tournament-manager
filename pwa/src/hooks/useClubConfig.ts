@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
+import { readLogoVariants } from '../../../shared/tenupLogo.mjs';
+import type { LogoVariants } from '../lib/appIcons';
 
 type ClubConfig = {
   brand: {
@@ -10,6 +12,8 @@ type ClubConfig = {
     color_accent?: string;
     /** Nom court (« CAC ») : `short_name` du manifest. */
     short_name?: string;
+    /** W3 : variantes du logo retouché (icônes d'installation), absentes pour la plupart des clubs. */
+    logo_variants?: LogoVariants;
   };
 };
 
@@ -29,6 +33,7 @@ function parseConfig(raw: unknown): ClubConfig {
       color_secondary: str(brand.color_secondary),
       color_accent: str(brand.color_accent),
       short_name: str(brand.short_name),
+      logo_variants: readLogoVariants(brand.logo_variants) ?? undefined,
     },
   };
 }

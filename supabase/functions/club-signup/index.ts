@@ -11,12 +11,19 @@
 // bandeau lus sont COPIÉS du cache `_lookup/<id>/` vers `<club>/config/` (sauf fichier envoyé).
 // Club Ten'Up déjà rattaché → 409 `already_on_feelike`. Sans ces champs : comportement S2.
 //
+// W3 (brief SAAS_11 §13.4) : `logo_variant` (`clean` par défaut, ou `original`). Quand `tenup-lookup`
+// a retouché le logo, ses 7 variantes sont copiées dans `<club>/config/logo/` ; `brand.logo` = le
+// choix, `brand.logo_original` = l'original Ten'Up, `brand.logo_variants` = les variantes ; un
+// logo trop petit (`monogram`) n'est pas posé (initiales) mais reste restaurable. Événement
+// `logo_choice`. Copie incomplète → l'original, comme avant.
+//
 // La réponse ne dit jamais si l'adresse avait déjà un compte : même statut, même corps.
 // Rien n'est journalisé de l'adresse, de l'IP, du jeton ni des fichiers.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { signupSlugProblem } from '../../../shared/clubSlug.mjs';
 import { validLookupSecret, verifyLookupToken } from '../_shared/lookup-token.ts';
 import { clientIp } from '../_shared/client-ip.ts';
+import { LOGO_VARIANTS } from '../../../shared/tenupLogo.mjs';
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -107,6 +114,8 @@ Deno.serve(async (req: Request) => {
     lookup = validLookupSecret(secret) ? await verifyLookupToken(secret, lookupToken) : null;
     if (!lookup) return json(400, { error: 'La lecture de votre club sur Ten’Up a expiré. Retrouvez votre club à nouveau.', reason: 'lookup_expired' });
   }
+  const logoVariant = text(form, 'logo_variant');
+  if (logoVariant && logoVariant !== 'clean' && logoVariant !== 'original') return json(400, { error: 'Informations incomplètes ou invalides.' });
   const files: { field: string; data: Uint8Array; type: string; ext: string }[] = [];
   for (const [key, field] of [['logo', 'logo'], ['photo', 'hero-image']]) {
     const value = form.get(key);
@@ -147,7 +156,10 @@ Deno.serve(async (req: Request) => {
   }
   // Logo et bandeau lus par `tenup-lookup` : copiés depuis le cache (jamais re-téléchargés), sauf
   // si le formulaire envoie son propre fichier. Une copie impossible laisse le champ vide.
+  let logoExtra: { p_logo_original?: string; p_logo_variants?: Record<string, string>; p_logo_choice?: { verdict: string; choice: string } } = {};
+  let logoOverride: string | null | undefined; // undefined : `brand.logo` = le logo copié, comme avant
   if (lookup) {
+    const ownLogo = Boolean(uploaded.logo);
     const { data: cached } = await admin.from('tenup_lookup_cache').select('payload').eq('tenup_club_id', lookup.tenup_club_id).maybeSingle();
     const prefix = `_lookup/${lookup.tenup_club_id}/`;
     for (const [field, key] of [['logo', 'logo_path'], ['hero-image', 'banner_path']]) {
@@ -159,16 +171,53 @@ Deno.serve(async (req: Request) => {
       const { error } = await admin.storage.from(BUCKET).copy(source, path);
       if (!error) uploaded[field] = path;
     }
+    // W3 : logo retouché. Rien si le club envoie son propre logo ou si l'original n'est pas copié.
+    const verdict = cached?.payload?.logo_verdict;
+    const variants = cached?.payload?.logo_variants;
+    if (!ownLogo && uploaded.logo && (verdict === 'cleaned' || verdict === 'monogram' || verdict === 'unchanged')) {
+      const urlOf = (path: string) => admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      const original = urlOf(uploaded.logo);
+      let copied: Record<string, string> | null = null;
+      if (verdict === 'cleaned' && variants && LOGO_VARIANTS.every((name) => typeof variants[name] === 'string'
+          && variants[name].startsWith(prefix) && !variants[name].includes('..'))) {
+        copied = {};
+        for (const name of LOGO_VARIANTS) {
+          const path = `${clubId}/config/logo/${stamp}-${name}.png`;
+          const { error } = await admin.storage.from(BUCKET).copy(variants[name], path);
+          if (error) { copied = null; break; }
+          copied[name] = path;
+          uploaded[`logo-${name}`] = path;
+        }
+        if (!copied) {
+          const partial = Object.keys(uploaded).filter((k) => k.startsWith('logo-'));
+          await admin.storage.from(BUCKET).remove(partial.map((k) => uploaded[k])).catch(() => undefined);
+          for (const k of partial) delete uploaded[k];
+        }
+      }
+      if (copied) {
+        const urls = Object.fromEntries(LOGO_VARIANTS.map((name) => [name, urlOf(copied![name])]));
+        const choice = logoVariant === 'original' ? 'original' : 'clean';
+        if (choice === 'clean') logoOverride = urls['clean-1024'];
+        logoExtra = { p_logo_original: original, p_logo_variants: urls, p_logo_choice: { verdict, choice } };
+      } else if (verdict === 'monogram') {
+        // Logo trop petit : initiales partout ; l'original reste dans Configuration › Identité.
+        logoOverride = null;
+        logoExtra = { p_logo_original: original, p_logo_choice: { verdict, choice: 'monogram' } };
+      } else if (verdict === 'unchanged') {
+        logoExtra = { p_logo_choice: { verdict, choice: 'original' } };
+      }
+    }
   }
   const publicUrl = (field: string) => uploaded[field] ? admin.storage.from(BUCKET).getPublicUrl(uploaded[field]).data.publicUrl : null;
 
   // 6. Club, réglages et appartenance en une transaction.
   const { data: result, error: createError } = await admin.rpc('club_self_serve_create', {
     p_club: clubId, p_email: email, p_name: name, p_city: city, p_sport: sport, p_slug: slug,
-    p_color: color, p_logo: publicUrl('logo'), p_hero_image: publicUrl('hero-image'),
+    p_color: color, p_logo: logoOverride === undefined ? publicUrl('logo') : logoOverride, p_hero_image: publicUrl('hero-image'),
     // Seulement s'ils sont fournis : le parcours manuel garde l'appel S2 tel quel.
     ...(lookup ? { p_tenup_club_id: lookup.tenup_club_id } : {}),
     ...(shortName ? { p_short_name: shortName } : {}),
+    ...logoExtra,
   });
   if (createError) {
     await rollback();

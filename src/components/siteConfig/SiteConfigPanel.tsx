@@ -24,7 +24,7 @@ import {
   type ItemSpec,
   type ListSpec,
 } from '../../lib/clubConfigWrite';
-import { BoolField, ImageField, ScalarField } from './SiteConfigFields';
+import { BoolField, ImageField, LogoVariantSwitch, ScalarField } from './SiteConfigFields';
 
 /** Chemin d'un champ image dans l'état du panneau : `logo` ou `infra_teaser.1.image`. */
 type PendingFiles = Record<string, File>;
@@ -118,7 +118,10 @@ export default function SiteConfigPanel({
   defaultOpen,
   focused = false,
   onSaved,
+  brandLogos,
 }: {
+  /** W3 : original Ten'Up et variantes du logo retouché (`brand`), gardés à l'enregistrement. */
+  brandLogos?: { original?: string; variants?: Record<string, string> };
   group: GroupSpec;
   initial: GroupValue;
   clubId: string | null;
@@ -277,6 +280,9 @@ export default function SiteConfigPanel({
     // orphelin. Comparer champ par champ supprimerait l'image d'une entrée simplement
     // réordonnée.
     const kept = new Set(imageUrls(group, next));
+    // W3 : l'original Ten'Up et les variantes restent restaurables, même quand `logo` change.
+    if (brandLogos?.original) kept.add(brandLogos.original);
+    for (const url of Object.values(brandLogos?.variants ?? {})) kept.add(url);
     for (const url of imageUrls(group, persisted)) {
       if (!kept.has(url)) await deleteConfigImage(url);
     }
@@ -414,6 +420,15 @@ export default function SiteConfigPanel({
                   spec={item}
                   value={(value[item.key] as string) ?? ''}
                   onChange={(fieldValue) => edit((prev) => ({ ...prev, [item.key]: fieldValue }))}
+                />
+              )}
+              {/* W3 : bascule original Ten'Up / logo retouché, sous le logo principal. */}
+              {group.key === 'brand' && item.key === 'logo' && brandLogos && !files.logo && (
+                <LogoVariantSwitch
+                  value={(value.logo as string) ?? ''}
+                  original={brandLogos.original}
+                  clean={brandLogos.variants?.['clean-1024']}
+                  onChange={(url) => edit((prev) => ({ ...prev, logo: url }))}
                 />
               )}
             </div>

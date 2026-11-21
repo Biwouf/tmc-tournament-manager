@@ -6,6 +6,7 @@ import { extractTenupCompetition } from './parse-competition.mjs';
 import { extractTenupClub } from './parse-club.mjs';
 import { poolDayButton, readTenupPool } from './read-pool.mjs';
 import { readTenupClubProfile } from './read-club-profile.mjs';
+import { pimpLogoFromUrl, validLogoUrl } from './pimp-logo.mjs';
 export const validPoolUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/championnat\/\d+\?division=\d+&phase=\d+&poule=\d+$/.test(value);
 /** SaaS S8b — racine de la page du club ; `/equipe`, `/offres` et l'installation en sont dérivées. */
 export const validClubProfileUrl = value => typeof value === 'string' && /^https:\/\/tenup\.fft\.fr\/club\/\d+$/.test(value);
@@ -35,7 +36,7 @@ export async function waitForClubCards(page, timeout = 12_000) {
 // `onFatal` lets the hosting entry point recycle a polluted instance.
 const FATAL = /ERR_INSUFFICIENT_RESOURCES|Target page, context or browser has been closed|browser has disconnected|Extraction deadline/i;
 
-export function createHandler({ token, extract, deadline = 45_000, onFatal = () => {} }) {
+export function createHandler({ token, extract, pimp = pimpLogoFromUrl, deadline = 45_000, onFatal = () => {} }) {
   if (!token || token.length < 32) throw new Error('TENUP_WORKER_TOKEN must contain at least 32 characters');
   let busy = false;
   const cache = new Map();
@@ -55,6 +56,22 @@ export function createHandler({ token, extract, deadline = 45_000, onFatal = () 
       let input;
       try { input = req.body === undefined ? JSON.parse(body) : (typeof req.body === 'string' ? JSON.parse(req.body) : req.body); } catch { return reply(400, { error: 'Requête invalide.' }); }
       const kind = input?.kind ?? 'rencontre';
+      // W3 (onboarding, brief SAAS_11 §13.4) : nettoyage du logo `cmsclub.fft.fr` avec sharp. Sans
+      // Chromium : ni verrou `busy`, ni cache (réponse ~0,5 Mo), délai de 8 s.
+      if (kind === 'logo') {
+        if (!validLogoUrl(input.url)) return reply(400, { error: 'Lien du logo invalide.' });
+        let timer;
+        try {
+          const data = await Promise.race([
+            pimp(input.url),
+            new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Logo deadline exceeded')), 8_000); }),
+          ]).finally(() => clearTimeout(timer));
+          return reply(200, data);
+        } catch (error) {
+          console.error('[tenup-worker] logo failed', { url: input.url, error: error instanceof Error ? error.message.slice(0, 500) : 'Unknown' });
+          return reply(502, { error: 'Logo indisponible.' });
+        }
+      }
       if (!input || !KINDS.includes(kind) || !validKindUrl(kind, input.url)) return reply(400, { error: 'Lien Ten’Up invalide.' });
       const cached = cache.get(`${kind}:${input.url}`);
       if (cached && cached.expires > Date.now()) return reply(200, cached.data);

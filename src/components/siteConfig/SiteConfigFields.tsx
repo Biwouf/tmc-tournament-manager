@@ -275,6 +275,37 @@ function FocalPointPicker({
 }
 
 /**
+ * W3 (onboarding Ten'Up, brief SAAS_11 §13.4) : « Revenir au logo d'origine » / « Utiliser le logo
+ * retouché ». Ne fait que changer la valeur du champ : le panneau l'enregistre comme une autre
+ * saisie. Rien quand le club n'a pas d'original Ten'Up gardé, ou pendant qu'un fichier attend.
+ */
+export function LogoVariantSwitch({ value, original, clean, onChange }: {
+  value: string; original?: string; clean?: string; onChange: (url: string) => void;
+}) {
+  if (!original) return null;
+  const usingClean = Boolean(clean) && value === clean;
+  const target = usingClean || !clean ? (value === original ? null : original) : clean;
+  if (!target) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/20 p-3">
+      <img src={target} alt="" className="h-12 w-12 rounded-md border border-border bg-white object-contain" />
+      <p className="m-0 min-w-0 flex-1 basis-48 text-xs text-muted-foreground">
+        {target === original
+          ? 'Logo retouché à l’inscription (fond retiré, recadré). L’original de Ten’Up est gardé.'
+          : 'Le logo retouché à l’inscription est gardé : même dessin, fond retiré et recadré.'}
+      </p>
+      <button
+        type="button"
+        onClick={() => onChange(target)}
+        className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
+      >
+        {target === original ? 'Revenir au logo d’origine' : 'Utiliser le logo retouché'}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Upload DIFFÉRÉ : le fichier choisi ici n'atteint le Storage qu'à l'enregistrement du
  * panneau. Uploader à la sélection laisserait un objet orphelin dans le bucket dès qu'on
  * change d'avis, et supprimerait l'ancienne image avant d'être sûr que l'écriture passe.

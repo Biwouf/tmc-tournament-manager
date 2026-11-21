@@ -1102,3 +1102,73 @@ mobile) ; `first-steps` (Équipes sans lien, lien prérempli pour ce club seulem
 **Recette** : à 390 et 1280 px sur `localhost`, avec un faux Supabase local (`tenup-lookup`,
 `club-signup`, `slug_available`) ; clavier sur 01 et 02. Pas de recette contre la prod : la migration
 `2026111520_tenup_club_unique.sql` n'y est pas appliquée (15/11), alors que les Edge sont déployées.
+
+### 14.7 W3 — le logo « pimpé », dit et réversible (`feat/wow-logo`, brief §13.4)
+
+Décisions de Maxime (§13.5) : retouché **par défaut**, bascule visible, original restaurable ;
+traitement technique seulement (ni IA, ni vectorisation) ; phrase CGU mise de côté (POC).
+
+**Worker** (`kind: 'logo'`, `services/tenup-worker/pimp-logo.mjs`, sharp) : diagnostic (taille,
+alpha, format, 4 coins uniformes à 30 près), fond relié au bord retiré si les coins sont uniformes
+et opaques (remplissage 4-connexe, tolérance 60, alpha adouci), rognage au contenu, carré, Lanczos
+×4 + accentuation légère sous 512 px. Verdict `cleaned` (fond retiré ou rognage) avec 7 PNG —
+`clean-1024` (transparent, 1024 px au plus), `avatar-256` (4 % de marge), `maskable-512` / `-192`
+(fond **blanc**, logo à 0,78 s'il est rond, 0,8 / rayon sinon — 0,56 pour un carré), `any-512`,
+`apple-180` (blanc opaque), `email-128` (disque blanc, pour W2) — ; `unchanged` (déjà propre, photo
+ou dégradé : ni détourage ni ligne) ; `monogram` (source < 96 px, contenu < 5 %, illisible). Palette
+recalculée sur le logo détouré (même règle que `extractPalette`). Fond blanc des maskable plutôt
+que la couleur du club : la couleur peut changer après l'inscription, une icône déjà dessinée ne
+suivrait pas (maquette `logo-avant-apres.png`, même fond que `appIcons.ts`).
+
+**`tenup-lookup`** : après la lecture d'identité, en même temps que la copie des images, appel
+`kind: 'logo'` sur l'URL `cmsclub.fft.fr` déjà validée, **4 s** ; réponse validée par
+`shared/tenupLogo.mjs` (`validateLogoResult`), variantes déposées dans
+`_lookup/<id>/<ts>-logo-<variante>.png` (purgées avec le reste). Délai, erreur, réponse hors
+contrat, dépôt incomplet ou original non copié → **l'original seul, jamais d'erreur**. Cache et
+réponse gagnent `logo_verdict`, `logo_clean_url` / `logo_clean_path`, `logo_variants`,
+`logo_changes` (`{ background: 'black' | 'white' | 'color' | null, trimmed, upscaled }`),
+`logo_palette`, `logo_source`. Une lecture d'avant W3 (cache) n'a rien de tout ça : carte
+inchangée.
+
+**Écran 02** : la pastille montre `avatar-256` (retouché) ou l'original selon `draft.logoChoice`
+(`clean` par défaut, gardé au rechargement) ; couleurs tirées de `logo_palette`. Mobile (< 720 px) :
+sous la carte, vignettes avant → après, « Logo retouché pour l’app » + ce qui a été fait
+(`logoChangesText` : « Fond noir retiré, recadré et net. »), bascule `Retouché | Original`
+(`role="radiogroup"`, un arrêt de tabulation, flèches). Ordinateur : le panneau « Nous avons retouché
+votre logo pour l’app » remplace l'aperçu (deux cartes radio Original / Retouché, puces, icône
+Android avant / après). Rien quand le logo n'a pas été modifié ; monogramme → initiales, rien
+non plus. Le choix suit dans l'aperçu (03) et part dans `club-signup` (`logo_variant`), seulement
+quand le logo a été retouché.
+
+**`club-signup`** : `logo_variant` (`clean` | `original`, autre valeur → 400). Club Ten'Up dont le
+cache porte `cleaned` : l'original est copié comme avant, les 7 variantes dans
+`<club>/config/logo/<ts>-<variante>.png` ; `brand.logo` = le choix, `brand.logo_original`,
+`brand.logo_variants` (URL publiques). Une copie en échec → variantes retirées, l'original comme
+avant. `monogram` : pas de `brand.logo` (initiales), `brand.logo_original` gardé. Logo envoyé par le
+formulaire : rien de W3.
+
+**Migration `2026112001_logo_variants.sql`** : `club_self_serve_create` gagne `p_logo_original`,
+`p_logo_variants` (les 7 noms exactement, URL sous `<club>/config/logo/`) et `p_logo_choice`
+(`{ verdict, choice }`, choice `clean` | `original` | `monogram`) → PT400 sinon ; l'appel à 11
+arguments est inchangé. `onboarding_events` accepte **`logo_choice`**, écrit par la fonction
+(club `pending`, une fois, le rejeu n'écrit rien) : la contrainte existante est **étendue** (elle
+garde les `video_*` de W1, `2026111903`, quel que soit l'ordre d'application — si W1 est appliquée
+après, sa liste doit contenir `logo_choice`). `club_public_brand` renvoie `logo_variants`.
+
+**PWA** : `useClubConfig` lit `logo_variants` (`readLogoVariants`) ; `appIcons.ts` sert
+`any-512`, `maskable-192`, `maskable-512`, `apple-180` tels quels quand `brand.logo` est la
+variante `clean-1024`, sinon le dessin canvas d'avant (CAC, original choisi, logo changé).
+
+**Configuration › Identité** : sous le logo principal, `LogoVariantSwitch` (« Revenir au logo
+d’origine » / « Utiliser le logo retouché ») change la valeur du champ, enregistrée par le panneau ;
+l'original et les variantes ne sont jamais supprimés à l'enregistrement. Pas d'événement ici.
+
+**Tests** : `logo-pimp` (fixtures Moissac et Blagnac, diagnostic, rien de redessiné, durée,
+gestionnaire), `tenup-lookup-edge` (W3 : variantes, cache, échecs), `club-signup-edge` (W3),
+`logo-variants-sql` (PGlite), `club-signup-tunnel` (bascule, brouillon, envoi, panneau),
+`logo-identity` (bascule Identité, config, `appIcons`), `pwa-branding`.
+
+**Mise en service**, dans l'ordre : appliquer `2026112001_logo_variants.sql` ; redéployer le
+worker (`kind: 'logo'`, dépendance sharp) ; redéployer `tenup-lookup` puis `club-signup` ; BO et
+PWA. Sans le worker à jour, `tenup-lookup` garde l'original (400 sur `kind: 'logo'`).
+

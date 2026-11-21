@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { signupSlugProblem } from '../../../shared/clubSlug.mjs';
 import { formatClubName, shortNameFor, shortSlugCandidates } from '../../../shared/clubName.mjs';
+import { logoChangesText } from '../../../shared/tenupLogo.mjs';
 import {
   cleanSlugInput, clubAddress, clubInitials, COLOR_SAMPLES, findProblem, firstFreeSlug, lookupSource, lookupTenupClub,
-  MAX_SHORT_NAME, shortNameProblem, slugMessage, suggestSlug,
-  type LookupOutcome, type LookupResult, type SignupDraft, type SlugCheck,
+  MAX_SHORT_NAME, shortNameProblem, slugMessage, suggestSlug, tenupLogo,
+  type LogoChoice, type LookupOutcome, type LookupResult, type SignupDraft, type SlugCheck,
 } from '../../lib/clubSignup';
 import Turnstile, { type TurnstileHandle } from './Turnstile';
 
@@ -148,10 +149,12 @@ export function AlreadyStep({ name, title, onNotMine }: { name: string | null; t
 
 type Missing = { field: 'name' | 'city' | 'short'; message: string } | null;
 
-export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugCheck, onConfirm, onNotMine }: {
+export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugCheck, onConfirm, onNotMine, mobile = true }: {
   draft: SignupDraft & { tenup: LookupResult }; update: Update; title: Title; error: ReactNode;
   slugCheck: SlugCheck; setSlugCheck: (check: SlugCheck) => void;
   onConfirm: () => void; onNotMine: () => void;
+  /** W3 : sous 720 px, la ligne « Logo retouché » sous la carte ; au-delà, le panneau de droite. */
+  mobile?: boolean;
 }) {
   const { tenup } = draft;
   const [editing, setEditing] = useState({ name: false, short: false, slug: false });
@@ -160,7 +163,12 @@ export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugChe
   const [advance, setAdvanceState] = useState(false);
   const advanceRef = useRef(false);
   const setAdvance = (value: boolean) => { advanceRef.current = value; setAdvanceState(value); };
-  const [images, setImages] = useState({ logo: tenup.logo_url ? 'loading' : 'none', banner: tenup.banner_url ? 'loading' : 'none' });
+  const [images, setImages] = useState({ banner: tenup.banner_url ? 'loading' : 'none' });
+  // W3 : le logo affiché suit le choix Retouché / Original ; état de chargement par image.
+  const logo = tenupLogo(tenup, draft.logoChoice);
+  const [logoStates, setLogoStates] = useState<Partial<Record<string, 'ok' | 'error'>>>({});
+  const logoState = logo.card ? logoStates[logo.card] ?? 'loading' : 'none';
+  const setLogoState = (src: string, state: 'ok' | 'error') => setLogoStates(states => ({ ...states, [src]: state }));
   const open = (field: keyof typeof editing) => setEditing(e => ({ ...e, [field]: true }));
 
   const focusLater = (id: string) => window.requestAnimationFrame(() => {
@@ -242,11 +250,11 @@ export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugChe
           )}
           {images.banner === 'loading' && <span className="fl-skeleton" aria-hidden="true" />}
           <span className="fl-card-logo" style={{ background: draft.color }}>
-            {tenup.logo_url && images.logo !== 'error' && (
-              <img src={tenup.logo_url} alt="" data-loaded={images.logo === 'ok'}
-                onLoad={() => setImages(i => ({ ...i, logo: 'ok' }))} onError={() => setImages(i => ({ ...i, logo: 'error' }))} />
+            {logo.card && logoState !== 'error' && (
+              <img key={logo.card} src={logo.card} alt="" data-loaded={logoState === 'ok'} data-logo={draft.logoChoice}
+                onLoad={() => setLogoState(logo.card!, 'ok')} onError={() => setLogoState(logo.card!, 'error')} />
             )}
-            {images.logo === 'loading' ? <span className="fl-skeleton" aria-hidden="true" /> : images.logo !== 'ok' && <b aria-hidden="true">{clubInitials(draft.name)}</b>}
+            {logoState === 'loading' ? <span className="fl-skeleton" aria-hidden="true" /> : logoState !== 'ok' && <b aria-hidden="true">{clubInitials(draft.name)}</b>}
           </span>
         </div>
         <div className="fl-card-body">
@@ -257,6 +265,7 @@ export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugChe
         </div>
         <p className="fl-card-src">{lookupSource(tenup)}</p>
       </section>
+      {mobile && logo.retouched && <LogoChoiceRow tenup={tenup} choice={draft.logoChoice} onChange={logoChoice => update({ logoChoice })} />}
       {editing.name
         ? <div className="fl-field">
             <label htmlFor="fl-club" className="fl-label">Nom du club</label>
@@ -357,6 +366,98 @@ function ColorRow({ draft, onChange }: { draft: SignupDraft; onChange: (color: s
         <input type="color" value={draft.color} aria-label="Autre couleur" onChange={event => onChange(event.target.value.toLowerCase())} />
         Autre
       </label>
+    </div>
+  );
+}
+
+// ── W3 · logo retouché (brief §13.4, maquettes `wow/07a` et `07b`) ─────────────
+
+const LOGO_OPTIONS: { value: LogoChoice; label: string }[] = [{ value: 'clean', label: 'Retouché' }, { value: 'original', label: 'Original' }];
+
+/** Bascule Retouché / Original : un groupe de boutons radio, un seul arrêt de tabulation, flèches. */
+function useLogoRadios(choice: LogoChoice, onChange: (choice: LogoChoice) => void) {
+  const refs = useRef<(HTMLElement | null)[]>([]);
+  return (value: LogoChoice, index: number) => ({
+    ref: (el: HTMLElement | null) => { refs.current[index] = el; },
+    role: 'radio' as const,
+    'aria-checked': choice === value,
+    tabIndex: choice === value ? 0 : -1,
+    onClick: () => onChange(value),
+    onKeyDown: (event: KeyboardEvent) => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      const next = (index + step + LOGO_OPTIONS.length) % LOGO_OPTIONS.length;
+      onChange(LOGO_OPTIONS[next].value);
+      refs.current[next]?.focus();
+    },
+  });
+}
+
+/** Mobile (07a) : vignettes avant → après, ce qui a été fait, bascule. */
+export function LogoChoiceRow({ tenup, choice, onChange }: { tenup: LookupResult; choice: LogoChoice; onChange: (choice: LogoChoice) => void }) {
+  const radio = useLogoRadios(choice, onChange);
+  return (
+    <section className="fl-logo-row" aria-labelledby="fl-logo-title">
+      <div className="fl-logo-row-head">
+        <span className="fl-logo-thumbs" aria-hidden="true">
+          <img src={tenup.logo_url} alt="" className="fl-logo-thumb" />
+          <span className="fl-logo-arrow">→</span>
+          <img src={tenup.logo_variants!['avatar-256']} alt="" className="fl-logo-thumb fl-logo-thumb-clean" />
+        </span>
+        <span className="fl-logo-row-text">
+          <strong id="fl-logo-title">Logo retouché pour l’app</strong>
+          <span>{logoChangesText(tenup.logo_changes)}</span>
+        </span>
+      </div>
+      <div className="fl-segmented" role="radiogroup" aria-labelledby="fl-logo-title">
+        {LOGO_OPTIONS.map((option, i) => <button key={option.value} type="button" {...radio(option.value, i)}>{option.label}</button>)}
+      </div>
+    </section>
+  );
+}
+
+const BACKGROUND_TEXT = { black: 'sur un carré noir', white: 'sur un fond blanc', color: 'sur un fond uni' } as const;
+const FORMAT_TEXT = { jpeg: 'JPEG', png: 'PNG', webp: 'WebP' } as const;
+
+/** Desktop (07b) : panneau de droite, avant / après en grand, puces, icône Android. */
+export function LogoChoicePanel({ tenup, choice, onChange }: { tenup: LookupResult; choice: LogoChoice; onChange: (choice: LogoChoice) => void }) {
+  const radio = useLogoRadios(choice, onChange);
+  const source = tenup.logo_source;
+  const changes = tenup.logo_changes;
+  const done = [changes?.background ? 'détouré' : '', changes?.trimmed ? 'recadré' : '', changes?.upscaled ? 'agrandi' : ''].filter(Boolean);
+  const doneText = done.length > 1 ? `${done.slice(0, -1).join(', ')} et ${done[done.length - 1]}` : done[0] ?? 'retouché';
+  const facts = [source ? `Le logo Ten’Up fait ${source.width} × ${source.height} px` : 'Le logo Ten’Up', changes?.background ? `, ${BACKGROUND_TEXT[changes.background]}` : ''].join('');
+  const originalMeta = [source ? `${FORMAT_TEXT[source.format]} ${Math.max(source.width, source.height)} px` : '', changes?.background ? `fond ${changes.background === 'black' ? 'noir' : changes.background === 'white' ? 'blanc' : 'uni'}` : ''].filter(Boolean).join(' · ');
+  const cards = [
+    { value: 'original' as const, title: 'Original Ten’Up', meta: originalMeta, src: tenup.logo_url!, clean: false },
+    { value: 'clean' as const, title: 'Retouché', meta: ['PNG transparent', changes?.trimmed ? 'recadré' : ''].filter(Boolean).join(' · '), src: tenup.logo_clean_url!, clean: true },
+  ];
+  return (
+    <div className="fl-logo-panel">
+      <span className="fl-kicker">Votre logo</span>
+      <h2 id="fl-logo-panel-title" className="fl-logo-panel-title">Nous avons retouché votre logo pour l’app.</h2>
+      <p className="fl-logo-panel-lede">{facts}. Nous l’avons {doneText}, sans toucher au dessin. Choisissez celui que l’app utilisera.</p>
+      <div className="fl-logo-cards" role="radiogroup" aria-labelledby="fl-logo-panel-title">
+        {cards.map(card => (
+          <button key={card.value} type="button" className="fl-logo-card" {...radio(card.value, card.value === 'clean' ? 0 : 1)}>
+            <span className={`fl-logo-card-img${card.clean ? ' fl-checker' : ''}`}><img src={card.src} alt="" /></span>
+            <strong>{card.value === 'clean' ? 'Retouché' : card.title}{choice === card.value ? ' · utilisé ✓' : ''}</strong>
+            <span>{card.meta}</span>
+          </button>
+        ))}
+      </div>
+      <ul className="fl-logo-points">
+        <li>Même dessin, mêmes couleurs : rien n’est redessiné.</li>
+        <li>Icône de l’app, affiches et vidéo plus nettes.</li>
+        <li>L’original reste disponible dans Configuration › Identité.</li>
+      </ul>
+      <div className="fl-logo-icons">
+        <span className="fl-logo-icon fl-logo-icon-before" aria-hidden="true"><img src={tenup.logo_url} alt="" /></span>
+        <span className="fl-logo-arrow" aria-hidden="true">→</span>
+        <span className="fl-logo-icon" aria-hidden="true"><img src={tenup.logo_variants!['maskable-192']} alt="" /></span>
+        <span className="fl-small">Icône sur l’écran d’accueil Android, avant et après</span>
+      </div>
     </div>
   );
 }
