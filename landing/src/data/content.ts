@@ -42,7 +42,7 @@ export const compare = [
 
 export const promises = [
   { n: '15', title: 'Une direction artistique de circuit', text: 'Typographies de tableau d’affichage, affiches de programmation, score bug en direct. Le même soin qu’une retransmission, aux couleurs de votre club.' },
-  { n: '30', title: 'Zéro ressaisie', text: 'Rencontres, compositions et scores arrivent depuis TEN’UP. Vos bénévoles ne recopient plus rien : ils publient.' },
+  { n: '30', title: 'Zéro ressaisie', text: 'Rencontres et scores arrivent depuis TEN’UP. Vos bénévoles ne recopient plus rien : ils publient.' },
   { n: '40', title: 'Un prix, tout le club', text: 'Pas de tarif par adhérent, pas de module en option. Membres, bénévoles et enseignants illimités.' },
 ];
 
@@ -60,10 +60,9 @@ export const moments = [
 ];
 
 export const steps = [
-  { n: '01', t: 'Le nom du club', d: 'Il s’affiche aussitôt en grand sur votre site et votre app.', time: '10 s' },
-  { n: '02', t: 'Votre logo', d: 'On en tire vos couleurs : tout se teinte à l’identité du club.', time: '20 s' },
-  { n: '03', t: 'Votre adresse', d: 'votreclub.feelike.pro pour le site, app-votreclub pour l’app.', time: '10 s' },
-  { n: '04', t: 'Connectez TEN’UP', d: 'Vos rencontres arrivent, votre première affiche est prête.', time: '1 min' },
+  { n: '01', t: 'Collez le lien TEN’UP', d: 'Le lien de votre club sur tenup.fft.fr : nom, logo et couleurs sont repris aussitôt.', time: '10 s' },
+  { n: '02', t: 'C’est bien votre club ?', d: 'Vous vérifiez l’aperçu, choisissez votre adresse : votreclub.feelike.pro pour le site, app-votreclub pour l’app.', time: '30 s' },
+  { n: '03', t: 'Un lien par e-mail, et c’est en ligne', d: 'Vos rencontres de la saison arrivent de TEN’UP, sans ressaisie.', time: '1 min' },
 ];
 
 export const trialItems = [
@@ -75,7 +74,7 @@ export const trialItems = [
 
 export const seasonItems = [
   'Site vitrine, app des adhérents, back-office',
-  'Synchro TEN’UP : rencontres, compositions, scores',
+  'Synchro TEN’UP : rencontres et scores',
   'Live score, affiches, interclubs, planning TMC, cours',
   'Les nouveautés publiées pendant votre saison, incluses',
   'Membres, bénévoles et enseignants illimités',

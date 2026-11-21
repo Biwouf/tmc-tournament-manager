@@ -123,7 +123,7 @@ img { display: block; max-width: 100%; height: auto; }
 .hero__row { display: flex; justify-content: space-between; align-items: end; gap: 32px; flex-wrap: wrap; padding-top: 40px; }
 .hero__lead { margin: 0; max-width: 520px; font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--text-muted); text-wrap: pretty; }
 .hero__ctas { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
-.hero__note { font-family: var(--font-mono); font-size: 12px; letter-spacing: var(--ls-button); color: var(--text-muted); }
+.hero__note { font-family: var(--font-body); font-size: 14px; color: var(--text-muted); }
 
 /* Scoreboard */
 .sb-wrap { margin-top: auto; padding-top: clamp(56px, 10vh, 120px); display: flex; justify-content: center; }
@@ -322,7 +322,7 @@ button.sb__row:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .card__price { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .card__price strong { font-family: var(--font-display); font-weight: 900; font-size: 96px; line-height: 0.8; }
 .card__price span { font-family: var(--font-mono); font-size: 14px; color: var(--paper-muted); }
-.card__fine { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.card__fine { font-family: var(--font-body); font-size: 14px; color: var(--text-muted); }
 .card__btn { padding: 16px 20px; text-align: center; font-family: var(--font-mono); font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: var(--ls-button); }
 .card--trial { border: 2px solid var(--paper-text); }
 .card--trial .card__btn { border: 2px solid var(--paper-text); color: var(--paper-text); }

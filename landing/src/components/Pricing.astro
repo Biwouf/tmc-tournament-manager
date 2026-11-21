@@ -3,8 +3,8 @@ import TrackedLink from './TrackedLink.astro';
 import { seasonItems, trialItems } from '../data/content';
 import { callHref, priceNote, trialCta } from '../config';
 
-const trial = trialCta('Commencer l’essai');
-const season = trialCta('Commencer par l’essai');
+const trial = trialCta('Commencer l’essai', 'tarifs-essai');
+const season = trialCta('Commencer par l’essai', 'tarifs-saison');
 ---
 <section id="tarifs" class="sec sec--paper">
   <div class="container stack" style="gap:56px">
@@ -41,7 +41,6 @@ const season = trialCta('Commencer par l’essai');
         </div>
         <ul class="dash-list">{seasonItems.map(item => <li>{item}</li>)}</ul>
         <TrackedLink class="card__btn btn--accent" href={season.href} event={season.event}>{season.label}</TrackedLink>
-        <span class="card__fine" style="text-align:center">Places au tarif de lancement limitées</span>
       </article>
 
       <article id="parler" class="card card--call">
