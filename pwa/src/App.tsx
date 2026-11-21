@@ -1,8 +1,8 @@
-import { useCourseContext } from './hooks/useCourses';
 import SignupPage from './pages/SignupPage';
 import SignupNotice from './components/SignupNotice';
+import { RequireAuth, RequireUser } from './components/AuthGuards';
 import PasswordRecoveryPage from './pages/PasswordRecoveryPage';
-import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppHeader from './components/layout/AppHeader';
 import { HeaderActionProvider } from './components/layout/HeaderActionContext';
@@ -29,7 +29,6 @@ import { reconcileCoursePush } from './lib/coursePush';
 import { buildAppIcons, iconsFromVariants, variantsFor } from './lib/appIcons';
 import { useScrollMemory } from './hooks/useScrollMemory';
 import OfflineNotice from './components/layout/OfflineNotice';
-import { AppLoading } from './components/layout/LoadState';
 
 // Conteneur de défilement des pages (Live, Cours, fiches…) : sa position est retenue par
 // entrée d'historique, et restaurée au Retour.
@@ -37,20 +36,6 @@ function PwaMain({ className, children }: { className: string; children: ReactNo
   const ref = useRef<HTMLElement>(null);
   useScrollMemory(ref, 'main');
   return <main ref={ref} className={className}>{children}</main>;
-}
-
-function RequireAuth({ children }: { children: ReactElement }) {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-  const membership = useCourseContext();
-  if (loading) return <AppLoading />;
-  if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
-  }
-  if (membership.isPending) return <p className="p-6" role="status">Vérification de votre accès…</p>;
-  if (membership.isError) return <div className="p-6" role="alert">Vérification de l’accès impossible. <button className="min-h-11 text-primary underline" onClick={() => void membership.refetch()}>Réessayer</button></div>;
-  if (!membership.data?.is_member && !membership.data?.can_manage) return <Navigate to="/actu" replace />;
-  return children;
 }
 
 export default function App() {
@@ -196,7 +181,7 @@ function AppShell() {
           <Route path="/" element={<Navigate to="/actu" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cours" element={<CoursesPage />} />
-          <Route path="/profil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+          <Route path="/profil" element={<RequireUser><ProfilePage /></RequireUser>} />
 
           {/* Actu (fusionné) — sous-onglets gérés dans la page */}
           <Route path="/actu" element={<ActuPage />} />
