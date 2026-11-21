@@ -13,7 +13,8 @@ type Row = TeamPlayer & { updateRank: boolean };
 type Side = 0 | 1;
 const empty = (): Row => ({ prenom: '', nom: '', classement: 'NC', updateRank: true });
 const filled = (row: Row) => `${row.prenom}${row.nom}`.trim().length > 0;
-const field = 'mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3';
+// 16 px : en dessous, iOS zoome au focus et la page reste zoomée après la validation.
+const field = 'mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-base';
 
 /** Compo des simples par photo : feuille de notre équipe, puis feuille adverse, puis vérification. */
 export default function TeamCompoSheet({ detail, clubId, slots, onClose }: {

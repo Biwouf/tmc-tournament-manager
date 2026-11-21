@@ -149,7 +149,7 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
       {lineup.simples != null && lineup.doubles != null && <p className="-mt-3 mb-3 text-sm text-muted-foreground">{T.sheetSubtitle(lineup.simples, lineup.doubles)}{genreLabel ? ` · ${genreLabel}` : ''}</p>}
       <input ref={searchRef} type="search" value={search} onChange={event => { setSearch(event.target.value); setGuestForm(null); }}
         placeholder={T.search} aria-label={T.search}
-        className="min-h-12 w-full rounded-xl border border-border bg-muted px-4 text-[15px]" />
+        className="min-h-12 w-full rounded-xl border border-border bg-muted px-4 text-base" /* 16 px : pas de zoom iOS au focus */ />
       {candidatesQuery.data && <div role="radiogroup" aria-label={T.filterLabel} className="mt-3 flex flex-wrap gap-2">
         {/* Choisir un filtre pendant une recherche efface la recherche : la puce dit alors vrai. */}
         {(['all', 'male', 'female'] as const).map(key => <button key={key} role="radio" aria-checked={applied === key} onClick={() => { setFilter(key); setSearch(''); setGuestForm(null); }}

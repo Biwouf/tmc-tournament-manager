@@ -326,6 +326,24 @@ Déploiement : appliquer `2026111902_team_compo_user_id.sql` **avant** la PWA.
   rechargement). Une demande d'adhésion en attente voit la compo (décision 1).
 
 Tests : `npm run test:team-compo` (`tests/team-compo-visitor-client.test.mjs`).
+
+**PR4 — back-office** (sans migration) : section « Compo » de la fiche rencontre du BO
+(`src/components/teamMatches/TeamLineupPanel.tsx`), au-dessus des matches, masquée pour un WO.
+Membres du club à cocher à gauche (recherche, puces Tous / Hommes / Femmes présélectionnées selon le
+genre ; une recherche parcourt tout le club ; classement, rien s'il n'est pas renseigné ; colonne
+Sexe H / F), compo à droite triée par nom avec ✕ pour retirer, formulaire « Joueur sans compte »
+(sexe prérempli selon la rencontre ; un nom de membre renvoie vers sa case ; un invité en double est
+refusé), indication de nombre, rappel « Mêmes règles et même enregistrement que dans l'app », badge
+« Non enregistrée », `Annuler les changements` / `Enregistrer la compo`. Mêmes RPC, mêmes textes
+partagés et mêmes garde-fous que l'app : version périmée avec `Recharger`, joueur sorti du club
+nommé avant l'envoi, membre reçu sans `user_id` refusé. Sans droit de compo (`can_edit` faux) : liste
+en lecture seule.
+
+Correctif PWA livré avec : les champs des feuilles « Choisir les joueurs » et « Photographier les
+feuilles de match » passent à 16 px. En dessous, iOS zoomait au focus et la page restait zoomée après
+avoir validé la compo.
+
+Tests : `npm run test:team-compo` (`tests/team-lineup-bo-client.test.mjs`).
 Tests : `npm run test:team-compo` (`tests/team-lineup-client.test.mjs` en plus).
 
 ## Déploiement et recette

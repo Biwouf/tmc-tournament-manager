@@ -17,6 +17,7 @@ import TeamMatchLineModal from '../components/teamMatches/TeamMatchLineModal';
 import TeamMatchScoreModal from '../components/teamMatches/TeamMatchScoreModal';
 import TeamScoreSection from '../components/teamMatches/TeamScoreSection';
 import TeamPhotosSection from '../components/teamMatches/TeamPhotosSection';
+import TeamLineupPanel from '../components/teamMatches/TeamLineupPanel';
 import ResultPosterSection from '../components/teamMatches/poster/ResultPosterSection';
 import {
   competitionLabel,
@@ -338,6 +339,9 @@ export default function TeamRencontrePage() {
             {actionError}
           </div>
         )}
+
+        {/* Compo d'équipe : liste des joueurs retenus (mêmes règles que l'app) */}
+        {!rencontre.wo && clubId && <TeamLineupPanel key={rencontre.id} clubId={clubId} rencontreId={rencontre.id} />}
 
         {/* Matches de la rencontre */}
         <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">

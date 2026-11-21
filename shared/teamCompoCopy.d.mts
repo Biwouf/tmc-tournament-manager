@@ -9,6 +9,8 @@ export function freshnessLabel(updatedAt: string | Date, now?: Date): string;
 export function updatedLine(updatedAt: string, by: { prenom: string; nom: string; role: string } | null, now?: Date): string;
 export function previewNames(names: string[], count: number): string;
 export const COMPO_COPY: {
+  boMembers: string; boMembersHint: (n: number) => string; boSearch: string; boGuestTitle: string; boGuestName: string;
+  boUnsaved: string; boCancel: string; boSameRules: string; boReadOnly: string; boMemberExists: (name: string) => string; boEmpty: string;
   loginContext: (label: string | null | undefined) => string; welcomeBack: string; youPlayTitle: string; youPlay: string;
   compoToCome: string; lockedCard: string; lockedBanner: string; cardLabel: (count: number, isMe: boolean) => string;
   cardLockedLabel: string; seeAll: (n: number) => string; sheetList: (n: number) => string;
