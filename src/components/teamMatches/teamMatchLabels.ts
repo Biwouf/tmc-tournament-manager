@@ -214,3 +214,6 @@ export function computeScore(
   }
   return { club, adverse };
 }
+
+/** Niveau « Saisons et équipes » des fils d'Ariane des pages Rencontres (fiche équipe, rencontre). */
+export const SEASONS_CRUMB = { label: 'Saisons et équipes', to: '/team-matches/admin' } as const;

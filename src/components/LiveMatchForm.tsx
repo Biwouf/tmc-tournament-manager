@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent, LiveMatchType } from '../types';
+import PageHeader from './layout/PageHeader';
 
 interface FieldErrors {
   j1_prenom?: string;
@@ -136,26 +137,10 @@ export default function LiveMatchForm() {
     navigate('/live-score');
   };
 
-  const handleLogout = () => supabase.auth.signOut();
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Nouveau match</h1>
-            <Link to="/live-score" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
-              ← Retour à la liste
-            </Link>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader title="Nouveau match" breadcrumb={[{ label: 'Live score', to: '/live-score' }]} />
 
       <main className="container mx-auto max-w-3xl px-4 py-8">
         <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border bg-card/90 p-6 shadow-sm">

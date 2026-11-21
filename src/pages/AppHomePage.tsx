@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useClubRole } from '../contexts/ClubRoleContext';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
 import ClubSetup from '../components/dashboard/ClubSetup';
+import PageHeader from '../components/layout/PageHeader';
 
 // `roles` = rôles autorisés à voir la carte (matrice MULTI_TENANT.md §4 / brief PR4 §6).
 // Le masquage est purement UI : la RLS tenant_isolation cloisonne par club, pas par rôle.
@@ -15,9 +15,9 @@ const SECTIONS = [
     items: [
       { to: '/actus', label: 'Actus', description: 'Rédiger et publier les actualités du club.', roles: ['admin', 'manager'] },
       { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.', roles: ['admin', 'manager'] },
-      { to: '/live-score', label: 'Live Score', description: 'Suivre et saisir le score des matchs en direct.', roles: ['admin', 'manager', 'member'] },
-      { to: '/team-matches', label: 'Matches par équipe', description: 'Gérer les rencontres interclubs de l’équipe.', roles: ['admin', 'manager'] },
-      { to: '/team-matches/admin', label: 'Saisons & équipes', description: 'Référentiel interclubs : saisons, compétitions, équipes.', roles: ['admin', 'manager'] },
+      { to: '/live-score', label: 'Live score', description: 'Suivre et saisir le score des matchs en direct.', roles: ['admin', 'manager', 'member'] },
+      { to: '/team-matches', label: 'Rencontres', description: 'Gérer les rencontres interclubs des équipes.', roles: ['admin', 'manager'] },
+      { to: '/team-matches/admin', label: 'Saisons et équipes', description: 'Référentiel interclubs : saisons, compétitions, équipes.', roles: ['admin', 'manager'] },
     ],
   },
   {
@@ -25,8 +25,8 @@ const SECTIONS = [
     label: 'Outils',
     hint: 'Générateurs et planning sportif',
     items: [
-      { to: '/medias', label: 'Génération de médias', description: 'Images des tournois (programme, résultats) et des matches par équipe.', roles: ['admin', 'manager'] },
-      { to: '/tmc-planning', label: 'Gestion planning', description: 'Créer et gérer les tournois, planifier les matchs.', roles: ['admin', 'manager'] },
+      { to: '/medias', label: 'Visuels', description: 'Images des tournois (programme, résultats) et des rencontres.', roles: ['admin', 'manager'] },
+      { to: '/tmc-planning', label: 'Tournois TMC', description: 'Créer et gérer les tournois, planifier les matchs.', roles: ['admin', 'manager'] },
     ],
   },
   {
@@ -35,9 +35,9 @@ const SECTIONS = [
     hint: 'Réservé aux administrateurs',
     items: [
       { to: '/courses', label: 'Cours', description: 'Programmer les cours et valider les inscriptions.', roles: ['admin'] },
-      { to: '/admin/members', label: 'Membres', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
-      { to: '/admin/site', label: 'Configuration du site', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
-      { to: '/admin/social', label: 'Comptes sociaux', description: 'Connecter la page Facebook sur laquelle les actus sont publiées.', roles: ['admin'] },
+      { to: '/admin/members', label: 'Adhérents', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
+      { to: '/admin/site', label: 'Site et identité', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
+      { to: '/admin/social', label: 'Réseaux sociaux', description: 'Connecter la page Facebook sur laquelle les actus sont publiées.', roles: ['admin'] },
       { to: '/admin/messages', label: 'Messages', description: 'Les messages reçus depuis le formulaire de contact du site.', roles: ['admin'] },
     ],
   },
@@ -47,9 +47,7 @@ export default function AppHomePage() {
   const { role, isSuperAdmin } = useClubRole();
   const { club } = useClub();
   const { config, loading: configLoading, reload } = useClubConfig();
-  const handleLogout = () => supabase.auth.signOut();
   const clubName = club?.name ?? 'Club';
-  const logo = config.brand.logo || '/logo.png';
 
   // Super-admin non membre : accès support avec le rôle effectif 'admin'.
   const effectiveRole = isSuperAdmin ? 'admin' : role;
@@ -62,23 +60,7 @@ export default function AppHomePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex flex-col items-start gap-4 px-4 py-8 sm:flex-row sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <img src={logo} alt={clubName} className="h-16 w-16 shrink-0 object-contain" />
-            <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight break-words sm:text-3xl">Administration de {clubName}</h1>
-              <p className="mt-2 text-muted-foreground">Affiche, events, programmation…</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="shrink-0 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted sm:mt-1"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader title="Accueil" description={`Administration de ${clubName}`} />
 
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col gap-9">

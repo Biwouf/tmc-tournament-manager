@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { formatIsoDateFr } from '../lib/dates';
 import type { TournamentEntry } from '../types';
+import PageHeader from '../components/layout/PageHeader';
 
 interface Props {
   user: User;
@@ -38,7 +39,6 @@ export default function HomePage({ user }: Props) {
       });
   }, [clubId]);
 
-  const handleLogout = () => supabase.auth.signOut();
 
   const handleDuplicate = async (entry: TournamentEntry) => {
     if (duplicatingId) return;
@@ -64,26 +64,7 @@ export default function HomePage({ user }: Props) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <Link
-              to="/"
-              className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              ← Accueil
-            </Link>
-            <h1 className="text-3xl font-semibold tracking-tight">Gestionnaire de Tournois TMC</h1>
-            <p className="mt-2 text-muted-foreground">Organisation de tournois de tennis multi-chances</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader title="Tournois TMC" description="Organisation de tournois de tennis multi-chances." />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center justify-between">

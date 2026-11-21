@@ -20,7 +20,7 @@
 // une vue d'avancement au club qui remplit sa config. Le repli n'est qu'un masquage : chaque
 // panneau reste monté et garde sa saisie en cours, qu'il signale plutôt que de la cacher.
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
 import { useClubTheme } from '../hooks/useClubTheme';
@@ -28,6 +28,7 @@ import { CLUB_CONFIG_GROUPS, groupValueFromConfig, type GroupValue } from '../li
 import SiteConfigPanel from '../components/siteConfig/SiteConfigPanel';
 import SitePublication from '../components/siteConfig/SitePublication';
 import TenupSiteImport from '../components/siteConfig/TenupSiteImport';
+import PageHeader from '../components/layout/PageHeader';
 
 export default function SiteConfigPage() {
   const { clubId, club } = useClub();
@@ -63,32 +64,22 @@ export default function SiteConfigPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Configuration du site</h1>
-            <p className="mt-2 max-w-3xl text-muted-foreground">
-              Les réglages de{' '}
-              <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>. La
-              quasi-totalité des panneaux décrit les informations publiques du club : elles
-              alimenteront le{' '}
-              <span className="font-medium text-foreground">site vitrine</span> et ne changent ni
-              ce back-office, ni l’application des adhérents. Deux exceptions : les{' '}
-              <span className="font-medium text-foreground">couleurs</span> d’
-              <span className="font-medium text-foreground">Identité du club</span>, qui
-              repeignent les deux, et le panneau{' '}
-              <span className="font-medium text-foreground">Affiches</span>, qui porte des
-              réglages d’affichage internes, utilisés par les affiches générées ici même.
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            ← Accueil
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Site et identité"
+        description={<p className="max-w-3xl">
+          Les réglages de{' '}
+          <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>. La
+          quasi-totalité des panneaux décrit les informations publiques du club : elles
+          alimenteront le{' '}
+          <span className="font-medium text-foreground">site vitrine</span> et ne changent ni
+          ce back-office, ni l’application des adhérents. Deux exceptions : les{' '}
+          <span className="font-medium text-foreground">couleurs</span> d’
+          <span className="font-medium text-foreground">Identité du club</span>, qui
+          repeignent les deux, et le panneau{' '}
+          <span className="font-medium text-foreground">Affiches</span>, qui porte des
+          réglages d’affichage internes, utilisés par les affiches générées ici même.
+        </p>}
+      />
 
       <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
         {/* SaaS S8b — préremplissage depuis Ten'Up, en tête (rien pour un club `internal`). Hors du

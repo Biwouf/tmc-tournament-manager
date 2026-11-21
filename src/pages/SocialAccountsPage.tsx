@@ -10,7 +10,6 @@
 // lisible par `authenticated`. D'où l'absence de champ pré-rempli — on ne peut pas
 // afficher ce qu'on ne lit pas, et c'est le but.
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import {
   connectFacebookPage,
@@ -18,6 +17,7 @@ import {
   getFacebookCredential,
   type SocialCredential,
 } from '../lib/socialCredentials';
+import PageHeader from '../components/layout/PageHeader';
 
 function formatExpiry(iso: string | null): string {
   if (!iso) return 'Ce token n’a pas de date d’expiration connue.';
@@ -109,24 +109,14 @@ export default function SocialAccountsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Comptes sociaux</h1>
-            <p className="mt-2 text-muted-foreground">
-              La page Facebook sur laquelle{' '}
-              <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>{' '}
-              publie ses actualités.
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            ← Accueil
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Réseaux sociaux"
+        description={<>
+          La page Facebook sur laquelle{' '}
+          <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>{' '}
+          publie ses actualités.
+        </>}
+      />
 
       <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
         <section>

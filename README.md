@@ -4,6 +4,12 @@ Application web pour organiser des tournois de tennis multi-chances (TMCs) et g�
 
 ## Fonctionnalités
 
+### Navigation du back office
+- Barre latérale sur ordinateur (dès 1024 px), menu en tiroir sur téléphone et tablette : Accueil, Adhérents, Cours, Rencontres, Live score, Tournois TMC, Actus, Événements, Visuels, Messages, Site et identité, Réseaux sociaux (selon le rôle ; un membre ne voit qu'Accueil et Live score)
+- Sur ordinateur, « Replier le menu » masque la barre pour gagner de la place ; le bouton ☰ la fait revenir (choix gardé par le navigateur)
+- En bas de la barre, le menu du compte (prénom et rôle) : « Mon mot de passe » et « Se déconnecter »
+- Chaque page a le même en-tête : titre, fil d'Ariane sur les sous-pages (ex. « Événements › Soirée › Inscrits »), onglets Cours / Types de cours et Calendrier / Saisons et équipes
+
 ### Planification TMC
 - Configuration de tournois multi-chances avec différents nombres de joueurs (4, 8, 12 ou 16)
 - Gestion des créneaux horaires par jour

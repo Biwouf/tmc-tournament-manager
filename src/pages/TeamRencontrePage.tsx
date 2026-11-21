@@ -20,6 +20,7 @@ import TeamPhotosSection from '../components/teamMatches/TeamPhotosSection';
 import TeamLineupPanel from '../components/teamMatches/TeamLineupPanel';
 import ResultPosterSection from '../components/teamMatches/poster/ResultPosterSection';
 import {
+  SEASONS_CRUMB,
   competitionLabel,
   etapeLabel,
   expectedMatchCount,
@@ -250,7 +251,7 @@ export default function TeamRencontrePage() {
   if (notFound || !rencontre) {
     return (
       <div className="min-h-screen">
-        <TeamMatchesHeader title="Rencontre introuvable" backTo="/team-matches" backLabel="Matches par équipe" />
+        <TeamMatchesHeader title="Rencontre introuvable" />
         <main className="container mx-auto px-4 py-12 text-center text-muted-foreground">
           Cette rencontre n'existe pas ou a été supprimée.
         </main>
@@ -264,8 +265,7 @@ export default function TeamRencontrePage() {
     <div className="min-h-screen">
       <TeamMatchesHeader
         title={rencontre.club_adverse}
-        backTo={backTo}
-        backLabel="Retour à l'équipe"
+        parents={context ? [SEASONS_CRUMB, { label: competitionLabel(context.competition), to: backTo }] : []}
         actions={
           <Link
             to={`/team-matches/rencontre/${rencontre.id}/edit`}

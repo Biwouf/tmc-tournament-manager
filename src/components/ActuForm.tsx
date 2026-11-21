@@ -6,6 +6,7 @@ import MarkdownEditor from './MarkdownEditor';
 import FileDrop from './FileDrop';
 import type { Actu, ActuFocalPoint } from '../types';
 import { DEFAULT_FOCAL_POINT, actuImageProblem, saveActu } from '../lib/actuWrites';
+import PageHeader from './layout/PageHeader';
 
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -299,7 +300,6 @@ export default function ActuForm() {
     }
   };
 
-  const handleLogout = () => supabase.auth.signOut();
 
   if (loading) {
     return (
@@ -311,24 +311,10 @@ export default function ActuForm() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              {isEdit ? "Modifier l'actu" : 'Nouvelle actu'}
-            </h1>
-            <Link to="/actus" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
-              ← Retour à la liste
-            </Link>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={isEdit ? "Modifier l'actu" : 'Nouvelle actu'}
+        breadcrumb={[{ label: 'Actus', to: '/actus' }]}
+      />
 
       <main className="container mx-auto max-w-3xl px-4 py-8">
         <form
