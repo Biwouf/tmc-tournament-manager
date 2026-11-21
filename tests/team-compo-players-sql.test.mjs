@@ -79,6 +79,7 @@ async function setup() {
   await db.exec(`INSERT INTO team_equipe_captains(club_id,equipe_id,user_id) VALUES ('${C1}','${id(11)}','${id(102)}'),
     ('${C1}','${id(12)}','${id(104)}')`);
   await db.exec(await text('supabase/migrations/2026111901_team_compo_players.sql'));
+  await db.exec(await text('supabase/migrations/2026111902_team_compo_user_id.sql'));
   const get = (user, rencontre = FUTURE) => as(user, 'SELECT team_compo_get($1,$2) AS r', [C1, rencontre]).then(x => x.rows[0].r);
   const save = (user, players, version, rencontre = FUTURE) =>
     as(user, 'SELECT team_compo_save($1,$2,$3,$4) AS r', [C1, rencontre, JSON.stringify(players), version]).then(x => x.rows[0].r);
@@ -131,6 +132,10 @@ test('Compo : lecture réservée aux comptes connectés, aucun accès direct aux
     const editor = await get(id(102));
     assert.equal(editor.can_edit, true);
     assert.equal(editor.players.find(p => p.nom === 'Dupont').sex, 'female');
+    // L'éditeur reçoit user_id (pour renvoyer la liste) ; un lecteur simple, non.
+    assert.equal(editor.players.find(p => p.nom === 'Dupont').user_id, id(103));
+    assert.equal(editor.players.find(p => p.nom === 'Girard').user_id, null);
+    assert.ok(r.players.every(p => p.user_id === null));
 
     // Compétition mixte : le sexe est renvoyé à tous pour grouper. Format 4S2D → 4 joueurs au moins.
     const mixte = await get(id(301), MIXTE);

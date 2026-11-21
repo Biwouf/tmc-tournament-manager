@@ -21,6 +21,8 @@ import TeamSheet from '../components/teamMatches/TeamSheet';
 import { announceLiveStart } from '../lib/liveFollows';
 import TeamResultSheet from '../components/teamMatches/TeamResultSheet';
 import TeamPhotos from '../components/teamMatches/TeamPhotos';
+import TeamLineupSection from '../components/teamMatches/TeamLineupSection';
+import { COMPO_COPY } from '../../../shared/teamCompoCopy.mjs';
 import { ResultChip } from '../components/matchesEquipes/ResultChip';
 import { scoreIssue, type ResultIssue } from '../components/matchesEquipes/result';
 import { LoadError, StaleNotice } from '../components/layout/LoadState';
@@ -46,6 +48,8 @@ export default function TeamRencontrePage() {
   const [dateDraft, setDateDraft] = useState<string | null>(null);
   const [dateSaving, setDateSaving] = useState(false);
   const [dateError, setDateError] = useState('');
+  // Heure d'ouverture de la fiche : suffit pour savoir si la rencontre a commencé (règle pure au rendu).
+  const [openedAt] = useState(() => Date.now());
   const action = useTeamAction(clubId, id);
   const queryClient = useQueryClient();
   // Broadcast `live:club:<id>` : cette rencontre, ses matches ou un live lié ont changé.
@@ -138,10 +142,14 @@ export default function TeamRencontrePage() {
   };
   const manage = canEdit && !rencontre.wo;
   const login = <Link to="/login" state={fromHere(location)} className="flex min-h-12 w-full items-center justify-center rounded-xl border border-border bg-card px-4 text-[15px] font-semibold">Se connecter pour suivre la rencontre</Link>;
+  // Feuille de match du jour J (photo des deux feuilles) : « compo » désigne désormais la liste des joueurs.
   const photoButton = freeSimples.length > 0 && competition.singles_set3_format
-    && <button onClick={() => setComposing(true)} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">Photographier la compo</button>;
+    && <button onClick={() => setComposing(true)} className="min-h-12 w-full rounded-xl border border-border bg-card p-3 font-semibold">{COMPO_COPY.sheetFeuille}</button>;
   const manualButton = lines.length < expected
     && <button onClick={() => setCreating(true)} className="min-h-12 w-full rounded-xl border border-border bg-card p-3 font-semibold">Ajouter un match manuellement</button>;
+  const started = inPlay || lines.some(l => l.live_match_id || l.gagnant) || new Date(rencontre.date_heure).getTime() <= openedAt;
+  // Le verrou de la compo porte déjà « Se connecter » : pas de second bouton de connexion avant la rencontre.
+  const lineupLocked = !user && !rencontre.wo && !started;
   return <div className="tr-page space-y-5 p-4">
     <section className="rounded-2xl border border-border bg-card p-5">
       <p className="text-xs font-semibold uppercase text-muted-foreground">{competition.nom} · Équipe {equipe.numero}</p>
@@ -163,16 +171,18 @@ export default function TeamRencontrePage() {
       <p className="mt-1 text-xs text-muted-foreground">3e set des simples : {competition.singles_set3_format === 'super_tiebreak' ? 'super tie-break' : competition.singles_set3_format === 'normal' ? 'set classique' : 'à configurer'} · doubles : super tie-break</p>
     </section>
     {query.isError && <StaleNotice onRetry={() => void query.refetch()}>Actualisation impossible, les scores affichés peuvent avoir changé.</StaleNotice>}
-    {!user && lines.length > 0 && login}
+    {clubId && !rencontre.wo && <TeamLineupSection clubId={clubId} rencontreId={id} signedIn={!!user}
+      started={started} />}
+    {!user && !lineupLocked && lines.length > 0 && login}
     {membership.isError && user && <button className="min-h-11 text-sm underline" onClick={() => void membership.refetch()}>Vérifier à nouveau mon accès membre</button>}
     <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">Matchs</h2><span className="text-xs text-muted-foreground">{completed}/{expected} résultats validés</span></div>
     {/* Aucun match : le membre voit comment commencer, l'invité ce qui viendra (maquettes rencontre-membre / -invite). */}
     {lines.length === 0 && <div className="space-y-3 rounded-xl border border-dashed border-border p-5 text-center">
-      <h3 className="font-bold">{manage ? 'Aucun match pour l’instant' : 'Compositions à venir'}</h3>
+      <h3 className="font-bold">{manage ? 'Aucun match pour l’instant' : 'Matchs à venir'}</h3>
       <p className="text-sm text-muted-foreground">{manage
-        ? 'Photographiez la feuille de composition, ou ajoutez les joueurs à la main.'
+        ? 'Saisissez la feuille de match, par photo ou à la main.'
         : 'Les joueurs et les scores s’afficheront ici dès qu’ils seront saisis par le club.'}</p>
-      {manage ? <>{photoButton}{manualButton}</> : !user && login}
+      {manage ? <>{photoButton}{manualButton}</> : !user && !lineupLocked && login}
     </div>}
     <div className="space-y-3">{lines.map(line => {
       const live = lives.find(m => m.id === line.live_match_id);
