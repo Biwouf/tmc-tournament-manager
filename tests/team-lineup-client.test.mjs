@@ -270,3 +270,10 @@ test('Mention de genre : dans la fiche (si le sexe est reçu) et avec « Capitai
     assert.doesNotMatch(document.querySelector('section').textContent, /Rencontre dames/);
   } finally { await again(); }
 });
+
+test('Zoom iOS : les champs des feuilles de compo font 16 px (pas de zoom au focus, ni après validation)', () => {
+  const editor = readFileSync(resolve(src, 'components/teamMatches/TeamLineupEditor.tsx'), 'utf8');
+  const scan = readFileSync(resolve(src, 'components/teamMatches/TeamCompoSheet.tsx'), 'utf8');
+  assert.match(editor.match(/<input ref=\{searchRef\}[\s\S]*?\/>/)[0], /text-base/);
+  assert.match(scan.match(/const field = '[^']*'/)[0], /text-base/);
+});
