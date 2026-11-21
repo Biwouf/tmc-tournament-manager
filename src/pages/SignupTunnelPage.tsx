@@ -5,13 +5,13 @@ import { signupSlugProblem } from '../../shared/clubSlug.mjs';
 import { formatClubName, shortNameFor } from '../../shared/clubName.mjs';
 import {
   accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, loadDraft, rememberTenupLink, saveDraft, signupConfig, slugify,
-  slugMessage, stepPosition, submitClubSignup, suggestSlug,
+  slugMessage, stepPosition, submitClubSignup, suggestSlug, tenupLogo,
   type FieldProblem, type LookupResult, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
 } from '../lib/clubSignup';
 import { tidyCase } from '../lib/tenupSiteImport';
 import { dataUrlToBlob, paletteFromUrl, prepareSignupImage, SIGNUP_IMAGE_TYPES } from '../lib/signupImage';
 import Turnstile, { type TurnstileHandle } from '../components/signup/Turnstile';
-import { AlreadyStep, ConfirmStep, FindStep } from '../components/signup/TenupSteps';
+import { AlreadyStep, ConfirmStep, FindStep, LogoChoicePanel } from '../components/signup/TenupSteps';
 import { AppPreview, SitePreview } from '../components/signup/SignupPreview';
 import '@fontsource/instrument-sans/latin-400';
 import '@fontsource/instrument-sans/latin-500';
@@ -131,14 +131,19 @@ function Tunnel() {
     const sample = COLOR_SAMPLES[0].colors[0];
     update({
       mode: 'tenup', tenup: result, alreadyName: null, logo: null, photo: null, name,
+      logoChoice: same ? draft.logoChoice : 'clean',
       city: same ? draft.city : tidyCase(result.city ?? ''),
       shortName: same && draft.shortNameEdited ? draft.shortName : shortNameFor(name).slice(0, 12),
       shortNameEdited: same && draft.shortNameEdited,
       ...(same ? {} : { slug: '', slugEdited: false, sample: null, palette: [], color: result.logo_url ? BRAND_FALLBACK : sample }),
     });
     go('confirm');
-    // Couleur tirée du logo (copié dans notre stockage) : la première teinte est choisie.
-    if (!same && result.logo_url) {
+    // Couleur tirée du logo (copié dans notre stockage) : la première teinte est choisie. W3 : la
+    // palette recalculée par le worker sur le logo détouré (sans le bruit du fond) d'abord.
+    if (!same && result.logo_palette?.length && result.logo_verdict !== 'monogram') {
+      const palette = result.logo_palette.slice(0, 3);
+      setDraft(current => current.tenup?.tenup_club_id !== result.tenup_club_id ? current : { ...current, palette, color: palette[0] });
+    } else if (!same && result.logo_url) {
       void paletteFromUrl(result.logo_url).then(palette => setDraft(current => current.tenup?.tenup_club_id !== result.tenup_club_id ? current
         : palette.length ? { ...current, palette: palette.slice(0, 3), color: palette[0] } : { ...current, color: sample }));
     }
@@ -237,7 +242,8 @@ function Tunnel() {
         draft.logo ? dataUrlToBlob(draft.logo) : null, draft.photo ? dataUrlToBlob(draft.photo) : null,
       ]);
       // Branche Ten'Up : jeton de lecture et nom court ; logo et bandeau sont copiés par le serveur.
-      const tenup = draft.mode === 'tenup' && draft.tenup ? { lookupToken: draft.tenup.lookup_token, shortName: draft.shortName } : {};
+      const tenup = draft.mode === 'tenup' && draft.tenup ? { lookupToken: draft.tenup.lookup_token, shortName: draft.shortName,
+        ...(tenupLogo(draft.tenup, draft.logoChoice).retouched ? { logoVariant: draft.logoChoice } : {}) } : {};
       const outcome = await submitClubSignup(fetch, ENDPOINT, {
         name, city, slug: draft.slug, color: draft.color, email, turnstileToken: token, logo, photo, ...tenup,
       });
@@ -255,7 +261,7 @@ function Tunnel() {
 
   const fromTenup = draft.mode === 'tenup' ? draft.tenup : null;
   const previewData = { name: draft.name, city: draft.city, slug: draft.slug, color: draft.color,
-    logo: draft.logo ?? fromTenup?.logo_url ?? null, photo: draft.photo ?? fromTenup?.banner_url ?? null };
+    logo: draft.logo ?? (fromTenup ? tenupLogo(fromTenup, draft.logoChoice).full : null), photo: draft.photo ?? fromTenup?.banner_url ?? null };
   const kicker = (time: string) => <span className="fl-kicker">{time}</span>;
   const openPreview = () => {
     setPreview({ open: true, tab: 'app' });
@@ -278,6 +284,7 @@ function Tunnel() {
   const back = (to: SignupStep, label = 'Retour') => <button type="button" className="fl-ghost" onClick={() => go(to)}>{label}</button>;
 
   const position = stepPosition(draft);
+  const logoPanel = !mobile && step === 'confirm' && draft.mode === 'tenup' && draft.tenup !== null && tenupLogo(draft.tenup, draft.logoChoice).retouched;
 
   return (
     <div className="fl">
@@ -307,7 +314,7 @@ function Tunnel() {
 
           {step === 'confirm' && draft.tenup && (
             <ConfirmStep draft={{ ...draft, tenup: draft.tenup }} update={update} title={title} error={alert}
-              slugCheck={slugCheck} setSlugCheck={setSlugCheck} onConfirm={() => go('account')} onNotMine={notMine} />
+              slugCheck={slugCheck} setSlugCheck={setSlugCheck} onConfirm={() => go('account')} onNotMine={notMine} mobile={mobile} />
           )}
 
           {step === 1 && (
@@ -488,6 +495,12 @@ function Tunnel() {
           )}
         </section>
 
+        {/* W3 : sur ordinateur, l'écran 02 montre le logo retouché à la place de l'aperçu (maquette 07b). */}
+        {logoPanel ? (
+          <section className="fl-preview fl-preview-logo" aria-label="Votre logo">
+            <LogoChoicePanel tenup={draft.tenup!} choice={draft.logoChoice} onChange={logoChoice => update({ logoChoice })} />
+          </section>
+        ) : (
         <section className={`fl-preview${preview.open ? ' open' : ''}`} data-tab={preview.tab} aria-label="Aperçu de votre club"
           style={{ backgroundImage: `radial-gradient(ellipse 60% 55% at 70% 0%, ${alpha(draft.color, 0.32)}, transparent 70%), radial-gradient(ellipse 50% 40% at 10% 100%, ${alpha(draft.color, 0.16)}, transparent 70%)` }}>
           <div className="fl-preview-top">
@@ -511,6 +524,7 @@ function Tunnel() {
             <div className="fl-app-slot"><AppPreview data={previewData} /></div>
           </div>
         </section>
+        )}
       </main>
     </div>
   );

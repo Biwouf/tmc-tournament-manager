@@ -13,11 +13,14 @@
 //      occupé ou en erreur) ; 404 `not_found` (club inconnu de Ten'Up, page sans JSON-LD) ;
 //   7. logo et bandeau copiés de `cmsclub.fft.fr` dans `content-images/_lookup/<id>/` (signature
 //      PNG / JPEG / WebP, ≤ 5 Mo) : jamais d'URL Ten'Up dans la réponse ;
-//   8. cache écrit, réponse avec un `lookup_token` signé (HMAC, 2 h) que `club-signup` vérifiera.
+//   8. logo « retouché » (W3, brief §13.4) : le worker le nettoie (`kind: 'logo'`, sharp), délai 4 s,
+//      variantes PNG déposées à côté de l'original ; échec → original seul, jamais d'erreur ;
+//   9. cache écrit, réponse avec un `lookup_token` signé (HMAC, 2 h) que `club-signup` vérifiera.
 // Aucune donnée personnelle (ni téléphone, ni e-mail, ni bureau) n'est gardée ni renvoyée.
 // Rien n'est journalisé de l'IP, du lien ni du contenu lu.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTenupImageUrl, normalizeTenupClubProfileUrl, tenupClubIdOf, validateTenupClubProfile } from '../../../shared/tenupSite.mjs';
+import { LOGO_VARIANTS, validateLogoResult } from '../../../shared/tenupLogo.mjs';
 import { signLookupToken, validLookupSecret } from '../_shared/lookup-token.ts';
 import { clientIp } from '../_shared/client-ip.ts';
 
@@ -32,11 +35,23 @@ const BUCKET = 'content-images';
 const MAX_IMAGE = 5 * 1024 * 1024;
 const CACHE_MS = 24 * 60 * 60 * 1000;
 const WORKER_TIMEOUT_MS = 10_000;
+/** W3 : nettoyage du logo, ~0,3 s mesuré ; au-delà, la carte garde l'original. */
+const LOGO_TIMEOUT_MS = 4_000;
+const MAX_LOGO_RESPONSE = 4 * 1024 * 1024;
 const UNAVAILABLE = { error: 'Ten’Up ne répond pas pour le moment.', reason: 'tenup_unavailable' };
 const FAILED = { error: 'Recherche momentanément indisponible.', reason: 'error' };
 
 type Admin = ReturnType<typeof createClient>;
-type Cached = { name: string; street: string; postal_code: string; city: string; sports: string[]; courts: number | null; logo_path: string | null; banner_path: string | null };
+type LogoChanges = { background: 'black' | 'white' | 'color' | null; trimmed: boolean; upscaled: boolean };
+type LogoSource = { width: number; height: number; format: string };
+type Cached = {
+  name: string; street: string; postal_code: string; city: string; sports: string[]; courts: number | null; logo_path: string | null; banner_path: string | null;
+  /** W3 : absents d'une lecture antérieure ou d'un nettoyage en échec (la carte garde l'original). */
+  logo_verdict?: 'cleaned' | 'unchanged' | 'monogram';
+  logo_clean_path?: string; logo_variants?: Record<string, string>; logo_changes?: LogoChanges;
+  logo_palette?: string[]; logo_source?: LogoSource;
+};
+type LogoOutcome = Pick<Cached, 'logo_verdict' | 'logo_clean_path' | 'logo_variants' | 'logo_changes' | 'logo_palette' | 'logo_source'>;
 
 function imageType(bytes: Uint8Array): { type: string; ext: string } | null {
   const starts = (...sig: number[]) => sig.every((b, i) => bytes[i] === b);
@@ -60,6 +75,41 @@ async function copyImage(admin: Admin, tenupId: string, source: string, name: st
     const { error } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: kind.type, cacheControl: '3600' });
     return error ? null : path;
   } catch { return null; }
+}
+
+/**
+ * W3 : le worker nettoie le logo (`kind: 'logo'`, sharp) ; les variantes PNG sont déposées dans
+ * `_lookup/<id>/<ts>-logo-<variante>.png`. Délai, réponse hors contrat, dépôt incomplet → `{}` :
+ * l'original reste, sans erreur.
+ */
+async function pimpLogo(admin: Admin, call: (body: unknown, ms: number) => Promise<Response>, tenupId: string, source: string, stamp: number): Promise<LogoOutcome> {
+  if (!source || !isTenupImageUrl(source)) return {};
+  let result;
+  try {
+    const response = await call({ kind: 'logo', url: source }, LOGO_TIMEOUT_MS);
+    if (!response.ok) return {};
+    const text = await response.text();
+    if (text.length > MAX_LOGO_RESPONSE) return {};
+    result = validateLogoResult(JSON.parse(text));
+  } catch { return {}; }
+  if (!result) return {};
+  const base: LogoOutcome = { logo_verdict: result.verdict, ...(result.palette.length ? { logo_palette: result.palette } : {}), ...(result.source ? { logo_source: result.source } : {}) };
+  if (result.verdict !== 'cleaned' || !result.variants) return base;
+  const variants = result.variants as Record<string, string>;
+  const paths: Record<string, string> = {};
+  const uploads = await Promise.all(LOGO_VARIANTS.map(async (name) => {
+    const path = `_lookup/${tenupId}/${stamp}-logo-${name}.png`;
+    const bytes = Uint8Array.from(atob(variants[name]), (c) => c.charCodeAt(0));
+    const { error } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: 'image/png', cacheControl: '3600' });
+    if (!error) paths[name] = path;
+    return !error;
+  }));
+  if (!uploads.every(Boolean)) {
+    const done = Object.values(paths);
+    if (done.length) await admin.storage.from(BUCKET).remove(done).catch(() => undefined);
+    return {};
+  }
+  return { ...base, logo_clean_path: paths['clean-1024'], logo_variants: paths, logo_changes: result.changes };
 }
 
 async function sha256(value: string): Promise<string> {
@@ -116,6 +166,10 @@ Deno.serve(async (req: Request) => {
     const respond = async (payload: Cached, readAt: string, cached: boolean) => {
       const publicUrl = (path: string | null) => path ? admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl : null;
       const logo = publicUrl(payload.logo_path), banner = publicUrl(payload.banner_path);
+      // W3 : le logo retouché n'existe qu'à côté de l'original copié.
+      const variants = logo && payload.logo_variants && LOGO_VARIANTS.every((name) => typeof payload.logo_variants?.[name] === 'string')
+        ? Object.fromEntries(LOGO_VARIANTS.map((name) => [name, publicUrl(payload.logo_variants![name])])) : null;
+      const verdict = logo && payload.logo_verdict && (payload.logo_verdict !== 'cleaned' || variants) ? payload.logo_verdict : null;
       return json(200, {
         ok: true, tenup_club_id: tenupId, name: payload.name,
         ...(payload.street ? { street: payload.street } : {}),
@@ -124,6 +178,10 @@ Deno.serve(async (req: Request) => {
         sports: payload.sports,
         ...(payload.courts !== null ? { courts: payload.courts } : {}),
         ...(logo ? { logo_url: logo } : {}), ...(banner ? { banner_url: banner } : {}),
+        ...(verdict ? { logo_verdict: verdict } : {}),
+        ...(verdict && payload.logo_palette?.length ? { logo_palette: payload.logo_palette } : {}),
+        ...(verdict && payload.logo_source ? { logo_source: payload.logo_source } : {}),
+        ...(verdict === 'cleaned' && variants ? { logo_clean_url: variants['clean-1024'], logo_variants: variants, logo_changes: payload.logo_changes } : {}),
         already_on_feelike: false, cached, read_at: readAt,
         lookup_token: await signLookupToken(lookupSecret, tenupId, readAt),
       });
@@ -149,12 +207,12 @@ Deno.serve(async (req: Request) => {
     const workerHeaders: Record<string, string> = { Authorization: `Bearer ${workerToken}`, 'Content-Type': 'application/json' };
     const bypass = Deno.env.get('TENUP_WORKER_BYPASS_TOKEN');
     if (bypass) workerHeaders['x-vercel-protection-bypass'] = bypass;
+    const callWorker = (body: unknown, ms: number) => fetch(endpoint, {
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(ms), headers: workerHeaders, body: JSON.stringify(body),
+    });
     let profile;
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(WORKER_TIMEOUT_MS), headers: workerHeaders,
-        body: JSON.stringify({ kind: 'club-identity', url }),
-      });
+      const response = await callWorker({ kind: 'club-identity', url }, WORKER_TIMEOUT_MS);
       if (response.status === 404) return json(404, { error: 'Club introuvable sur Ten’Up.', reason: 'not_found' });
       if (!response.ok) return json(504, UNAVAILABLE);
       const text = await response.text();
@@ -162,20 +220,25 @@ Deno.serve(async (req: Request) => {
       profile = validateTenupClubProfile(JSON.parse(text), url);
     } catch { return json(504, UNAVAILABLE); }
 
-    // 7. Images copiées chez nous (le tunnel ne montre jamais d'URL cmsclub).
+    // 7. Images copiées chez nous (le tunnel ne montre jamais d'URL cmsclub). 8. En même temps, le
+    // logo nettoyé : APRÈS la lecture d'identité (le worker ne lit qu'une page à la fois), sans
+    // Chromium, 4 s au plus ; ses variantes ne valent que si l'original est copié.
     const stamp = Date.now();
-    const [logoPath, bannerPath] = await Promise.all([
+    const [logoPath, bannerPath, pimped] = await Promise.all([
       copyImage(admin, tenupId, profile.club.logo, 'logo', stamp),
       copyImage(admin, tenupId, profile.club.banner, 'banner', stamp),
+      pimpLogo(admin, callWorker, tenupId, profile.club.logo, stamp),
     ]);
+    const logo: LogoOutcome = logoPath ? pimped : {};
+    if (!logoPath && pimped.logo_variants) await admin.storage.from(BUCKET).remove(Object.values(pimped.logo_variants)).catch(() => undefined);
     const payload: Cached = {
       name: profile.club.name, street: profile.club.street, postal_code: profile.club.postal_code, city: profile.club.city,
-      sports: profile.club.sports, courts: profile.club.courts_count ?? null, logo_path: logoPath, banner_path: bannerPath,
+      sports: profile.club.sports, courts: profile.club.courts_count ?? null, logo_path: logoPath, banner_path: bannerPath, ...logo,
     };
-    const images = [logoPath, bannerPath].filter((p): p is string => Boolean(p));
+    const images = [logoPath, bannerPath, ...Object.values(logo.logo_variants ?? {})].filter((p): p is string => Boolean(p));
     const readAt = new Date(stamp).toISOString();
 
-    // 8. Cache, puis suppression des images de la lecture précédente (plus de 24 h).
+    // 9. Cache, puis suppression des images de la lecture précédente (plus de 24 h).
     const { error: saveError } = await admin.from('tenup_lookup_cache')
       .upsert({ tenup_club_id: tenupId, payload, images, read_at: readAt });
     if (saveError) {

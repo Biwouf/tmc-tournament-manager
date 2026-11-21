@@ -119,6 +119,7 @@ export default function SiteConfigPage() {
                 defaultOpen={index === 0 || hash === `#panneau-${group.key}`}
                 focused={hash === `#panneau-${group.key}`}
                 onSaved={reload}
+                brandLogos={group.key === 'brand' ? { original: config.brand.logo_original, variants: config.brand.logo_variants } : undefined}
               />
             ))}
           </>

@@ -8,6 +8,8 @@ import { build } from 'esbuild';
 import { mkdir, readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 import { extractTenupClubHome, extractTenupClubIdentity } from '../services/tenup-worker/parse-club-profile.mjs';
+import { LOGO_VARIANTS as WORKER_VARIANTS, pimpLogo } from '../services/tenup-worker/pimp-logo.mjs';
+import { LOGO_VARIANTS, logoChangesText, readLogoVariants, validateLogoResult } from '../shared/tenupLogo.mjs';
 
 const dir = new URL('../node_modules/.tmp/tenup-lookup-edge/', import.meta.url);
 const SECRET = 'h'.repeat(40);
@@ -42,6 +44,8 @@ async function setup() {
       LOOKUP_HMAC_SECRET: SECRET, TENUP_WORKER_URL: 'https://worker.example/api/extract', TENUP_WORKER_TOKEN: 'worker-token' },
     turnstile: true, clubs: [], cache: null, attempts: 0, limit: 20,
     worker: async () => Response.json(profile), image: async () => new Response(WEBP, { headers: { 'content-length': String(WEBP.length) } }),
+    // W3 : un worker antérieur refuse `kind: 'logo'` (400) ; la carte garde alors l'original.
+    logo: async () => Response.json({ error: 'Lien Ten’Up invalide.' }, { status: 400 }), logoTimeouts: [],
     calls: [], uploads: [], removed: [], workerBodies: [], ips: [],
   };
   let handler;
@@ -66,7 +70,11 @@ async function setup() {
         w.attempts++; return { data: true, error: null };
       },
       storage: { from: (bucket) => ({
-        upload: async (path, bytes, options) => { assert.equal(bucket, 'content-images'); w.uploads.push([path, options.contentType, bytes.length]); return { error: null }; },
+        upload: async (path, bytes, options) => {
+          assert.equal(bucket, 'content-images');
+          if (w.uploadFails?.(path)) return { error: { message: 'storage down' } };
+          w.uploads.push([path, options.contentType, bytes.length]); return { error: null };
+        },
         remove: async (paths) => { w.removed.push(...paths); return { error: null }; },
         getPublicUrl: (path) => ({ data: { publicUrl: `https://project.supabase.co/storage/v1/object/public/${bucket}/${path}` } }),
       }) },
@@ -82,7 +90,9 @@ async function setup() {
       w.calls.push('worker');
       assert.equal(init.headers.Authorization, 'Bearer worker-token');
       assert.ok(init.signal, 'client deadline');
-      w.workerBodies.push(JSON.parse(init.body));
+      const body = JSON.parse(init.body);
+      w.workerBodies.push(body);
+      if (body.kind === 'logo') { w.calls.push('logo'); return w.logo(body, init); }
       return w.worker(init);
     }
     if (href.startsWith('https://cmsclub.fft.fr/')) { w.calls.push('image'); return w.image(href); }
@@ -120,7 +130,7 @@ test('tenup-lookup: fresh read of the club page, images copied, signed token, no
   try { res = await ask({ url: 'https://tenup.fft.fr/club/60820110/offres' }); } finally { [console.log, console.error] = [log, error]; }
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.deepEqual(w.workerBodies, [{ kind: 'club-identity', url: URL_ROOT }], 'any tab is read at the club root');
+  assert.deepEqual(w.workerBodies.filter((b) => b.kind !== 'logo'), [{ kind: 'club-identity', url: URL_ROOT }], 'any tab is read at the club root');
   assert.deepEqual({ ...body, logo_url: undefined, banner_url: undefined, read_at: undefined, lookup_token: undefined }, {
     ok: true, tenup_club_id: '60820110', name: 'MOISSAC TENNIS CLUB', street: 'Avenue du Sarlac', postal_code: '82200', city: 'MOISSAC',
     sports: ['Tennis', 'Padel', 'Pickleball'], courts: 7, already_on_feelike: false, cached: false,
@@ -235,4 +245,103 @@ test('tenup-lookup: the limit uses the IP rewritten by Cloudflare, not a forged 
   w.cache = null;
   await ask({ url: URL_ROOT }, '203.0.113.7, 10.0.0.1');
   assert.equal(w.ips.at(-1), hash('203.0.113.7'));
+});
+
+// ── W3 : logo retouché (brief §13.4) ──────────────────────────────────────────
+
+const MOISSAC_LOGO = await readFile(new URL('./fixtures/logos/60820110-moissac.jpg', import.meta.url));
+const realLogo = async () => Response.json(await pimpLogo(MOISSAC_LOGO));
+
+test('W3 contract: the worker and the Edge share the variant names; malformed results are refused', async () => {
+  assert.deepEqual(WORKER_VARIANTS, LOGO_VARIANTS);
+  const good = await pimpLogo(MOISSAC_LOGO);
+  assert.equal(validateLogoResult(good).verdict, 'cleaned');
+  const { [LOGO_VARIANTS[0]]: _drop, ...missing } = good.variants;
+  for (const bad of [null, { verdict: 'magic' }, { ...good, variants: missing }, { ...good, variants: { ...good.variants, 'avatar-256': 'PHN2Zz4=' } },
+    { ...good, palette: ['red'] }, { ...good, changes: { background: 'pink', trimmed: true, upscaled: false } }, { ...good, source: { width: -1, height: 2, format: 'jpeg' } }]) {
+    assert.equal(validateLogoResult(bad), null);
+  }
+  assert.deepEqual(validateLogoResult({ verdict: 'monogram', reason: 'small' }), { verdict: 'monogram', palette: [] });
+  assert.equal(logoChangesText({ background: 'black', trimmed: true, upscaled: true }), 'Fond noir retiré, recadré et net.');
+  assert.equal(logoChangesText({ background: 'white', trimmed: true, upscaled: false }), 'Fond blanc retiré et recadré.');
+  assert.equal(logoChangesText({ background: null, trimmed: true, upscaled: false }), 'Recadré.');
+  const urls = Object.fromEntries(LOGO_VARIANTS.map((n) => [n, `https://x.supabase.co/${n}.png`]));
+  assert.deepEqual(readLogoVariants(urls), urls);
+  assert.equal(readLogoVariants({ ...urls, 'apple-180': 'javascript:alert(1)' }), null);
+  assert.equal(readLogoVariants(undefined), null);
+});
+
+test('W3 tenup-lookup: logo cleaned after the identity read, variants stored next to the original, cached', async () => {
+  const { w, ask } = await setup();
+  w.logo = realLogo;
+  const res = await ask({ url: URL_ROOT });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(w.workerBodies.map((b) => b.kind), ['club-identity', 'logo'], 'one page at a time: identity first');
+  assert.match(w.workerBodies[1].url, /^https:\/\/cmsclub\.fft\.fr\//, 'the Ten\'Up logo URL, already validated');
+  assert.equal(body.logo_verdict, 'cleaned');
+  assert.match(body.logo_url, /\/_lookup\/60820110\/\d+-logo\.webp$/, 'original kept');
+  assert.match(body.logo_clean_url, /\/_lookup\/60820110\/\d+-logo-clean-1024\.png$/);
+  assert.deepEqual(Object.keys(body.logo_variants), LOGO_VARIANTS);
+  for (const [name, url] of Object.entries(body.logo_variants)) assert.match(url, new RegExp(`/_lookup/60820110/\\d+-logo-${name}\\.png$`));
+  assert.deepEqual(body.logo_changes, { background: 'black', trimmed: true, upscaled: true });
+  assert.deepEqual(body.logo_source, { width: 200, height: 200, format: 'jpeg' });
+  assert.equal(body.logo_palette[0], '#f36524');
+  assert.ok(!body.logo_palette.includes('#0e1124'));
+  const pngs = w.uploads.filter(([path]) => path.endsWith('.png'));
+  assert.equal(pngs.length, 7);
+  assert.ok(pngs.every(([, type]) => type === 'image/png'));
+  assert.equal(w.cache.payload.logo_verdict, 'cleaned');
+  assert.equal(w.cache.payload.logo_clean_path, w.cache.payload.logo_variants['clean-1024']);
+  assert.equal(w.cache.images.length, 9, 'logo, banner and 7 variants, all purged together');
+  assert.doesNotMatch(JSON.stringify(body) + JSON.stringify(w.cache.payload), /cmsclub|base64|iVBOR/);
+
+  // Servi par le cache : mêmes champs, aucun appel au worker.
+  w.calls.length = 0;
+  const again = await (await ask({ url: URL_ROOT })).json();
+  assert.equal(again.cached, true);
+  assert.deepEqual([again.logo_verdict, again.logo_clean_url, again.logo_variants, again.logo_changes], [body.logo_verdict, body.logo_clean_url, body.logo_variants, body.logo_changes]);
+  assert.equal(w.calls.includes('worker'), false);
+});
+
+test('W3 tenup-lookup: never an error — slow, failing, malformed or partly stored logo keeps the original', async () => {
+  const { w, ask } = await setup();
+  const scenarios = [
+    async () => Response.json({ error: 'Logo indisponible.' }, { status: 502 }),
+    async () => { throw new DOMException('The operation was aborted due to timeout', 'TimeoutError'); }, // délai de 4 s
+    async () => Response.json({ verdict: 'cleaned', variants: {} }),
+    async () => new Response('pas du json'),
+  ];
+  for (const logo of scenarios) {
+    w.cache = null; w.logo = logo;
+    const res = await ask({ url: URL_ROOT });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(body.logo_url, 'original');
+    for (const key of ['logo_verdict', 'logo_clean_url', 'logo_variants', 'logo_changes']) assert.equal(body[key], undefined, key);
+  }
+  // Une variante non déposée : les autres sont retirées, l'original reste.
+  w.cache = null; w.logo = realLogo; w.removed.length = 0;
+  w.uploadFails = (path) => path.endsWith('-logo-apple-180.png');
+  let body = await (await ask({ url: URL_ROOT })).json();
+  assert.equal(body.logo_verdict, undefined);
+  assert.equal(w.removed.filter((p) => /-logo-.+\.png$/.test(p)).length, 6);
+  w.uploadFails = undefined;
+  // Original illisible : pas de variantes orphelines.
+  w.cache = null; w.removed.length = 0;
+  w.image = async (href) => href.includes('a4beb186') ? new Response(new TextEncoder().encode('<svg/>')) : new Response(WEBP);
+  body = await (await ask({ url: URL_ROOT })).json();
+  assert.equal(body.logo_url, undefined);
+  assert.equal(body.logo_verdict, undefined);
+  assert.equal(w.removed.filter((p) => /-logo-.+\.png$/.test(p)).length, 7);
+  // Logo déjà propre, ou trop petit : verdict seul, sans variantes ni ligne avant/après.
+  w.image = async () => new Response(WEBP);
+  for (const verdict of ['unchanged', 'monogram']) {
+    w.cache = null;
+    w.logo = async () => Response.json({ verdict, palette: ['#0a238a'], source: { width: 80, height: 80, format: 'png' } });
+    body = await (await ask({ url: URL_ROOT })).json();
+    assert.equal(body.logo_verdict, verdict);
+    assert.equal(body.logo_clean_url, undefined);
+    assert.equal(body.logo_variants, undefined);
+  }
 });
