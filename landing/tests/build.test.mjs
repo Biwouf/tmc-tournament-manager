@@ -77,3 +77,32 @@ test('sans tunnel d’inscription, les CTA d’essai deviennent « Demander un a
   assert.ok(body.includes('Demander un accès'));
   assert.ok(!body.includes('Essayer avec mon club'));
 });
+
+// Lancer aussi avec PUBLIC_SIGNUP_URL=https://admin.feelike.pro/inscription au build ET au test.
+test('avec le tunnel, chaque CTA d’essai mène à l’inscription avec sa source', { skip: !process.env.PUBLIC_SIGNUP_URL }, () => {
+  const html = read('index.html');
+  const signup = new URL(process.env.PUBLIC_SIGNUP_URL);
+  assert.doesNotMatch(html, /href="#parler"/);
+  const links = [...html.matchAll(/<a\b[^>]*>/g)].map(m => m[0]).filter(tag => tag.includes('data-event="cta_trial_click"'));
+  assert.ok(links.length >= 6, `${links.length} CTA d’essai`);
+  const placements = links.map(tag => {
+    const url = new URL(tag.match(/href="([^"]+)"/)[1].replaceAll('&amp;', '&'));
+    assert.equal(url.origin + url.pathname, signup.origin + signup.pathname, tag);
+    assert.equal(url.searchParams.get('utm_source'), 'landing', tag);
+    return url.searchParams.get('utm_content');
+  });
+  assert.equal(new Set(placements).size, placements.length, `emplacements en double : ${placements}`);
+});
+
+test('promesses alignées sur le produit', () => {
+  const body = text(read('index.html'));
+  assert.ok(!body.includes('Places au tarif de lancement limitées'));
+  assert.doesNotMatch(body, /TEN’UP[^.]*compositions|compositions[^.]*TEN’UP/);
+  assert.doesNotMatch(read('llms.txt'), /compositions/);
+  for (const step of ['Collez le lien TEN’UP', 'C’est bien votre club ?', 'Un lien par e-mail, et c’est en ligne']) assert.ok(body.includes(step), step);
+});
+
+test('icônes servies à la racine', () => {
+  for (const file of ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png']) assert.ok(existsSync(new URL(file, dist)), file);
+  assert.match(read('index.html'), /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png">/);
+});

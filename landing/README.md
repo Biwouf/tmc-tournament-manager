@@ -14,6 +14,7 @@ cd landing
 npm ci
 npm run dev                    # http://localhost:4321
 npm run build && npm test      # astro check + build statique, puis vérification du HTML de dist/
+PUBLIC_SIGNUP_URL=https://admin.feelike.pro/inscription sh -c 'npm run build && npm test'   # CTA vers le tunnel
 ```
 
 Node 22 (Astro 7.3 exige ≥ 22.12).
@@ -28,14 +29,14 @@ Node 22 (Astro 7.3 exige ≥ 22.12).
 | `src/config.ts` | Lecture des variables `PUBLIC_*` et règle des CTA |
 | `src/assets/affiche-resultat.png` | Moitié « Avec feelike.pro » du curseur : affiche de résultat produite par `renderResultPoster()` du BO, données fictives de la rencontre de gauche |
 | `src/assets/captures/` | Captures réelles de la section « trois courts » : `site`, `app`, `backoffice` (`.png`, `.jpg` ou `.webp`). Tant qu'un fichier manque, l'emplacement hachuré de la maquette reste affiché |
-| `public/` | `robots.txt` (robots IA autorisés), `llms.txt`, `og.png` (1200×630), `favicon.svg`, `logo.png` |
+| `public/` | `robots.txt` (robots IA autorisés), `llms.txt`, `og.png` (1200×630), `favicon.svg`, `favicon.ico` et `apple-touch-icon.png` (tirés de `logo.png`), `logo.png` |
 | `src/pages/mentions-legales.astro`, `cgv.astro` | **Contenu à fournir.** Pages en `noindex` et hors sitemap tant qu'elles sont vides |
 
 ## Variables d'environnement (Vercel → Settings → Environment Variables)
 
 | Variable | Rôle | Si absente |
 |---|---|---|
-| `PUBLIC_SIGNUP_URL` | Cible des CTA d'essai (tunnel S3, `https://admin.feelike.pro/inscription`) | Les CTA d'essai deviennent « Demander un accès » et mènent au call |
+| `PUBLIC_SIGNUP_URL` | Cible des CTA d'essai (tunnel S3, `https://admin.feelike.pro/inscription`), complétée par `utm_source=landing&utm_content=<emplacement>` (`header`, `hero`, `echauffement`, `tarifs-essai`, `tarifs-saison`, `cta-final`) | Les CTA d'essai deviennent « Demander un accès » et mènent au call |
 | `PUBLIC_BOOKING_URL` | Call de 20 min (Cal.com ou agenda Google) | Repli sur `PUBLIC_CONTACT_EMAIL` ; sans les deux, le bouton « Réserver un créneau » est masqué |
 | `PUBLIC_ANALYTICS_DOMAIN` | Domaine Plausible (`www.feelike.pro`) | Aucun script chargé |
 | `PUBLIC_PRICE_NOTE` | Mention TVA sous le prix Saison | `[mention TVA à confirmer]` |

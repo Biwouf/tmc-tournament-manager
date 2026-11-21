@@ -3,14 +3,14 @@ import TrackedLink from './TrackedLink.astro';
 import { steps } from '../data/content';
 import { trialCta } from '../config';
 
-const cta = trialCta('Essayer avec mon club');
+const cta = trialCta('Essayer avec mon club', 'echauffement');
 ---
 <section id="setup" class="sec setup">
   <div class="container setup__grid">
     <div class="setup__intro">
       <span class="eyebrow">Échauffement</span>
       <h2 class="h2">Votre club en ligne avant la fin de l’échauffement.</h2>
-      <p class="lead">Un nom, un logo : vous voyez votre site, votre app et votre première affiche se construire sous vos yeux. Rien à coder, rien à installer, personne à appeler.</p>
+      <p class="lead">Collez le lien TEN’UP de votre club : vous voyez votre site et votre app se construire sous vos yeux, à ses couleurs. Rien à coder, rien à installer, personne à appeler.</p>
       <TrackedLink class="btn btn--accent" style="margin-top:8px" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
     </div>
     <ol class="steps">

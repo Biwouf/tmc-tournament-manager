@@ -7,7 +7,7 @@
 - Site vitrine du club sur votreclub.feelike.pro : accueil, le club, infrastructures, tarifs, contact, référencement automatique.
 - App des adhérents installable (iOS et Android) : actus, matchs par équipe, live score en temps réel.
 - Back-office : contenu du club, rôles (administrateur, gestionnaire, membre), planning TMC, affiches, interclubs, actus publiées sur Facebook.
-- Synchronisation TEN’UP : rencontres, compositions et scores importés sans ressaisie.
+- Synchronisation TEN’UP : rencontres et scores importés sans ressaisie.
 
 ## Tarifs
 
