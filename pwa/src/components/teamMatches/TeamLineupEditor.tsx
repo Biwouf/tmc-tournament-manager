@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import TeamSheet from './TeamSheet';
 import { COMPO_COPY as T, compoErrorMessage, compoNameKey, countHint, isStaleCompo, mixedCountLabel, splitGuestName } from '../../../../shared/teamCompoCopy.mjs';
-import { fetchLineupCandidates, fullName, lineupEditable, saveLineup, type LineupCandidate, type LineupEntry, type LineupSex, type TeamLineup } from '../../lib/teamLineup';
+import { fetchLineupCandidates, fullName, lineupEditable, outOfGenreLabel, saveLineup, type LineupCandidate, type LineupEntry, type LineupSex, type TeamLineup } from '../../lib/teamLineup';
 
 type Filter = 'all' | 'male' | 'female';
 type GuestDraft = { key: string; id?: string; prenom: string; nom: string; sex: LineupSex; checked: boolean };
@@ -15,7 +15,6 @@ const matches = (p: Person, search: string) => {
 };
 const initialFilter = (genre: string): Filter => genre === 'hommes' || genre === 'garcons' ? 'male' : genre === 'femmes' || genre === 'filles' ? 'female' : 'all';
 const sexWord = (sex: LineupSex) => sex === 'male' ? 'homme' : sex === 'female' ? 'femme' : null;
-const SexTitle = { male: 'Homme', female: 'Femme' } as const;
 
 /** Ligne cochable : toute la ligne est la cible (56 px), la case fait 26 px. */
 function PlayerRow({ name, subtitle, rank, checked, onToggle }: {
@@ -77,9 +76,8 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
     || guests.some(g => !g.id || !g.checked);
   const hint = countHint(count, lineup.min_players, lineup.simples);
   const genreLabel = T.genreLabel(lineup.genre);
-  /** « Femme · Rencontre messieurs » sur une personne cochée hors du genre de la rencontre (n'empêche rien). */
-  const outOfGenre = (sex: LineupSex | undefined, checked: boolean) =>
-    checked && expected !== 'all' && sex && sex !== expected && genreLabel ? `${SexTitle[sex]} · ${genreLabel}` : null;
+  /** Mention sur une personne cochée hors du genre de la rencontre (n'empêche rien). */
+  const outOfGenre = (sex: LineupSex | undefined, checked: boolean) => checked ? outOfGenreLabel(sex, lineup.genre) : null;
   const mixed = lineup.genre === 'mixte'
     ? mixedCountLabel([...[...selected].map(id => person(id).sex ?? null), ...checkedGuests.map(g => g.sex)]) : null;
 
@@ -133,7 +131,8 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
   };
 
   const memberSubtitle = (p: Person & Partial<LineupCandidate>, checked: boolean) =>
-    outOfGenre(p.sex, checked) ?? (p.is_captain ? T.captain : p.classement ? null : T.rankUnknown);
+    [p.is_captain ? T.captain : p.classement ? null : T.rankUnknown, outOfGenre(p.sex, checked)]
+      .filter(Boolean).join(' · ') || null;
   const retainedRows = retainedMembers.length + retainedGuests.length;
   const guestSubtitle = (g: GuestDraft) => [T.guest, outOfGenre(g.sex, g.checked) ?? sexWord(g.sex)].filter(Boolean).join(' · ');
 

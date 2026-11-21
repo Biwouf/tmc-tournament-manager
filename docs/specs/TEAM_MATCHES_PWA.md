@@ -271,7 +271,8 @@ Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
   choisir une puce efface la recherche. Groupe « Retenus · N » en tête (N = joueurs cochés, comme le
   pied de la feuille) : un joueur coché y remonte, un joueur décoché y reste jusqu'à la fermeture ;
   une personne cochée hors du genre de la rencontre porte la mention « Femme · Rencontre messieurs »,
-  sans rien bloquer ; un retenu qui a quitté le club y est marqué « N'est
+  ajoutée à « Capitaine » le cas échéant, sans rien bloquer. La liste de la fiche porte la même
+  mention quand le sexe est reçu (admin ou capitaine) ; un retenu qui a quitté le club y est marqué « N'est
   plus membre du club » ; reste du club par nom ; ligne entière cochable (`role="checkbox"`, 56 px,
   case 26 px) ; classement en pastille, rien s'il n'est pas renseigné (NC est un vrai classement).
   Nom introuvable : « Aucun membre du club ne s'appelle « … » » + carte « Ajouter …, sans compte »

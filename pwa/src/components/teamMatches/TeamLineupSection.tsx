@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fromHere } from '../layout/useGoBack';
 import TeamLineupEditor from './TeamLineupEditor';
 import { COMPO_COPY as T, playersLabel } from '../../../../shared/teamCompoCopy.mjs';
-import { LINEUP_SUMMARIES_KEY, fetchLineup, fullName, lineupEditable, lineupKey, type LineupPlayer, type TeamLineup } from '../../lib/teamLineup';
+import { LINEUP_SUMMARIES_KEY, fetchLineup, fullName, lineupEditable, lineupKey, outOfGenreLabel, type LineupPlayer, type TeamLineup } from '../../lib/teamLineup';
 
 /** Pastille d'initiales : moi en rouge plein, membre en gris, sans compte en pointillé. */
 function Initials({ player }: { player: LineupPlayer }) {
@@ -13,9 +13,11 @@ function Initials({ player }: { player: LineupPlayer }) {
   return <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${tone}`}>{player.initials}</span>;
 }
 
-function PlayerLine({ player }: { player: LineupPlayer }) {
+function PlayerLine({ player, genre }: { player: LineupPlayer; genre: string }) {
   const tags = [player.is_me && T.you, player.is_captain && T.captain].filter(Boolean) as string[];
-  const label = [fullName(player), ...tags, player.is_guest && T.guest, player.classement].filter(Boolean).join(', ');
+  // Le sexe n'arrive qu'à qui peut modifier (ou en mixte, sans mention) : la mention suit ce qu'on reçoit.
+  const note = [player.is_guest && T.guest, outOfGenreLabel(player.sex, genre)].filter(Boolean).join(' · ');
+  const label = [fullName(player), ...tags, note, player.classement].filter(Boolean).join(', ');
   return <li aria-label={label} className={`flex min-h-14 items-center gap-3 px-4 py-2 ${player.is_me ? 'bg-primary/5' : ''}`}>
     <Initials player={player} />
     <span className="min-w-0 flex-1">
@@ -24,7 +26,7 @@ function PlayerLine({ player }: { player: LineupPlayer }) {
         {player.is_me && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">{T.you}</span>}
         {player.is_captain && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">{T.captain}</span>}
       </span>
-      {player.is_guest && <span className="block text-sm text-muted-foreground">{T.guest}</span>}
+      {note && <span className="block text-sm text-muted-foreground">{note}</span>}
     </span>
     {player.classement && <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums">{player.classement}</span>}
   </li>;
@@ -114,7 +116,7 @@ export default function TeamLineupSection({ clubId, rencontreId, signedIn, start
       {lineup.can_edit && <button ref={chooseRef} onClick={openEditor} className="min-h-12 w-full rounded-xl bg-primary p-3 font-semibold text-primary-foreground">{T.choose}</button>}
     </div> : <>
       <ul aria-label={`Compo, ${playersLabel(players.length)}`} className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-        {players.map(player => <PlayerLine key={player.id} player={player} />)}
+        {players.map(player => <PlayerLine key={player.id} player={player} genre={lineup.genre} />)}
       </ul>
       <p className="text-sm text-muted-foreground">{T.note}</p>
     </>}

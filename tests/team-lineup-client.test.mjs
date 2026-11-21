@@ -249,3 +249,24 @@ test('Joueur sorti du club : nommé, rien n’est envoyé', async () => {
     assert.match(document.querySelector('dialog [role=alert]').textContent, /Léa Partie ne fait plus partie du club\. Retirez-le de la compo\./);
   } finally { await unmount(); }
 });
+
+test('Mention de genre : dans la fiche (si le sexe est reçu) et avec « Capitaine » dans la feuille', async () => {
+  lineup = { ...base, genre: 'femmes', version: 1, can_edit: true, players: [
+    { id: 'p1', user_id: 'u1', is_guest: false, prenom: 'Romain', nom: 'Escaffre', initials: 'RE', classement: '30', is_captain: true, is_me: false, sex: 'male' },
+    { id: 'p3', user_id: 'u3', is_guest: false, prenom: 'Claire', nom: 'Dupont', initials: 'CD', classement: null, is_captain: false, is_me: false, sex: 'female' },
+  ] };
+  const unmount = await render();
+  try {
+    const lines = [...document.querySelectorAll('section li')].map(li => li.getAttribute('aria-label'));
+    assert.deepEqual(lines, ['Romain Escaffre, Capitaine, Homme · Rencontre dames, 30', 'Claire Dupont']);
+    assert.match(document.querySelector('section').textContent, /Homme · Rencontre dames/);
+    await click(button('Modifier')); await wait();
+    assert.equal(row('Romain Escaffre').getAttribute('aria-label'), 'Romain Escaffre, Capitaine · Homme · Rencontre dames');
+  } finally { await unmount(); }
+  // Lecteur simple, compétition non mixte : le sexe n'est pas reçu, aucune mention.
+  lineup = { ...lineup, can_edit: false, players: lineup.players.map(p => ({ ...p, user_id: null, sex: null })) };
+  const again = await render();
+  try {
+    assert.doesNotMatch(document.querySelector('section').textContent, /Rencontre dames/);
+  } finally { await again(); }
+});

@@ -1,6 +1,7 @@
 // Compo d'équipe (liste des joueurs retenus) : RPC `team_compo_*`, migration 2026111901.
 // À ne pas confondre avec `teamCompo.ts`, qui sert au scan de la feuille de match du jour J.
 import { supabase } from './supabase';
+import { COMPO_COPY } from '../../../shared/teamCompoCopy.mjs';
 
 export type LineupSex = 'female' | 'male' | null;
 export type LineupPlayer = {
@@ -47,5 +48,16 @@ export async function saveLineup(clubId: string, rencontreId: string, players: L
  * effacé par `team_compo_save`, qui reçoit la liste entière. On n'ouvre pas l'édition dans ce cas.
  */
 export const lineupEditable = (lineup: TeamLineup) => lineup.players.every(p => p.is_guest || !!p.user_id);
+
+const EXPECTED_SEX: Record<string, 'female' | 'male'> = { hommes: 'male', garcons: 'male', femmes: 'female', filles: 'female' };
+/** Sexe attendu par la compétition (null en mixte). */
+export const expectedSex = (genre: string): LineupSex => EXPECTED_SEX[genre] ?? null;
+/** « Femme · Rencontre messieurs » pour une personne hors du genre de la rencontre (n'empêche rien). */
+export function outOfGenreLabel(sex: LineupSex | undefined, genre: string): string | null {
+  const expected = expectedSex(genre);
+  const label = COMPO_COPY.genreLabel(genre);
+  if (!sex || !expected || sex === expected || !label) return null;
+  return `${sex === 'female' ? 'Femme' : 'Homme'} · ${label}`;
+}
 
 export const fullName = (p: { prenom: string; nom: string }) => `${p.prenom} ${p.nom}`.trim();
