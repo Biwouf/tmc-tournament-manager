@@ -26,7 +26,7 @@
     "test:post-generation": "node --experimental-strip-types --test tests/post-generation-sql.test.mjs tests/generate-post-edge.test.mjs",
     "test:tenup": "node --test tests/tenup-worker.test.mjs tests/tenup-sql.test.mjs tests/tenup-client.test.mjs tests/tenup-edge.test.mjs tests/tenup-batch.test.mjs",
     "test:live-activity": "node --test tests/live-activity-sql.test.mjs tests/live-recap-sql.test.mjs tests/live-activity-head.test.mjs tests/live-activity-client.test.mjs",
-    "test:team-calendar": "node --test tests/tenup-pool-loading.test.mjs tests/tenup-pool-worker.test.mjs tests/tenup-pool-sql.test.mjs tests/tenup-pool-edge.test.mjs tests/tenup-pool-client.test.mjs tests/tenup-club-worker.test.mjs tests/tenup-club-edge.test.mjs tests/tenup-club-loading.test.mjs tests/tenup-site-worker.test.mjs tests/tenup-site-edge.test.mjs tests/tenup-lookup-worker.test.mjs",
+    "test:team-calendar": "node --test tests/tenup-pool-loading.test.mjs tests/tenup-pool-worker.test.mjs tests/tenup-pool-sql.test.mjs tests/tenup-pool-edge.test.mjs tests/tenup-pool-client.test.mjs tests/tenup-club-worker.test.mjs tests/tenup-club-edge.test.mjs tests/tenup-club-loading.test.mjs tests/tenup-site-worker.test.mjs tests/tenup-site-edge.test.mjs tests/tenup-lookup-worker.test.mjs tests/logo-pimp.test.mjs",
     "test:format-club-name": "node --experimental-strip-types --test tests/format-club-name.test.mjs",
     "test:pwa-ui-message": "node --experimental-strip-types --test tests/pwa-ui-message.test.mjs",
     "test:team-calendar-export": "node --experimental-strip-types --test tests/team-calendar-export.test.mjs",
@@ -36,7 +36,7 @@
     "test:live-push": "node --test tests/live-push-sql.test.mjs tests/live-push-client.test.mjs tests/course-push-dispatch.test.mjs",
     "test:event-registrations": "node --test tests/event-registrations-sql.test.mjs",
     "test:content-push": "node --test tests/content-push-sql.test.mjs tests/course-push-dispatch.test.mjs",
-    "test:club-signup": "node --test tests/magic-link.test.mjs tests/club-signup-tunnel.test.mjs tests/club-signup-sql.test.mjs tests/club-signup-edge.test.mjs tests/domains.test.mjs tests/first-steps.test.mjs tests/team-onboarding-client.test.mjs tests/team-onboarding-sql.test.mjs tests/tenup-club-import-sql.test.mjs tests/dashboard-checklist.test.mjs tests/club-site-publish-sql.test.mjs tests/tenup-site-sql.test.mjs tests/tenup-site-import.test.mjs tests/onboarding-events-sql.test.mjs tests/club-name.test.mjs tests/tenup-lookup-sql.test.mjs tests/tenup-lookup-edge.test.mjs"
+    "test:club-signup": "node --test tests/magic-link.test.mjs tests/club-signup-tunnel.test.mjs tests/club-signup-sql.test.mjs tests/club-signup-edge.test.mjs tests/domains.test.mjs tests/first-steps.test.mjs tests/team-onboarding-client.test.mjs tests/team-onboarding-sql.test.mjs tests/tenup-club-import-sql.test.mjs tests/dashboard-checklist.test.mjs tests/club-site-publish-sql.test.mjs tests/tenup-site-sql.test.mjs tests/tenup-site-import.test.mjs tests/onboarding-events-sql.test.mjs tests/club-name.test.mjs tests/tenup-lookup-sql.test.mjs tests/tenup-lookup-edge.test.mjs tests/logo-variants-sql.test.mjs tests/logo-identity.test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",

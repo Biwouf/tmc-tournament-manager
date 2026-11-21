@@ -896,3 +896,113 @@ test('P1 mobile : bouton principal collé en bas dans le flux, pas de vignette j
     assert.equal(t.container.querySelector('.fl-mini'), null, 'pas de vignette sur la carte');
   } finally { await t.unmount(); }
 });
+
+// ── W3 : logo « pimpé », dit et réversible (brief §13.4, maquettes wow/07a et 07b) ─────────────
+const STORE = 'https://x.supabase.co/storage/v1/object/public/content-images/_lookup/60820110';
+const W3_NAMES = ['clean-1024', 'avatar-256', 'maskable-512', 'maskable-192', 'any-512', 'apple-180', 'email-128'];
+const MOISSAC_W3 = {
+  ...MOISSAC, logo_verdict: 'cleaned', logo_clean_url: `${STORE}/1-logo-clean-1024.png`,
+  logo_variants: Object.fromEntries(W3_NAMES.map(n => [n, `${STORE}/1-logo-${n}.png`])),
+  logo_changes: { background: 'black', trimmed: true, upscaled: true },
+  logo_palette: ['#f36524', '#051a87', '#5667a7', '#c6a497'], logo_source: { width: 200, height: 200, format: 'jpeg' },
+};
+
+test('W3 : réponse de lecture — logo retouché lu, assaini, ignoré sans original ; logo affiché selon le choix', () => {
+  const parsed = lib.parseLookupResult(MOISSAC_W3);
+  assert.equal(parsed.logo_verdict, 'cleaned');
+  assert.deepEqual(Object.keys(parsed.logo_variants), W3_NAMES);
+  assert.deepEqual(lib.tenupLogo(parsed, 'clean'), { retouched: true, card: `${STORE}/1-logo-avatar-256.png`, full: `${STORE}/1-logo-clean-1024.png` });
+  assert.deepEqual(lib.tenupLogo(parsed, 'original'), { retouched: true, card: MOISSAC.logo_url, full: MOISSAC.logo_url });
+  // Hors contrat (variante non https) : l'original, sans ligne avant / après.
+  const bad = lib.parseLookupResult({ ...MOISSAC_W3, logo_variants: { ...MOISSAC_W3.logo_variants, 'avatar-256': 'javascript:alert(1)' } });
+  assert.equal(bad.logo_variants, undefined);
+  assert.equal(lib.tenupLogo(bad, 'clean').retouched, false);
+  assert.equal(lib.parseLookupResult({ ...MOISSAC_W3, logo_url: undefined }).logo_verdict, undefined, 'pas de retouche sans original');
+  const mono = lib.parseLookupResult({ ...MOISSAC, logo_verdict: 'monogram' });
+  assert.deepEqual(lib.tenupLogo(mono, 'clean'), { retouched: false, card: null, full: null }, 'monogramme : initiales');
+  assert.deepEqual(lib.tenupLogo(lib.parseLookupResult(MOISSAC), 'clean'), { retouched: false, card: MOISSAC.logo_url, full: MOISSAC.logo_url }, 'lecture d’avant W3');
+  // Brouillon et envoi.
+  assert.equal(lib.loadDraft({ getItem: () => JSON.stringify({ step: 'confirm', mode: 'tenup', tenup: MOISSAC_W3, logoChoice: 'original' }) }).logoChoice, 'original');
+  assert.equal(lib.loadDraft({ getItem: () => JSON.stringify({ step: 'confirm', mode: 'tenup', tenup: MOISSAC_W3, logoChoice: 'ia' }) }).logoChoice, 'clean');
+  const form = lib.signupForm({ name: 'Moissac TC', city: 'Moissac', slug: 'moissac-tc', color: '#f36524', email: 'a@b.fr', turnstileToken: 't', lookupToken: 'x', logoVariant: 'original' });
+  assert.equal(form.get('logo_variant'), 'original');
+  assert.equal(lib.signupForm({ name: 'M', city: 'M', slug: 's', color: '#f36524', email: 'a@b.fr', turnstileToken: 't', logoVariant: 'clean' }).get('logo_variant'), null, 'branche manuelle : jamais');
+});
+
+test('W3 mobile : retouché par défaut, ligne avant / après, bascule au clavier reflétée sur la carte, l’aperçu et l’envoi', async () => {
+  const t = await renderTunnel({ mobile: true, turnstileToken: 'jeton', respond: network({ lookup: () => json(200, MOISSAC_W3) }) });
+  try {
+    await t.type('fl-tenup-url', LINK, { paste: true });
+    await t.click(t.button('Trouver mon club'));
+    await t.settle();
+    const cardImg = () => t.container.querySelector('.fl-card-logo img');
+    assert.equal(cardImg().getAttribute('src'), `${STORE}/1-logo-avatar-256.png`, 'retouché par défaut');
+    const row = t.container.querySelector('.fl-logo-row');
+    assert.ok(row, 'ligne affichée');
+    assert.match(row.textContent, /Logo retouché pour l’app/);
+    assert.match(row.textContent, /Fond noir retiré, recadré et net\./);
+    const group = row.querySelector('[role="radiogroup"]');
+    assert.equal(group.getAttribute('aria-labelledby'), 'fl-logo-title');
+    let radios = [...group.querySelectorAll('[role="radio"]')];
+    assert.deepEqual(radios.map(r => [r.textContent, r.getAttribute('aria-checked'), r.tabIndex]), [['Retouché', 'true', 0], ['Original', 'false', -1]]);
+    // Couleurs : palette recalculée sur le logo détouré (sans le fond noir).
+    const colors = [...t.container.querySelectorAll('.fl-swatches [role="radio"]')].map(r => r.getAttribute('aria-label'));
+    assert.deepEqual(colors, ['Couleur 1 : #f36524', 'Couleur 2 : #051a87', 'Couleur 3 : #5667a7']);
+
+    await t.act(async () => radios[0].dispatchEvent(new t.dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+    await t.flush();
+    radios = [...group.querySelectorAll('[role="radio"]')];
+    assert.deepEqual(radios.map(r => r.getAttribute('aria-checked')), ['false', 'true']);
+    assert.equal(document.activeElement.textContent, 'Original');
+    assert.equal(cardImg().getAttribute('src'), MOISSAC.logo_url, 'original sur la carte');
+    assert.equal(JSON.parse(t.saved()).logoChoice, 'original', 'brouillon');
+
+    await t.click(t.button('Oui, c’est mon club'));
+    assert.ok([...t.container.querySelectorAll('.fl-mini img')].some(img => img.getAttribute('src') === MOISSAC.logo_url), 'aperçu de l’app : le logo choisi');
+    await t.type('fl-email', 'president@moissac-tc.fr');
+    await t.click(t.container.querySelector('#fl-consent'));
+    await t.click(t.button('Créer mon club · 30 jours offerts'));
+    await t.settle(10);
+    assert.equal(t.requests.find(r => r.kind === 'signup').form.get('logo_variant'), 'original');
+  } finally { await t.unmount(); }
+});
+
+test('W3 ordinateur : panneau « Nous avons retouché votre logo » à la place de l’aperçu ; rien quand le logo n’a pas été modifié', async () => {
+  const t = await renderTunnel({ turnstileToken: 'jeton', respond: network({ lookup: () => json(200, MOISSAC_W3) }) });
+  try {
+    await t.type('fl-tenup-url', LINK, { paste: true });
+    await t.click(t.button('Trouver mon club'));
+    await t.settle();
+    assert.equal(t.container.querySelector('.fl-logo-row'), null, 'pas de ligne sur ordinateur');
+    const panel = t.container.querySelector('.fl-logo-panel');
+    assert.ok(panel);
+    assert.match(panel.textContent, /Le logo Ten’Up fait 200 × 200 px, sur un carré noir\. Nous l’avons détouré, recadré et agrandi, sans toucher au dessin\./);
+    assert.match(panel.textContent, /L’original reste disponible dans Configuration › Identité\./);
+    const radios = [...panel.querySelectorAll('[role="radiogroup"] [role="radio"]')];
+    assert.deepEqual(radios.map(r => r.querySelector('strong').textContent), ['Original Ten’Up', 'Retouché · utilisé ✓']);
+    assert.match(radios[0].textContent, /JPEG 200 px · fond noir/);
+    await t.click(radios[0]);
+    assert.equal(t.container.querySelector('.fl-card-logo img').getAttribute('src'), MOISSAC.logo_url);
+    assert.match(panel.querySelector('[aria-checked="true"]').textContent, /Original Ten’Up · utilisé ✓/);
+  } finally { await t.unmount(); }
+
+  for (const lookup of [{ ...MOISSAC, logo_verdict: 'unchanged' }, { ...MOISSAC, logo_verdict: 'monogram' }]) {
+    const u = await renderTunnel({ mobile: true, turnstileToken: 'jeton', respond: network({ lookup: () => json(200, lookup) }) });
+    try {
+      await u.type('fl-tenup-url', LINK, { paste: true });
+      await u.click(u.button('Trouver mon club'));
+      await u.settle();
+      assert.equal(u.container.querySelector('.fl-logo-row'), null, lookup.logo_verdict);
+      if (lookup.logo_verdict === 'monogram') {
+        assert.equal(u.container.querySelector('.fl-card-logo img'), null);
+        assert.equal(u.container.querySelector('.fl-card-logo b').textContent, 'MTC', 'initiales');
+      }
+      await u.click(u.button('Oui, c’est mon club'));
+      await u.type('fl-email', 'president@moissac-tc.fr');
+      await u.click(u.container.querySelector('#fl-consent'));
+      await u.click(u.button('Créer mon club · 30 jours offerts'));
+      await u.settle(10);
+      assert.equal(u.requests.find(r => r.kind === 'signup').form.get('logo_variant'), null, 'rien à choisir');
+    } finally { await u.unmount(); }
+  }
+});

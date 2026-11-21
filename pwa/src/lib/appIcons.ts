@@ -4,6 +4,31 @@
 // côté navigateur, des PNG carrés sur fond blanc : le logo entier, centré, avec la marge
 // voulue par chaque usage. Rien n'est envoyé ni stocké : les images vivent en data URL
 // dans le manifest et le lien apple-touch-icon.
+//
+// W3 (onboarding, brief SAAS_11 §13.4) : quand le club utilise le logo retouché à l'inscription
+// (`brand.logo` = sa variante `clean-1024`), les icônes viennent de `brand.logo_variants`, déjà
+// détourées et calibrées (badge rond à 0,78 dans la zone sûre maskable) : rien n'est dessiné.
+// Sinon (original choisi, logo changé depuis, club sans variantes comme le CAC) : le dessin ci-dessous.
+
+export type LogoVariants = Record<'clean-1024' | 'avatar-256' | 'maskable-512' | 'maskable-192' | 'any-512' | 'apple-180' | 'email-128', string>;
+export type ManifestIcon = { src: string; sizes: string; type: string; purpose: 'any' | 'maskable' };
+
+/** Les variantes ne valent que pour le logo dont elles sont tirées. */
+export function variantsFor(logo: string | undefined, variants: LogoVariants | undefined): LogoVariants | null {
+  return logo && variants && variants['clean-1024'] === logo ? variants : null;
+}
+
+/** Entrées du manifest et icône iOS, tirées des variantes du logo retouché. */
+export function iconsFromVariants(variants: LogoVariants): { icons: ManifestIcon[]; apple180: string } {
+  return {
+    icons: [
+      { src: variants['any-512'], sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: variants['maskable-192'], sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: variants['maskable-512'], sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+    apple180: variants['apple-180'],
+  };
+}
 
 export interface AppIcons {
   /** 192 et 512 px, `purpose: any` : logo sur 84 % de la largeur. */

@@ -86,6 +86,14 @@ const brandSchema = z.object({
   logo: optionalText,
   logo_inverse: optionalText,
   /**
+   * W3 (onboarding Ten'Up, brief SAAS_11 §13.4), posées par `club-signup` seulement : l'original
+   * Ten'Up quand le logo a été retouché, et les variantes PNG du retouché (`clean-1024`,
+   * `maskable-512`…, URL publiques). Absentes pour la plupart des clubs (le CAC compris) ; non
+   * éditables dans le panneau (Configuration › Identité les propose en bascule, `LogoVariantSwitch`).
+   */
+  logo_original: optionalText,
+  logo_variants: z.record(z.string(), z.string()).optional().catch(undefined),
+  /**
    * Les trois couleurs du thème — elles pilotent les tokens CSS du BO ET de la PWA
    * (`src/lib/theme.ts`). Défaut VIDE, volontairement : sans couleur principale, les deux
    * `index.css` gardent leurs valeurs plutôt que de recevoir une couleur de plateforme que
