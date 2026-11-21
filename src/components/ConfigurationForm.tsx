@@ -141,7 +141,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Global Configuration */}
       <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold tracking-tight text-card-foreground">
+        <h2 className="mb-4 text-lg leading-7 font-semibold tracking-tight text-foreground">
           Configuration Générale
         </h2>
 
@@ -249,7 +249,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
 
       {/* Daily Time Slots */}
       <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold tracking-tight text-card-foreground">
+        <h2 className="mb-4 text-lg leading-7 font-semibold tracking-tight text-foreground">
           Créneaux Horaires par Jour
         </h2>
 
@@ -350,7 +350,7 @@ export default function ConfigurationForm({ onSubmit, initialConfig }: Props) {
 
       {/* Tournaments */}
       <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold tracking-tight text-card-foreground">Tournois</h2>
+        <h2 className="mb-4 text-lg leading-7 font-semibold tracking-tight text-foreground">Tournois</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
           <div>

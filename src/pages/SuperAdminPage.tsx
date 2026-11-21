@@ -13,6 +13,7 @@ import { invokeInvite } from '../lib/invite';
 import { useClub, enterSupportClub, type ClubPlan, type ClubStatus } from '../contexts/ClubContext';
 import { RESERVED_SLUGS } from '../../shared/clubSlug.mjs';
 import PageHeader from '../components/layout/PageHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 
 type ClubRow = {
   id: string;
@@ -198,11 +199,9 @@ export default function SuperAdminPage() {
     <div className="min-h-screen">
       <PageHeader title="Console plateforme" description="Provisionner et administrer les clubs de feelike." />
 
-      <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
-        <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Créer un club
-          </h2>
+      <main className="container mx-auto flex flex-col gap-10 px-4 py-12">
+        <section aria-labelledby="section-create-club">
+          <SectionTitle id="section-create-club" title="Créer un club" />
           <form
             onSubmit={handleCreate}
             className="rounded-2xl border bg-card/90 p-6 shadow-sm"
@@ -272,10 +271,8 @@ export default function SuperAdminPage() {
           </form>
         </section>
 
-        <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Clubs de la plateforme
-          </h2>
+        <section aria-labelledby="section-clubs">
+          <SectionTitle id="section-clubs" count={clubs?.length} title="Clubs de la plateforme" />
 
           {loadError && (
             <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -300,7 +297,7 @@ export default function SuperAdminPage() {
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-xl font-semibold text-card-foreground">{c.name}</h3>
+                          <h3 className="text-base font-semibold text-card-foreground">{c.name}</h3>
                           {suspended && (
                             <span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive">
                               Suspendu

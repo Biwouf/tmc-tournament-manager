@@ -21,7 +21,7 @@ export default function MediaGeneratorPage() {
       <PageHeader title="Visuels" />
 
       <div className="container mx-auto px-4 pt-8">
-        <h2 className="mb-3 text-lg font-semibold">Quel média générer ?</h2>
+        <h2 className="mb-3 text-lg leading-7 font-semibold tracking-tight text-foreground">Quel média générer ?</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {MEDIA_TYPES.map(({ key, label, description }) => (
             <button

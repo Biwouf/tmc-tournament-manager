@@ -296,12 +296,15 @@ export default function SiteConfigPanel({
 
   return (
     <section id={`panneau-${group.key}`} className="scroll-mt-4">
+      {/* Motif WAI-ARIA Accordion : le titre CONTIENT le bouton (un titre dans un bouton est
+          interdit). Libellé au style des titres de section (18 px, encre). */}
+      <h2 className="m-0 mb-3.5">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-controls={bodyId}
-        className="mb-3.5 flex w-full items-baseline gap-3.5 text-left"
+        className="flex w-full flex-wrap items-baseline gap-x-3.5 gap-y-1 text-left"
       >
         <span
           aria-hidden
@@ -309,16 +312,10 @@ export default function SiteConfigPanel({
         >
           ▶
         </span>
-        <h2 className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        <span className="flex-1 text-lg leading-7 font-semibold tracking-tight text-foreground">
           {group.label}
-        </h2>
-        <span
-          className="h-px flex-1"
-          style={{
-            background: 'linear-gradient(to right, hsl(var(--border)), transparent)',
-          }}
-        />
-        <span className="hidden text-xs text-muted-foreground md:inline">{group.hint}</span>
+        </span>
+        <span className="hidden text-xs font-normal text-muted-foreground md:inline">{group.hint}</span>
         {dirty ? (
           <span className="shrink-0 text-xs font-medium text-amber-600">
             Modifications non enregistrées
@@ -331,6 +328,7 @@ export default function SiteConfigPanel({
           </span>
         )}
       </button>
+      </h2>
 
       <div id={bodyId} hidden={!open} className="rounded-2xl border bg-card/90 p-6 shadow-sm">
         {errors.length > 0 && (

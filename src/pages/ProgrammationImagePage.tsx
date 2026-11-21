@@ -864,7 +864,7 @@ export default function ProgrammationImagePage({ hidden }: { hidden: boolean }) 
       <main className="container mx-auto px-4 py-8 space-y-6">
         {/* Import PDF */}
         <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Import PDF</h2>
+          <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Import PDF</h2>
           <p className="text-xs text-muted-foreground">
             Feuille de programmation exportée depuis Ten'Up / FFT.
           </p>
@@ -887,7 +887,7 @@ export default function ProgrammationImagePage({ hidden }: { hidden: boolean }) 
         {/* Saisie CSV — repliée par défaut : l'import PDF est le cas courant */}
         <details className="group rounded-xl border border-border bg-card p-6">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
-            <h2 className="text-lg font-semibold">Données CSV</h2>
+            <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Données CSV</h2>
             <span className="text-sm text-muted-foreground transition group-open:rotate-180" aria-hidden="true">▾</span>
           </summary>
           <div className="mt-4 space-y-4">
@@ -923,7 +923,7 @@ export default function ProgrammationImagePage({ hidden }: { hidden: boolean }) 
         {/* Affiche programmation / résultats */}
         {matches.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Type d'affiche</h2>
+            <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Type d'affiche</h2>
             <div className="inline-flex rounded-lg border border-border p-1">
               {([
                 ['programmation', 'Programmation'],
@@ -954,7 +954,7 @@ export default function ProgrammationImagePage({ hidden }: { hidden: boolean }) 
         {/* Pas en mode Résultats : cartouche et fond rosé brouillent la lecture vainqueur / perdant. */}
         {availableClubs.length > 0 && mode === 'programmation' && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Mettre en valeur un club</h2>
+            <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Mettre en valeur un club</h2>
             <select
               value={highlightedClub ?? ''}
               onChange={(e) => setHighlightedClub(e.target.value || null)}
@@ -973,7 +973,7 @@ export default function ProgrammationImagePage({ hidden }: { hidden: boolean }) 
         {/* Basculer vers Live Score */}
         {transferableMatches.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Envoyer vers Live Score</h2>
+            <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Envoyer vers Live Score</h2>
             <p className="text-xs text-muted-foreground">
               Crée les matchs en attente dans Live Score. Ils devront être démarrés manuellement.
             </p>
@@ -1068,7 +1068,7 @@ export default function ProgrammationImagePage({ hidden }: { hidden: boolean }) 
         {displayMatches.length > 0 && (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">
                 Aperçu — {displayMatches.length} match{displayMatches.length > 1 ? 's' : ''} · {pages.length} page{pages.length > 1 ? 's' : ''}
               </h2>
               <button

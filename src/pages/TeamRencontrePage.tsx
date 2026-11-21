@@ -13,6 +13,7 @@ import type {
   TeamRencontre,
 } from '../types';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 import TeamMatchLineModal from '../components/teamMatches/TeamMatchLineModal';
 import TeamMatchScoreModal from '../components/teamMatches/TeamMatchScoreModal';
 import TeamScoreSection from '../components/teamMatches/TeamScoreSection';
@@ -340,19 +341,13 @@ export default function TeamRencontrePage() {
         )}
 
         {/* Matches de la rencontre */}
-        <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                Matches de la rencontre
-              </h2>
-              {expected > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {lines.length}/{expected} matches saisis
-                </p>
-              )}
-            </div>
-            <button
+        <section aria-labelledby="section-lines" className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+          <SectionTitle
+            id="section-lines"
+            title="Matches de la rencontre"
+            className="mb-4"
+            description={expected > 0 ? `${lines.length}/${expected} matches saisis` : undefined}
+            action={<button
               onClick={() => {
                 setEditingLine(undefined);
                 setShowModal(true);
@@ -368,8 +363,8 @@ export default function TeamRencontrePage() {
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
             >
               + Ajouter un match
-            </button>
-          </div>
+            </button>}
+          />
 
           {/* Déclaration WO (walkover) */}
           {rencontre.wo ? (

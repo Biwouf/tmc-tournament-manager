@@ -38,7 +38,8 @@ export default function EventCard({ event, onDelete, onDuplicate }: Props) {
         </span>
       </div>
 
-      <h3 className="text-lg font-semibold text-card-foreground">{event.titre}</h3>
+      {/* `h2` : la page Événements n'a pas de titre de section, h1 → h2 sans saut. */}
+      <h2 className="text-base font-semibold text-card-foreground">{event.titre}</h2>
 
       <p className="mt-2 text-sm text-muted-foreground">
         {formatDateTime(event.date_debut)}

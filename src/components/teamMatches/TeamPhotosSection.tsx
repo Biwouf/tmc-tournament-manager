@@ -10,6 +10,7 @@ import {
   extractStoragePath,
   sanitizeFilename,
 } from '../../lib/storage';
+import SectionTitle from '../layout/SectionTitle';
 
 const STORAGE_BUCKET = STORAGE_BUCKETS.teamMatchPhotos;
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -100,18 +101,20 @@ export default function TeamPhotosSection({ rencontre, onChange }: Props) {
   };
 
   return (
-    <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Photos</h2>
-        {photoUrls.length > 0 && (
+    <section aria-labelledby="section-photos" className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+      <SectionTitle
+        id="section-photos"
+        title="Photos"
+        className="mb-4"
+        action={photoUrls.length > 0 ? (
           <button
             onClick={handleCreateActu}
             className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
           >
             Créer une actu
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <FileDrop
         accept="image/jpeg,image/png"

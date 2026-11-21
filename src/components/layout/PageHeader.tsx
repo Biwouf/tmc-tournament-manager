@@ -50,7 +50,7 @@ export default function PageHeader({ title, description, breadcrumb, actions, ta
         )}
         <div className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight break-words">{title}</h1>
+            <h1 className="text-2xl lg:text-[28px] lg:leading-9 font-semibold tracking-tight text-foreground break-words">{title}</h1>
             {description && <div className="mt-1 text-muted-foreground">{description}</div>}
           </div>
           {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}

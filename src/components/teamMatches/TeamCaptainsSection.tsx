@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { addCaptain, loadCaptains, removeCaptain, type RosterMember } from '../../lib/teamCaptains';
+import SectionTitle from '../layout/SectionTitle';
 
 interface Props {
   clubId: string;
@@ -60,11 +61,13 @@ export default function TeamCaptainsSection({ clubId, equipeId }: Props) {
   };
 
   return (
-    <section>
-      <h2 className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Capitaines</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Ils peuvent changer la date des rencontres de l’équipe depuis l’app. À redéclarer à chaque saison.
-      </p>
+    <section aria-labelledby="section-captains">
+      <SectionTitle
+        id="section-captains"
+        title="Capitaines"
+        className="mb-4"
+        description="Ils peuvent changer la date des rencontres de l’équipe depuis l’app. À redéclarer à chaque saison."
+      />
 
       <div className="space-y-3 rounded-xl border bg-card/90 p-4">
         {captainIds.length === 0 ? (

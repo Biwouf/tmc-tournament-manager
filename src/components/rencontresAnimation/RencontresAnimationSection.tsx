@@ -106,7 +106,7 @@ export default function RencontresAnimationSection({ ready, fileName, exportRequ
   if (!ready) {
     return (
       <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-        <h2 className="text-lg font-semibold">Animation vidéo</h2>
+        <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Animation vidéo</h2>
         <p className="text-sm text-muted-foreground">
           Générez d’abord l’affiche : la story reprend exactement ses rencontres et ses partenaires.
           Si vous modifiez la sélection, il faut régénérer l’affiche.
@@ -120,7 +120,7 @@ export default function RencontresAnimationSection({ ready, fileName, exportRequ
   return (
     <div ref={rootRef} className="rounded-xl border border-border bg-card p-5 space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Animation vidéo</h2>
+        <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Animation vidéo</h2>
         <p className="text-sm text-muted-foreground">Story 1080 × 1920 : une date par jour, 3 rencontres au plus par écran, récap si elles en occupent plusieurs.</p>
       </div>
 

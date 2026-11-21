@@ -153,7 +153,8 @@ function ActuCard({ actu, onPublish, onUnpublish, onDelete }: CardProps) {
         )}
       </div>
 
-      <h3 className="text-lg font-semibold text-card-foreground">{actu.titre}</h3>
+      {/* `h2` : la page Actus n'a pas de titre de section, h1 → h2 sans saut. */}
+      <h2 className="text-base font-semibold text-card-foreground">{actu.titre}</h2>
       <p className="mt-2 text-sm text-muted-foreground">Créée le {formatDate(actu.created_at)}</p>
 
       <div className="mt-4 flex flex-wrap gap-2 pt-2">
