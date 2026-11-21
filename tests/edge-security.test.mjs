@@ -446,6 +446,57 @@ test('one local origin sends consecutive requests with each active club brand', 
   }
 });
 
+// W2 (brief SAAS_11 §13.3) : l'e-mail « Gardez votre club » n'est aux couleurs du club que pour un
+// club lu sur Ten'Up ; un nom saisi à la main ne devient jamais expéditeur ni objet.
+const signupAuth = { user: { id: 'admin-user', email: 'admin@example.invalid' }, email_data: { email_action_type: 'magiclink', token_hash: 'test-hash', redirect_to: 'https://admin.feelike.pro/?inscription=moissac-tc' } };
+const signupClubs = (club) => ({ env: authEnv, actuClub: 'moissac', role: 'admin', emailClubs: { 'moissac-tc': { id: 'moissac', status: 'pending', ...club } } });
+test('auth email: Ten’Up signup is sent in the club colours, from “<short name> via Feelike”', async () => {
+  const logs = []; const error = console.error; console.error = (...args) => logs.push(args);
+  try {
+    const app = await handler('send-auth-email', signupClubs({ name: 'Moissac Tennis Club', tenup_club_id: '60820110',
+      brand: { short_name: 'Moissac TC', color: '#f26524', logo: 'https://s.invalid/clean.png', logo_variants: { 'clean-1024': 'https://s.invalid/clean.png', 'email-128': 'https://s.invalid/email-128.png' } } }));
+    assert.equal((await app.call(signupAuth, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+    const mail = app.effects.find(e => e.feed)?.feed;
+    assert.equal(mail.sender.name, 'Moissac TC via Feelike');
+    assert.equal(mail.sender.email, 'contact@feelike.pro');
+    assert.equal(mail.subject, 'Gardez Moissac TC sur Feelike');
+    assert.match(mail.htmlContent, /background-color:#f26524/);
+    assert.match(mail.htmlContent, /src="https:\/\/s\.invalid\/email-128\.png"/);
+    assert.match(mail.htmlContent, /Votre app de club/);
+    assert.match(mail.textContent, /fiche publique Ten’Up/);
+    assert.match(mail.htmlContent, /token=test-hash/);
+  } finally { console.error = error; }
+  assert.equal(logs.length, 0);
+});
+test('auth email: hand-typed signup stays Feelike, the name only in the escaped body', async () => {
+  const name = 'Service client Banque "><script>';
+  const app = await handler('send-auth-email', signupClubs({ name, tenup_club_id: null, brand: { color: '#ff0000', short_name: 'Banque' } }));
+  assert.equal((await app.call(signupAuth, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+  const mail = app.effects.find(e => e.feed)?.feed;
+  assert.equal(mail.sender.name, 'Feelike');
+  assert.equal(mail.subject, 'Feelike — Gardez votre club');
+  assert.match(mail.htmlContent, /#334155/);
+  assert.doesNotMatch(mail.htmlContent, /#ff0000|<script|Fiche publique|Ten’Up du club/);
+  assert.match(mail.htmlContent, /Service client Banque &quot;&gt;&lt;script&gt;/);
+});
+test('auth email: a Ten’Up club whose recipient is not its admin gets the plain magic link', async () => {
+  const app = await handler('send-auth-email', { ...signupClubs({ name: 'Moissac Tennis Club', tenup_club_id: '60820110', brand: { short_name: 'Moissac TC', color: '#f26524' } }), role: null });
+  assert.equal((await app.call(signupAuth, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+  const mail = app.effects.find(e => e.feed)?.feed;
+  assert.equal(mail.sender.name, 'Feelike');
+  assert.equal(mail.subject, 'Feelike — Connectez-vous à votre espace');
+  assert.doesNotMatch(mail.htmlContent, /#f26524|Moissac/);
+});
+test('auth email: an active club (CAC) keeps its sender and subject', async () => {
+  const app = await handler('send-auth-email', { env: authEnv, emailClubs: { tennis: { id: 'cac', name: 'CAC Tennis Club', status: 'active', brand: { color: '#333dcc', logo: 'https://s.invalid/cac.png', short_name: 'CAC' } } } });
+  assert.equal((await app.call(authPayload, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+  const mail = app.effects.find(e => e.feed)?.feed;
+  assert.equal(mail.sender.name, 'CAC Tennis Club');
+  assert.equal(mail.subject, 'CAC Tennis Club — Réinitialisez votre mot de passe');
+  assert.match(mail.htmlContent, /background-color:#333dcc/);
+  assert.match(mail.htmlContent, /src="https:\/\/s\.invalid\/cac\.png"/);
+});
+
 // La tête de `x-forwarded-for` est fournie par le client : la limite se fonde sur
 // `cf-connecting-ip`, réécrit par Cloudflare, pour qu'un visiteur ne change pas d'empreinte à
 // chaque message (onboarding Ten'Up d'abord, retour de revue du 15/11/2026).
