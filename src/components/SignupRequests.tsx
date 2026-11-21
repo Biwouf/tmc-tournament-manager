@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import SectionTitle from './layout/SectionTitle';
 import { supabase } from '../lib/supabase';
 type Request = { user_id: string; email: string; prenom: string; nom: string; sex: string | null; classement: string | null; status: 'pending' | 'denied' | 'revoked'; created_at: string };
 export default function SignupRequests({ clubId, onChanged }: { clubId: string; onChanged: () => void }) {
+  const titleId = useId();
   const [rows, setRows] = useState<Request[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,8 +43,13 @@ export default function SignupRequests({ clubId, onChanged }: { clubId: string; 
     } catch { setError('Suppression impossible. Actualisez la liste et réessayez.'); }
     finally { lock.current = false; setBusy(null); }
   }
-  return <section>
-    <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Demandes d’inscription ({rows.filter(r => r.status === 'pending').length})</h2><button type="button" className="course-button" disabled={loading || !!busy} onClick={() => void load()}>Actualiser</button></div>
+  return <section aria-labelledby={titleId}>
+    <SectionTitle
+      id={titleId}
+      title="Demandes d’inscription"
+      count={rows.filter(r => r.status === 'pending').length}
+      action={<button type="button" className="course-button" disabled={loading || !!busy} onClick={() => void load()}>Actualiser</button>}
+    />
     {error && <p role="alert" className="mb-3 text-destructive">{error}</p>}
     {success && <p role="status" className="mb-3 text-foreground">{success}</p>}
     {loading ? <p role="status">Chargement des demandes…</p> : rows.length === 0 ? <p className="text-sm text-muted-foreground">Aucune demande d’inscription.</p> : <div className="space-y-3">{rows.map(r => <div key={r.user_id} className="rounded-2xl border bg-card p-6 shadow-sm">

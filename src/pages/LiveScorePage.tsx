@@ -10,6 +10,7 @@ import { getTeamLabel } from '../liveScoreRules';
 import LiveMatchCard from '../components/LiveMatchCard';
 import LivePulse from '../components/LivePulse';
 import PageHeader from '../components/layout/PageHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 
 type SectionAccent = 'live' | 'pending' | 'finished';
 
@@ -187,16 +188,14 @@ export default function LiveScorePage() {
     list: LiveMatch[],
     emptyText: string,
   ) => (
-    <section className="mb-8">
-      <div className="mb-4 flex items-center gap-3">
-        <h2 className="text-base font-bold tracking-wide uppercase text-slate-900">{title}</h2>
-        <span
-          className={`inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-bold ${SECTION_ACCENT[accent]}`}
-        >
-          {list.length}
-        </span>
-        <div className="flex-1 h-px bg-slate-200" />
-      </div>
+    <section className="mb-10" aria-labelledby={`live-section-${accent}`}>
+      <SectionTitle
+        id={`live-section-${accent}`}
+        title={title}
+        count={list.length}
+        countClassName={SECTION_ACCENT[accent]}
+        className="mb-4"
+      />
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
           {emptyText}

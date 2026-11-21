@@ -167,7 +167,7 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
 
       <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
         <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-          <h2 className="text-2xl font-semibold tracking-tight text-card-foreground">
+          <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">
             Planning des Matches
           </h2>
           <div className="flex flex-wrap items-center gap-2">
@@ -337,7 +337,7 @@ export default function ScheduleView({ schedule, config, onConfigUpdate, onMoveM
 
             return (
               <div key={date} className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-                <h3 className="mb-4 text-xl font-semibold text-card-foreground">
+                <h3 className="mb-4 text-base font-semibold text-card-foreground">
                   {formatDate(date)}
                 </h3>
 

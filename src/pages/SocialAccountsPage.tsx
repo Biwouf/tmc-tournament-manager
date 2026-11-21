@@ -18,6 +18,7 @@ import {
   type SocialCredential,
 } from '../lib/socialCredentials';
 import PageHeader from '../components/layout/PageHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 
 function formatExpiry(iso: string | null): string {
   if (!iso) return 'Ce token n’a pas de date d’expiration connue.';
@@ -118,11 +119,9 @@ export default function SocialAccountsPage() {
         </>}
       />
 
-      <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
-        <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Facebook
-          </h2>
+      <main className="container mx-auto flex flex-col gap-10 px-4 py-12">
+        <section aria-labelledby="section-facebook">
+          <SectionTitle id="section-facebook" title="Facebook" />
 
           {loadError && (
             <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -148,7 +147,7 @@ export default function SocialAccountsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-card-foreground">
+                      <h3 className="text-base font-semibold text-card-foreground">
                         {credential.page_name || 'Page sans nom'}
                       </h3>
                       <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
@@ -197,7 +196,7 @@ export default function SocialAccountsPage() {
               </>
             ) : (
               <>
-                <h3 className="text-lg font-semibold text-card-foreground">
+                <h3 className="text-base font-semibold text-card-foreground">
                   Aucune page connectée
                 </h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">

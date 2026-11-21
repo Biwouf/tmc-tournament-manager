@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import PageHeader from '../components/layout/PageHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 
 // Généreux et fixe (brief §6) : une pagination pour un volume qu'on n'a pas encore mesuré
 // serait de la complexité spéculative. À revoir le jour où un club l'atteint.
@@ -87,11 +88,9 @@ export default function ContactMessagesPage() {
         </>}
       />
 
-      <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
-        <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Boîte de réception
-          </h2>
+      <main className="container mx-auto flex flex-col gap-10 px-4 py-12">
+        <section aria-labelledby="section-inbox">
+          <SectionTitle id="section-inbox" count={loading ? undefined : messages.length} title="Boîte de réception" />
 
           {error && (
             <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -139,7 +138,7 @@ function MessageCard({
     <li className="rounded-2xl border bg-card/90 p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-card-foreground">{fullName}</h3>
+          <h3 className="text-base font-semibold text-card-foreground">{fullName}</h3>
           <p className="mt-1.5 text-sm">
             <a
               href={`mailto:${message.email}?subject=${subject}`}

@@ -27,7 +27,7 @@ export default function PosterBackgroundPicker({
 
   return (
     <fieldset className="min-w-0 border-0 p-0">
-      <legend className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <legend className="mb-2 text-sm font-medium text-foreground">
         {label}
       </legend>
       <div className="flex flex-wrap gap-2">

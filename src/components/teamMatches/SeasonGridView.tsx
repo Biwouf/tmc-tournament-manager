@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import type { Cell, CompetitionBlock } from './gridTypes';
 import {
@@ -8,6 +9,7 @@ import {
   gridTemplateColumns,
 } from './gridTypes';
 import { competitionLabel } from './teamMatchLabels';
+import SectionTitle from '../layout/SectionTitle';
 
 function CellButton({
   cell,
@@ -59,23 +61,23 @@ function Block({
   selectedEtapeId: string | null;
   onSelect: (etapeId: string) => void;
 }) {
+  const titleId = useId();
   const { colonnes, nPoule, nFinales } = block;
   const template = gridTemplateColumns(nPoule, nFinales);
   const minWidth = gridMinWidth(nPoule, nFinales);
   const firstFinaleKey = colonnes.find((c) => c.phase === 'finale')?.key;
 
   return (
-    <section className={done ? 'opacity-75' : undefined}>
-      <div className="mb-2.5 flex items-center gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          {competitionLabel(block.competition)}
-        </h2>
-        {done && (
+    <section aria-labelledby={titleId} className={done ? 'opacity-75' : undefined}>
+      <SectionTitle
+        id={titleId}
+        title={competitionLabel(block.competition)}
+        action={done ? (
           <span className="rounded-full bg-score-wo px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-score-wo-fg">
             Terminé
           </span>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {block.equipes.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-card/50 p-5 text-center text-sm text-muted-foreground">

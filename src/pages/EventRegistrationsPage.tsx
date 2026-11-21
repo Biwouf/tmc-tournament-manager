@@ -384,7 +384,7 @@ export default function EventRegistrationsPage() {
         )}
 
         <form onSubmit={add} className="space-y-4 rounded-2xl border bg-card/90 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">Ajouter des inscrits</h2>
+          <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Ajouter des inscrits</h2>
           {(members.length > 0 || guests.length > 0) && (
             <ul className="space-y-2">
               {members.map((m, i) => (

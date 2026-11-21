@@ -12,8 +12,8 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       // « page » seulement sur la page même ; sur une sous-page (`/courses/types`), l'entrée
       // parente est « true » : elle contient la page courante sans l'être.
       aria-current={active ? (pathname === item.to ? 'page' : 'true') : undefined}
-      className={`relative flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition lg:min-h-9 ${
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+      className={`relative flex min-h-11 items-center rounded-lg px-3 text-sm transition lg:min-h-9 ${
+        active ? 'bg-muted font-semibold text-foreground' : 'font-medium text-foreground/90 hover:bg-muted/60 hover:text-foreground'
       }`}
     >
       {/* Seul usage décoratif de la couleur du club dans la barre (brief §2.1). */}
@@ -62,7 +62,7 @@ export default function SidebarNav({ user, clubName, logo, onCollapse }: {
         {visibleGroups(effectiveRole).map((group) => (
           <div key={group.label ?? 'root'} className="mb-2">
             {group.label && (
-              <p className="px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+              <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                 {group.label}
               </p>
             )}
@@ -75,7 +75,7 @@ export default function SidebarNav({ user, clubName, logo, onCollapse }: {
         ))}
         {isSuperAdmin && (
           <div className="mb-2">
-            <p className="px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground">Plateforme</p>
+            <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Plateforme</p>
             <ul><li><NavLink item={PLATFORM_ITEM} pathname={pathname} /></li></ul>
           </div>
         )}
