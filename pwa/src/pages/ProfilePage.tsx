@@ -128,7 +128,7 @@ export default function ProfilePage() {
     setLogoutError('');
     try {
       if (clubId) await disableCoursePush(clubId);
-      // Leave the protected page first, otherwise RequireAuth redirects to /login.
+      // Leave the protected page first, otherwise RequireUser redirects to /login.
       navigate(returnTo, { replace: true });
       await supabase.auth.signOut();
     } catch (error) {
@@ -162,7 +162,8 @@ export default function ProfilePage() {
       ) : context.isPending ? (
         <p role="status">Chargement du profil…</p>
       ) : !context.data.is_member ? (
-        <p className="booking-info">
+        // Demande en attente, refusée ou retirée : le bandeau SignupNotice dit déjà l'état.
+        !context.data.signup_status && <p className="booking-info">
           Votre compte doit être rattaché à ce club. Contactez un administrateur
           du club.
         </p>
