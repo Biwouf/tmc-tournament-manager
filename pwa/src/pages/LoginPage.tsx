@@ -1,12 +1,13 @@
 import PasswordInput from '../components/PasswordInput';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { returnPath } from '../components/layout/headerConfig';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
-import { loginError } from '../lib/signup';
+import { isRencontrePath, loginError, signupReturnTo } from '../lib/signup';
+import { COMPO_COPY } from '../../../shared/teamCompoCopy.mjs';
 import { formatClubName } from '../../../shared/formatClubName';
 
 // Champs de 48 px, texte 16 px : pas de zoom automatique d'iOS au focus.
@@ -14,6 +15,8 @@ const inputClass = 'min-h-12 w-full rounded-xl border border-border bg-backgroun
 
 interface LocationState {
   from?: string;
+  /** « CAC – TC Grisolles 1, dimanche 22 novembre », posé par la section Compo. */
+  compoContext?: string;
 }
 
 export default function LoginPage() {
@@ -21,8 +24,13 @@ export default function LoginPage() {
   const location = useLocation();
   const { club } = useClub();
   const { config } = useClubConfig();
-  const requested = (location.state as LocationState | undefined)?.from;
+  const [params] = useSearchParams();
+  const state = location.state as LocationState | undefined;
+  // `?returnTo=` survit à un rechargement, contrairement au state du routeur.
+  const requested = state?.from ?? params.get('returnTo');
   const fromPath = returnPath(requested) ?? '/actu';
+  const toRencontre = isRencontrePath(fromPath);
+  const signupReturn = signupReturnTo(fromPath);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +47,7 @@ export default function LoginPage() {
       setError(loginError(error));
       return;
     }
-    navigate(fromPath, { replace: true });
+    navigate(fromPath, { replace: true, state: toRencontre ? { welcome: 'compo' } : undefined });
   };
 
   return (
@@ -50,6 +58,10 @@ export default function LoginPage() {
         <h1 className="mb-1 text-2xl font-bold tracking-tight text-foreground">
           Connexion
         </h1>
+        {toRencontre && <p className="mb-4 flex gap-2 rounded-xl border border-border bg-background p-3 text-sm">
+          <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5z" /></svg>
+          {COMPO_COPY.loginContext(state?.compoContext)}
+        </p>}
         <p className="mb-6 text-sm text-muted-foreground">
           {fromPath.startsWith('/cours') || fromPath.startsWith('/profil') ? 'Retrouvez les cours et vos inscriptions avec votre compte membre.' : 'Retrouvez les actualités, les scores et les cours de votre club.'}
         </p>
@@ -96,7 +108,7 @@ export default function LoginPage() {
           </button>
         </form>
         <Link to="/forgot-password" className="mt-3 flex min-h-11 items-center justify-center text-sm font-semibold text-primary underline underline-offset-2">Mot de passe oublié ?</Link>
-        <Link to={`/inscription${/^\/cours(?:\?|$)/.test(fromPath) ? `?returnTo=${encodeURIComponent(fromPath)}` : ''}`} className="flex min-h-11 items-center justify-center text-center text-sm font-semibold text-primary underline underline-offset-2">Pas encore de compte ? Créer un compte</Link>
+        <Link to={`/inscription${signupReturn !== '/actu' ? `?returnTo=${encodeURIComponent(signupReturn)}` : ''}`} className="flex min-h-11 items-center justify-center text-center text-sm font-semibold text-primary underline underline-offset-2">Pas encore de compte ? Créer un compte</Link>
       </div>
     </div>
   );

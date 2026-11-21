@@ -20,6 +20,25 @@ export type LineupCandidate = {
 /** Entrée envoyée à `team_compo_save` : membre, invité déjà présent, ou nouvel invité. */
 export type LineupEntry = { user_id: string } | { id: string } | { prenom: string; nom: string; sex: LineupSex };
 
+/** Résumé d'une rencontre pour sa carte dans la liste (`team_compo_summaries`, connectés seulement). */
+export type LineupSummary = {
+  rencontre_id: string; count: number; is_me: boolean; updated_at: string;
+  preview: { initials: string; prenom: string; is_guest: boolean; is_me: boolean }[];
+};
+
+/** Compo portée par une carte : `null` = pas encore saisie, `'locked'` = visiteur. */
+export type CardCompo = LineupSummary | null | 'locked';
+/** Complément de l'`aria-label` de la carte (les pastilles sont décoratives). */
+export const compoCardLabel = (compo: CardCompo) =>
+  compo === 'locked' ? COMPO_COPY.cardLockedLabel : COMPO_COPY.cardLabel(compo?.count ?? 0, !!compo?.is_me);
+
+/** Un seul appel pour toutes les cartes affichées (200 ids au plus côté serveur). */
+export async function fetchLineupSummaries(clubId: string, rencontreIds: string[]): Promise<LineupSummary[]> {
+  const { data, error } = await supabase.rpc('team_compo_summaries', { p_club: clubId, p_rencontres: rencontreIds.slice(0, 200) });
+  if (error) throw error;
+  return data as LineupSummary[];
+}
+
 export const lineupKey = (clubId: string | null | undefined, rencontreId: string) => ['team-compo', clubId, rencontreId] as const;
 export const LINEUP_SUMMARIES_KEY = 'team-compo-summaries';
 

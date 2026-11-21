@@ -38,6 +38,37 @@ export function mixedCountLabel(sexes) {
   return `${playersLabel(sexes.length)}${parts.length ? ` · ${parts.join(', ')}` : ''}`;
 }
 
+const PARIS = 'Europe/Paris';
+const parisDay = date => new Intl.DateTimeFormat('fr-CA', { timeZone: PARIS }).format(date);
+/** « 9h », « 18h42 », heure de Paris. */
+export function parisHour(date) {
+  const [h, m] = new Intl.DateTimeFormat('fr-FR', { timeZone: PARIS, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .format(date).split(':').map(Number);
+  return `${h}h${m ? String(m).padStart(2, '0') : ''}`;
+}
+
+/** Fraîcheur : « il y a 5 min », « il y a 2 h » (même jour), « hier à 18h42 », « le 12 nov. à 9h ». */
+export function freshnessLabel(updatedAt, now = new Date()) {
+  const at = new Date(updatedAt);
+  const minutes = Math.max(0, Math.round((now.getTime() - at.getTime()) / 60000));
+  if (minutes < 1) return 'à l’instant';
+  if (minutes < 60) return `il y a ${minutes} min`;
+  if (parisDay(at) === parisDay(now)) return `il y a ${Math.floor(minutes / 60)} h`;
+  if (parisDay(at) === parisDay(new Date(now.getTime() - 86400000))) return `hier à ${parisHour(at)}`;
+  const day = new Intl.DateTimeFormat('fr-FR', { timeZone: PARIS, day: 'numeric', month: 'short' }).format(at);
+  return `le ${day} à ${parisHour(at)}`;
+}
+
+/** « Mise à jour il y a 2 h par Romain Escaffre, capitaine ». */
+export function updatedLine(updatedAt, by, now) {
+  const who = by ? ` par ${`${by.prenom} ${by.nom}`.trim()}${by.role === 'capitaine' ? ', capitaine' : ''}` : '';
+  return `Mise à jour ${freshnessLabel(updatedAt, now)}${who}`;
+}
+
+/** Résumé d'une carte de la liste : « Claire, Marie, Sophie +1 ». */
+export const previewNames = (names, count) =>
+  `${names.join(', ')}${count > names.length ? ` +${count - names.length}` : ''}`;
+
 export const COMPO_COPY = {
   title: 'Compo',
   note: 'Visible uniquement par les personnes connectées.',
@@ -50,6 +81,20 @@ export const COMPO_COPY = {
   choose: 'Choisir les joueurs',
   lockedTitle: 'Qui joue ? Connectez-vous',
   lockedText: 'La compo est visible par toute personne connectée.',
+  loginContext: label => label
+    ? `Connectez-vous pour voir la compo de ${label}. Vous reviendrez ensuite sur la rencontre.`
+    : 'Connectez-vous pour voir la compo. Vous reviendrez ensuite sur la rencontre.',
+  welcomeBack: 'Vous êtes connecté. Voici la compo.',
+  youPlayTitle: 'Vous jouez cette rencontre',
+  youPlay: 'Vous jouez',
+  compoToCome: 'Compo à venir',
+  lockedCard: 'Compo réservée aux connectés',
+  lockedBanner: 'Connectez-vous pour voir qui joue chaque rencontre.',
+  cardLabel: (count, isMe) => count ? `${isMe ? 'Vous jouez, ' : ''}compo de ${playersLabel(count)}` : 'compo à venir',
+  cardLockedLabel: 'compo réservée aux personnes connectées',
+  seeAll: n => `Voir les ${n} joueurs`,
+  sheetList: n => `Compo · ${playersLabel(n)}`,
+  groups: { female: 'Dames', male: 'Messieurs', none: 'Sexe non précisé' },
   loginReturn: 'Vous reviendrez ici juste après.',
   login: 'Se connecter',
   signup: 'Créer un compte',
@@ -89,7 +134,7 @@ export const COMPO_COPY = {
   notMemberError: names => `${names.join(', ')} ne ${names.length > 1 ? 'font' : 'fait'} plus partie du club. Retirez-${names.length > 1 ? 'les' : 'le'} de la compo.`,
   cannotEdit: 'La compo ne peut pas être modifiée pour l’instant : l’identité de certains joueurs n’a pas été reçue. Rechargez la page ; si le problème continue, prévenez un administrateur.',
   retry: 'Réessayer',
-  sheetFeuille: 'Saisir la feuille de match',
+  sheetFeuille: 'Photographier les feuilles de match',
 };
 
 /** Message affiché pour une erreur des RPC de compo (supabase-js : `message`, `details`). */
