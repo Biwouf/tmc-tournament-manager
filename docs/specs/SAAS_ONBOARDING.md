@@ -1230,3 +1230,35 @@ gestionnaire), `tenup-lookup-edge` (W3 : variantes, cache, échecs), `club-signu
 worker (`kind: 'logo'`, dépendance sharp) ; redéployer `tenup-lookup` puis `club-signup` ; BO et
 PWA. Sans le worker à jour, `tenup-lookup` garde l'original (400 sur `kind: 'logo'`).
 
+### 14.8 W2 — l'e-mail aux couleurs du club (`feat/wow-email`, brief §13.3)
+
+**Règle de marque** (`send-auth-email`, lien magique `?inscription=<slug>`, club `pending`,
+destinataire admin) :
+- club **avec `tenup_club_id`** (lu sur Ten'Up, jeton vérifié par `club-signup`) → marque du club :
+  nom court `brand.short_name` (repli : nom du club), `brand.color`, logo `email-128` de W3 si le
+  logo retouché est choisi (sinon `brand.logo`, écarté s'il est en WebP → initiales), surtitre
+  « Votre app de club ». Expéditeur **« <nom court> via Feelike »**, adresse `AUTH_FROM_EMAIL`
+  inchangée. Objet **« Gardez <nom court> sur Feelike »** ; la forme P2
+  `482 913 : votre code pour garder <nom court>` est prête (`signupSubject(short, code)`), pas
+  branchée. Pied : 7 jours, signature Feelike, « Le nom, le logo et la couleur viennent de la
+  fiche publique Ten’Up du club. »
+- club **saisi à la main** → marque Feelike, expéditeur « Feelike », objet « Feelike — Gardez votre
+  club » : le nom du club n'est que dans le corps et le pied, échappé.
+- autre destinataire : lien magique ordinaire. Clubs actifs (CAC…) : expéditeur et objet inchangés,
+  ils ne gagnent que le nouveau gabarit.
+
+**Gabarit** (`_shared/email-template.ts`, voir `docs/CLUB_EMAILS.md`) : `color-scheme` clair et
+sombre, pré-en-tête caché, bandeau couleur avec texte HTML (encre noire ou blanche, ≥ 4,58:1),
+logo dans un disque blanc avec `alt` stylé ou initiales, bouton blanc sur la couleur assombrie
+jusqu'à 4,5:1 (`buttonColor` ; Moissac `#f26524` → `#c6531e`) + VML Outlook, code 34 px à chasse
+fixe (pour P2), texte brut avec les mêmes lignes. Pré-en-tête actuel : « Votre app <slug>.feelike.pro
+est prête. » (« Valable 10 minutes » viendra avec le code de P2).
+
+**Tests** : `tests/email-template.test.mjs` (W2 : `color-scheme`, VML, contraste sur toute la grille
+de couleurs, alt stylé, WebP, nom hostile `"><script>`, contenus Ten'Up / manuel, objet et
+expéditeur), `tests/edge-security.test.mjs` (hook : Ten'Up, manuel, non-admin, CAC).
+
+**Mise en service** : aucune migration ni secret. Redéployer `send-auth-email`, `contact-form`,
+`course-email-dispatch` et `signup-email-dispatch` (elles importent le gabarit). À vérifier à la
+main : rendus réels (Gmail web et mobile sombre, Apple Mail, Outlook Windows, Outlook.com, images
+bloquées) et en-têtes SPF / DKIM aligné / DMARC d'un e-mail reçu (pas de « via brevo »).
