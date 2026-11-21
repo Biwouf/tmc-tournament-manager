@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import TeamMatchImagePreview from '../TeamMatchImagePreview';
 import EquipesPreview from './EquipesPreview';
 import type { StepPreviewProps } from './FirstStepsFlow';
-import { usePosterPreview } from './posterSignal';
+import { setStorySlot, useMediaQuery, usePosterPreview } from './posterSignal';
 
-// SaaS S7 — aperçu de l'étape « Vos affiches » (maquette `Stepper.dc.html`) : l'affiche réelle
-// (`TeamMatchImagePreview`, le rendu exporté) à la place du téléphone. Sans rencontre cochée :
-// l'onglet « Matchs équipes », comme l'étape précédente (P0 : l'actu vient après les affiches).
+// SaaS S7 — aperçu de l'étape « Vos affiches ». Depuis W1, sur grand écran : l'emplacement où
+// l'étape rend son aperçu animé de la story (portail, maquette `05d`). Sur petit écran, la story
+// est dans l'étape et « Voir l'aperçu » montre l'affiche réelle (`TeamMatchImagePreview`, le rendu
+// exporté). Sans rencontre cochée : l'onglet « Matchs équipes », comme l'étape précédente.
 
 const POSTER_W = 1414;
 
@@ -34,6 +35,8 @@ function ScaledPoster() {
 
 export default function AffichesPreview(props: StepPreviewProps) {
   const { matches } = usePosterPreview();
+  const wide = useMediaQuery('(min-width: 861px)');
   if (!matches.length) return <EquipesPreview {...props} />;
+  if (wide) return <div ref={setStorySlot} className="fs-story-slot" />;
   return <div className="fs-poster-stage"><ScaledPoster /></div>;
 }

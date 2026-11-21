@@ -9,15 +9,18 @@ import { renderRencontresFrame, type RencontresTexts } from '../rencontresAnimat
 import type { RencontresTimeline } from '../rencontresAnimation/timeline';
 
 export const FPS = 30;
-const BITRATE = 8_000_000;
+/** Débit de /medias (téléchargement, story Facebook). */
+export const DEFAULT_BITRATE = 8_000_000;
+/** Débit du partage depuis les premiers pas (W1) : ~7 Mo pour 14 s au lieu de 14. */
+export const SHARE_BITRATE = 4_000_000;
 
 /** Première configuration H.264 acceptée par le navigateur, ou `null` s'il ne sait pas encoder. */
-export async function pickEncoderConfig(width: number, height: number): Promise<VideoEncoderConfig | null> {
+export async function pickEncoderConfig(width: number, height: number, bitrate = DEFAULT_BITRATE): Promise<VideoEncoderConfig | null> {
   if (typeof VideoEncoder === 'undefined') return null;
   // High 5.0 d'abord (1080 × 1920 dépasse le niveau 4.0 de certains encodeurs), puis Main et Baseline.
   for (const codec of ['avc1.640032', 'avc1.640028', 'avc1.4d0032', 'avc1.42e032']) {
     for (const hardwareAcceleration of ['prefer-hardware', 'no-preference'] as const) {
-      const config: VideoEncoderConfig = { codec, width, height, bitrate: BITRATE, framerate: FPS, hardwareAcceleration, avc: { format: 'avc' } };
+      const config: VideoEncoderConfig = { codec, width, height, bitrate, framerate: FPS, hardwareAcceleration, avc: { format: 'avc' } };
       try {
         if ((await VideoEncoder.isConfigSupported(config)).supported) return config;
       } catch {
@@ -31,10 +34,12 @@ export async function pickEncoderConfig(width: number, height: number): Promise<
 export class ExportCancelled extends Error {}
 
 /** Tout ce qu'il faut pour rendre la vidéo ; clonable vers un worker (la palette est recalculée).
- *  `kind` choisit la scène : programme d'un tournoi ou story des rencontres par équipes. */
-export type ExportJob =
+ *  `kind` choisit la scène : programme d'un tournoi ou story des rencontres par équipes.
+ *  `bitrate` : `DEFAULT_BITRATE` s'il est absent. */
+export type ExportJob = (
   | { kind: 'programme'; tl: Timeline; color: string; texts: AnimationTexts; assets: FrameAssets }
-  | { kind: 'rencontres'; tl: RencontresTimeline; color: string; texts: RencontresTexts; assets: FrameAssets };
+  | { kind: 'rencontres'; tl: RencontresTimeline; color: string; texts: RencontresTexts; assets: FrameAssets }
+) & { bitrate?: number };
 type Progress = (frame: number, frames: number) => void;
 
 // Rend la main à la boucle d'événements par un message (un `setTimeout` est bridé à 1 s
@@ -49,12 +54,15 @@ const yieldTask = () => new Promise<void>((resolve) => {
 export async function encodeAnimation(job: ExportJob, onProgress: Progress, isCancelled: () => boolean = () => false): Promise<ArrayBuffer> {
   const { tl, color } = job;
   const { W, H } = tl;
-  const config = await pickEncoderConfig(W, H);
+  const config = await pickEncoderConfig(W, H, job.bitrate);
   if (!config) throw new Error('Ce navigateur ne sait pas encoder de vidéo H.264.');
   const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : Object.assign(document.createElement('canvas'), { width: W, height: H });
   const g = canvas.getContext('2d', { alpha: false }) as Ctx2D;
   const pal = animationPalette(color);
 
+  // Vidéo muette. Une musique viendra peut-être (décision du 19/11/2026) : le conteneur MP4 et
+  // `mp4-muxer` acceptent une piste `audio: { codec: 'aac', … }` à côté de `video`, alimentée par
+  // un `AudioEncoder` ; rien ici ne fige un format sans son.
   const muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: FPS }, fastStart: 'in-memory' });
   let encoderError: unknown = null;
   const encoder = new VideoEncoder({
