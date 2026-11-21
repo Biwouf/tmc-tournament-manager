@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useClubRole } from '../contexts/ClubRoleContext';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
 import ClubSetup from '../components/dashboard/ClubSetup';
+import PageHeader from '../components/layout/PageHeader';
 
 // `roles` = rôles autorisés à voir la carte (matrice MULTI_TENANT.md §4 / brief PR4 §6).
 // Le masquage est purement UI : la RLS tenant_isolation cloisonne par club, pas par rôle.
@@ -47,9 +47,7 @@ export default function AppHomePage() {
   const { role, isSuperAdmin } = useClubRole();
   const { club } = useClub();
   const { config, loading: configLoading, reload } = useClubConfig();
-  const handleLogout = () => supabase.auth.signOut();
   const clubName = club?.name ?? 'Club';
-  const logo = config.brand.logo || '/logo.png';
 
   // Super-admin non membre : accès support avec le rôle effectif 'admin'.
   const effectiveRole = isSuperAdmin ? 'admin' : role;
@@ -62,23 +60,7 @@ export default function AppHomePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex flex-col items-start gap-4 px-4 py-8 sm:flex-row sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <img src={logo} alt={clubName} className="h-16 w-16 shrink-0 object-contain" />
-            <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight break-words sm:text-3xl">Administration de {clubName}</h1>
-              <p className="mt-2 text-muted-foreground">Affiche, events, programmation…</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="shrink-0 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted sm:mt-1"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader title="Accueil" description={`Administration de ${clubName}`} />
 
       <main className="container mx-auto px-4 py-12">
         <div className="flex flex-col gap-9">

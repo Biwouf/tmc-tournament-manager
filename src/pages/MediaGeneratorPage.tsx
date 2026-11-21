@@ -1,6 +1,7 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import TeamPosterGenerator from '../components/teamMatches/poster/TeamPosterGenerator';
 import ProgrammationImagePage from './ProgrammationImagePage';
+import PageHeader from '../components/layout/PageHeader';
 
 type MediaType = 'tournoi' | 'equipes' | 'resultats';
 
@@ -17,17 +18,7 @@ export default function MediaGeneratorPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto px-4 py-8">
-          <Link
-            to="/"
-            className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            ← Accueil
-          </Link>
-          <h1 className="text-3xl font-semibold tracking-tight">Génération de médias</h1>
-        </div>
-      </header>
+      <PageHeader title="Visuels" />
 
       <div className="container mx-auto px-4 pt-8">
         <h2 className="mb-3 text-lg font-semibold">Quel média générer ?</h2>

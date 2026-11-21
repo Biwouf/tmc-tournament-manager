@@ -189,7 +189,7 @@ export default function TeamRencontreForm() {
       <TeamMatchesHeader
         title={isEdit ? 'Modifier la rencontre' : 'Nouvelle rencontre'}
         backTo={backTo}
-        backLabel="Retour à l'équipe"
+        backLabel="Équipe"
       />
 
       <main className="container mx-auto max-w-2xl px-4 py-8">

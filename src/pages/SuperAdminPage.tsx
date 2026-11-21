@@ -8,11 +8,11 @@
 // Function : créer ou suspendre un club ne manipule aucun secret. Seule l'invitation garde
 // son Edge Function, qui a besoin du service role pour créer le compte auth (PR4).
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { invokeInvite } from '../lib/invite';
 import { useClub, enterSupportClub, type ClubPlan, type ClubStatus } from '../contexts/ClubContext';
 import { RESERVED_SLUGS } from '../../shared/clubSlug.mjs';
+import PageHeader from '../components/layout/PageHeader';
 
 type ClubRow = {
   id: string;
@@ -196,22 +196,7 @@ export default function SuperAdminPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Console plateforme</h1>
-            <p className="mt-2 text-muted-foreground">
-              Provisionner et administrer les clubs de feelike.
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            ← Accueil
-          </Link>
-        </div>
-      </header>
+      <PageHeader title="Console plateforme" description="Provisionner et administrer les clubs de feelike." />
 
       <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
         <section>

@@ -10,6 +10,7 @@ import { exportScheduleCsv } from '../exportScheduleCsv';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import { formatIsoDateFr } from '../lib/dates';
+import PageHeader from '../components/layout/PageHeader';
 
 interface Props {
   user: User;
@@ -159,24 +160,13 @@ export default function TournamentPage({ user }: Props) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto px-4 py-8">
-          <Link
-            to="/tmc-planning"
-            className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            ← Tous les tournois
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight break-words sm:text-3xl">
-            {isNew ? 'Nouveau tournoi' : entry!.config.name}
-          </h1>
-          {!isNew && entry?.config.startDate && (
-            <p className="mt-2 text-muted-foreground">
-              {formatIsoDateFr(entry.config.startDate)} → {formatIsoDateFr(entry.config.endDate)}
-            </p>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={isNew ? 'Nouveau tournoi' : entry!.config.name}
+        breadcrumb={[{ label: 'Tournois TMC', to: '/tmc-planning' }]}
+        description={!isNew && entry?.config.startDate
+          ? `${formatIsoDateFr(entry.config.startDate)} → ${formatIsoDateFr(entry.config.endDate)}`
+          : undefined}
+      />
 
       <main className="container mx-auto px-4 py-8">
         {error && (
@@ -249,7 +239,7 @@ export default function TournamentPage({ user }: Props) {
       </footer>
 
       {isDirty && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 shadow-lg backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 shadow-lg backdrop-blur lg:left-[248px]">
           <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <p className="text-sm text-foreground">Modifications non sauvegardées</p>
             <button

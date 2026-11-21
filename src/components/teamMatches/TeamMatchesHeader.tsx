@@ -1,41 +1,39 @@
-import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useLocation } from 'react-router-dom';
+import PageHeader, { type Crumb } from '../layout/PageHeader';
 
 interface Props {
   title: string;
   subtitle?: string;
+  /** Page parente : sert au fil d'Ariane des sous-pages. */
   backTo: string;
+  /** Libellé de la page parente dans le fil d'Ariane. */
   backLabel: string;
   actions?: ReactNode;
 }
 
+const TABS = [
+  { to: '/team-matches', label: 'Calendrier' },
+  { to: '/team-matches/admin', label: 'Saisons et équipes' },
+];
+
+// PR-BO1 — habillage des pages Rencontres sur `PageHeader`. Les deux pages racines portent les
+// onglets « Calendrier » / « Saisons et équipes » (ex-cartes « Matches par équipe » et « Saisons &
+// équipes ») ; les sous-pages, un fil d'Ariane « Rencontres › … ». Plus de déconnexion ni de
+// « ← Accueil » : c'est la barre latérale.
 export default function TeamMatchesHeader({ title, subtitle, backTo, backLabel, actions }: Props) {
-  const handleLogout = () => supabase.auth.signOut();
+  const { pathname } = useLocation();
+  const root = TABS.some((tab) => tab.to === pathname);
+  const breadcrumb: Crumb[] = [{ label: 'Rencontres', to: '/team-matches' }];
+  if (backTo !== '/team-matches') breadcrumb.push({ label: backLabel, to: backTo });
 
   return (
-    <header className="relative z-20 border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-      <div className="container mx-auto flex flex-col items-start gap-4 px-4 py-8 lg:flex-row lg:justify-between">
-        <div className="min-w-0">
-          <Link
-            to={backTo}
-            className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-          >
-            ← {backLabel}
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight break-words sm:text-3xl">{title}</h1>
-          {subtitle && <p className="mt-2 text-muted-foreground">{subtitle}</p>}
-        </div>
-        <div className="flex max-w-full flex-wrap items-center gap-3 lg:mt-1">
-          {actions}
-          <button
-            onClick={handleLogout}
-            className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </div>
-    </header>
+    <PageHeader
+      title={title}
+      description={subtitle}
+      breadcrumb={root ? undefined : breadcrumb}
+      actions={actions}
+      tabs={root ? TABS : undefined}
+    />
   );
 }

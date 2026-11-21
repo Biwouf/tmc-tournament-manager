@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent, EventSection } from '../types';
 import SectionChoice from '../components/SectionChoice';
 import { inSection, type SectionPick } from '../lib/eventSections';
+import PageHeader from '../components/layout/PageHeader';
 
 interface Participant {
   id: string;
@@ -279,14 +280,13 @@ export default function EventRegistrationsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-semibold tracking-tight">Inscrits — {event?.titre ?? ''}</h1>
-          <Link to="/events" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
-            ← Retour à la liste
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Inscrits"
+        breadcrumb={[
+          { label: 'Événements', to: '/events' },
+          { label: event?.titre || 'Événement', to: `/events/${id}/edit` },
+        ]}
+      />
 
       <main className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
         {event && (

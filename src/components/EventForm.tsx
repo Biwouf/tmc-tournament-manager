@@ -11,6 +11,7 @@ import {
   extractStoragePath,
   sanitizeFilename,
 } from '../lib/storage';
+import PageHeader from './layout/PageHeader';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
@@ -339,7 +340,6 @@ export default function EventForm() {
     }
   };
 
-  const handleLogout = () => supabase.auth.signOut();
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Chargement...</div>;
@@ -349,24 +349,10 @@ export default function EventForm() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              {isEdit ? "Modifier l'événement" : 'Nouvel événement'}
-            </h1>
-            <Link to="/events" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
-              ← Retour à la liste
-            </Link>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={isEdit ? "Modifier l'événement" : 'Nouvel événement'}
+        breadcrumb={[{ label: 'Événements', to: '/events' }]}
+      />
 
       <main className="container mx-auto max-w-3xl px-4 py-8">
         <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border bg-card/90 p-6 shadow-sm">

@@ -265,11 +265,11 @@ test("Cours client: existing registrations lock date and duration, but not quota
     assert.ok(!numbers[2].disabled);
     assert.match(document.body.textContent, /Europe\/Paris/);
     assert.doesNotMatch(document.body.textContent, /Entraîneur/);
+    // PR-BO1 : la sous-page renvoie à la section Cours par le fil d'Ariane du `PageHeader`
+    // (l'entrée active de la barre latérale vit dans `AdminLayout`, non monté ici).
     assert.equal(
       document
-        .querySelector(
-          'nav[aria-label="Administration du club"] [aria-current="page"]',
-        )
+        .querySelector('nav[aria-label="Fil d’Ariane"] a')
         .getAttribute("href"),
       "/courses",
     );
