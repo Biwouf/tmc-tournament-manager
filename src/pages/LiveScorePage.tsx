@@ -220,15 +220,14 @@ export default function LiveScorePage() {
   return (
     <div className="min-h-screen">
       <PageHeader
-        title={<span className="inline-flex flex-wrap items-center gap-x-3">
-          Live score
-          {live.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-red-600">
-              <LivePulse />
-              {live.length} en cours
-            </span>
-          )}
-        </span>}
+        title="Live score"
+        // Le compteur vit hors du `<h1>` : dans le titre, un lecteur d'écran lisait « Live score 2 en cours ».
+        description={live.length > 0 ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-red-600">
+            <LivePulse />
+            {live.length} en cours
+          </span>
+        ) : undefined}
         actions={
           <Link
             to="/live-score/new"

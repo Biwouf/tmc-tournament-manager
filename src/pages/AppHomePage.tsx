@@ -15,9 +15,9 @@ const SECTIONS = [
     items: [
       { to: '/actus', label: 'Actus', description: 'Rédiger et publier les actualités du club.', roles: ['admin', 'manager'] },
       { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.', roles: ['admin', 'manager'] },
-      { to: '/live-score', label: 'Live Score', description: 'Suivre et saisir le score des matchs en direct.', roles: ['admin', 'manager', 'member'] },
-      { to: '/team-matches', label: 'Matches par équipe', description: 'Gérer les rencontres interclubs de l’équipe.', roles: ['admin', 'manager'] },
-      { to: '/team-matches/admin', label: 'Saisons & équipes', description: 'Référentiel interclubs : saisons, compétitions, équipes.', roles: ['admin', 'manager'] },
+      { to: '/live-score', label: 'Live score', description: 'Suivre et saisir le score des matchs en direct.', roles: ['admin', 'manager', 'member'] },
+      { to: '/team-matches', label: 'Rencontres', description: 'Gérer les rencontres interclubs des équipes.', roles: ['admin', 'manager'] },
+      { to: '/team-matches/admin', label: 'Saisons et équipes', description: 'Référentiel interclubs : saisons, compétitions, équipes.', roles: ['admin', 'manager'] },
     ],
   },
   {
@@ -25,8 +25,8 @@ const SECTIONS = [
     label: 'Outils',
     hint: 'Générateurs et planning sportif',
     items: [
-      { to: '/medias', label: 'Génération de médias', description: 'Images des tournois (programme, résultats) et des matches par équipe.', roles: ['admin', 'manager'] },
-      { to: '/tmc-planning', label: 'Gestion planning', description: 'Créer et gérer les tournois, planifier les matchs.', roles: ['admin', 'manager'] },
+      { to: '/medias', label: 'Visuels', description: 'Images des tournois (programme, résultats) et des rencontres.', roles: ['admin', 'manager'] },
+      { to: '/tmc-planning', label: 'Tournois TMC', description: 'Créer et gérer les tournois, planifier les matchs.', roles: ['admin', 'manager'] },
     ],
   },
   {
@@ -35,9 +35,9 @@ const SECTIONS = [
     hint: 'Réservé aux administrateurs',
     items: [
       { to: '/courses', label: 'Cours', description: 'Programmer les cours et valider les inscriptions.', roles: ['admin'] },
-      { to: '/admin/members', label: 'Membres', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
-      { to: '/admin/site', label: 'Configuration du site', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
-      { to: '/admin/social', label: 'Comptes sociaux', description: 'Connecter la page Facebook sur laquelle les actus sont publiées.', roles: ['admin'] },
+      { to: '/admin/members', label: 'Adhérents', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
+      { to: '/admin/site', label: 'Site et identité', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
+      { to: '/admin/social', label: 'Réseaux sociaux', description: 'Connecter la page Facebook sur laquelle les actus sont publiées.', roles: ['admin'] },
       { to: '/admin/messages', label: 'Messages', description: 'Les messages reçus depuis le formulaire de contact du site.', roles: ['admin'] },
     ],
   },

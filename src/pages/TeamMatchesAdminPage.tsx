@@ -111,8 +111,6 @@ export default function TeamMatchesAdminPage() {
       <TeamMatchesHeader
         title="Rencontres"
         subtitle="Gérer les saisons, les compétitions et les équipes du club."
-        backTo="/team-matches"
-        backLabel="Matches par équipe"
       />
 
       <main className="container mx-auto max-w-5xl px-4 py-8 space-y-12">

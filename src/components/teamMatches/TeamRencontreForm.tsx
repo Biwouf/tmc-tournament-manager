@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import TeamMatchesHeader from './TeamMatchesHeader';
-import { competitionLabel, etapeLabel } from './teamMatchLabels';
+import { SEASONS_CRUMB, competitionLabel, etapeLabel } from './teamMatchLabels';
 
 /** ISO → valeur pour <input type="datetime-local"> (heure locale, sans secondes). */
 function isoToLocalInput(iso: string): string {
@@ -174,7 +174,7 @@ export default function TeamRencontreForm() {
   if (loadError || !context) {
     return (
       <div className="min-h-screen">
-        <TeamMatchesHeader title="Rencontre" backTo="/team-matches" backLabel="Matches par équipe" />
+        <TeamMatchesHeader title="Rencontre" />
         <main className="container mx-auto px-4 py-12 text-center text-muted-foreground">
           {loadError ?? 'Contexte introuvable.'}
         </main>
@@ -188,8 +188,7 @@ export default function TeamRencontreForm() {
     <div className="min-h-screen">
       <TeamMatchesHeader
         title={isEdit ? 'Modifier la rencontre' : 'Nouvelle rencontre'}
-        backTo={backTo}
-        backLabel="Équipe"
+        parents={[SEASONS_CRUMB, { label: competitionLabel(context.competition), to: backTo }]}
       />
 
       <main className="container mx-auto max-w-2xl px-4 py-8">

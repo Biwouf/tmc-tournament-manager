@@ -239,7 +239,7 @@ export default function TournamentPage({ user }: Props) {
       </footer>
 
       {isDirty && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 shadow-lg backdrop-blur lg:left-[248px]">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 shadow-lg backdrop-blur lg:left-[var(--sidebar-w,0px)]">
           <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <p className="text-sm text-foreground">Modifications non sauvegardées</p>
             <button

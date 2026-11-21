@@ -15,6 +15,7 @@ import TeamCaptainsSection from '../components/teamMatches/TeamCaptainsSection';
 import {
   STADES_FINALE,
   STADE_LABELS,
+  SEASONS_CRUMB,
   competitionLabel,
   stadesFromDepart,
 } from '../components/teamMatches/teamMatchLabels';
@@ -258,7 +259,7 @@ export default function TeamEquipePage() {
   if (notFound || !equipe || !competition || !saison) {
     return (
       <div className="min-h-screen">
-        <TeamMatchesHeader title="Équipe introuvable" backTo="/team-matches" backLabel="Matches par équipe" />
+        <TeamMatchesHeader title="Équipe introuvable" parents={[SEASONS_CRUMB]} />
         <main className="container mx-auto px-4 py-12 text-center text-muted-foreground">
           Cette équipe n'existe pas ou a été supprimée.
         </main>
@@ -270,8 +271,7 @@ export default function TeamEquipePage() {
     <div className="min-h-screen">
       <TeamMatchesHeader
         title={competitionLabel(competition)}
-        backTo="/team-matches"
-        backLabel="Matches par équipe"
+        parents={[SEASONS_CRUMB]}
       />
 
       <main className="container mx-auto max-w-4xl px-4 py-8 space-y-10">
