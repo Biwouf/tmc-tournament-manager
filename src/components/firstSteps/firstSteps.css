@@ -212,3 +212,31 @@
 .fs-video-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .fs-video-progress progress { flex: 1 1 160px; accent-color: var(--brand-fill); }
 @media (max-width: 719px) { .fs-sticky { margin-inline: -20px; padding-inline: 20px; } }
+
+/* W1 — la story vidéo en vedette (maquettes `wow/05a` à `05d`). Le lecteur est dans l'étape sur
+   petit écran, à droite (portail dans `.fs-story-slot`) au-delà de 860 px. */
+.fs-phone:has(.fs-story-slot) { width: 100%; }
+.fs-story-slot { display: flex; justify-content: center; }
+.fs-story-block { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.fs-story { position: relative; height: 340px; aspect-ratio: 9 / 16; border-radius: 22px; overflow: hidden; box-shadow: 0 24px 60px rgba(40, 20, 20, 0.28); }
+.fs-story-slot .fs-story { height: min(560px, calc(100dvh - 240px)); min-height: 400px; }
+.fs-story-canvas { display: block; width: 100%; height: 100%; }
+.fs-story-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; }
+.fs-story-badge { position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(20, 10, 10, 0.62); color: #fff; font-weight: 700; font-size: 12px; }
+.fs-story-live { width: 8px; height: 8px; border-radius: 50%; background: #3ddc84; }
+.fs .fs-story-play { position: absolute; left: 10px; bottom: 14px; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: rgba(20, 10, 10, 0.72); color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+.fs .fs-story-play:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fs-story-play:disabled { opacity: 0.5; cursor: default; }
+.fs-story-time { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.25); }
+.fs-story-time span { display: block; height: 100%; background: #fff; }
+.fs-story-encoding { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: rgba(20, 10, 10, 0.6); color: #fff; text-align: center; font-size: 13px; line-height: 1.4; }
+.fs-story-encoding strong { font-size: 15px; }
+.fs-ring { --p: 0; width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: conic-gradient(#fff calc(var(--p) * 1%), rgba(255, 255, 255, 0.25) 0); }
+.fs-ring span { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #2a2224; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+.fs-story-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.fs-story-chips span { padding: 5px 12px; border-radius: 999px; background: #f0ebe9; font-weight: 600; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.fs-story-parts { margin: 0; max-width: 320px; text-align: center; }
+.fs-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 6px 6px 6px 14px; border: 1px solid var(--edge); border-radius: 12px; font-size: 14px; }
+.fs-link-brand { font-weight: 700 !important; text-decoration: none; }
+.fs-story-actions .fs-btn-p { flex: 1 1 220px; }
+@media (max-width: 719px) { .fs-story-actions .fs-btn { flex: 1 1 100%; } }

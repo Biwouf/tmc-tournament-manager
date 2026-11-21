@@ -459,7 +459,8 @@ bords des glyphes (lignes de base arrondies au pixel par la mise en page de Chro
 
 - **Lecteur** : `<canvas>` à la taille de l'aperçu × `devicePixelRatio`, redessiné à chaque `T`.
 - **Export** (`exportMp4.ts`) : dans un **Web Worker** (`exportWorker.ts`) — OffscreenCanvas 1080 px, polices chargées
-  dans le worker, `VideoEncoder` (WebCodecs) en H.264 (High 5.0 de préférence, 8 Mb/s, 30 i/s, image clé toutes les 2 s)
+  dans le worker, `VideoEncoder` (WebCodecs) en H.264 (High 5.0 de préférence, 8 Mb/s par défaut, 30 i/s, image clé toutes les 2 s ;
+  débit réglable par `ExportJob.bitrate`, 4 Mb/s pour le partage depuis les premiers pas, `SAAS_ONBOARDING.md` §11.4)
   et `mp4-muxer` → `programme-<slug du club>-<date>-<story|carre>.mp4`. Le logo et les partenaires sont décodés **côté
   page** en `ImageBitmap` (un worker ne décode pas le SVG), rastérisés à 512 px de côté au plus, puis clonés vers le worker.
 - **Repli** : si le worker n'a pas OffscreenCanvas 2D, `VideoEncoder` H.264 ou `self.fonts`, la même boucle

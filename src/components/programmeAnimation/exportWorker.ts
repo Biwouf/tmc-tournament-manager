@@ -16,7 +16,7 @@ async function run(job: ExportJob) {
   if (typeof OffscreenCanvas === 'undefined' || !new OffscreenCanvas(1, 1).getContext('2d'))
     return scope.postMessage({ type: 'unsupported', reason: 'OffscreenCanvas 2D absent du worker' });
   if (!scope.fonts) return scope.postMessage({ type: 'unsupported', reason: 'polices indisponibles dans le worker' });
-  if (!(await pickEncoderConfig(job.tl.W, job.tl.H))) return scope.postMessage({ type: 'unsupported', reason: 'VideoEncoder H.264 absent du worker' });
+  if (!(await pickEncoderConfig(job.tl.W, job.tl.H, job.bitrate))) return scope.postMessage({ type: 'unsupported', reason: 'VideoEncoder H.264 absent du worker' });
   try {
     await addAnimationFonts(scope.fonts);
   } catch (e) {

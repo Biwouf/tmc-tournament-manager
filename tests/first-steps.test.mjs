@@ -1,5 +1,5 @@
 // SaaS S5 — premiers pas : affichage, reprise, avancement, publication, image par défaut.
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -26,10 +26,17 @@ const cac = { ...self, id: 'c2', slug: 'cac', name: 'CAC', plan: 'internal', cre
 function reset(config = {}) {
   db = { club_settings: [{ club_id: 'c1', config: { brand: { name: 'TC Alpha', color: '#1d3f8f' }, home: { hero_image: HERO }, ...config } }], actus: [],
     team_saisons: [], team_competitions: [], team_equipes: [], team_etapes: [], team_rencontres: [] };
-  log = []; failUpload = false; refuseConfig = false; clipboard = null; tenup = {}; poster = {};
+  log = []; failUpload = false; refuseConfig = false; clipboard = null; tenup = {}; poster = {}; video = {};
 }
 // S7 : le dessin du fond (canvas) et l'export JPEG (html-to-image) n'existent pas sous jsdom.
 let poster = {};
+// W1 : état de la story simulée (encodeur absent, échec d'encodage).
+let video = {};
+class ExportCancelled extends Error {}
+// Téléchargements (lien `download` cliqué) et horloge d'animation, absents de jsdom.
+dom.window.HTMLAnchorElement.prototype.click = function () { log.push(['download', this.download, this.href.slice(0, 16)]); };
+globalThis.requestAnimationFrame = () => 0;
+globalThis.cancelAnimationFrame = () => {};
 const JPEG = 'data:image/jpeg;base64,' + Buffer.from('jpeg-affiche').toString('base64');
 // Ten'Up simulé (Edge `tenup-sync`) et création d'équipe (`team_equipe_create`).
 let tenup = {};
@@ -112,8 +119,19 @@ function load(relative) {
   function read(file) {
     if (file.endsWith('/lib/supabase.ts')) return { supabase };
     if (file.endsWith('/contexts/ClubContext.tsx')) return { useClub: () => ({ clubId: context.club.id, club: context.club, isSupport: context.isSupport, loading: false }) };
-    // S7b : la story vidéo (polices, encodeur, worker) n'existe pas sous jsdom ; le bouton est testé.
-    if (file.endsWith('/rencontresAnimation/useRencontresVideo.ts')) return { useRencontresVideo: (input) => ({ encoderOk: true, canExport: true, exporting: false, progress: null, exportError: '', cancel() {}, download: async (name) => { log.push(['video', name, input.matches.length]); } }) };
+    // W1 : la story vidéo (polices, encodeur, worker) n'existe pas sous jsdom ; l'aperçu, l'encodage
+    // demandé (timeline, suffixe, débit) et le partage sont testés.
+    if (file.endsWith('/rencontresAnimation/useRencontresVideo.ts')) return { ExportCancelled, useRencontresVideo: (input) => ({
+      texts: { kicker: 'TC ALPHA', title: 'Prochaines rencontres', homeName: 'TC ALPHA' }, palette: { dark: '#111' },
+      assets: { logo: null, logoOnDark: null, partners: [] }, fontsReady: true,
+      encoderOk: video.encoderOk ?? true, canExport: video.encoderOk ?? true, exporting: false, progress: null, cancel() {},
+      run: async (task) => task(),
+      encode: async (tl, suffix, bitrate) => {
+        log.push(['encode', input.matches.length, suffix, bitrate, Math.round(tl.total)]);
+        if (video.fail) throw new Error('encoder');
+        return new Blob(['m'.repeat(2_600_000)], { type: 'video/mp4' });
+      },
+    }) };
     if (file.endsWith('/contexts/ClubRoleContext.tsx')) return { useClubRole: () => ({ role: context.role, isMember: true, isSuperAdmin: false, loading: false }) };
     if (cache.has(file)) return cache.get(file).exports;
     const mod = { exports: {} }; cache.set(file, mod);
@@ -448,7 +466,7 @@ test('one pool link: season, competition, team and encounters created; the phone
   assert.ok(!text().includes('C’est bon pour l’instant'));
   await click('Suivant : vos affiches →');
   assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes']);
-  assert.match(text(), /Annoncez le week-end comme un tournoi/);
+  assert.match(text(), /Votre story du week-end, déjà en route/);
   assert.match(text(), /Étape 2 sur 3/);
   await unmount();
 });
@@ -529,11 +547,11 @@ test('« Passer cette étape » records it as postponed, not done: resume skips 
   await click('Passer cette étape');
   assert.deepEqual(db.club_settings[0].config.onboarding.skipped_steps, ['equipes']);
   assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, []);
-  assert.match(text(), /Annoncez le week-end comme un tournoi/);
+  assert.match(text(), /Votre story du week-end, déjà en route/);
   assert.match(text(), /Ajoutez d’abord une équipe/);
   await unmount();
   unmount = await mount(page());
-  assert.match(text(), /Annoncez le week-end comme un tournoi/, 'reload does not bring the skipped step back');
+  assert.match(text(), /Votre story du week-end, déjà en route/, 'reload does not bring the skipped step back');
   // Revenue par le fil d'Ariane, une équipe ajoutée la termine et retire le report.
   await click('✓Vos équipes');
   await paste(POOL_URL); await click('Lire la poule'); await click('Ajouter l’équipe');
@@ -652,68 +670,191 @@ function withTeam({ upcoming = true } = {}) {
 const settle = async () => { for (let i = 0; i < 6; i++) await flush(); };
 const configUploads = () => log.filter(l => l[0] === 'upload' && l[1] === 'content-images');
 
-test('posters: the club colours background is created once, the real poster is generated and downloaded', async () => {
+const inStep = () => document.querySelector('.fs-step .fs-story canvas');
+const downloads = () => log.filter(l => l[0] === 'download').map(l => l[1]);
+/** Laisse tourner l'aperçu `ms` millisecondes (horloge de `setInterval` simulée). */
+async function watch(ms) { await act(async () => mock.timers.tick(ms)); await flush(); }
+
+test('posters (W1): the story preview plays at once, 3 s of preview complete the step, the MP4 is encoded at 4 Mb/s only on download', async () => {
   atPosters(); withTeam();
+  mock.timers.enable({ apis: ['setInterval'] });
+  try {
+    let unmount = await mount(page());
+    await settle();
+    assert.match(text(), /Étape 2 sur 3 · 1 minute/);
+    assert.match(text(), /Votre story du week-end, déjà en route\./);
+    assert.match(text(), /Aux couleurs du club, avec votre rencontre de \p{L}+\. Elle tourne en boucle, sans son\./u);
+    // Fond « Aux couleurs du club » : un fond normal, rangé comme ceux de la configuration du site.
+    const list = () => db.club_settings[0].config.posters.team_match_backgrounds;
+    assert.equal(list().length, 1);
+    const [bg] = list();
+    assert.equal(bg.name, 'Aux couleurs du club');
+    assert.equal(configUploads().length, 1);
+    const [, , path, type] = configUploads()[0];
+    assert.match(path, /^c1\/config\/\d+-team-match-backgrounds\.0\.image-aux-couleurs-du-club\.png$/, 'same folder as « Configuration du site › Affiches »');
+    assert.equal(type, 'image/png');
+    assert.equal(bg.image, `https://x.supabase.co/storage/v1/object/public/content-images/${path}`);
+    assert.deepEqual(log.find(l => l[0] === 'render')[1], { name: 'TC Alpha', color: '#1d3f8f', logo: null });
+    assert.equal(db.club_settings[0].config.brand.name, 'TC Alpha', 'other config keys kept');
+    // Aperçu animé dans l'étape (petit écran), muet : Pause, pas de contrôle de son ; aucun encodage.
+    assert.ok(inStep(), 'story preview in the step, without a click');
+    assert.equal(inStep().getAttribute('aria-label'), 'Aperçu animé de la story des rencontres, sans son');
+    assert.equal(buttonNamed('❚❚Pause').getAttribute('aria-pressed'), 'false');
+    assert.match(text(), /Story 9:16\d+ sSans son/);
+    assert.ok(!/volume|muet|son activé/i.test(document.querySelector('.fs-story').textContent), 'no sound control without audio');
+    assert.equal(log.filter(l => l[0] === 'encode').length, 0, 'nothing encoded for the preview');
+    await click('❚❚Pause');
+    assert.ok(buttonNamed('▶Lire'), 'Pause / Lire is a real button (keyboard)');
+    // Sélection de PosterPanel, déjà faite : la semaine courante cochée, la suivante sous « Modifier ».
+    assert.match(text(), /1 rencontre · \p{L}+\. \d+ \p{L}+/u);
+    assert.ok(!document.querySelector('.fs-choice'), 'selection folded');
+    await click('Modifier');
+    assert.match(text(), /1 \/ 8 sélectionnées/);
+    assert.match(text(), /Hommes Seniors 1 · vs US BETA 1/);
+    assert.match(text(), /Semaine suivante/);
+    assert.deepEqual([...document.querySelectorAll('.fs-choice input')].map(b => b.checked), [true, false]);
+    assert.equal(buttonNamed('Couleurs du club').getAttribute('aria-pressed'), 'true');
+    assert.ok(!document.body.textContent.includes('Votre propre fond'), 'decision 2: no own background here');
+    // « Voir l'aperçu » (petit écran) : l'affiche réelle, sur le fond créé.
+    assert.ok(document.querySelector('.fs-poster .tmc-poster'), 'poster in the preview');
+    assert.equal(document.querySelector('.fs-poster img').getAttribute('src'), bg.image);
+    await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
+    assert.match(text(), /2 \/ 8 sélectionnées/);
+    assert.match(text(), /avec vos 2 rencontres de \p{L}+ et \p{L}+\./u);
+    assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 2);
+    // 3 s d'aperçu : étape terminée, sans encodage ni affiche.
+    await watch(2750);
+    assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes']);
+    await watch(250);
+    assert.deepEqual(events(), [['video_previewed', {}]]);
+    assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes', 'affiches'], 'done once previewed 3 s');
+    assert.match(text(), /Étape terminée/);
+    await watch(6000);
+    assert.equal(events().length, 1, 'previewed once');
+    // Ordinateur : téléchargement seul. L'MP4 s'encode au clic, à 4 Mb/s, la vidéo entière (< 30 s).
+    assert.match(text(), /La vidéo se prépare dans votre navigateur quand vous la téléchargez : environ \d+ secondes\./);
+    await click('Télécharger la vidéo · MP4');
+    const [[, count, suffix, bitrate, seconds]] = log.filter(l => l[0] === 'encode');
+    assert.deepEqual([count, suffix, bitrate], [2, '', 4_000_000]);
+    const exported = events().find(e => e[0] === 'video_exported')[1];
+    assert.deepEqual(Object.keys(exported).sort(), ['bytes', 'ms', 'seconds']);
+    assert.equal(exported.seconds, seconds);
+    assert.equal(exported.bytes, 2_600_000);
+    assert.ok(Number.isInteger(exported.ms));
+    assert.deepEqual(events().slice(-1), [['video_shared', { method: 'download' }]]);
+    assert.match(downloads()[0], /^story-rencontres-\d{4}-\d{2}-\d{2}\.mp4$/);
+    assert.match(text(), /Votre vidéo est prête\./);
+    assert.match(text(), /Elle est dans vos téléchargements/);
+    // Encore : le fichier déjà encodé, sans second encodage.
+    await click('Télécharger · MP4, 3 Mo');
+    assert.equal(log.filter(l => l[0] === 'encode').length, 1);
+    assert.equal(downloads().length, 2);
+    // L'affiche reste en action secondaire, instantanée.
+    await click('Télécharger l’affiche (image)');
+    assert.match(downloads()[2], /^affiche-rencontres-\d{4}-\d{2}-\d{2}\.jpg$/);
+    assert.equal(log.filter(l => l[0] === 'download')[2][2], JPEG.slice(0, 16));
+    assert.deepEqual(events().slice(-1), [['poster_generated', {}]]);
+    assert.ok(buttonNamed('Télécharger l’affiche (image)').closest('.fs-sticky'), 'actions stay on screen');
+    assert.ok(!buttonNamed('Publier en actu'), 'no actu from the first steps');
+    assert.equal(db.actus.length, 0);
+    // Une nouvelle coche invalide la vidéo encodée.
+    await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
+    assert.ok(buttonNamed('Télécharger la vidéo · MP4'), 'stale video dropped');
+    assert.match(text(), /Votre story du week-end, déjà en route\./);
+    await click('Suivant : première actu →');
+    assert.match(text(), /Annoncez la nouvelle à vos adhérents/, 'the actu comes after the posters');
+    await unmount();
+    // Recharger puis revenir à l'étape : aucun second fond.
+    unmount = await mount(page());
+    await click('✓Vos affiches');
+    await settle();
+    assert.equal(list().length, 1);
+    assert.equal(configUploads().length, 1);
+    assert.equal(log.filter(l => l[0] === 'render').length, 1);
+    assert.match(text(), /Étape terminée/);
+    await unmount();
+  } finally { mock.timers.reset(); }
+});
+
+test('posters (W1): on a phone the video goes to the native share sheet; a lost gesture asks for one more tap, a cancel records nothing', async () => {
+  atPosters(); withTeam();
+  const shared = [];
+  let refuse = null;
+  const phone = { userAgent: 'node', canShare: ({ files }) => files.every(f => f.type === 'video/mp4'),
+    share: async ({ files }) => { if (refuse) { const e = new Error(refuse); e.name = refuse; refuse = null; throw e; } shared.push(files.map(f => [f.name, f.type, f.size])); } };
+  const desktop = globalThis.navigator;
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: phone });
+  dom.window.matchMedia = (q) => ({ matches: q === '(pointer: coarse)', addEventListener() {}, removeEventListener() {} });
+  try {
+    const unmount = await mount(page());
+    await settle();
+    assert.ok(inStep(), 'story in the step on a phone');
+    refuse = 'NotAllowedError';
+    await click('Partager la vidéo');
+    assert.equal(shared.length, 0);
+    assert.deepEqual(events().map(e => e[0]), ['video_exported'], 'not shared yet');
+    assert.match(text(), /Votre vidéo est prête\.Envoyez-la sur Instagram, Facebook ou WhatsApp depuis le menu de partage\./);
+    assert.ok(!document.querySelector('[role="alert"]'), 'no error for a lost gesture');
+    await click('Partager la vidéo');
+    assert.equal(log.filter(l => l[0] === 'encode').length, 1, 'encoded once');
+    assert.equal(shared.length, 1);
+    assert.match(shared[0][0][0], /^story-rencontres-\d{4}-\d{2}-\d{2}\.mp4$/);
+    assert.deepEqual(shared[0][0].slice(1), ['video/mp4', 2_600_000]);
+    assert.deepEqual(events().slice(-1), [['video_shared', { method: 'share' }]]);
+    refuse = 'AbortError';
+    await click('Partager la vidéo');
+    assert.equal(events().length, 2, 'share sheet closed: nothing recorded');
+    refuse = 'TypeError';
+    await click('Partager la vidéo');
+    assert.match(text(), /Le partage n’a pas abouti\. Téléchargez la vidéo à la place\./);
+    assert.deepEqual(events().slice(-1), [['video_export_failed', { reason: 'share' }]]);
+    await click('Télécharger · MP4, 3 Mo');
+    assert.deepEqual(events().slice(-1), [['video_shared', { method: 'download' }]]);
+    assert.equal(downloads().length, 1);
+    await unmount();
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: desktop });
+    delete dom.window.matchMedia;
+  }
+});
+
+test('posters (W1): prefers-reduced-motion shows a still frame with « Lire », and still completes the step after 3 s', async () => {
+  atPosters(); withTeam();
+  dom.window.matchMedia = (q) => ({ matches: q === '(prefers-reduced-motion: reduce)', addEventListener() {}, removeEventListener() {} });
+  mock.timers.enable({ apis: ['setInterval'] });
+  try {
+    const unmount = await mount(page());
+    await settle();
+    assert.equal(buttonNamed('▶Lire').getAttribute('aria-pressed'), 'true', 'paused on the still frame');
+    assert.ok(!buttonNamed('❚❚Pause'));
+    await watch(3000);
+    assert.deepEqual(events(), [['video_previewed', {}]]);
+    await click('▶Lire');
+    assert.ok(buttonNamed('❚❚Pause'), 'plays on demand');
+    await unmount();
+  } finally { mock.timers.reset(); delete dom.window.matchMedia; }
+});
+
+test('posters (W1): without an encoder the preview stays and the button offers the poster; a failed encoding says so', async () => {
+  atPosters(); withTeam(); video.encoderOk = false;
   let unmount = await mount(page());
   await settle();
-  assert.match(text(), /Étape 2 sur 3 · 1 minute/);
-  assert.match(text(), /Annoncez le week-end comme un tournoi/);
-  // Fond « Aux couleurs du club » : un fond normal, rangé comme ceux de la configuration du site.
-  const list = () => db.club_settings[0].config.posters.team_match_backgrounds;
-  assert.equal(list().length, 1);
-  const [bg] = list();
-  assert.equal(bg.name, 'Aux couleurs du club');
-  assert.equal(configUploads().length, 1);
-  const [, , path, type] = configUploads()[0];
-  assert.match(path, /^c1\/config\/\d+-team-match-backgrounds\.0\.image-aux-couleurs-du-club\.png$/, 'same folder as « Configuration du site › Affiches »');
-  assert.equal(type, 'image/png');
-  assert.equal(bg.image, `https://x.supabase.co/storage/v1/object/public/content-images/${path}`);
-  assert.deepEqual(log.find(l => l[0] === 'render')[1], { name: 'TC Alpha', color: '#1d3f8f', logo: null });
-  assert.equal(db.club_settings[0].config.brand.name, 'TC Alpha', 'other config keys kept');
-  // Sélection de PosterPanel : la semaine courante présélectionnée, la suivante proposée.
-  assert.match(text(), /1 \/ 8 sélectionnées/);
-  assert.match(text(), /Hommes Seniors 1 · vs US BETA 1/);
-  assert.match(text(), /Hommes Seniors 1 · vs AS GAMMA 1/);
-  assert.match(text(), /Semaine suivante/);
-  assert.deepEqual([...document.querySelectorAll('.fs-choice input')].map(b => b.checked), [true, false]);
-  assert.equal(buttonNamed('Couleurs du club').getAttribute('aria-pressed'), 'true');
-  assert.ok(!document.body.textContent.includes('Votre propre fond'), 'decision 2: no own background here');
-  // Aperçu : la vraie affiche, sur le fond créé.
-  assert.ok(document.querySelector('.fs-poster .tmc-poster'), 'poster in the preview');
-  assert.equal(document.querySelector('.fs-poster img').getAttribute('src'), bg.image);
-  assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 1);
-  await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
-  assert.match(text(), /2 \/ 8 sélectionnées/);
-  assert.equal(document.querySelectorAll('.fs-poster .va-cell').length, 2);
-  await click('Générer l’affiche');
-  assert.deepEqual(events(), [['poster_generated', {}]], 'onboarding event, no property');
-  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes', 'affiches'], 'done once generated');
-  assert.match(text(), /Étape terminée/);
-  assert.match(text(), /Votre affiche est prête/);
-  const download = [...document.querySelectorAll('a')].find(a => a.textContent === 'Télécharger');
-  assert.equal(download.getAttribute('href'), JPEG);
-  assert.match(download.getAttribute('download'), /^affiche-rencontres-\d{4}-\d{2}-\d{2}\.jpg$/);
-  // S7b : la story vidéo de /medias, à côté, dans la même barre d'actions collée en bas.
-  assert.ok(download.closest('.fs-sticky'), 'download stays on screen');
-  await click('Télécharger la vidéo (story)');
-  assert.deepEqual(log.filter(l => l[0] === 'video').map(l => l.slice(1)).map(([n, c]) => [/^story-rencontres-\d{4}-\d{2}-\d{2}$/.test(n), c]), [[true, 2]]);
-  assert.ok(!buttonNamed('Publier en actu'), 'no actu from the first steps');
-  assert.equal(db.actus.length, 0);
-  // Une nouvelle coche invalide l'affiche générée.
-  await act(async () => document.querySelectorAll('.fs-choice input')[1].click()); await flush();
-  assert.ok(![...document.querySelectorAll('a')].some(a => a.textContent === 'Télécharger'), 'stale poster dropped');
-  await click('Générer l’affiche');
-  await click('Suivant : première actu →');
-  assert.match(text(), /Annoncez la nouvelle à vos adhérents/, 'the actu comes after the posters');
+  assert.ok(inStep(), 'preview kept');
+  assert.match(text(), /Ce navigateur ne sait pas créer la vidéo/);
+  assert.ok(!buttonNamed('Télécharger la vidéo · MP4') && !buttonNamed('Partager la vidéo'));
+  await click('Télécharger l’affiche');
+  assert.match(downloads()[0], /^affiche-rencontres-.*\.jpg$/);
+  assert.deepEqual(events(), [['poster_generated', {}]]);
+  assert.deepEqual(db.club_settings[0].config.onboarding.completed_steps, ['equipes', 'affiches'], 'the poster still completes the step');
   await unmount();
-  // Recharger puis revenir à l'étape : aucun second fond.
+
+  atPosters(); withTeam(); video.fail = true;
   unmount = await mount(page());
-  await click('✓Vos affiches');
   await settle();
-  assert.equal(list().length, 1);
-  assert.equal(configUploads().length, 1);
-  assert.equal(log.filter(l => l[0] === 'render').length, 1);
-  assert.match(text(), /Étape terminée/);
+  await click('Télécharger la vidéo · MP4');
+  assert.match(text(), /La vidéo n’a pas pu être créée\. Réessayez, ou téléchargez l’affiche\./);
+  assert.deepEqual(events(), [['video_export_failed', { reason: 'encode' }]]);
+  assert.ok(buttonNamed('Télécharger la vidéo · MP4'), 'retry');
   await unmount();
 });
 
@@ -764,7 +905,8 @@ test('posters without team or without upcoming encounter: a clear message and «
   let unmount = await mount(page());
   await settle();
   assert.match(text(), /Ajoutez d’abord une équipe/);
-  assert.ok(!buttonNamed('Générer l’affiche'));
+  assert.ok(!buttonNamed('Télécharger l’affiche (image)'));
+  assert.ok(!document.querySelector('.fs-story'), 'no story without an encounter');
   await click('Ajouter une équipe');
   assert.match(text(), /Vos équipes, sans rien ressaisir/, 'link to the teams step');
   await unmount();
@@ -784,20 +926,23 @@ test('posters without team or without upcoming encounter: a clear message and «
   await settle();
   assert.match(text(), /Aucune rencontre à venir pour vos équipes/);
   assert.ok(buttonNamed('Passer cette étape'));
-  assert.ok(!buttonNamed('Générer l’affiche'));
+  assert.ok(!buttonNamed('Télécharger l’affiche (image)'));
+  assert.ok(!document.querySelector('.fs-story'), 'no story without an upcoming encounter');
   await unmount();
 });
 
-test('a failed background shows a retry; the step cannot generate without a background', async () => {
+test('a failed background shows a retry; the poster cannot be generated without a background, the story still plays', async () => {
   atPosters(); withTeam(); poster.failRender = true;
   const unmount = await mount(page());
   await settle();
   assert.match(text(), /Le fond aux couleurs du club n’a pas pu être préparé/);
-  assert.equal(buttonNamed('Générer l’affiche').disabled, true);
+  assert.equal(buttonNamed('Télécharger l’affiche (image)').disabled, true);
+  assert.ok(inStep(), 'the story does not need the background');
+  assert.equal(buttonNamed('Télécharger la vidéo · MP4').disabled, false);
   poster.failRender = false;
   await click('Réessayer');
   await settle();
-  assert.equal(buttonNamed('Générer l’affiche').disabled, false);
+  assert.equal(buttonNamed('Télécharger l’affiche (image)').disabled, false);
   assert.equal(db.club_settings[0].config.posters.team_match_backgrounds.length, 1);
   await unmount();
 });
