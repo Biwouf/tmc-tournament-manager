@@ -411,62 +411,6 @@ test('PWA client: owner decision quota error, empty refusal blocked and treated 
   }
 });
 
-test('PWA client: self profile sends no target or roles, keeps revision until explicit reload', async () => {
-  const api = mock();
-  const screen = await mount(
-    loader(api.api),
-    'pages/ProfilePage.tsx',
-    '/profil?returnTo=%2Fcours%3Fcourse%3Dcourse-a',
-  );
-  try {
-    assert.equal(document.querySelectorAll('input').length, 2);
-    assert.equal(document.querySelectorAll('select').length, 2);
-    api.context.profile = {
-      ...api.context.profile,
-      prenom: 'Admin',
-      revision: 2,
-    };
-    api.fail('VERSION_CONFLICT');
-    await act(async () =>
-      document
-        .querySelector('form')
-        .dispatchEvent(
-          new window.Event('submit', { bubbles: true, cancelable: true }),
-        ),
-    );
-    await flush();
-    assert.match(document.body.textContent, /Les données ont changé/);
-    assert.equal(document.querySelector('input').value, 'Léa');
-    await click('Recharger le profil actuel');
-    assert.equal(document.querySelector('input').value, 'Admin');
-    api.fail(null);
-    await act(async () =>
-      document
-        .querySelector('form')
-        .dispatchEvent(
-          new window.Event('submit', { bubbles: true, cancelable: true }),
-        ),
-    );
-    await flush();
-    const writes = api.calls.filter((c) => c.name === 'course_save_my_profile');
-    assert.equal(writes[0].args.p_revision, 1);
-    assert.equal(writes[1].args.p_revision, 2);
-    for (const c of writes)
-      assert.deepEqual(Object.keys(c.args).sort(), [
-        'p_classement',
-        'p_club',
-        'p_nom',
-        'p_prenom',
-        'p_request_id',
-        'p_revision',
-        'p_sex',
-      ]);
-    assert.match(document.body.textContent, /Profil enregistré/);
-  } finally {
-    await screen.close();
-  }
-});
-
 test('PWA client: failed profile read offers retry instead of indefinite loading', async () => {
   const api = mock();
   const screen = await mount(

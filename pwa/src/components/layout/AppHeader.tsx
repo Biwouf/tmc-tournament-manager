@@ -4,6 +4,8 @@ import { useHeaderActionState, useHeaderSlot } from './HeaderActionContext';
 import { useClub } from '../../contexts/ClubContext';
 import { useClubConfig } from '../../hooks/useClubConfig';
 import { useAuth } from '../../hooks/useAuth';
+import { useCourseContext } from '../../hooks/useCourses';
+import Avatar from '../Avatar';
 import { returnPath } from './headerConfig';
 import { formatClubName } from '../../../../shared/formatClubName';
 import { originLabel, useBackOrigin, useGoBack } from './useGoBack';
@@ -63,24 +65,25 @@ function AccountButton() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  // Même requête que SignupNotice (cache partagé) : pas d'appel en plus.
+  const context = useCourseContext();
   if (loading) return null;
   const here = `${location.pathname}${location.search}`;
   if (!user) {
     return <ActionButton action={{ kind: 'text', label: 'Connexion',
       onClick: () => navigate('/login', { state: { from: here } }) }} />;
   }
+  // Pendant le chargement du profil : initiales tirées des métadonnées de la session.
+  const signup = (user.user_metadata?.club_signup ?? {}) as { prenom?: string; nom?: string };
+  const profile = context.data?.profile;
   return (
     <button
       type="button"
       onClick={() => navigate(`/profil?returnTo=${encodeURIComponent(here)}`)}
-      aria-label="Mon profil"
-      className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary active:opacity-70"
+      aria-label="Mon compte"
+      className="flex h-11 w-11 items-center justify-center rounded-full active:opacity-70"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21a8 8 0 0 1 16 0" />
-      </svg>
+      <Avatar size={32} person={{ id: user.id, prenom: profile?.prenom || signup.prenom || user.email, nom: profile?.nom || signup.nom }} />
     </button>
   );
 }
