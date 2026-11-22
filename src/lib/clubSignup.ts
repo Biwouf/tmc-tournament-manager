@@ -321,6 +321,24 @@ export async function firstFreeSlug(
   return { slug: tries[0], check: { state: 'unavailable', reason: 'taken' } };
 }
 
+/** P2 : « N équipes en championnat » de la carte 02, lu après l'identité (`tenup-lookup`, mode
+ *  `teams`). Jamais bloquant : null dès que le worker est occupé, lent ou en erreur. */
+export type TeamsCount = { teams: number; championships: number | null };
+export async function fetchTeamsCount(fetcher: typeof fetch, endpoint: string, lookupToken: string): Promise<TeamsCount | null> {
+  try {
+    const response = await fetcher(endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lookup_token: lookupToken, teams: true }), signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const body = await response.json() as Record<string, unknown>;
+    const teams = body?.teams, championships = body?.championships;
+    if (!Number.isInteger(teams) || (teams as number) < 1 || (teams as number) > 100) return null;
+    return { teams: teams as number, championships: Number.isInteger(championships) && (championships as number) > 0 ? championships as number : null };
+  } catch { return null; }
+}
+export const teamsLine = ({ teams }: TeamsCount) => `${teams} équipe${teams > 1 ? 's' : ''} en championnat`;
+
 // ── Lien Ten'Up de la branche manuelle, repris à l'étape Équipes ─────────────
 
 /**
@@ -345,8 +363,9 @@ export function rememberedTenupLink(storage: Pick<Storage, 'getItem'>, slug: str
 
 // ── Saisie conservée au rechargement ─────────────────────────────────────────
 
-/** `find` 01 · `already` 01b · `confirm` 02 · `account` 03 · `sent` ; 1-3 : branche manuelle M1-M3. */
-export type SignupStep = 'find' | 'already' | 'confirm' | 'account' | 'sent' | 1 | 2 | 3;
+/** `find` 01 · `already` 01b · `confirm` 02 · `account` 03 · `code` 03 (P2, code à 6 chiffres) ·
+ *  `sent` (repli : « Un lien vous attend ») ; 1-3 : branche manuelle M1-M3. */
+export type SignupStep = 'find' | 'already' | 'confirm' | 'account' | 'code' | 'sent' | 1 | 2 | 3;
 export type SignupMode = 'tenup' | 'manual';
 export type SignupDraft = {
   step: SignupStep;
@@ -369,8 +388,8 @@ export type SignupDraft = {
   palette: string[];
   sample: number | null;
   email: string;
-  /** Adresse et slug du dernier envoi réussi (écran de confirmation, renvoi du lien). */
-  sent: { email: string; slug: string } | null;
+  /** Adresse et slug du dernier envoi réussi (écran du code, renvoi) ; `at` : heure de l'envoi (P2). */
+  sent: { email: string; slug: string; at?: number } | null;
   /** Images en data URL, seulement si elles tiennent dans le stockage de session. */
   logo: string | null;
   photo: string | null;
@@ -386,7 +405,7 @@ export const emptyDraft = (): SignupDraft => ({
   sample: null, email: '', sent: null, logo: null, photo: null,
 });
 
-const STEPS: SignupStep[] = ['find', 'already', 'confirm', 'account', 'sent', 1, 2, 3];
+const STEPS: SignupStep[] = ['find', 'already', 'confirm', 'account', 'code', 'sent', 1, 2, 3];
 const isHex = (value: unknown): value is string => typeof value === 'string' && /^#[0-9a-f]{6}$/.test(value);
 const str = (value: unknown, max: number) => (typeof value === 'string' ? value.slice(0, max) : '');
 const image = (value: unknown) => (typeof value === 'string' && value.startsWith('data:image/') ? value : null);
@@ -403,7 +422,7 @@ export function loadDraft(storage: Pick<Storage, 'getItem'>): SignupDraft {
   // Brouillon d'avant P1 (sans `mode`) : saisie manuelle, et l'étape 4 est devenue `account`.
   const mode: SignupMode = raw.mode === 'tenup' ? 'tenup' : raw.mode === 'manual' || raw.step !== undefined ? 'manual' : 'tenup';
   let step = raw.step === 4 ? 'account' : STEPS.includes(raw.step as SignupStep) ? raw.step as SignupStep : 'find';
-  if (step === 'sent' && !valid) step = 'account';
+  if ((step === 'sent' || step === 'code') && !valid) step = 'account';
   // Sans club lu, ni carte ni jeton : on retrouve le club.
   if (mode === 'tenup' && !tenup && (step === 'confirm' || step === 'account')) step = 'find';
   return {
@@ -417,7 +436,7 @@ export function loadDraft(storage: Pick<Storage, 'getItem'>): SignupDraft {
     palette: Array.isArray(raw.palette) ? raw.palette.filter(isHex).slice(0, 4) : [],
     sample: typeof raw.sample === 'number' && COLOR_SAMPLES[raw.sample] ? raw.sample : null,
     email: str(raw.email, 254),
-    sent: valid ? { email: String(sent.email), slug: String(sent.slug) } : null,
+    sent: valid ? { email: String(sent.email), slug: String(sent.slug), ...(Number.isFinite(sent.at) ? { at: sent.at as number } : {}) } : null,
     logo: image(raw.logo), photo: image(raw.photo),
   };
 }
@@ -437,7 +456,7 @@ export function stepPosition(draft: Pick<SignupDraft, 'step' | 'mode'>): { index
   if (step === 'find') return { index: 1, total };
   if (step === 'confirm') return { index: 2, total: 3 };
   if (typeof step === 'number') return { index: step + 1, total: 5 };
-  if (step === 'account') return { index: total, total };
+  if (step === 'account' || step === 'code') return { index: total, total };
   if (step === 'sent') return { index: total + 1, total };
   return null;
 }

@@ -20,11 +20,14 @@ import DraftFields from './DraftFields';
 // manquants demandés), puis une lecture et une création par poule. Logique : `clubImport.ts`.
 // Onboarding P1 : `tenupClubId` connu → aucun champ, la page des rencontres est lue d'office
 // (`autoRead`, une fois) ; sinon le champ est prérempli du lien saisi au tunnel (`rememberedTenupLink`).
+// Onboarding P2 (`variant="ready"`, écran « Votre app est prête ») : toutes les équipes cochées, une
+// ligne de confirmation (« 8 équipes trouvées dans 3 championnats. Importer mes équipes · Choisir »),
+// puis une barre « Import des équipes · N sur M » ; la liste à cocher reste derrière « Choisir ».
 
 type Phase = 'idle' | 'reading' | 'select' | 'preparing' | 'needs' | 'importing' | 'done';
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
-export default function ClubImport({ club, tenupClubId = null, autoRead = false, onImported, onBusy }: {
+export default function ClubImport({ club, tenupClubId = null, autoRead = false, variant = 'list', onImported, onBusy, onSkip }: {
   club: Club;
   /** Identifiant Ten'Up du club (`clubs.tenup_club_id`) : plus de lien à coller. */
   tenupClubId?: string | null;
@@ -33,7 +36,14 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
   /** Une équipe vient d'être créée : la liste et l'aperçu se relisent. */
   onImported: () => void;
   onBusy: (busy: boolean) => void;
+  /** P2 : `ready` — confirmation d'une ligne et barre de progression (écran « Votre app est prête »). */
+  variant?: 'list' | 'ready';
+  /** P2 : « Passer pour l'instant » après un échec de lecture. */
+  onSkip?: () => void;
 }) {
+  const ready = variant === 'ready';
+  // P2 : « Choisir » déplie la liste à cocher ; sinon, une ligne suffit.
+  const [choosing, setChoosing] = useState(false);
   const known = tenupClubId ? `https://tenup.fft.fr/club/${tenupClubId}/competitions/rencontres` : null;
   const [url, setUrl] = useState(() => {
     if (known) return known;
@@ -90,6 +100,7 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
     .filter((s) => s.teams.length);
   const selectedCount = selection.reduce((n, s) => n + s.teams.length, 0);
   const newChampionships = selection.filter((s) => !s.group.competition).length;
+  const selectedChampionships = selection.length;
 
   const run = async (items: PreparedGroup[]) => {
     if (!saisonId) return;
@@ -138,11 +149,15 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
   const failed = Object.entries(outcomes).filter(([, o]) => o.status === 'failed').map(([key]) => key);
   // En fin d'import, les équipes créées sont dans la liste du haut : ne restent ici que les échecs.
   const importedTeams = groups.flatMap((g) => g.teams).filter((t) => outcomes[t.key] && (phase !== 'done' || outcomes[t.key].status === 'failed'));
+  // P2 : « Import des équipes · N sur M » — une équipe compte dès qu'elle est réglée (créée, déjà là, en échec).
+  const total = Object.keys(outcomes).length;
+  const settled = Object.values(outcomes).filter((o) => o.status !== 'waiting' && o.status !== 'reading').length;
 
   return <>
     {phase === 'idle' && known && (
       <div className="fs-actions">
         <button type="button" className="fs-btn fs-btn-p" onClick={read}>{error ? 'Réessayer' : 'Trouver mes équipes'}</button>
+        {ready && error && onSkip && <button type="button" className="fs-link" onClick={onSkip}>Passer pour l’instant</button>}
       </div>
     )}
 
@@ -168,11 +183,31 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
     {(phase === 'reading' || phase === 'preparing') && (
       <ul className="fs-progress" role="status" aria-live="polite">
         <li className="on"><span aria-hidden="true" className="fs-spin" />
-          <span>{phase === 'reading' ? 'Lecture de la page du club sur TEN’UP — en cours' : `Lecture des championnats — en cours`}</span></li>
+          <span>{phase === 'reading' ? (ready ? 'Recherche de vos équipes sur Ten’Up…' : 'Lecture de la page du club sur TEN’UP — en cours') : `Lecture des championnats — en cours`}</span></li>
       </ul>
     )}
 
-    {phase === 'select' && (
+    {phase === 'select' && ready && groups.length === 0 && (
+      <p role="status" className="fs-notice">Aucune rencontre à venir sur Ten’Up pour l’instant. Vous pourrez ajouter une équipe depuis le lien de sa poule.</p>
+    )}
+
+    {phase === 'select' && ready && groups.length > 0 && !choosing && (
+      <div className="fs-confirm" role="status">
+        <p className="fs-question">
+          {selectedCount
+            ? `${plural(selectedCount, 'équipe')} trouvée${selectedCount > 1 ? 's' : ''} dans ${plural(selectedChampionships, 'championnat')}.`
+            : 'Toutes vos équipes sont déjà là.'}
+        </p>
+        {selectedCount > 0 && (
+          <div className="fs-actions">
+            <button type="button" className="fs-btn fs-btn-p" onClick={start}>Importer mes équipes</button>
+            <button type="button" className="fs-link" onClick={() => setChoosing(true)}>Choisir</button>
+          </div>
+        )}
+      </div>
+    )}
+
+    {phase === 'select' && (!ready || choosing) && (
       groups.length === 0
         ? <p role="status" className="fs-notice">Aucune rencontre à venir sur la page du club. Ajoutez vos équipes avec le lien de leur poule, ci-dessous.</p>
         : <div className="fs-group">
@@ -198,7 +233,7 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
               <button type="button" className="fs-btn fs-btn-p" disabled={!selectedCount} onClick={start}>
                 {selectedCount ? `Importer ${plural(selectedCount, 'équipe')}` : 'Importer'}
               </button>
-              <button type="button" className="fs-link" onClick={() => setPhase('idle')}>Annuler</button>
+              <button type="button" className="fs-link" onClick={() => (ready ? setChoosing(false) : setPhase('idle'))}>Annuler</button>
             </div>
             {selectedCount > 0 && <p className="fs-note">Environ {plural(selectedCount + newChampionships, 'lecture')} TEN’UP, une à deux minutes.</p>}
           </div>
@@ -219,9 +254,18 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
       </div>
     )}
 
+    {(phase === 'importing' || phase === 'done') && ready && total > 0 && (
+      <div className="fs-import">
+        <span id="fs-import-label" className="fs-import-label">Import des équipes · {settled} sur {total}</span>
+        <div className="fs-import-bar" role="progressbar" aria-labelledby="fs-import-label" aria-valuemin={0} aria-valuemax={total} aria-valuenow={settled}>
+          <div style={{ width: `${(settled / total) * 100}%` }} />
+        </div>
+      </div>
+    )}
+
     {(phase === 'importing' || phase === 'done') && (
       <div className="fs-group">
-        {importedTeams.length > 0 && <ul className="fs-progress" role="status" aria-live="polite" aria-label="Import des équipes">
+        {importedTeams.length > 0 && (!ready || phase === 'done') && <ul className="fs-progress" role="status" aria-live="polite" aria-label="Import des équipes">
           {importedTeams.map((team) => {
             const o = outcomes[team.key];
             return (

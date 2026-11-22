@@ -7,11 +7,13 @@ import type { StepProps } from './FirstStepsFlow';
 import { notifyTeamsChanged } from './teamsSignal';
 import ClubImport from './ClubImport';
 import PoolImport from './PoolImport';
+import AppReadyStep from './AppReadyStep';
 
 // SaaS S6 — étape « Vos équipes ». Depuis S6b, le lien des rencontres du club sur Ten'Up importe
 // toutes les équipes d'un coup (`ClubImport`) ; le lien d'une poule reste en repli (`PoolImport`).
 // Onboarding P1 : club inscrit depuis Ten'Up (`clubs.tenup_club_id` connu) → pas de lien à coller,
-// la page des rencontres est lue d'office.
+// la page des rencontres est lue d'office. P2 : ce club voit « Votre app est prête » (`AppReadyStep`) ;
+// sans identifiant (branche manuelle, club d'avant P1), l'étape ci-dessous reste.
 
 type ListedTeam = { id: string; name: string; detail: string };
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
@@ -45,7 +47,8 @@ async function loadTeams(clubId: string): Promise<ListedTeam[]> {
   });
 }
 
-export default function EquipesStep({ club, config, eyebrow, complete, next }: StepProps) {
+export default function EquipesStep(props: StepProps) {
+  const { club, config, eyebrow, complete, next } = props;
   const [teams, setTeams] = useState<ListedTeam[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -90,6 +93,8 @@ export default function EquipesStep({ club, config, eyebrow, complete, next }: S
   };
 
   const hasTeams = Boolean(teams?.length);
+
+  if (tenupClubId) return <AppReadyStep {...props} tenupClubId={tenupClubId} teamCount={teams === null ? null : teams.length} onImported={refresh} />;
 
   return <>
     <span className="fs-eyebrow">{eyebrow}</span>

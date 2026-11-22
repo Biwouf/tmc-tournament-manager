@@ -219,6 +219,20 @@ test('club-signup SQL: activation needs a magic link clicked after creation and 
   } finally { await f.db.close(); }
 });
 
+// Onboarding P2 (brief SAAS_11 §6.1) : la session ouverte dans l'onglet par `verifyOtp({ type: 'email' })`
+// porte `amr = [{ method: 'otp' }]`, sans `magiclink` : l'activation l'accepte telle quelle.
+test('club-signup SQL (P2): a session from the 6-digit code (amr otp only) activates the club', async () => {
+  const f = await fixture();
+  try {
+    await f.account(202, 'code@example.test');
+    const { club_id: clubId } = await f.create({ email: 'code@example.test', slug: 'tc-code' });
+    const created = Math.floor(new Date((await f.club('tc-code')).created_at).getTime() / 1000);
+    const rows = await f.as('authenticated', id(202), 'SELECT club_self_serve_activate() id', [], [{ method: 'otp', timestamp: created + 30 }]);
+    assert.deepEqual(rows, [{ id: clubId }]);
+    assert.equal((await f.club('tc-code')).status, 'active');
+  } finally { await f.db.close(); }
+});
+
 test('club-signup SQL: sliding-window throttle per IP and per email', async () => {
   const f = await fixture();
   try {

@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 import { clubSlugForEmail, emailBrandFromConfig, platformBrand, renderEmail, type EmailBrand } from '../_shared/email-template.ts';
-import { authEmails, clubSignupSlug, headerName, signupSender, signupSubject, type AuthEmailPayload, type ClubSignup } from '../_shared/auth-email.ts';
+import { authEmails, clubSignupSlug, headerName, manualSignupSubject, signupSender, signupSubject, type AuthEmailPayload, type ClubSignup } from '../_shared/auth-email.ts';
 
 const failure = (status: number, message: string) => Response.json({ error: { http_code: status, message } }, { status });
 Deno.serve(async (req: Request) => {
@@ -58,13 +58,14 @@ Deno.serve(async (req: Request) => {
           signup = { name: short, slug: signupSlug, tenup: true };
           brand = { ...emailBrandFromConfig(short, config), eyebrow: 'Votre app de club' };
           sender = signupSender(short);
-          // P2 passera le code : signupSubject(short, token).
-          subject = () => signupSubject(short);
+          // P2 : le code en tête d'objet (« 482 913 : votre code pour garder Moissac TC »).
+          subject = () => signupSubject(short, payload.email_data.token);
         } else if (member) {
           signup = { name: club.name, slug: signupSlug };
           brand = platformBrand;
           sender = platformBrand.name;
-          subject = title => `${platformBrand.name} — ${title}`;
+          // P2 : le code en tête d'objet, jamais le nom libre du club.
+          subject = () => manualSignupSubject(payload.email_data.token);
         }
       }
     }

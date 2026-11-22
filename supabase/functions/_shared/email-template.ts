@@ -87,7 +87,11 @@ export function renderEmail(brand: EmailBrand, content: EmailContent): { html: s
   const action = content.action && httpsUrl(content.action.url) ? content.action : undefined;
   const footer = content.footer ?? 'Ce message vous est adressé automatiquement. Vous pouvez conserver cet email pour référence.';
   const notes = content.notes ?? [];
-  const text = [brand.name, content.title, ...content.paragraphs, content.code, content.codeNote, action ? `${action.label} : ${action.url}` : null, footer, ...notes].filter(Boolean).join('\n\n');
+  // P2 : un code accompagné d'un lien (inscription, connexion) passe en premier, sous le titre ;
+  // le lien reste en secours. Code seul (réauthentification) : après le texte, comme avant.
+  const codeFirst = Boolean(content.code && action);
+  const codeLines = [content.code, content.codeNote];
+  const text = [brand.name, content.title, ...(codeFirst ? codeLines : []), ...content.paragraphs, ...(codeFirst ? [] : codeLines), action ? `${action.label} : ${action.url}` : null, footer, ...notes].filter(Boolean).join('\n\n');
   // Disque blanc de 64 px : logo (plein cadre s'il est déjà rond, sinon inscrit), ou initiales.
   const disc = 'width:64px;height:64px;border-radius:32px;background-color:#ffffff';
   const altStyle = `font-family:${FONT};font-size:13px;font-weight:bold;line-height:16px;color:${button}`;
@@ -112,8 +116,8 @@ export function renderEmail(brand: EmailBrand, content: EmailContent): { html: s
 <table class="fl-card" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background-color:#ffffff;border-radius:14px;overflow:hidden">
 ${header}
 <tr><td class="fl-ink" style="padding:30px 28px 28px;font-family:${FONT};color:#111827"><h1 class="fl-ink" style="margin:0 0 18px;font-size:25px;line-height:1.3;color:#111827">${e(content.title)}</h1>
-${content.paragraphs.map(p => `<p class="fl-ink2" style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#1f2937;white-space:pre-line">${e(p).replace(/\n/g, '<br>')}</p>`).join('')}
-${code}${button_}
+${codeFirst ? `${code}<div style="height:20px;line-height:20px;font-size:1px">&nbsp;</div>` : ''}${content.paragraphs.map(p => `<p class="fl-ink2" style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#1f2937;white-space:pre-line">${e(p).replace(/\n/g, '<br>')}</p>`).join('')}
+${codeFirst ? '' : code}${button_}
 </td></tr><tr><td class="fl-muted fl-line" style="padding:22px 28px;border-top:1px solid #e5e7eb;font-family:${FONT};font-size:12px;line-height:1.6;color:#6b7280">${e(footer)}${notes.map(n => `<br><br>${e(n)}`).join('')}</td></tr></table>
 <p class="fl-muted" style="font-size:12px;color:#6b7280;margin:20px 0 0;font-family:${FONT}">${e(brand.name)}</p></td></tr></table></body></html>`;
   return { html, text };

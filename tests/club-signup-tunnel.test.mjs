@@ -185,7 +185,7 @@ test('aucune copie de la regex de slug ni de la liste des réservés hors de sha
 });
 
 // ── Onboarding « Ten'Up d'abord », PR P0 : retouches du tunnel, rendu réel sous jsdom ───────
-async function renderTunnel({ draft, rawDraft, mobile = false, turnstileToken = null, respond, available, palette = [], online = true }) {
+async function renderTunnel({ draft, rawDraft, mobile = false, turnstileToken = null, respond, available, palette = [], online = true, teams, verify, otp }) {
   const { JSDOM } = await import('jsdom');
   const ts = (await import('typescript')).default;
   const vm = await import('node:vm');
@@ -204,8 +204,14 @@ async function renderTunnel({ draft, rawDraft, mobile = false, turnstileToken = 
   if (rawDraft) dom.window.sessionStorage.setItem(lib.DRAFT_KEY, rawDraft);
   // Réseau simulé : `tenup-lookup` (JSON) et `club-signup` (multipart). `respond` choisit la réponse.
   const requests = [];
+  // P2 : « N équipes en championnat » (`tenup-lookup`, `{ lookup_token, teams: true }`), à part.
+  const teamsRequests = [];
   globalThis.fetch = async (url, init) => {
     const lookup = String(url).endsWith('/tenup-lookup');
+    if (lookup && JSON.parse(init.body).teams === true) {
+      teamsRequests.push(JSON.parse(init.body));
+      return teams ? teams(JSON.parse(init.body)) : Response.json({ ok: true, teams: null });
+    }
     const entry = lookup ? { url, kind: 'lookup', body: JSON.parse(init.body) } : { url, kind: 'signup', form: init.body };
     requests.push(entry);
     return respond ? respond(entry) : Response.json({ ok: true });
@@ -225,15 +231,22 @@ async function renderTunnel({ draft, rawDraft, mobile = false, turnstileToken = 
     reset(id) { const options = widgets[Number(id.slice(1)) - 1]; if (turnstileToken && options) options.callback(`${turnstileToken}-${++tokens}`); },
     remove() {},
   };
+  // P2 : `verifyOtp` et le renvoi (`signInWithOtp`) simulés ; `window.location.assign` relevé.
+  const auth = { verifies: [], otps: [], assigned: [] };
+  const authApi = {
+    async verifyOtp(args) { auth.verifies.push(args); return verify ? verify(args) : { data: {}, error: null }; },
+    async signInWithOtp(args) { auth.otps.push(args); return otp ? otp(args) : { error: null }; },
+  };
+  globalThis.__assign = (url) => auth.assigned.push(url);
   const env = JSON.stringify({ DEV: true, VITE_SUPABASE_URL: 'https://x.supabase.co' });
   const cache = new Map();
   function read(file) {
     if (cache.has(file)) return cache.get(file).exports;
     const mod = { exports: {} }; cache.set(file, mod);
-    const code = ts.transpileModule(readFileSync(file, 'utf8').replaceAll('import.meta.env', env), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
+    const code = ts.transpileModule(readFileSync(file, 'utf8').replaceAll('import.meta.env', env).replaceAll('window.location.assign(', 'globalThis.__assign('), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
     const require = (name) => {
       if (name.endsWith('.css') || name.startsWith('@fontsource')) return {};
-      if (name.endsWith('/lib/supabase') || name.endsWith('/supabase')) return { supabase: { rpc } };
+      if (name.endsWith('/lib/supabase') || name.endsWith('/supabase')) return { supabase: { rpc, auth: authApi } };
       if (!name.startsWith('.')) return req(name);
       const p = resolve(dirname(file), name);
       const exports = read([p, `${p}.ts`, `${p}.tsx`, `${p}.mjs`].find(existsSync));
@@ -267,7 +280,7 @@ async function renderTunnel({ draft, rawDraft, mobile = false, turnstileToken = 
   /** Laisse passer les vérifications d'adresse (300 ms) et les réponses simulées. */
   const settle = async (ms = 350) => { await act(async () => { await new Promise(r => setTimeout(r, ms)); }); await flush(); await flush(); };
   const saved = () => dom.window.sessionStorage.getItem(lib.DRAFT_KEY);
-  return { dom, container, requests, rpcs, widgets, button, click, type, settle, saved, flush, act, unmount: () => act(async () => rootNode.unmount()) };
+  return { dom, container, requests, teamsRequests, auth, rpcs, widgets, button, click, type, settle, saved, flush, act, unmount: () => act(async () => rootNode.unmount()) };
 }
 
 test('P0 étape 1 : ni champ Sport ni placeholder d’exemple, nom en casse réelle ; club-signup reçoit tennis', async () => {
@@ -298,7 +311,7 @@ test('P0 étape 4 : bouton jamais grisé ; envoi incomplet → message et focus 
   const t = await renderTunnel({ draft: { step: 'account', mode: 'manual', name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau' } });
   try {
     assert.equal(t.widgets[0].appearance, 'interaction-only', 'Turnstile invisible tant qu’aucun défi');
-    const submit = () => t.button('Créer mon club · 30 jours offerts');
+    const submit = () => t.button('Recevoir mon code');
     const message = (field) => t.container.querySelector(`#fl-${field}-error`)?.textContent ?? '';
     assert.equal(submit().disabled, false);
     await t.click(submit());
@@ -606,7 +619,7 @@ test('P1 parcours Ten’Up complet : lien → carte préremplie → e-mail → c
     assert.equal(t.container.querySelector('.fl-lede').textContent, 'Votre e-mail sert à vous reconnecter. Pas de mot de passe, pas de carte bancaire.');
     await t.type('fl-email', 'president@moissac-tc.fr');
     await t.click(t.container.querySelector('#fl-consent'));
-    await t.click(t.button('Créer mon club · 30 jours offerts'));
+    await t.click(t.button('Recevoir mon code'));
     await t.settle(10);
     const signup = t.requests.find(r => r.kind === 'signup');
     assert.ok(signup, 'club-signup appelé');
@@ -616,7 +629,9 @@ test('P1 parcours Ten’Up complet : lien → carte préremplie → e-mail → c
     assert.equal(signup.form.get('logo'), null, 'logo et bandeau copiés par le serveur, rien d’envoyé');
     assert.equal(signup.form.get('photo'), null);
     assert.equal(signup.form.get('tenup_url'), null, 'le lien Ten’Up n’est jamais envoyé');
-    assert.match(text(), /Un lien vous attend/);
+    // P2 : on reste dans l'onglet, le code s'attend.
+    assert.match(text(), /Code envoyé\. Il arrive en moins d’une minute\./);
+    assert.doesNotMatch(text(), /Un lien vous attend/);
   } finally { await t.unmount(); }
 });
 
@@ -735,14 +750,14 @@ test('P1 écran 01 : hors ligne → message, aucune requête ; Ten’Up injoigna
     assert.equal(t.container.querySelector('h1').textContent, 'Gardez TC Nouveau');
     await t.type('fl-email', 'president@club.fr');
     await t.click(t.container.querySelector('#fl-consent'));
-    await t.click(t.button('Créer mon club · 30 jours offerts'));
+    await t.click(t.button('Recevoir mon code'));
     await t.settle(10);
     const signup = t.requests.find(r => r.kind === 'signup');
     assert.equal(signup.form.get('name'), 'TC Nouveau');
     assert.equal(signup.form.get('lookup_token'), null);
     assert.equal(signup.form.get('tenup_url'), null, 'jamais envoyé à club-signup (P1-back ne le traite pas)');
     assert.equal(lib.rememberedTenupLink(t.dom.window.localStorage, 'tc-nouveau'), 'https://tenup.fft.fr/club/60820110/competitions/rencontres');
-    assert.match(t.container.textContent, /Un lien vous attend/);
+    assert.ok(t.container.querySelector('#fl-code'), 'P2 : écran du code');
   } finally { await t.unmount(); }
 });
 
@@ -862,7 +877,7 @@ test('P1 écran 03 : 409 déjà sur feelike → 01b ; 400 lecture expirée → 0
       await t.click(t.button('Oui, c’est mon club'));
       await t.type('fl-email', 'a@b.fr');
       await t.click(t.container.querySelector('#fl-consent'));
-      await t.click(t.button('Créer mon club · 30 jours offerts'));
+      await t.click(t.button('Recevoir mon code'));
       await t.settle(10);
       if (expect === 'already') {
         assert.equal(t.container.querySelector('h1').textContent, 'Moissac Tennis Club a déjà son espace feelike');
@@ -961,7 +976,7 @@ test('W3 mobile : retouché par défaut, ligne avant / après, bascule au clavie
     assert.ok([...t.container.querySelectorAll('.fl-mini img')].some(img => img.getAttribute('src') === MOISSAC.logo_url), 'aperçu de l’app : le logo choisi');
     await t.type('fl-email', 'president@moissac-tc.fr');
     await t.click(t.container.querySelector('#fl-consent'));
-    await t.click(t.button('Créer mon club · 30 jours offerts'));
+    await t.click(t.button('Recevoir mon code'));
     await t.settle(10);
     assert.equal(t.requests.find(r => r.kind === 'signup').form.get('logo_variant'), 'original');
   } finally { await t.unmount(); }
@@ -1000,9 +1015,188 @@ test('W3 ordinateur : panneau « Nous avons retouché votre logo » à la place 
       await u.click(u.button('Oui, c’est mon club'));
       await u.type('fl-email', 'president@moissac-tc.fr');
       await u.click(u.container.querySelector('#fl-consent'));
-      await u.click(u.button('Créer mon club · 30 jours offerts'));
+      await u.click(u.button('Recevoir mon code'));
       await u.settle(10);
       assert.equal(u.requests.find(r => r.kind === 'signup').form.get('logo_variant'), null, 'rien à choisir');
     } finally { await u.unmount(); }
   }
+});
+
+// ── Onboarding « Ten'Up d'abord », PR P2 : code à 6 chiffres dans l'onglet, ligne « équipes » ──
+const code = await import('../src/lib/emailCode.ts');
+
+test('P2 : code — collage nettoyé, faux / expiré (par l’heure de l’envoi), 429, réseau', () => {
+  assert.equal(code.cleanCode('481 902'), '481902');
+  assert.equal(code.cleanCode(' 481-902 7'), '481902', '6 chiffres au plus');
+  assert.equal(code.cleanCode('abc'), '');
+  const sent = 1_000_000;
+  assert.equal(code.codeResult(null, sent, sent + 1), 'ok');
+  // GoTrue répond 403 `otp_expired` pour un code faux comme pour un code expiré.
+  assert.equal(code.codeResult({ status: 403, code: 'otp_expired' }, sent, sent + 60_000), 'wrong');
+  assert.equal(code.codeResult({ status: 403, code: 'otp_expired' }, sent, sent + code.CODE_TTL_MS), 'expired');
+  assert.equal(code.codeResult({ status: 400 }, null, sent), 'wrong', 'heure inconnue : faux');
+  assert.equal(code.codeResult({ status: 429 }, sent, sent), 'throttled');
+  assert.equal(code.codeResult({ status: 0 }, sent, sent), 'failed');
+  assert.equal(code.codeResult({ status: 500 }, sent, sent), 'failed');
+  assert.equal(code.CODE_MESSAGES.wrong, 'Ce code ne correspond pas. Vérifiez-le ou demandez-en un nouveau.');
+  assert.equal(code.CODE_MESSAGES.expired, 'Ce code a expiré. Nous vous en envoyons un nouveau.');
+  assert.equal(code.CODE_MESSAGES.throttled, 'Trop d’essais. Réessayez dans quelques minutes.');
+});
+
+test('P2 : renvoi bloqué 60 s, annoncé toutes les 15 s au plus', () => {
+  const sent = 1_000_000;
+  assert.equal(code.resendWait(null, sent), 0);
+  assert.equal(code.resendWait(sent, sent), 60);
+  assert.equal(code.resendWait(sent, sent + 36_200), 24);
+  assert.equal(code.resendWait(sent, sent + 60_000), 0);
+  const spoken = Array.from({ length: 61 }, (_, i) => code.resendAnnouncement(60 - i)).filter(Boolean);
+  assert.deepEqual(spoken, ['Renvoi du code possible dans 60 secondes.', 'Renvoi du code possible dans 45 secondes.',
+    'Renvoi du code possible dans 30 secondes.', 'Renvoi du code possible dans 15 secondes.', 'Vous pouvez renvoyer le code.']);
+});
+
+test('P2 : brouillon et en-tête — écran du code, heure de l’envoi gardée', () => {
+  const storage = memoryStorage();
+  storage.setItem(lib.DRAFT_KEY, JSON.stringify({ mode: 'manual', step: 'code', sent: { email: 'a@b.fr', slug: 'tc', at: 1234 } }));
+  assert.deepEqual(lib.loadDraft(storage).sent, { email: 'a@b.fr', slug: 'tc', at: 1234 });
+  assert.equal(lib.loadDraft(storage).step, 'code');
+  storage.setItem(lib.DRAFT_KEY, JSON.stringify({ mode: 'manual', step: 'code' }));
+  assert.equal(lib.loadDraft(storage).step, 'account', 'sans envoi, retour à l’e-mail');
+  assert.deepEqual(lib.stepPosition({ step: 'code', mode: 'tenup' }), { index: 3, total: 3 });
+  assert.deepEqual(lib.stepPosition({ step: 'code', mode: 'manual' }), { index: 5, total: 5 });
+});
+
+test('P2 : ligne « N équipes en championnat » — lue sur preuve de lecture, absente au moindre doute', async () => {
+  const calls = [];
+  const fetcher = (answer) => async (url, init) => { calls.push([url, JSON.parse(init.body)]); return answer(); };
+  assert.deepEqual(await lib.fetchTeamsCount(fetcher(() => json(200, { ok: true, teams: 8, championships: 3 })), 'https://x/tenup-lookup', 'jeton'), { teams: 8, championships: 3 });
+  assert.deepEqual(calls[0], ['https://x/tenup-lookup', { lookup_token: 'jeton', teams: true }]);
+  for (const answer of [() => json(200, { ok: true, teams: null }), () => json(200, { teams: 0 }), () => json(429, {}), () => json(200, { teams: '8' }),
+    () => { throw new Error('réseau'); }]) {
+    assert.equal(await lib.fetchTeamsCount(fetcher(answer), 'https://x/tenup-lookup', 'jeton'), null);
+  }
+  assert.equal(lib.teamsLine({ teams: 8, championships: 3 }), '8 équipes en championnat');
+  assert.equal(lib.teamsLine({ teams: 1, championships: 1 }), '1 équipe en championnat');
+});
+
+test('P2 carte 02 : la ligne arrive après la carte quand le worker est libre ; sinon rien', async () => {
+  const t = await renderTunnel({ turnstileToken: 'jeton', respond: network(), palette: LOGO_PALETTE, teams: () => json(200, { ok: true, teams: 8, championships: 3 }) });
+  try {
+    await t.type('fl-tenup-url', LINK);
+    await t.click(t.button('Trouver mon club'));
+    await t.settle();
+    assert.deepEqual(t.teamsRequests, [{ lookup_token: MOISSAC.lookup_token, teams: true }]);
+    assert.equal(t.container.querySelector('.fl-card-facts').textContent, '7 terrains · 8 équipes en championnat');
+  } finally { await t.unmount(); }
+  const u = await renderTunnel({ turnstileToken: 'jeton', respond: network(), palette: LOGO_PALETTE });
+  try {
+    await u.type('fl-tenup-url', LINK);
+    await u.click(u.button('Trouver mon club'));
+    await u.settle();
+    assert.match(u.container.textContent, /C’est bien votre club/);
+    assert.equal(u.container.querySelector('.fl-card-facts').textContent, '7 terrains', 'worker occupé : la ligne n’apparaît pas');
+  } finally { await u.unmount(); }
+});
+
+/** Jusqu'à l'écran du code, en branche Ten'Up. */
+async function toCodeScreen(options = {}) {
+  const t = await renderTunnel({ turnstileToken: 'jeton', respond: network(), palette: LOGO_PALETTE, ...options });
+  await t.type('fl-tenup-url', LINK);
+  await t.click(t.button('Trouver mon club'));
+  await t.settle();
+  await t.click(t.button('Oui, c’est mon club'));
+  await t.type('fl-email', 'President@Moissac-TC.fr');
+  await t.click(t.container.querySelector('#fl-consent'));
+  await t.click(t.button('Recevoir mon code'));
+  await t.settle(10);
+  return t;
+}
+
+test('P2 écran 03 : « Recevoir mon code », puis un seul champ à 6 cases ; le 6ᵉ chiffre collé vérifie et ouvre l’app', async () => {
+  const t = await toCodeScreen();
+  try {
+    const text = () => t.container.textContent;
+    assert.match(text(), /Étape 3 sur 3/);
+    assert.equal(t.container.querySelector('h1').textContent, 'Gardez Moissac TC');
+    assert.equal(t.container.querySelector('.fl-sent-email').textContent, 'president@moissac-tc.fr', 'e-mail en lecture');
+    assert.ok(t.button('Modifier'));
+    assert.equal(t.container.querySelector('[role="status"].fl-code-status').textContent, '✓ Code envoyé. Il arrive en moins d’une minute.');
+    const field = t.container.querySelector('#fl-code');
+    assert.equal(t.container.querySelectorAll('input#fl-code').length, 1, 'un seul champ');
+    assert.deepEqual(['type', 'inputmode', 'autocomplete', 'pattern', 'maxlength'].map(a => field.getAttribute(a)), ['text', 'numeric', 'one-time-code', '[0-9]{6}', '6']);
+    assert.equal(t.container.querySelector('label[for="fl-code"]').textContent, 'Code à 6 chiffres');
+    assert.equal(t.container.querySelectorAll('.fl-otp-box').length, 6);
+    assert.equal(document.activeElement, field, 'focus sur le code à l’arrivée');
+    // Renvoyer : bloqué 60 s, décompte visible et annoncé (une fois par palier de 15 s).
+    const resend = t.button('renvoyer le code');
+    assert.equal(resend.disabled, true);
+    assert.match(t.container.querySelector('#fl-code-help').textContent, /Rien reçu \? Regardez les indésirables, ou renvoyer le code dans 60 s\./);
+    assert.equal(t.container.querySelector('[aria-live="polite"].fl-sr').textContent, 'Renvoi du code possible dans 60 secondes.');
+    assert.equal(t.auth.verifies.length, 0);
+    // Collage « 481 902 » : espaces retirés, envoi automatique au 6ᵉ chiffre.
+    await t.type('fl-code', '481 902', { paste: true });
+    await t.settle(10);
+    assert.deepEqual(t.auth.verifies, [{ email: 'president@moissac-tc.fr', token: '481902', type: 'email' }]);
+    assert.deepEqual(t.auth.assigned, ['/?inscription=moissac-tc'], 'AdminEntry active le club puis ouvre les premiers pas');
+    assert.equal(t.saved(), null, 'brouillon effacé');
+  } finally { await t.unmount(); }
+});
+
+test('P2 écran 03 : code faux, trop d’essais, code expiré (renvoyé d’office) — message, champ vidé, focus', async () => {
+  let answer = { error: { status: 403, code: 'otp_expired' } };
+  const t = await toCodeScreen({ verify: () => ({ data: {}, error: answer.error }) });
+  try {
+    const field = () => t.container.querySelector('#fl-code');
+    await t.type('fl-code', '111111');
+    await t.settle(10);
+    assert.equal(t.container.querySelector('#fl-code-error').textContent, 'Ce code ne correspond pas. Vérifiez-le ou demandez-en un nouveau.');
+    assert.equal(field().value, '', 'champ vidé');
+    assert.equal(field().getAttribute('aria-invalid'), 'true');
+    assert.match(field().getAttribute('aria-describedby'), /fl-code-error/);
+    assert.equal(document.activeElement, field());
+    assert.deepEqual(t.auth.assigned, []);
+    // Envoi incomplet par le bouton de repli : rien ne part.
+    await t.type('fl-code', '12');
+    await t.click(t.button('Créer mon club · 30 jours offerts'));
+    assert.equal(t.container.querySelector('#fl-code-error').textContent, 'Saisissez les 6 chiffres du code.');
+    assert.equal(t.auth.verifies.length, 1);
+    answer = { error: { status: 429, code: 'over_request_rate_limit' } };
+    await t.type('fl-code', '222222');
+    await t.settle(10);
+    assert.equal(t.container.querySelector('#fl-code-error').textContent, 'Trop d’essais. Réessayez dans quelques minutes.');
+    assert.equal(t.auth.otps.length, 0, 'aucun renvoi');
+  } finally { await t.unmount(); }
+
+  // Code expiré : envoyé il y a plus de 10 minutes ; un nouveau part d'office (la limite le permet).
+  const draft = { step: 'code', mode: 'manual', name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau',
+    email: 'a@b.fr', sent: { email: 'a@b.fr', slug: 'tc-nouveau', at: Date.now() - 11 * 60_000 } };
+  const u = await renderTunnel({ draft, verify: () => ({ data: {}, error: { status: 403, code: 'otp_expired' } }) });
+  try {
+    assert.equal(u.button('renvoyer le code').disabled, false, 'plus de 60 s : renvoi possible');
+    await u.type('fl-code', '333333');
+    await u.settle(10);
+    assert.equal(u.container.querySelector('#fl-code-error').textContent, 'Ce code a expiré. Nous vous en envoyons un nouveau.');
+    assert.deepEqual(u.auth.otps, [{ email: 'a@b.fr', options: { shouldCreateUser: false, emailRedirectTo: 'https://admin.feelike.pro/?inscription=tc-nouveau' } }]);
+    assert.equal(u.button('renvoyer le code').disabled, true, 'nouveau décompte');
+    assert.equal(u.requests.length, 0, 'le renvoi ne repasse pas par club-signup');
+  } finally { await u.unmount(); }
+});
+
+test('P2 écran 03 : renvoyer après 60 s ; « Modifier » l’e-mail ; repli « Un lien vous attend »', async () => {
+  const draft = { step: 'code', mode: 'manual', name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau',
+    email: 'a@b.fr', sent: { email: 'a@b.fr', slug: 'tc-nouveau', at: Date.now() - 61_000 } };
+  const t = await renderTunnel({ draft });
+  try {
+    await t.click(t.button('renvoyer le code'));
+    assert.equal(t.auth.otps.length, 1);
+    assert.equal(t.auth.otps[0].options.shouldCreateUser, false);
+    assert.equal(t.container.querySelector('.fl-code-status').textContent, '✓ Nouveau code envoyé. Il arrive en moins d’une minute.');
+    assert.equal(t.button('renvoyer le code').disabled, true);
+    assert.ok(JSON.parse(t.saved()).sent.at > Date.now() - 5_000, 'heure du nouvel envoi gardée');
+    await t.click(t.button('Je n’ai reçu qu’un lien'));
+    assert.match(t.container.textContent, /Un lien vous attend/);
+    await t.click(t.button('Saisir le code reçu'));
+    assert.ok(t.container.querySelector('#fl-code'));
+    await t.click(t.button('Modifier'));
+    assert.equal(t.container.querySelector('#fl-email').value, 'a@b.fr');
+  } finally { await t.unmount(); }
 });

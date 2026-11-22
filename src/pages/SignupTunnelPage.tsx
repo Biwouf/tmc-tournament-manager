@@ -4,14 +4,17 @@ import { supabase } from '../lib/supabase';
 import { signupSlugProblem } from '../../shared/clubSlug.mjs';
 import { formatClubName, shortNameFor } from '../../shared/clubName.mjs';
 import {
-  accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, loadDraft, rememberTenupLink, saveDraft, signupConfig, slugify,
-  slugMessage, stepPosition, submitClubSignup, suggestSlug, tenupLogo,
-  type FieldProblem, type LookupResult, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
+  accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, DRAFT_KEY, loadDraft, rememberTenupLink, saveDraft, signupConfig, slugify,
+  slugMessage, stepPosition, submitClubSignup, suggestSlug, tenupLogo, fetchTeamsCount,
+  type FieldProblem, type TeamsCount, type LookupResult, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
 } from '../lib/clubSignup';
 import { tidyCase } from '../lib/tenupSiteImport';
 import { dataUrlToBlob, paletteFromUrl, prepareSignupImage, SIGNUP_IMAGE_TYPES } from '../lib/signupImage';
 import Turnstile, { type TurnstileHandle } from '../components/signup/Turnstile';
 import { AlreadyStep, ConfirmStep, FindStep, LogoChoicePanel } from '../components/signup/TenupSteps';
+import OtpCodeInput from '../components/OtpCodeInput';
+import { CODE_MESSAGES, resendAnnouncement, resendWait, verifyEmailCode } from '../lib/emailCode';
+import { magicLinkRedirect, requestMagicLink, MAGIC_LINK_MESSAGES } from '../lib/magicLink';
 import { AppPreview, SitePreview } from '../components/signup/SignupPreview';
 import '@fontsource/instrument-sans/latin-400';
 import '@fontsource/instrument-sans/latin-500';
@@ -25,7 +28,9 @@ import '../components/signup/signup.css';
 // SaaS S3 — tunnel public `admin.feelike.pro/inscription` (docs/specs/SAAS_ONBOARDING.md §7, §14).
 // Monté par AdminEntry hors de toute résolution de club et de toute session. P1 « Ten'Up d'abord » :
 // 01 lien Ten'Up → 02 « C'est bien votre club ? » → 03 e-mail ; ou 01 → M1-M3 (saisie manuelle) → 03.
-// Tout est écrit en une fois par `club-signup` à l'écran 03.
+// Tout est écrit en une fois par `club-signup` à l'écran 03. P2 : le code à 6 chiffres reçu par e-mail
+// se saisit dans l'onglet (`verifyOtp`), puis `/?inscription=<slug>` active le club (`AdminEntry`) et
+// ouvre « Votre app est prête ». Le lien de l'e-mail reste valable ; « Un lien vous attend » : repli.
 
 const CONFIG = signupConfig(import.meta.env);
 const ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/club-signup`;
@@ -88,6 +93,14 @@ function Tunnel() {
   const [preview, setPreview] = useState<{ open: boolean; tab: 'site' | 'app' }>({ open: false, tab: 'site' });
   // Écran 01 : message venu de la création (lecture Ten'Up expirée).
   const [findNotice, setFindNotice] = useState('');
+  // P2 : code saisi, son erreur (sous le champ), l'horloge du décompte « renvoyer » et son annonce.
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [now, setNow] = useState(() => Date.now());
+  const [announce, setAnnounce] = useState('');
+  const codeInput = useRef<HTMLInputElement>(null);
+  // P2 : « N équipes en championnat » de la carte 02, pour CE club ; absent tant qu'inconnu.
+  const [teams, setTeams] = useState<{ id: string; count: TeamsCount | null } | null>(null);
   const turnstile = useRef<TurnstileHandle>(null);
   const turnstileBox = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -99,7 +112,8 @@ function Tunnel() {
   // Changement d'étape : le titre reçoit le focus (lecteurs d'écran, clavier).
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
-    heading.current?.focus();
+    // P2 : le code s'attend tout de suite (clavier numérique, suggestion iOS depuis Mail).
+    if (step === 'code') codeInput.current?.focus(); else heading.current?.focus();
     window.scrollTo({ top: 0 });
   }, [step]);
 
@@ -120,6 +134,31 @@ function Tunnel() {
     }, 300);
     return () => { active = false; window.clearTimeout(timer); };
   }, [step, draft.slug]);
+
+  // P2 : décompte du renvoi, une seconde à la fois tant qu'il court ; annonce toutes les 15 s au plus.
+  const sentAt = draft.sent?.at ?? null;
+  const wait = step === 'code' ? resendWait(sentAt, now) : 0;
+  useEffect(() => {
+    if (step !== 'code' || wait === 0) return;
+    const timer = window.setTimeout(() => setNow(Date.now()), 1000);
+    return () => window.clearTimeout(timer);
+  }, [step, wait, now]);
+  useEffect(() => {
+    if (step !== 'code') return;
+    const text = resendAnnouncement(wait);
+    if (text) setAnnounce(text);
+  }, [step, wait]);
+
+  // Carte 02 : après l'identité, la page des rencontres, seulement si le worker est libre. Jamais
+  // bloquant : la carte s'affiche d'abord, la ligne arrive (ou pas) ensuite.
+  const tenupId = step === 'confirm' && draft.mode === 'tenup' ? draft.tenup?.tenup_club_id ?? null : null;
+  const tenupToken = draft.tenup?.lookup_token ?? '';
+  useEffect(() => {
+    if (!tenupId || teams?.id === tenupId) return;
+    setTeams({ id: tenupId, count: null });
+    // Réponse tardive : gardée si c'est toujours ce club (retour sur la carte sans nouvelle lecture).
+    void fetchTeamsCount(fetch, LOOKUP_ENDPOINT, tenupToken).then(count => setTeams(current => current?.id === tenupId ? { id: tenupId, count } : current));
+  }, [tenupId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (patch: Partial<SignupDraft>) => { setError(''); setMissing(null); setAdvance(false); setDraft(current => ({ ...current, ...patch })); };
   const go = (next: SignupStep) => { setError(''); setStatus(''); setMissing(null); setAdvance(false); setFindNotice(''); setDraft(current => ({ ...current, step: next })); };
@@ -253,10 +292,51 @@ function Tunnel() {
           try { rememberTenupLink(window.localStorage, draft.slug, draft.tenupUrl); } catch { /* stockage indisponible */ }
         }
         if (resend) { turnstile.current?.reset(); setStatus(`Lien renvoyé à ${email}.`); }
-        else setDraft(current => ({ ...current, step: 'sent', sent: { email, slug: current.slug } }));
+        else {
+          // P2 : on reste dans l'onglet, le code arrive par e-mail.
+          const at = Date.now();
+          setCode(''); setCodeError(''); setNow(at);
+          setStatus('✓ Code envoyé. Il arrive en moins d’une minute.');
+          setDraft(current => ({ ...current, step: 'code', sent: { email, slug: current.slug, at } }));
+        }
         setToken(null);
       } else applyFailure(outcome, email, resend);
     } finally { setBusy(false); }
+  }
+
+  /** P2 : nouveau code, sans `club-signup` (le club existe déjà) : même e-mail « Gardez votre club ». */
+  async function resendCode(auto = false) {
+    if (!draft.sent || busy || resendWait(sentAt) > 0) return;
+    const sent = draft.sent;
+    setBusy(true);
+    const result = await requestMagicLink(supabase, sent.email, magicLinkRedirect(window.location.origin, sent.slug));
+    setBusy(false);
+    if (result === 'sent') {
+      const at = Date.now();
+      setNow(at);
+      setDraft(current => current.sent ? { ...current, sent: { ...current.sent, at } } : current);
+      setStatus(auto ? '' : '✓ Nouveau code envoyé. Il arrive en moins d’une minute.');
+      if (!auto) setCodeError('');
+    } else setCodeError(MAGIC_LINK_MESSAGES[result]);
+    codeInput.current?.focus();
+  }
+  /** P2 : vérification dans l'onglet ; réussie → `AdminEntry` active le club et ouvre les premiers pas. */
+  async function checkCode(value: string) {
+    if (!draft.sent || busy) return;
+    if (value.length !== 6) { setCodeError('Saisissez les 6 chiffres du code.'); codeInput.current?.focus(); return; }
+    setBusy(true); setCodeError(''); setStatus('');
+    const result = await verifyEmailCode(supabase, draft.sent.email, value, sentAt);
+    if (result === 'ok') {
+      const slug = draft.sent.slug;
+      try { window.sessionStorage.removeItem(DRAFT_KEY); } catch { /* stockage indisponible */ }
+      window.location.assign(`/?inscription=${encodeURIComponent(slug)}`);
+      return;
+    }
+    setBusy(false);
+    setCodeError(CODE_MESSAGES[result]);
+    if (result !== 'failed') setCode('');
+    codeInput.current?.focus();
+    if (result === 'expired' && resendWait(sentAt) === 0) void resendCode(true);
   }
 
   const fromTenup = draft.mode === 'tenup' ? draft.tenup : null;
@@ -284,6 +364,7 @@ function Tunnel() {
   const back = (to: SignupStep, label = 'Retour') => <button type="button" className="fl-ghost" onClick={() => go(to)}>{label}</button>;
 
   const position = stepPosition(draft);
+  const keepTitle = `Gardez ${(draft.mode === 'tenup' && draft.shortName.trim()) || name || 'votre club'}`;
   const logoPanel = !mobile && step === 'confirm' && draft.mode === 'tenup' && draft.tenup !== null && tenupLogo(draft.tenup, draft.logoChoice).retouched;
 
   return (
@@ -314,7 +395,8 @@ function Tunnel() {
 
           {step === 'confirm' && draft.tenup && (
             <ConfirmStep draft={{ ...draft, tenup: draft.tenup }} update={update} title={title} error={alert}
-              slugCheck={slugCheck} setSlugCheck={setSlugCheck} onConfirm={() => go('account')} onNotMine={notMine} mobile={mobile} />
+              slugCheck={slugCheck} setSlugCheck={setSlugCheck} onConfirm={() => go('account')} onNotMine={notMine} mobile={mobile}
+              teams={teams?.id === draft.tenup.tenup_club_id ? teams.count : null} />
           )}
 
           {step === 1 && (
@@ -443,7 +525,7 @@ function Tunnel() {
           {step === 'account' && (
             <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); submitAccount(); }}>
               {kicker('dernière ligne droite')}
-              {title(`Gardez ${(draft.mode === 'tenup' && draft.shortName.trim()) || name || 'votre club'}`)}
+              {title(keepTitle)}
               <p className="fl-lede">Votre e-mail sert à vous reconnecter. Pas de mot de passe, pas de carte bancaire.</p>
               <div className="fl-field">
                 <label htmlFor="fl-email" className="fl-label">Votre e-mail</label>
@@ -466,11 +548,49 @@ function Tunnel() {
               {alert}
               <div className="fl-actions" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                 <button type="submit" className="fl-cta fl-cta-wide" aria-busy={busy}>
-                  {busy ? 'Création en cours…' : 'Créer mon club · 30 jours offerts'}
+                  {busy ? 'Envoi du code…' : 'Recevoir mon code'}
                 </button>
-                <span className="fl-small">Sans carte bancaire. Un lien de connexion vous attend dans votre boîte mail.</span>
+                <span className="fl-small">Sans carte bancaire. Un code à 6 chiffres arrive dans votre boîte mail.</span>
               </div>
               <button type="button" className="fl-link" onClick={() => go(draft.mode === 'tenup' && draft.tenup ? 'confirm' : 3)}>← Retour</button>
+            </form>
+          )}
+
+          {step === 'code' && draft.sent && (
+            <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); void checkCode(code); }}>
+              {kicker('dernière ligne droite')}
+              {title(keepTitle)}
+              <p className="fl-lede">Votre e-mail sert à vous reconnecter. Pas de mot de passe, pas de carte bancaire.</p>
+              <div className="fl-field">
+                <span className="fl-label" id="fl-sent-label">Votre e-mail</span>
+                <div className="fl-sent-row" aria-labelledby="fl-sent-label">
+                  <span className="fl-sent-email">{draft.sent.email}</span>
+                  <button type="button" className="fl-sent-edit" aria-label="Modifier l’e-mail" disabled={busy}
+                    onClick={() => { update({ email: draft.sent!.email }); go('account'); }}>Modifier</button>
+                </div>
+              </div>
+              <p role="status" className="fl-code-status">{status}</p>
+              <div className="fl-field">
+                <label htmlFor="fl-code" className="fl-label">Code à 6 chiffres</label>
+                <OtpCodeInput ref={codeInput} id="fl-code" value={code} disabled={busy} invalid={Boolean(codeError)}
+                  describedBy={['fl-code-help', codeError ? 'fl-code-error' : ''].filter(Boolean).join(' ')}
+                  boxClassName="fl-otp-box" onChange={value => { setCode(value); if (codeError) setCodeError(''); }}
+                  onComplete={value => void checkCode(value)} />
+                {codeError && <p id="fl-code-error" role="alert" className="fl-field-error">{codeError}</p>}
+                <p id="fl-code-help" className="fl-small fl-resend">
+                  Rien reçu ? Regardez les indésirables, ou{' '}
+                  <button type="button" className="fl-resend-btn" disabled={busy || wait > 0} onClick={() => void resendCode()}>renvoyer le code</button>
+                  {wait > 0 && <span aria-hidden="true"> dans {wait}&nbsp;s</span>}.
+                </p>
+                <span className="fl-sr" aria-live="polite">{announce}</span>
+              </div>
+              <div className="fl-actions" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                <button type="submit" className="fl-cta fl-cta-wide" aria-busy={busy}>
+                  {busy ? 'Vérification…' : 'Créer mon club · 30 jours offerts'}
+                </button>
+                <span className="fl-small">Le lien de l’e-mail marche aussi, même sur un autre appareil.</span>
+              </div>
+              <button type="button" className="fl-link" onClick={() => go('sent')}>Je n’ai reçu qu’un lien</button>
             </form>
           )}
 
@@ -491,6 +611,7 @@ function Tunnel() {
                 </button>
                 <button type="button" className="fl-ghost" onClick={() => { update({ email: draft.sent!.email }); go('account'); }}>Changer d’adresse</button>
               </div>
+              <button type="button" className="fl-link" onClick={() => go('code')}>Saisir le code reçu</button>
             </div>
           )}
         </section>

@@ -240,3 +240,45 @@
 .fs-link-brand { font-weight: 700 !important; text-decoration: none; }
 .fs-story-actions .fs-btn-p { flex: 1 1 220px; }
 @media (max-width: 719px) { .fs-story-actions .fs-btn { flex: 1 1 100%; } }
+
+/* Onboarding P2 — « Votre app est prête » (brief SAAS_11 §3.5, maquette 04) */
+.fs-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.fs-glance { display: none; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: #fff; }
+.fs-glance-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--brand-fill); color: var(--brand-foreground); }
+.fs-glance-logo { width: 40px; height: 40px; border-radius: 50%; background: #fff; color: var(--brand-text); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; font-size: 12px; font-weight: 800; }
+.fs-glance-logo img { width: 100%; height: 100%; object-fit: contain; }
+.fs-glance-names { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.fs-glance-name { font-weight: 800; font-size: 16px; overflow-wrap: anywhere; }
+.fs-glance-host { font-size: 12.5px; opacity: 0.9; overflow-wrap: anywhere; }
+.fs-glance-empty { margin: 0; padding: 18px 16px; color: var(--mu); font-size: 14px; font-weight: 600; }
+.fs-glance-day { padding: 10px 16px 4px; }
+.fs-glance-day + .fs-glance-day { border-top: 1px solid var(--line); }
+.fs-glance-date { margin: 0 0 6px; font-size: 12.5px; font-weight: 700; color: var(--mu); }
+.fs-glance ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
+.fs-glance li { display: flex; align-items: center; gap: 12px; animation: fs-in 0.35s ease both; }
+.fs-glance-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: var(--brand-soft); color: var(--brand-text); flex-shrink: 0; }
+.fs-glance-icon.away { background: var(--ink); color: #fff; }
+.fs-glance-body { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.fs-glance-vs { font-weight: 700; font-size: 14.5px; overflow-wrap: anywhere; }
+.fs-glance-detail { color: var(--mu); font-size: 12.5px; }
+@keyframes fs-in { from { opacity: 0; transform: translateY(4px); } }
+.fs-confirm { display: flex; flex-direction: column; gap: 8px; }
+.fs-confirm .fs-actions { align-items: center; }
+.fs-import { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-weight: 700; font-size: 14px; }
+.fs-import-label { white-space: nowrap; }
+.fs-import-bar { flex: 1 1 120px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.fs-import-bar div { height: 100%; background: var(--brand-fill); transition: width 0.4s; }
+.fs-anytime { display: flex; flex-direction: column; gap: 4px; }
+.fs-anytime h3 { margin: 0 0 4px; font-weight: 800; font-size: 16px; }
+.fs-anytime ul { margin: 0; padding: 0; list-style: none; }
+.fs-anytime li + li { border-top: 1px solid var(--line); }
+.fs .fs-anytime-row { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; color: var(--ink); font-weight: 600; font-size: 15px; text-align: left; text-decoration: none; cursor: pointer; }
+.fs .fs-anytime-row:hover span:nth-child(2) { text-decoration: underline; text-underline-offset: 3px; }
+.fs-anytime-row span:nth-child(2) { flex: 1; }
+.fs-anytime-mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--edge); display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+.fs-anytime-mark.ok { background: var(--brand-fill); border-color: var(--brand-fill); color: var(--brand-foreground); }
+.fs-anytime-time { color: var(--mu); font-size: 13px; font-weight: 600; }
+.fs-ready-footer .fs-btn-p { flex: 1 1 100%; }
+@media (prefers-reduced-motion: reduce) { .fs-glance li { animation: none; } .fs-import-bar div { transition: none; } }
+/* Mobile : l'aperçu compact remplace le téléphone repliable (visible sans clic). */
+@media (max-width: 719px) { .fs-glance { display: block; } }

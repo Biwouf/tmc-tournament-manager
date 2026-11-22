@@ -622,19 +622,101 @@ test('club page without upcoming encounter: the pool link stays available', asyn
 });
 
 // --- Onboarding P1 : étape Équipes sans lien quand le club vient de Ten'Up ---
-test('onboarding P1: tenup_club_id known → no link field, the club page is read on arrival', async () => {
-  atTeams(); db.clubs = [{ id: 'c1', tenup_club_id: '60820110' }];
-  tenup.club = { club: 'TC ALPHA', skipped: 0, teams: [{ pool_url: POOL_URL, competition: 'Pyrénées Interclubs', team: 'TC ALPHA 1', level: 'Départemental', category: 'Senior', genre: 'Homme', dates: ['dimanche 22 novembre 2026'] }] };
+// --- Onboarding P2 : « Votre app est prête » (brief SAAS_11 §3.5, maquette 04) ---
+const ALPHA = (name = 'TC ALPHA 1') => ({ pool_url: POOL_URL, competition: 'Pyrénées Interclubs', team: name, level: 'Départemental', category: 'Senior', genre: 'Homme', dates: ['dimanche 22 novembre 2026'] });
+const atReady = (teams = [ALPHA()]) => { atTeams(); db.clubs = [{ id: 'c1', tenup_club_id: '60820110' }]; tenup.nom = 'Pyrénées Interclubs'; tenup.club = { club: 'TC ALPHA', skipped: 0, teams }; };
+
+test('onboarding P2: tenup_club_id known → « Votre app est prête », read without a click, one-line confirmation', async () => {
+  atReady();
   const unmount = await mount(page());
   for (let i = 0; i < 4; i++) await flush();
+  assert.equal(document.querySelector('h2').textContent, 'Votre app est prête');
+  assert.match(text(), /Voici ce que verront vos adhérents, avec vos vraies rencontres\./);
   assert.equal(document.getElementById('fs-club-url'), null, 'no link to paste');
-  assert.match(text(), /Vos équipes arrivent de TEN’UP/);
   assert.deepEqual(log.filter(l => l[0] === 'tenup').map(l => l[1]), ['club'], 'read once, without a click');
-  assert.match(text(), /1 équipe trouvée sur TEN’UP/);
+  // Aperçu compact (visible sans clic sur mobile) : en-tête aux couleurs du club, adresse de l'app.
+  const glance = document.querySelector('.fs-glance');
+  assert.match(glance.textContent, /TC Alphaapp-tc-alpha\.feelike\.pro/);
+  assert.match(glance.textContent, /Vos rencontres arrivent ici/);
+  // Une ligne, tout coché ; « Choisir » ouvre la liste.
+  assert.match(text(), /1 équipe trouvée dans 1 championnat\./);
+  assert.ok(buttonNamed('Importer mes équipes'));
+  assert.equal(document.querySelectorAll('input[type="checkbox"]').length, 0);
+  await click('Choisir');
+  assert.equal(document.querySelectorAll('input[type="checkbox"]').length, 1);
   assert.ok(buttonNamed('Importer 1 équipe'));
   await click('Annuler');
-  assert.ok(buttonNamed('Trouver mes équipes'), 'a read can be started again, still without a link');
-  assert.equal(document.getElementById('fs-club-url'), null);
+  assert.ok(buttonNamed('Importer mes équipes'), 'back to the one-line confirmation');
+  // « Quand vous voulez » : affiche, site, bureau.
+  const rows = [...document.querySelectorAll('.fs-anytime-row')].map(r => r.textContent);
+  assert.deepEqual(rows, ['Affiche du week-end1 min', 'Relire et publier le siteprérempli', 'Inviter le bureau30 s']);
+  assert.deepEqual([...document.querySelectorAll('a.fs-anytime-row')].map(a => a.getAttribute('href')), ['/admin/site', '/admin/members']);
+  assert.ok(buttonNamed('Partager l’app aux adhérents'));
+  assert.ok(buttonNamed('Aller au tableau de bord'));
+  await unmount();
+});
+
+test('onboarding P2: one tap imports, progress « N sur M », encounters appear in the preview; share; dashboard', async () => {
+  atReady([ALPHA(), ALPHA('TC ALPHA 3')]);
+  const unmount = await mount(page());
+  for (let i = 0; i < 4; i++) await flush();
+  assert.match(text(), /2 équipes trouvées dans 1 championnat\./);
+  await click('Importer mes équipes');
+  for (let i = 0; i < 10; i++) await flush();
+  const bar = document.querySelector('[role="progressbar"]');
+  assert.equal(bar.getAttribute('aria-labelledby'), 'fs-import-label');
+  assert.equal(document.getElementById('fs-import-label').textContent, 'Import des équipes · 2 sur 2');
+  assert.deepEqual(['aria-valuemin', 'aria-valuemax', 'aria-valuenow'].map(a => bar.getAttribute(a)), ['0', '2', '2']);
+  assert.deepEqual(events(), [['teams_import_started', {}], ['teams_imported', { count: 1 }]]);
+  // TC ALPHA 3 n'est pas dans la poule simulée : un échec, avec sa reprise.
+  assert.match(text(), /TC ALPHA 3 · Pyrénées InterclubsÉquipe introuvable dans la poule/);
+  const glance = document.querySelector('.fs-glance');
+  assert.match(glance.textContent, /US BETA 1/, 'the imported encounters appear in the compact preview');
+  assert.equal(glance.querySelectorAll('li').length <= 3, true, '3 encounters at most');
+  assert.match(text(), /Une équipe dans votre app\./);
+  // Partager : la fenêtre existante (QR + lien + message), le partage est noté.
+  await click('Partager l’app aux adhérents');
+  for (let i = 0; i < 6; i++) await flush();
+  assert.match(text(), /Message prêt à coller/);
+  assert.ok(db.club_settings[0].config.onboarding.app_shared_at, 'app_shared_at written');
+  assert.ok(events().some(([name]) => name === 'app_shared'));
+  await click('Fermer');
+  // Tableau de bord : l'étape est faite (les équipes sont là), le parcours terminé.
+  await click('Aller au tableau de bord');
+  for (let i = 0; i < 4; i++) await flush();
+  assert.equal(where(), '/');
+  const onboarding = db.club_settings[0].config.onboarding;
+  assert.ok(onboarding.completed_steps.includes('equipes'));
+  assert.ok(onboarding.finished_at);
+  await unmount();
+});
+
+test('onboarding P2: read failure → Réessayer or Passer pour l’instant; no encounter → the pool link', async () => {
+  atReady(); tenup.refuse = 'La page du club Ten’Up est indisponible.';
+  let unmount = await mount(page());
+  for (let i = 0; i < 4; i++) await flush();
+  assert.match(text(), /indisponible/);
+  assert.ok(buttonNamed('Réessayer'));
+  await click('Passer pour l’instant');
+  assert.equal(buttonNamed('Réessayer'), undefined, 'import set aside, the rest of the screen stays');
+  assert.ok(buttonNamed('Aller au tableau de bord'));
+  await unmount();
+
+  atReady([]);
+  unmount = await mount(page());
+  for (let i = 0; i < 4; i++) await flush();
+  assert.match(text(), /Aucune rencontre à venir sur Ten’Up pour l’instant\. Vous pourrez ajouter une équipe depuis le lien de sa poule\./);
+  assert.ok(document.querySelector('details.fs-more'), 'pool link available');
+  await unmount();
+});
+
+test('onboarding P2: « Affiche du week-end » opens the posters step', async () => {
+  atReady();
+  const unmount = await mount(page());
+  for (let i = 0; i < 4; i++) await flush();
+  await act(async () => document.querySelector('button.fs-anytime-row').click());
+  for (let i = 0; i < 4; i++) await flush();
+  assert.match(text(), /Votre story du week-end/);
   await unmount();
 });
 

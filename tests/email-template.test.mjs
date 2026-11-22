@@ -164,3 +164,42 @@ test('W2 : contenu Ten’Up vs manuel, expéditeur et objet', () => {
   assert.equal(signupSubject('Moissac TC', '482913'), '482 913 : votre code pour garder Moissac TC');
   assert.equal(headerName('Moissac\r\nBcc: x@y TC'), 'Moissac Bcc: x@y TC');
 });
+
+// Onboarding P2 (brief SAAS_11 §6.1) : le code à 6 chiffres en premier, en gros ; le lien en secours.
+test('P2 : « Gardez votre club » — code en premier, lien en secours, objet qui commence par le code', async () => {
+  const { manualSignupSubject } = await import('../supabase/functions/_shared/auth-email.ts');
+  const payload = { ...signupPayload, email_data: { ...signupPayload.email_data, token: '481902' } };
+  const [tenup] = authEmails(payload, 'https://project.supabase.co', { name: 'Moissac TC', slug: 'moissac-tc', tenup: true });
+  assert.equal(tenup.content.code, '481902');
+  assert.equal(tenup.content.codeNote, 'Valable 10 minutes. Ne le communiquez à personne : Feelike ne vous le demandera jamais.');
+  assert.equal(tenup.content.preheader, 'Valable 10 minutes. Votre app moissac-tc.feelike.pro est prête.');
+  assert.match(tenup.content.paragraphs[0], /Saisissez ce code dans l’onglet de votre inscription/);
+  assert.equal(tenup.content.action.label, 'Garder mon club', 'le lien reste');
+  const { html, text } = renderEmail({ name: 'Moissac TC', color: '#f26524' }, tenup.content);
+  const at = (needle) => html.indexOf(needle);
+  assert.ok(at('481902') > 0 && at('481902') < at('Saisissez ce code'), 'code avant le texte');
+  assert.ok(at('Saisissez ce code') < at('Garder mon club'), 'bouton en secours, après');
+  assert.match(html, /font-size:34px[^"]*">481902</);
+  assert.ok(text.indexOf('481902') < text.indexOf('Saisissez ce code'), 'texte brut : même ordre');
+  assert.equal(signupSubject('Moissac TC', '481902'), '481 902 : votre code pour garder Moissac TC');
+  assert.equal(manualSignupSubject('481902'), '481 902 : votre code Feelike', 'branche manuelle : jamais le nom libre');
+  assert.equal(manualSignupSubject(), 'Feelike — Gardez votre club');
+  assert.equal(signupSubject('Moissac TC', 'abc'), 'Gardez Moissac TC sur Feelike', 'pas un code : objet sans code');
+  // Réauthentification (code seul) : inchangée, le code après le texte.
+  const [reauth] = authEmails({ user: { email: 'a@b.fr' }, email_data: { email_action_type: 'reauthentication', token: '123456' } }, 'https://project.supabase.co');
+  const plain = renderEmail({ name: 'Feelike' }, reauth.content).html;
+  assert.ok(plain.indexOf('Saisissez ce code dans votre application') < plain.indexOf('>123456<'));
+});
+
+test('P2 : un lien magique ordinaire porte aussi le code (« Recevoir un code »), sans code → inchangé', () => {
+  const withCode = { user: { email: 'a@b.fr' }, email_data: { email_action_type: 'magiclink', token: '654321', token_hash: 'h', redirect_to: 'https://admin.feelike.pro/' } };
+  const [mail] = authEmails(withCode, 'https://project.supabase.co');
+  assert.equal(mail.content.code, '654321');
+  assert.equal(mail.content.paragraphs[0], 'Saisissez ce code pour vous connecter, ou utilisez le bouton ci-dessous.');
+  assert.equal(mail.content.action.label, 'Me connecter');
+  const [plain] = authEmails({ ...withCode, email_data: { ...withCode.email_data, token: undefined } }, 'https://project.supabase.co');
+  assert.equal(plain.content.code, undefined);
+  assert.equal(plain.content.paragraphs[0], 'Utilisez le lien ci-dessous pour vous connecter à votre compte.');
+  const [recovery] = authEmails({ ...withCode, email_data: { ...withCode.email_data, email_action_type: 'recovery' } }, 'https://project.supabase.co');
+  assert.equal(recovery.content.code, undefined, 'seul le lien magique gagne le code');
+});

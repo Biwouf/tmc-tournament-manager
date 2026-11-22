@@ -5,9 +5,9 @@ import { signupSlugProblem } from '../../../shared/clubSlug.mjs';
 import { formatClubName, shortNameFor, shortSlugCandidates } from '../../../shared/clubName.mjs';
 import { logoChangesText } from '../../../shared/tenupLogo.mjs';
 import {
-  cleanSlugInput, clubAddress, clubInitials, COLOR_SAMPLES, findProblem, firstFreeSlug, lookupSource, lookupTenupClub,
+  cleanSlugInput, clubAddress, clubInitials, COLOR_SAMPLES, findProblem, firstFreeSlug, lookupSource, lookupTenupClub, teamsLine,
   MAX_SHORT_NAME, shortNameProblem, slugMessage, suggestSlug, tenupLogo,
-  type LogoChoice, type LookupOutcome, type LookupResult, type SignupDraft, type SlugCheck,
+  type LogoChoice, type LookupOutcome, type LookupResult, type SignupDraft, type SlugCheck, type TeamsCount,
 } from '../../lib/clubSignup';
 import Turnstile, { type TurnstileHandle } from './Turnstile';
 
@@ -149,8 +149,10 @@ export function AlreadyStep({ name, title, onNotMine }: { name: string | null; t
 
 type Missing = { field: 'name' | 'city' | 'short'; message: string } | null;
 
-export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugCheck, onConfirm, onNotMine, mobile = true }: {
+export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugCheck, onConfirm, onNotMine, mobile = true, teams = null }: {
   draft: SignupDraft & { tenup: LookupResult }; update: Update; title: Title; error: ReactNode;
+  /** P2 : « N équipes en championnat », lu après l'identité si le worker est libre ; sinon rien. */
+  teams?: TeamsCount | null;
   slugCheck: SlugCheck; setSlugCheck: (check: SlugCheck) => void;
   onConfirm: () => void; onNotMine: () => void;
   /** W3 : sous 720 px, la ligne « Logo retouché » sous la carte ; au-delà, le panneau de droite. */
@@ -261,7 +263,11 @@ export function ConfirmStep({ draft, update, title, error, slugCheck, setSlugChe
           <h2 id="fl-card-name" className="fl-card-name">{draft.name.trim() || formatClubName(tenup.name)}</h2>
           {address && <p className="fl-card-addr">{address}</p>}
           {tenup.sports.length > 0 && <ul className="fl-card-chips" aria-label="Sports">{tenup.sports.map(sport => <li key={sport}>{sport}</li>)}</ul>}
-          {tenup.courts ? <p className="fl-card-facts">{tenup.courts} terrain{tenup.courts > 1 ? 's' : ''}</p> : null}
+          {(tenup.courts || teams) ? (
+            <p className="fl-card-facts">
+              {[tenup.courts ? `${tenup.courts} terrain${tenup.courts > 1 ? 's' : ''}` : null, teams ? teamsLine(teams) : null].filter(Boolean).join(' · ')}
+            </p>
+          ) : null}
         </div>
         <p className="fl-card-src">{lookupSource(tenup)}</p>
       </section>

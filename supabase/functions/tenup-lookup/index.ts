@@ -16,12 +16,19 @@
 //   8. logo « retouché » (W3, brief §13.4) : le worker le nettoie (`kind: 'logo'`, sharp), délai 4 s,
 //      variantes PNG déposées à côté de l'original ; échec → original seul, jamais d'erreur ;
 //   9. cache écrit, réponse avec un `lookup_token` signé (HMAC, 2 h) que `club-signup` vérifiera.
+//
+// POST { lookup_token, teams: true } (P2, ligne « N équipes en championnat » de la carte 02) : après
+// l'identité, le tunnel demande la page des rencontres du club. Jeton vérifié (il prouve une lecture
+// Turnstile récente), compte du cache (24 h), sinon limite par IP puis worker `kind: 'club'`. Le
+// worker ne lit qu'une page à la fois : occupé, lent ou en erreur → `{ teams: null }` (la ligne
+// n'apparaît pas), jamais d'erreur bloquante.
 // Aucune donnée personnelle (ni téléphone, ni e-mail, ni bureau) n'est gardée ni renvoyée.
 // Rien n'est journalisé de l'IP, du lien ni du contenu lu.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTenupImageUrl, normalizeTenupClubProfileUrl, tenupClubIdOf, validateTenupClubProfile } from '../../../shared/tenupSite.mjs';
 import { LOGO_VARIANTS, validateLogoResult } from '../../../shared/tenupLogo.mjs';
-import { signLookupToken, validLookupSecret } from '../_shared/lookup-token.ts';
+import { validateTenupClub } from '../../../shared/tenupClub.mjs';
+import { signLookupToken, validLookupSecret, verifyLookupToken } from '../_shared/lookup-token.ts';
 import { clientIp } from '../_shared/client-ip.ts';
 
 const headers = {
@@ -38,6 +45,8 @@ const WORKER_TIMEOUT_MS = 10_000;
 /** W3 : nettoyage du logo, ~0,3 s mesuré ; au-delà, la carte garde l'original. */
 const LOGO_TIMEOUT_MS = 4_000;
 const MAX_LOGO_RESPONSE = 4 * 1024 * 1024;
+/** P2 : page des rencontres, ~3 à 6 s mesurés ; au-delà, la carte s'affiche sans la ligne. */
+const TEAMS_TIMEOUT_MS = 12_000;
 const UNAVAILABLE = { error: 'Ten’Up ne répond pas pour le moment.', reason: 'tenup_unavailable' };
 const FAILED = { error: 'Recherche momentanément indisponible.', reason: 'error' };
 
@@ -50,6 +59,8 @@ type Cached = {
   logo_verdict?: 'cleaned' | 'unchanged' | 'monogram';
   logo_clean_path?: string; logo_variants?: Record<string, string>; logo_changes?: LogoChanges;
   logo_palette?: string[]; logo_source?: LogoSource;
+  /** P2 : équipes et championnats de la page des rencontres, lus après l'identité. */
+  teams_count?: number; championships_count?: number; teams_read_at?: string;
 };
 type LogoOutcome = Pick<Cached, 'logo_verdict' | 'logo_clean_path' | 'logo_variants' | 'logo_changes' | 'logo_palette' | 'logo_source'>;
 
@@ -112,6 +123,54 @@ async function pimpLogo(admin: Admin, call: (body: unknown, ms: number) => Promi
   return { ...base, logo_clean_path: paths['clean-1024'], logo_variants: paths, logo_changes: result.changes };
 }
 
+type Worker = { call: (body: unknown, ms: number) => Promise<Response> } | null;
+function workerFrom(env: (key: string) => string | undefined): Worker {
+  const worker = env('TENUP_WORKER_URL');
+  const workerToken = env('TENUP_WORKER_TOKEN');
+  if (!worker || !workerToken) return null;
+  const endpoint = new URL(worker);
+  if (endpoint.pathname === '/') endpoint.pathname = '/extract';
+  const workerHeaders: Record<string, string> = { Authorization: `Bearer ${workerToken}`, 'Content-Type': 'application/json' };
+  const bypass = env('TENUP_WORKER_BYPASS_TOKEN');
+  if (bypass) workerHeaders['x-vercel-protection-bypass'] = bypass;
+  return { call: (body: unknown, ms: number) => fetch(endpoint, {
+    method: 'POST', redirect: 'error', signal: AbortSignal.timeout(ms), headers: workerHeaders, body: JSON.stringify(body),
+  }) };
+}
+
+/** P2 : « N équipes en championnat » (carte 02). Jamais bloquant : `teams: null` dès qu'un doute. */
+async function teamsCount(admin: Admin, req: Request, secret: string, token: unknown): Promise<Response> {
+  const proof = await verifyLookupToken(secret, token);
+  if (!proof) return json(400, { error: 'Lecture expirée.', reason: 'lookup_expired' });
+  const tenupId = proof.tenup_club_id;
+  const none = json(200, { ok: true, teams: null });
+  const { data: row, error } = await admin.from('tenup_lookup_cache').select('payload, images, read_at').eq('tenup_club_id', tenupId).maybeSingle();
+  if (error || !row) return none;
+  const payload = row.payload as Cached;
+  if (Number.isInteger(payload.teams_count) && payload.teams_read_at && Date.now() - new Date(payload.teams_read_at).getTime() < CACHE_MS) {
+    return json(200, { ok: true, teams: payload.teams_count, championships: payload.championships_count ?? null, cached: true });
+  }
+  const { data: allowed, error: throttleError } = await admin.rpc('tenup_lookup_throttle', { p_ip: await sha256(clientIp(req)) });
+  if (throttleError) return none;
+  if (allowed !== true) return json(429, { error: 'Trop de recherches depuis votre connexion.', reason: 'throttled' });
+  const worker = workerFrom((key) => Deno.env.get(key));
+  if (!worker) return none;
+  let page;
+  try {
+    // Occupé (429), lent, Queue-it, réponse hors contrat : la ligne n'apparaît pas.
+    const response = await worker.call({ kind: 'club', url: `https://tenup.fft.fr/club/${tenupId}/competitions/rencontres` }, TEAMS_TIMEOUT_MS);
+    if (!response.ok) return none;
+    const text = await response.text();
+    if (text.length > 500_000) return none;
+    page = validateTenupClub(JSON.parse(text));
+  } catch { return none; }
+  const teams = page.teams.length;
+  const championships = new Set(page.teams.map((team: { competition: string }) => team.competition)).size;
+  await admin.from('tenup_lookup_cache').upsert({ ...row, tenup_club_id: tenupId,
+    payload: { ...payload, teams_count: teams, championships_count: championships, teams_read_at: new Date().toISOString() } });
+  return json(200, { ok: true, teams, championships, cached: false });
+}
+
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -128,8 +187,15 @@ Deno.serve(async (req: Request) => {
 
   const raw = await req.text().catch(() => '');
   if (raw.length > 4096) return json(413, { error: 'Requête trop volumineuse.' });
-  let body: { url?: unknown; turnstile_token?: unknown };
+  let body: { url?: unknown; turnstile_token?: unknown; lookup_token?: unknown; teams?: unknown };
   try { body = JSON.parse(raw); } catch { return json(400, { error: 'Requête invalide.' }); }
+
+  // P2 : nombre d'équipes, sur preuve d'une lecture récente (le jeton remplace Turnstile).
+  if (body?.teams === true) {
+    try {
+      return await teamsCount(createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } }), req, lookupSecret, body.lookup_token);
+    } catch { return json(200, { ok: true, teams: null }); }
+  }
 
   // 1. Lien (aucun appel externe pour un lien refusé).
   let url: string;
@@ -199,17 +265,9 @@ Deno.serve(async (req: Request) => {
 
     // 6. Worker : la page « Le club » seule. Il lit une page à la fois : un import en cours le rend
     // occupé (429), ce qui donne ici `tenup_unavailable` ; le tunnel propose de réessayer.
-    const worker = Deno.env.get('TENUP_WORKER_URL');
-    const workerToken = Deno.env.get('TENUP_WORKER_TOKEN');
-    if (!worker || !workerToken) return json(504, UNAVAILABLE);
-    const endpoint = new URL(worker);
-    if (endpoint.pathname === '/') endpoint.pathname = '/extract';
-    const workerHeaders: Record<string, string> = { Authorization: `Bearer ${workerToken}`, 'Content-Type': 'application/json' };
-    const bypass = Deno.env.get('TENUP_WORKER_BYPASS_TOKEN');
-    if (bypass) workerHeaders['x-vercel-protection-bypass'] = bypass;
-    const callWorker = (body: unknown, ms: number) => fetch(endpoint, {
-      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(ms), headers: workerHeaders, body: JSON.stringify(body),
-    });
+    const worker = workerFrom((key) => Deno.env.get(key));
+    if (!worker) return json(504, UNAVAILABLE);
+    const callWorker = worker.call;
     let profile;
     try {
       const response = await callWorker({ kind: 'club-identity', url }, WORKER_TIMEOUT_MS);

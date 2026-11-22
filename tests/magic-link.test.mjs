@@ -20,7 +20,9 @@ let calls = [], reply = { error: null };
 const supabase = { auth: {
   async signInWithOtp(args) { calls.push(['otp', args]); if (reply instanceof Error) throw reply; return reply; },
   async signInWithPassword(args) { calls.push(['password', args]); return { error: null }; },
+  async verifyOtp(args) { calls.push(['verify', args]); return verifyReply; },
 } };
+let verifyReply = { data: {}, error: null };
 // Chaque chargement réévalue les modules : `initialLinkError` relit l'URL courante.
 function load(relative) {
   const cache = new Map();
@@ -152,6 +154,34 @@ test('onboarding P0: the route guard keeps the query and the asked path until /l
   const app = readFileSync(resolve(base, 'src/App.tsx'), 'utf8');
   assert.match(app, /<Navigate to=\{\{ pathname: '\/login', search \}\} state=\{\{ from: pathname \}\} replace \/>/);
   assert.match(app, /path="\/login" element=\{user \? <Navigate to=\{\{ pathname: loginReturnPath\(state\), search \}\}/);
+});
+
+// Onboarding P2 (brief SAAS_11 §6.3) : la connexion propose aussi « Recevoir un code ».
+test('LoginPage (P2): « Recevoir un code » sends the same e-mail, the code is typed here and opens the session', async () => {
+  at('https://admin.feelike.pro/?inscription=gamma');
+  verifyReply = { data: {}, error: { status: 403, code: 'otp_expired' } };
+  const warn = console.warn; console.warn = () => {};
+  const page = await mountLogin();
+  try {
+    await page.click('Recevoir un code');
+    await page.change('login-email', 'Fondateur@example.com');
+    await page.click('Recevoir un code');
+    assert.deepEqual(calls[0], ['otp', { email: 'Fondateur@example.com', options: { shouldCreateUser: false, emailRedirectTo: 'https://admin.feelike.pro/?inscription=gamma' } }]);
+    assert.match(document.body.textContent, /un code à 6 chiffres arrive/);
+    const field = document.getElementById('login-code');
+    assert.deepEqual(['inputmode', 'autocomplete', 'maxlength'].map(a => field.getAttribute(a)), ['numeric', 'one-time-code', '6']);
+    const renvoi = [...document.querySelectorAll('button')].find(b => /^Renvoyer le code/.test(b.textContent));
+    assert.equal(renvoi.disabled, true, 'blocked 60 s');
+    assert.match(renvoi.textContent, /dans 60 s/);
+    await page.change('login-code', '481 902');
+    assert.deepEqual(calls[1], ['verify', { email: 'fondateur@example.com', token: '481902', type: 'email' }], 'sent on the 6th digit');
+    assert.match(document.body.textContent, /Ce code ne correspond pas/);
+    assert.equal(document.getElementById('login-code').value, '');
+    verifyReply = { data: {}, error: null };
+    await page.change('login-code', '481903');
+    assert.equal(calls[2][0], 'verify');
+    assert.doesNotMatch(document.body.textContent, /ne correspond pas/, 'session opened: the auth guard takes over');
+  } finally { console.warn = warn; verifyReply = { data: {}, error: null }; await page.close(); }
 });
 
 test('every signInWithOtp call sets shouldCreateUser: false', () => {
