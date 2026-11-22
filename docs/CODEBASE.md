@@ -768,7 +768,7 @@ Déploiement, variables et opérations DNS : `landing/README.md`.
 
 ## Déploiements Vercel — builds ciblés
 
-Le dépôt alimente 4 projets Vercel (BO à la racine, `pwa/`, `web/`, `landing/`) ; le plan Hobby plafonne à **100 déploiements par 24 h** (`api-deployments-free-per-day`, atteint le 14/11/2026 avec 4 builds par push). Chaque `vercel.json` déclare un `ignoreCommand` qui appelle `scripts/vercel-ignore-build.sh <chemins>` : le build n'a lieu que si ces chemins ont changé depuis `VERCEL_GIT_PREVIOUS_SHA` (dernier déploiement réussi du projet sur la branche). Sans ce SHA : build en production, comparaison au seul dernier commit en preview.
+Le dépôt alimente 4 projets Vercel (BO à la racine, `pwa/`, `web/`, `landing/`) ; le plan Hobby plafonne à **100 déploiements par 24 h** (`api-deployments-free-per-day`, atteint le 14/11/2026 avec 4 builds par push). Chaque `vercel.json` déclare un `ignoreCommand` qui appelle `scripts/vercel-ignore-build.sh <chemins>` : le build n'a lieu que si ces chemins ont changé depuis `VERCEL_GIT_PREVIOUS_SHA` (dernier déploiement réussi du projet sur la branche). Sans ce SHA : build en production, comparaison au seul dernier commit en preview. Si ce SHA est le commit à construire (« Redeploy » ou « Create deployment » manuel, par exemple après un changement de variable d'environnement), le build a toujours lieu.
 
 | Projet | Reconstruit si changement dans |
 |---|---|
