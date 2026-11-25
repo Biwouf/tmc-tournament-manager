@@ -35,6 +35,25 @@ export function groupClubTeams(club: TenupClub, competitions: TeamCompetition[],
   return [...groups.values()];
 }
 
+export type NewClubGroup = ClubGroup & {
+  /** Clés des équipes peut-être déjà là : à confirmer avant de les ajouter. */
+  doubtful: Set<string>;
+};
+
+/** Les seules nouveautés (bouton « Synchroniser Ten'Up »). Une équipe est douteuse si son championnat
+ *  compte déjà une équipe de même nom dans une autre poule (nouvelle phase), ou une équipe sans lien
+ *  Ten'Up (créée à la main). */
+export function newClubTeams(groups: ClubGroup[], equipes: TeamEquipe[]): NewClubGroup[] {
+  return groups.flatMap((group) => {
+    const teams = group.teams.filter((t) => !t.imported);
+    if (!teams.length) return [];
+    const own = group.competition ? equipes.filter((e) => e.competition_id === group.competition!.id) : [];
+    const byHand = own.some((e) => !e.tenup_source_url);
+    const doubtful = new Set(teams.filter((t) => byHand || own.some((e) => norm(e.tenup_team_name ?? '') === norm(t.team))).map((t) => t.key));
+    return [{ ...group, teams, doubtful }];
+  });
+}
+
 /** L'équipe de la poule qui porte exactement ce nom (casse, accents et espaces ignorés). */
 export function poolTeamId(pool: Pick<TenupPoolPreview, 'teams'>, name: string): string | null {
   const found = pool.teams.filter((t) => norm(t.name) === norm(name));

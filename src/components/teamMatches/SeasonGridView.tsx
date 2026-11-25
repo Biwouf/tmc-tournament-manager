@@ -165,7 +165,7 @@ export default function SeasonGridView({
       <div className="rounded-[13px] border border-dashed border-border bg-card/50 p-12 text-center text-muted-foreground">
         Aucune compétition dans cette saison.{' '}
         <Link to="/team-matches/admin" className="font-semibold text-primary hover:underline">
-          Créez-en une dans le référentiel
+          Ajoutez vos équipes depuis Ten’Up
         </Link>
         .
       </div>

@@ -28,8 +28,8 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
     // Clé service : uniquement pour rendre une lecture en échec, jamais pour écrire.
     if (key === 'SUPABASE_SERVICE_ROLE_KEY') return {
       rpc: async (name, args) => { marks.push([name, args]); return { data: true, error: null }; },
-      // S8b : l'identifiant Ten'Up du club est gardé à la réussite (jamais pour un club `internal`).
-      from: (table) => ({ update: (row) => ({ eq: (k, v) => ({ neq: async (k2, v2) => { stored.push([table, row, k, v, k2, v2]); return { error: idError }; } }) }) }),
+      // S8b : l'identifiant Ten'Up du club est gardé à la réussite, `internal` compris.
+      from: (table) => ({ update: (row) => ({ eq: async (k, v) => { stored.push([table, row, k, v]); return { error: idError }; } }) }),
     };
     return {
       auth: { getUser: async () => ({ data: { user: { id: 'actor' } }, error: null }) },
@@ -46,7 +46,7 @@ test('club edge: SQL check before the billed read, canonical link, validated pay
   assert.deepEqual(rpcs[0], ['team_tenup_club_begin', { p_club: clubId, p_url: canonical }]);
   assert.equal((await res.json()).teams.length, 6);
   assert.equal(marks.length, 0, 'a successful read stays counted');
-  assert.deepEqual(stored, [['clubs', { tenup_club_id: '60820056' }, 'id', clubId, 'plan', 'internal']]);
+  assert.deepEqual(stored, [['clubs', { tenup_club_id: '60820056' }, 'id', clubId]]);
   assert.equal('tenup_id_conflict' in (await handler(request({ kind: 'club', club_id: clubId, url: canonical })).then((r) => r.json())), false);
   // Onboarding Ten'Up d'abord (§5.2) : identifiant déjà rattaché à un autre club (index unique) →
   // l'import continue, l'identifiant n'est pas écrit, la réponse le signale sans erreur.

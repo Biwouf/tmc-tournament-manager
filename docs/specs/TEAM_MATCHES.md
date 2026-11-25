@@ -403,13 +403,13 @@ Tant que `20260820_team_competitions_terminee.sql` n'est pas appliquée, PostgRE
 remplacé par un message nommant la migration à appliquer, plutôt que de laisser remonter
 l'erreur brute.
 
-Actions : Créer, Modifier, Supprimer (si aucune équipe liée).
+Actions : Modifier, Supprimer (si aucune équipe liée). Création par « Synchroniser Ten'Up » seulement
+(« + Compétition » retiré le 25/11/2026).
 
-**Formulaire de compétition** (modale ou inline) :
+**Formulaire de compétition** (modale, modification seulement) :
 
 | Champ | Composant | Notes |
 |---|---|---|
-| Saison | `<select>` | Pré-remplie avec la saison active |
 | Nom | `<input>` | Nom libre obligatoire, 1 à 160 caractères |
 | Lien Ten’Up | `<input type="url">` + bouton | Facultatif ; préremplit le nom et les règles publiques du championnat |
 | Type | Segmented `Adultes / Jeunes` | Conditionne genre et catégorie |
@@ -419,14 +419,37 @@ Actions : Créer, Modifier, Supprimer (si aucune équipe liée).
 | Troisième set des simples | `<select>` | Set classique ou super tie-break, choix obligatoire |
 
 Le préremplissage Ten’Up ne crée aucune donnée : l’administrateur complète le genre et
-la catégorie, vérifie les règles puis valide la création. Le nom et les règles sont
+la catégorie, vérifie les règles puis enregistre. Le nom et les règles sont
 lus sur `/championnat/{id}`, indépendamment des filtres `division`, `phase`, `poule`
 présents dans le lien fourni. Ces filtres sont conservés dans le lien enregistré.
-Les formats non reconnus restent à renseigner. La saisie manuelle reste disponible.
+Les formats non reconnus restent à renseigner.
 Un championnat Ten’Up ne peut être associé qu’une fois par club et par saison.
 
 Mise en service : migration `2026100101_admin_competitions.sql`, puis redéploiement
 du worker, de la fonction `tenup-sync` et du back-office. Les noms existants sont conservés.
+
+### Synchroniser Ten'Up (nouvelles équipes, 25/11/2026)
+
+Bouton principal de l'en-tête, seul moyen d'ajouter compétitions et équipes au référentiel
+(remplace « + Compétition » et « + Équipe »), pour la **saison sélectionnée** (grisé sans saison). `TenupTeamsSync.tsx`, même
+logique que l'import des premiers pas (`clubImport.ts`, `SAAS_ONBOARDING.md` §10.6).
+
+1. Lecture de la page des rencontres du club. `clubs.tenup_club_id` connu → dès le clic ; sinon le
+   lien est demandé une fois, puis retenu par `tenup-sync` (clubs `internal` compris). « Changer de
+   club » le remplace.
+2. Seules les équipes absentes de la saison sont listées, par championnat (« Nouveau championnat »
+   s'il n'existe pas). Aucune → « Aucune nouvelle équipe à ajouter », sur fond vert. Avertissement
+   seulement si une **autre** saison est active (aucune saison active : rien).
+3. **Peut-être déjà ajoutée** (décochée, `newClubTeams`) : le championnat compte déjà une équipe du
+   même nom dans une autre poule, ou une équipe sans lien Ten'Up (créée à la main).
+4. À la validation : fiche lue pour chaque championnat nouveau (champs non déduits demandés), puis
+   poule par poule, lecture et `team_equipe_create`. Échecs réessayables. Rien n'est écrit avant. Fond animé par équipe
+   (`tenup-row-*` de `index.css`, celui de la synchro des résultats).
+
+Ni résultats ni mise à jour des équipes existantes. Les messages d'erreur partagés avec l'onboarding
+perdent leur renvoi vers l'ajout par lien de poule ou à la main, absent ici (`advice`). Limites : Ten'Up ne liste que les équipes ayant
+des rencontres à venir ; 5 lectures de la page par jour et par compte ; un championnat créé à la main
+sans lien Ten'Up n'est pas reconnu et sera proposé comme nouveau.
 
 ### Gestion des équipes
 
@@ -434,21 +457,7 @@ Tableau des équipes de la saison sélectionnée : Équipe n°, Compétition, Di
 actions **Voir** (→ page équipe) et **Supprimer** (avec confirmation ; supprime les rencontres
 en cascade).
 
-**Bouton « + Équipe »** → formulaire de création :
-
-| Champ | Composant | Notes |
-|---|---|---|
-| Compétition | `<select>` | Parmi les compétitions de la saison sélectionnée |
-| Numéro | lecture seule | Incrémenté auto selon les équipes existantes dans la compétition |
-| Division | `<select>` | R1A, R1B, R2…R6 |
-| Journées de poule | `<input type="number" min="1">` | Nombre de journées de la phase qualificative |
-
-À la validation : INSERT dans `team_equipes` puis génération automatique des étapes de poule
-(N lignes dans `team_etapes` avec `phase='poule'` et `numero_journee=1..N`).
-
-> Création et suppression d'équipe vivaient sur l'ancienne page liste `/team-matches`. Elles
-> ont migré ici avec la refonte en vue Grille de saison — sans ce déplacement, il n'y aurait
-> plus aucun moyen de créer ni de supprimer une équipe.
+Pas de création ici : « Synchroniser Ten'Up » (ci-dessus) ; « + Équipe » retiré le 25/11/2026.
 
 ---
 
@@ -936,6 +945,7 @@ src/
     TeamRencontrePage.tsx        # Suivi d'une rencontre
   components/
     teamMatches/
+      TenupTeamsSync.tsx         # Synchroniser Ten'Up : nouvelles équipes / championnats (admin)
       useTeamSaisons.ts          # Saisons du club + saison retenue (partagé avec /medias)
       useTeamSeasonGrid.ts       # Chargement agrégé de la saison + dérivation des cellules
       gridTypes.ts               # CellState, Colonne, Cell, Bilan, largeurs de grille

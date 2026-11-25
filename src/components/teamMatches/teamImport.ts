@@ -1,7 +1,6 @@
 // Import d'une équipe depuis le lien Ten'Up de sa poule : saison, compétition, puis équipe et
 // calendrier par `team_equipe_create`. Sans React, client Supabase injecté : utilisé par l'étape
-// « Vos équipes » des premiers pas (SaaS S6) ; `nextTeamNumber` et `clubTeamCandidates` sont aussi
-// ceux de `CreateEquipeForm`.
+// « Vos équipes » des premiers pas (SaaS S6) et, via `clubImport.ts`, par « Synchroniser Ten'Up ».
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LiveSet3Format, TeamCompetition, TeamEquipe, TeamFormat, TeamGenre, TeamSaison, TeamType } from '../../types';
 import { GENRES_BY_TYPE, inferCategorie, inferGenre, inferType, seasonLabel } from './teamMatchLabels';
