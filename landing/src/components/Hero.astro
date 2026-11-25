@@ -3,6 +3,7 @@ import { Picture } from 'astro:assets';
 import TrackedLink from './TrackedLink.astro';
 import { playerUrl, signupForm, trialCta } from '../config';
 import appCapture from '../assets/hero/app-cac-actus.png';
+import appTabs from '../assets/hero/app-cac-onglets.png';
 import clubLogo from '../assets/hero/logo-cac.png';
 
 const cta = trialCta('Essayer avec mon club', 'hero');
@@ -63,9 +64,22 @@ const players = [
     <div class="hero-stage">
       <div class="hero-phone">
         <div class="hero-phone__screen">
-          <span class="hero-phone__island" aria-hidden="true"></span>
-          <Picture src={appCapture} formats={['avif', 'webp']} widths={[260, 520]} sizes="260px" loading="eager" decoding="async"
-            alt="Capture de l’app du CAC Tennis Club : le fil des actualités du club" />
+          <div class="hero-phone__status" aria-hidden="true">
+            <span>9:41</span>
+            <span class="hero-phone__island"></span>
+            <svg viewBox="0 0 66 13" fill="currentColor">
+              <rect x="0" y="8" width="3" height="5" rx="1"/><rect x="5" y="5.5" width="3" height="7.5" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/>
+              <path d="M30.5 12.6 28 9.9a3.6 3.6 0 0 1 5 0zM26.6 8.4l-1.5-1.6a7.7 7.7 0 0 1 10.8 0l-1.5 1.6a5.5 5.5 0 0 0-7.8 0zM23.7 5.4l-1.5-1.6a12 12 0 0 1 16.6 0l-1.5 1.6a9.8 9.8 0 0 0-13.6 0z"/>
+              <rect x="42.5" y=".5" width="20" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="44" y="2" width="17" height="9" rx="2.2"/><rect x="64" y="4.5" width="1.6" height="4" rx=".8" opacity=".5"/>
+            </svg>
+          </div>
+          <div class="hero-phone__content">
+            <Picture src={appCapture} formats={['avif', 'webp']} widths={[260, 520, 780]} sizes="260px" loading="eager" decoding="async"
+              alt="Capture de l’app du CAC Tennis Club : le fil des actualités du club" />
+          </div>
+          <div class="hero-phone__tabs" aria-hidden="true">
+            <Picture src={appTabs} formats={['avif', 'webp']} widths={[260, 520, 780]} sizes="260px" loading="eager" decoding="async" alt="" />
+          </div>
         </div>
       </div>
       <div class="hero-notif" aria-hidden="true">

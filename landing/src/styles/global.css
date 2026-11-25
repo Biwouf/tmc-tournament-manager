@@ -143,16 +143,24 @@ img { display: block; max-width: 100%; height: auto; }
 
 /* Visuel : vraie capture de l'app du CAC, notification et score de démo par-dessus. */
 .hero-stage { position: relative; height: 600px; }
-.hero-phone { position: absolute; left: 8%; top: 0; width: 280px; height: 580px; padding: 10px; border-radius: 44px; background: #0b0a09; box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08); }
-.hero-phone__screen { position: relative; height: 100%; overflow: hidden; border-radius: 35px; background: #fff; }
+/* Cotes d'un iPhone en points (390 × 844) : barre d'état 59, barre d'onglets 57, zone d'accueil 34. */
+.hero-phone { --pt: calc(260px / 390); position: absolute; left: 8%; top: 0; padding: 10px; border-radius: 46px; background: #0b0a09; box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.hero-phone__screen { width: calc(390 * var(--pt)); height: calc(844 * var(--pt)); display: flex; flex-direction: column; overflow: hidden; border-radius: calc(54 * var(--pt)); background: #fff; color: #000; }
+.hero-phone__status { position: relative; flex: none; height: calc(59 * var(--pt)); display: flex; align-items: center; justify-content: space-between; padding: 0 calc(30 * var(--pt)) 0 calc(46 * var(--pt)); font-size: calc(17 * var(--pt)); font-weight: 600; line-height: 1; }
+.hero-phone__status svg { width: calc(68 * var(--pt)); height: auto; }
+.hero-phone__island { position: absolute; top: calc(11 * var(--pt)); left: 50%; width: calc(124 * var(--pt)); height: calc(37 * var(--pt)); transform: translateX(-50%); border-radius: 999px; background: #000; }
+.hero-phone__content { flex: 1; min-height: 0; overflow: hidden; }
 .hero-phone__screen img { width: 100%; height: auto; }
-.hero-phone__island { position: absolute; z-index: 1; top: 10px; left: 50%; width: 84px; height: 24px; transform: translateX(-50%); border-radius: 14px; background: #000; }
-.hero-notif { position: absolute; right: 0; top: 70px; width: 300px; display: flex; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(243, 241, 235, 0.97); color: var(--fl-night); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45); font-size: 13px; line-height: 1.35; }
+.hero-phone__tabs { position: relative; flex: none; padding-bottom: calc(34 * var(--pt)); background: #fff; }
+.hero-phone__tabs::after { content: ''; position: absolute; left: 50%; bottom: calc(8 * var(--pt)); width: calc(134 * var(--pt)); height: calc(5 * var(--pt)); transform: translateX(-50%); border-radius: 999px; background: #000; }
+.hero-notif { position: absolute; right: 0; top: 128px; width: 300px; display: flex; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(243, 241, 235, 0.97); color: var(--fl-night); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); font-size: 13px; line-height: 1.35; }
 .hero-notif img { width: 34px; height: 34px; flex: none; padding: 4px; border-radius: 8px; background: #fff; border: 1px solid rgba(19, 18, 15, 0.12); }
 .hero-notif b { display: block; font-size: 13.5px; }
 .hero-notif__at { margin-left: auto; font-size: 11px; color: #5d5950; }
-.hero-stage .sb { position: absolute; right: 0; bottom: 48px; width: 340px; }
-.hero-stage__cap { position: absolute; left: 0; bottom: 0; margin: 0; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.hero-stage .sb { position: absolute; right: 0; bottom: 112px; width: 340px; }
+/* Ombres courtes : elles ne doivent pas griser l'écran du téléphone. */
+.hero-stage .sb__board { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); }
+.hero-stage__cap { position: absolute; left: 8%; bottom: 0; margin: 0; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
 
 /* Score de démo (compact) */
 .sb__tag { display: flex; align-items: stretch; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
@@ -439,11 +447,11 @@ button.sb__row:focus-visible { outline: 2px solid var(--accent); outline-offset:
   .tenup { flex-direction: column; }
   .tenup__field { padding: 8px 10px; }
   .hero__player { display: flex; border-radius: 14px; }
-  .hero-stage { height: 520px; }
-  .hero-phone { left: 0; width: 240px; height: 500px; border-radius: 38px; padding: 8px; }
-  .hero-phone__screen { border-radius: 31px; }
-  .hero-notif { top: 40px; width: min(250px, 72%); font-size: 12px; }
-  .hero-stage .sb { bottom: 40px; width: min(320px, 92%); }
+  .hero-stage { height: 580px; }
+  .hero-phone { --pt: calc(240px / 390); left: 0; padding: 8px; border-radius: 41px; }
+  .hero-notif { top: 112px; width: min(250px, 72%); font-size: 12px; }
+  .hero-stage__cap { left: 0; }
+  .hero-stage .sb { bottom: 124px; width: min(320px, 92%); }
   .mbar { display: block; position: fixed; z-index: 14; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: color-mix(in oklab, var(--bg) 92%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); transform: translateY(110%); transition: transform .25s ease; }
   .mbar.is-on { transform: none; }
   .mbar .btn { display: block; width: 100%; padding: 15px 12px; border-radius: 10px; font-family: var(--font-body); font-size: 15.5px; font-weight: 600; text-transform: none; letter-spacing: 0; }
