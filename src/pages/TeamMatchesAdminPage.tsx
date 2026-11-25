@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useClub } from '../contexts/ClubContext';
 import type {
@@ -10,9 +10,9 @@ import type {
   TeamSaison,
   TeamType,
 } from '../types';
-import CreateEquipeForm from '../components/teamMatches/CreateEquipeForm';
 import { addCaptain, loadCaptains, removeCaptain, type RosterMember } from '../lib/teamCaptains';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
+import TenupTeamsSync from '../components/teamMatches/TenupTeamsSync';
 import SectionTitle from '../components/layout/SectionTitle';
 import {
   CATEGORIES_BY_TYPE,
@@ -32,7 +32,6 @@ const FORMATS: TeamFormat[] = ['2S1D', '3S1D', '3S1D2', '4S1D2', '4S2D'];
 
 export default function TeamMatchesAdminPage() {
   const { clubId } = useClub();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [saisons, setSaisons] = useState<TeamSaison[]>([]);
   const [competitions, setCompetitions] = useState<TeamCompetition[]>([]);
   const [equipes, setEquipes] = useState<TeamEquipe[]>([]);
@@ -41,15 +40,6 @@ export default function TeamMatchesAdminPage() {
   const reload = () => setReloadKey((k) => k + 1);
 
   const [selectedSaisonId, setSelectedSaisonId] = useState<string>('');
-
-  // Ouverture directe du formulaire de compétition via ?new=competition
-  // (déclenché depuis le bouton « Créer une compétition » de TeamMatchesPage).
-  const autoOpenCompetition = searchParams.get('new') === 'competition';
-  const clearAutoOpen = () => {
-    if (!autoOpenCompetition) return;
-    searchParams.delete('new');
-    setSearchParams(searchParams, { replace: true });
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +102,9 @@ export default function TeamMatchesAdminPage() {
       <TeamMatchesHeader
         title="Rencontres"
         subtitle="Gérer les saisons, les compétitions et les équipes du club."
+        actions={clubId && (
+          <TenupTeamsSync clubId={clubId} saisons={saisons} saisonId={selectedSaisonId} onImported={reload} />
+        )}
       />
 
       <main className="container mx-auto max-w-5xl px-4 py-8 space-y-12">
@@ -126,8 +119,6 @@ export default function TeamMatchesAdminPage() {
               onSelectSaison={setSelectedSaisonId}
               competitions={competitionsOfSaison}
               onChange={reload}
-              autoOpen={autoOpenCompetition && saisons.length > 0}
-              onAutoOpened={clearAutoOpen}
             />
             <EquipesSection
               competitions={competitionsOfSaison}
@@ -330,19 +321,14 @@ function CompetitionsSection({
   onSelectSaison,
   competitions,
   onChange,
-  autoOpen = false,
-  onAutoOpened,
 }: {
   saisons: TeamSaison[];
   selectedSaisonId: string;
   onSelectSaison: (id: string) => void;
   competitions: TeamCompetition[];
   onChange: () => void;
-  autoOpen?: boolean;
-  onAutoOpened?: () => void;
 }) {
   const { clubId } = useClub();
-  const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CompetitionDraft>(emptyDraft());
   const [error, setError] = useState<string | null>(null);
@@ -352,31 +338,12 @@ function CompetitionsSection({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [prefilled, setPrefilled] = useState(false);
 
-  const openCreate = () => {
-    setEditingId(null);
-    setDraft(emptyDraft());
-    setWarnings([]);
-    setPrefilled(false);
-    setError(null);
-    setShowForm(true);
-  };
-
-  // Ouverture automatique du formulaire à l'arrivée via ?new=competition.
-  useEffect(() => {
-    if (autoOpen) {
-      openCreate();
-      onAutoOpened?.();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpen]);
-
   const openEdit = (c: TeamCompetition) => {
     setEditingId(c.id);
     setWarnings([]);
     setPrefilled(false);
     setDraft({ nom: c.nom, tenup_url: c.tenup_url ?? '', type: c.type, genre: c.genre, categorie: formatCategorie(c.categorie), format: c.format, singles_set3_format: c.singles_set3_format ?? null });
     setError(null);
-    setShowForm(true);
   };
 
   // Réaligne genre/catégorie quand le type change (une catégorie saisie librement est conservée).
@@ -404,7 +371,7 @@ function CompetitionsSection({
   };
 
   const handleSubmit = async () => {
-    if (saving || prefilling) return;
+    if (!editingId || saving || prefilling) return;
     setError(null);
     if (!clubId || !selectedSaisonId) return setError('Sélectionnez une saison.');
     const nom = draft.nom.trim();
@@ -419,14 +386,12 @@ function CompetitionsSection({
     const payload = { saison_id: selectedSaisonId, ...draft, nom, categorie, tenup_url };
     setSaving(true);
     try {
-      const { error: err } = editingId
-        ? await supabase.from('team_competitions').update(payload).eq('id', editingId).eq('club_id', clubId)
-        : await supabase.from('team_competitions').insert({ ...payload, club_id: clubId });
+      const { error: err } = await supabase.from('team_competitions').update(payload).eq('id', editingId).eq('club_id', clubId);
       if (err) {
         setError(err.code === '23505' ? 'Ce championnat Ten’Up est déjà associé à une compétition de cette saison.' : err.message);
         return;
       }
-      setShowForm(false);
+      setEditingId(null);
       onChange();
     } catch { setError('Impossible d’enregistrer la compétition. Réessayez.'); }
     finally { setSaving(false); }
@@ -489,13 +454,6 @@ function CompetitionsSection({
                 </option>
               ))}
             </select>
-            <button
-              onClick={openCreate}
-              disabled={!selectedSaisonId}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-            >
-              + Compétition
-            </button>
           </div>
         </>}
       />
@@ -509,7 +467,7 @@ function CompetitionsSection({
 
       {competitions.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center text-sm text-muted-foreground">
-          Aucune compétition pour cette saison.
+          Aucune compétition pour cette saison. « Synchroniser Ten’Up » ajoute celles du club.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card/90">
@@ -574,11 +532,11 @@ function CompetitionsSection({
         </div>
       )}
 
-      {showForm && (
+      {editingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div role="dialog" aria-modal="true" aria-labelledby="competition-dialog-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border bg-card p-6 shadow-xl">
             <h3 id="competition-dialog-title" className="mb-4 text-lg font-semibold">
-              {editingId ? 'Modifier la compétition' : 'Nouvelle compétition'}
+              Modifier la compétition
             </h3>
 
             <fieldset disabled={prefilling || saving} className="space-y-4">
@@ -588,7 +546,7 @@ function CompetitionsSection({
                   onChange={e => { setDraft(d => ({ ...d, tenup_url: e.target.value })); setPrefilled(false); setWarnings([]); }}
                   placeholder="https://tenup.fft.fr/championnat/…?division=…&phase=…&poule=…"
                   className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                <p className="mt-2 text-xs text-muted-foreground">Le nom et les règles sont lus sur la fiche du championnat, sans les filtres de division et de poule. Vérifiez les paramètres avant de créer.</p>
+                <p className="mt-2 text-xs text-muted-foreground">Le nom et les règles sont lus sur la fiche du championnat, sans les filtres de division et de poule. Vérifiez les paramètres avant d’enregistrer.</p>
                 <button type="button" onClick={handlePrefill} disabled={!draft.tenup_url.trim() || prefilling || saving}
                   className="mt-3 rounded-lg border border-border px-3 py-2 text-sm font-medium disabled:opacity-50">
                   {prefilling ? 'Lecture de Ten’Up…' : 'Préremplir depuis Ten’Up'}
@@ -696,7 +654,7 @@ function CompetitionsSection({
 
             <div className="mt-6 flex justify-end gap-3">
               <button
-                onClick={() => setShowForm(false)}
+                onClick={() => setEditingId(null)}
                 disabled={prefilling || saving}
                 className="min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
               >
@@ -707,7 +665,7 @@ function CompetitionsSection({
                 disabled={prefilling || saving}
                 className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
               >
-                {saving ? 'Enregistrement…' : editingId ? 'Enregistrer' : 'Créer'}
+                {saving ? 'Enregistrement…' : 'Enregistrer'}
               </button>
             </div>
           </div>
@@ -718,8 +676,7 @@ function CompetitionsSection({
 }
 
 // ============================================================
-// Équipes — création (génère les étapes J1..JN) et suppression.
-// Déplacé depuis TeamMatchesPage lors de la refonte en vue Grille de saison.
+// Équipes — capitaines et suppression. La création passe par « Synchroniser Ten'Up ».
 // ============================================================
 
 function EquipesSection({
@@ -732,7 +689,6 @@ function EquipesSection({
   onChange: () => void;
 }) {
   const { clubId } = useClub();
-  const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const competitionsById = useMemo(
@@ -789,26 +745,13 @@ function EquipesSection({
     <section aria-labelledby="section-equipes">
       <SectionTitle
         id="section-equipes" title="Équipes" className="mb-4"
-        action={<>
-          <button
-            onClick={() => {
-              setError(null);
-              setShowForm(true);
-            }}
-            disabled={competitions.length === 0}
-            title={competitions.length === 0 ? "Créez d'abord une compétition dans cette saison" : undefined}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-          >
-            + Équipe
-          </button>
-        </>}
       />
 
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
       {equipes.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center text-sm text-muted-foreground">
-          Aucune équipe pour cette saison.
+          Aucune équipe pour cette saison. « Synchroniser Ten’Up » ajoute celles du club.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card/90">
@@ -892,19 +835,6 @@ function EquipesSection({
             </tbody>
           </table>
         </div>
-      )}
-
-      {showForm && (
-        <CreateEquipeForm
-          competitions={competitions}
-          existingEquipes={equipes}
-          defaultCompetitionId={competitions[0]?.id ?? ''}
-          onClose={() => setShowForm(false)}
-          onCreated={() => {
-            setShowForm(false);
-            onChange();
-          }}
-        />
       )}
     </section>
   );
