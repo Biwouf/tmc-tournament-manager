@@ -1,11 +1,13 @@
 ---
 import { faq } from '../data/content';
+import { contactEmail } from '../config';
 ---
 <section id="faq" class="sec">
   <div class="container faq__grid">
     <div class="stack">
       <span class="eyebrow">Questions du bureau</span>
-      <h2 class="h2">Avant de signer.</h2>
+      <h2 class="h2">Avant de vous lancer.</h2>
+      {contactEmail && <p class="lead">Une autre question ? <a class="underline" href={`mailto:${contactEmail}`}>Écrivez-nous</a></p>}
     </div>
     <div class="faq__list">
       {faq.map(item => (

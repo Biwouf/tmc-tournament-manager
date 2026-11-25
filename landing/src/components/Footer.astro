@@ -1,10 +1,11 @@
 ---
 import Logo from './Logo.astro';
-import { contactEmail } from '../config';
+import { contactEmail, playerUrl } from '../config';
 
 const base = /^\/(index(\.html)?)?$/.test(Astro.url.pathname) ? '' : '/';
 // Les pages fonctionnalités et guides de la maquette sont au backlog : pas de lien mort.
 const links = [
+  { href: playerUrl, label: 'Joueur ? Trouver mon club' },
   { href: `${base}#tarifs`, label: 'Tarifs' },
   { href: `${base}#faq`, label: 'FAQ' },
   { href: '/mentions-legales', label: 'Mentions légales' },

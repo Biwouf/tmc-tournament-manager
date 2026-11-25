@@ -1,11 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import Hero from '../components/Hero.astro';
-import Ticker from '../components/Ticker.astro';
 import MatchStory from '../components/MatchStory.astro';
 import Surfaces from '../components/Surfaces.astro';
 import Positioning from '../components/Positioning.astro';
-import Moments from '../components/Moments.astro';
 import Setup from '../components/Setup.astro';
 import Pricing from '../components/Pricing.astro';
 import Faq from '../components/Faq.astro';
@@ -81,12 +79,10 @@ const jsonLd = [{
   jsonLd={jsonLd}
 >
   <Hero />
-  <Ticker />
-  <MatchStory />
   <Surfaces />
-  <Positioning />
-  <Moments />
+  <MatchStory />
   <Setup />
+  <Positioning />
   <Pricing />
   <Faq />
   <FinalCta />

@@ -3,40 +3,31 @@ import TrackedLink from './TrackedLink.astro';
 import { seasonItems, trialItems } from '../data/content';
 import { callHref, priceNote, trialCta } from '../config';
 
-const trial = trialCta('Commencer l’essai', 'tarifs-essai');
+const trial = trialCta('Essayer avec mon club', 'tarifs-essai');
 const season = trialCta('Créer mon site et mon app', 'tarifs-saison');
 ---
 <section id="tarifs" class="sec sec--paper">
-  <div class="container stack" style="gap:56px">
+  <div class="container stack" style="gap:44px">
     <div class="sec-head">
       <div class="stack">
         <span class="eyebrow">Tarifs</span>
         <h2 class="h2">Un prix. Toute la saison.</h2>
       </div>
-      <p class="lead">Pas de prix par adhérent, pas de module en option : tout le produit, pour tout le club. Un abonnement annuel, comme votre budget.</p>
+      <p class="lead">Pas de prix par adhérent, pas de module en option. Membres, bénévoles et enseignants illimités.</p>
     </div>
 
     <div class="cards">
       <article class="card card--trial">
-        <div class="stack" style="gap:10px">
-          <span class="card__label">Échauffement</span>
-          <h3>Essai gratuit</h3>
-        </div>
-        <p class="card__price" style="margin:0"><strong>0 €</strong><span>pendant 30 jours</span></p>
+        <span class="card__label">Essai</span>
+        <p class="card__price"><strong>0 €</strong><span>pendant 30 jours</span></p>
         <ul class="dash-list">{trialItems.map(item => <li>{item}</li>)}</ul>
         <TrackedLink class="card__btn" href={trial.href} event={trial.event}>{trial.label}</TrackedLink>
       </article>
 
       <article class="card card--season">
-        <div class="card__top">
-          <div class="stack" style="gap:10px">
-            <span class="card__label">Saison</span>
-            <h3>Le club complet</h3>
-          </div>
-          <span class="badge">Tarif de lancement</span>
-        </div>
+        <div class="card__top"><span class="card__label">Saison</span><span class="badge">Tarif de lancement</span></div>
         <div class="stack" style="gap:8px">
-          <p class="card__price" style="margin:0"><strong>250 €</strong><span>par an</span></p>
+          <p class="card__price"><strong>250 €</strong><span>par an et par club</span></p>
           <span class="card__fine">Soit 20,83 € par mois · prix garanti tant que vous restez abonné · {priceNote}</span>
         </div>
         <ul class="dash-list">{seasonItems.map(item => <li>{item}</li>)}</ul>
@@ -44,15 +35,10 @@ const season = trialCta('Créer mon site et mon app', 'tarifs-saison');
       </article>
 
       <article id="parler" class="card card--call">
-        <div class="stack" style="gap:10px">
-          <span class="card__label">Avant de vous lancer</span>
-          <h3>Besoin d’en parler ?</h3>
-        </div>
-        <p>20 minutes en visio, sur les données de votre club : on regarde ensemble votre site et vos rencontres, et on répond aux questions de votre bureau.</p>
-        <div class="slots">
-          <span>Mar. et jeu. · 19:00 – 21:00</span>
-          <span>Sam. · 10:00 – 12:00</span>
-        </div>
+        <span class="card__label">Le bureau hésite ?</span>
+        <h3 class="h3">20 minutes en visio, sur les données de votre club</h3>
+        <p>Avec <b>Maxime</b>, fondateur de feelike.pro : on regarde ensemble votre site et vos rencontres, et on répond aux questions du bureau.</p>
+        <ul class="dash-list"><li>Mar. et jeu. · 19:00 – 21:00</li><li>Sam. · 10:00 – 12:00</li></ul>
         {callHref && <TrackedLink class="card__btn" href={callHref} event="cta_call_click">Réserver un créneau</TrackedLink>}
       </article>
     </div>
