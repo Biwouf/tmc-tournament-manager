@@ -31,10 +31,12 @@ async function slugFree(slug: string): Promise<boolean | null> {
 
 type Failure = Exclude<LookupOutcome, { kind: 'found' | 'already' | 'bad_link' }>;
 
-export function FindStep({ draft, update, title, siteKey, endpoint, notice, onFound, onAlready, onManual }: {
+export function FindStep({ draft, update, title, siteKey, endpoint, notice, takeAutoFind, onFound, onAlready, onManual }: {
   draft: SignupDraft; update: Update; title: Title; siteKey: string; endpoint: string;
   /** Message venu d'ailleurs (jeton de lecture expiré à la création). */
   notice: string;
+  /** Lien valide arrivé de la landing : vrai une seule fois, la recherche part alors seule (dès le jeton). */
+  takeAutoFind: () => boolean;
   onFound: (result: LookupResult) => void;
   onAlready: (tenupClubId: string, name: string | null) => void;
   onManual: () => void;
@@ -77,6 +79,12 @@ export function FindStep({ draft, update, title, siteKey, endpoint, notice, onFo
     if (token) void read(token);
     else { setFailure(null); setFieldError(null); waitingRef.current = true; setWaiting(true); }
   }
+
+  useEffect(() => {
+    if (takeAutoFind()) submit();
+  // Une seule fois, à l'ouverture de l'écran.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const busy = reading || waiting;
   const message = fieldError ?? failure?.message ?? null;

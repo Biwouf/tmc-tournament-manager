@@ -3,11 +3,15 @@ import { analyticsDomain } from '../config';
 ---
 {analyticsDomain && (
   <script>
-    // Événements Plausible (sans cookie) : clics sur les CTA, section tarifs vue, question de FAQ ouverte.
+    // Événements Plausible (sans cookie) : clics sur les CTA, envoi du lien Ten'Up du hero, section tarifs vue, question de FAQ ouverte.
     const track = (event: string, props?: Record<string, string>) => window.plausible?.(event, props && { props });
     document.addEventListener('click', event => {
       const link = (event.target as Element).closest<HTMLElement>('[data-event]');
-      if (link?.dataset.event) track(link.dataset.event);
+      if (link?.dataset.event && !(link instanceof HTMLFormElement)) track(link.dataset.event);
+    });
+    document.addEventListener('submit', event => {
+      const form = event.target as HTMLFormElement;
+      if (form.dataset.event) track(form.dataset.event, { emplacement: form.querySelector<HTMLInputElement>('[name="utm_content"]')?.value ?? '' });
     });
     const pricing = document.getElementById('tarifs');
     if (pricing) {
@@ -16,7 +20,7 @@ import { analyticsDomain } from '../config';
       }, { threshold: 0.3 });
       observer.observe(pricing);
     }
-    document.querySelectorAll('details').forEach(details => details.addEventListener('toggle', () => {
+    document.querySelectorAll<HTMLDetailsElement>('#faq details').forEach(details => details.addEventListener('toggle', () => {
       if (details.open) track('faq_open', { question: details.querySelector('h3')?.textContent ?? '' });
     }));
   </script>

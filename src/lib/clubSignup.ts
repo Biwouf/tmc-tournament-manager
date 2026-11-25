@@ -441,6 +441,20 @@ export function loadDraft(storage: Pick<Storage, 'getItem'>): SignupDraft {
   };
 }
 
+/**
+ * Arrivée depuis la landing (`/inscription?tenup=<lien>`, PR-L1) : le lien collé sur
+ * www.feelike.pro (avec ou sans `https://`) devient la saisie de l'écran 01, et la recherche part
+ * d'elle-même s'il est valide. Club déjà lu dans ce brouillon → la saisie en cours est gardée.
+ */
+export function draftFromLanding(draft: SignupDraft, search: string): { draft: SignupDraft; autoFind: boolean } {
+  const raw = (new URLSearchParams(search).get('tenup') ?? '').trim().slice(0, 480);
+  if (!raw) return { draft, autoFind: false };
+  const link = /^tenup\.fft\.fr\//i.test(raw) ? `https://${raw}` : raw;
+  const valid = findProblem(link) === null;
+  if (valid && draft.mode === 'tenup' && draft.tenup && normalizeTenupClubProfileUrl(link) === `https://tenup.fft.fr/club/${draft.tenup.tenup_club_id}`) return { draft, autoFind: false };
+  return { draft: { ...emptyDraft(), tenupUrl: link }, autoFind: valid };
+}
+
 /** Écrit la saisie ; sans place pour les images, les écrit sans elles plutôt que rien. */
 export function saveDraft(storage: Pick<Storage, 'setItem'>, draft: SignupDraft): void {
   const fit = (value: string | null) => (value && value.length <= MAX_STORED_IMAGE ? value : null);
