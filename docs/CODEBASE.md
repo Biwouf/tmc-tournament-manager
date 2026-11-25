@@ -806,6 +806,8 @@ compte) affiche « Ouvrez le lien reçu par e-mail… » avec un renvoi du lien.
 du super-admin prime sur tout le reste.
 `src/lib/clubHost.ts` et sa copie PWA refusent les hôtes inconnus ; les alias Vercel exacts
 sont injectés par les deux configs Vite. `web/scripts/domain-routes.mjs` construit le proxy
-PWA conditionné par le hostname avant les assets de la vitrine.
+PWA conditionné par le hostname avant les assets de la vitrine. Il relaie aussi `/pwa-insights/*`
+vers `/_vercel/insights/*` du projet PWA (chemin déclaré dans `pwa/src/main.tsx`) : Vercel traite
+`/_vercel/insights` dans le projet vitrine avant ces routes, et y compterait les visites de la PWA.
 Voir [DOMAINS_DELIVERY.md](DOMAINS_DELIVERY.md) pour la mise en service restant à effectuer.
 `pwa/vercel.json` redirige en 308 l'ancien domaine de la PWA (`tmc-tournament-manager-tau.vercel.app`) vers `app-cac-tennis.feelike.pro` (21/09/2026), et renvoie un 404 — jamais `index.html` — pour un asset ou un runtime Workbox manquant.

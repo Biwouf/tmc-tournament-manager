@@ -103,6 +103,8 @@ permettent un premier test, mais ne remplissent pas le critère « nouveau club 
   servent bien le projet PWA, jamais le SSR vitrine. Tester installation puis mise à jour
   du service worker sur deux origines de clubs ; le changement d’origine ne migre pas
   une ancienne installation `.vercel.app` (la réinstaller depuis la nouvelle URL).
+- Web Analytics : ouvrir la PWA ; l'envoi part sur `/pwa-insights/view` et la page vue est comptée
+  dans le projet `pwa-cac-tennis`, pas dans `web`.
 - BO : compte multi-clubs, compte sans club, compte membre, console super-admin,
   invitation, récupération de mot de passe et déconnexion/reconnexion avec un autre compte.
 - Vérifier 404/503, canonical et sitemap de la vitrine sur les adresses de production.
