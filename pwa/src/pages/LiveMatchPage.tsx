@@ -36,6 +36,8 @@ import LiveSheet from '../components/live/LiveSheet';
 import PostReactions from '../components/live/PostReactions';
 import FirstServerPicker from '../components/live/FirstServerPicker';
 import LiveRecap from '../components/live/LiveRecap';
+import LiveInterviews from '../components/live/LiveInterviews';
+import InterviewInvite from '../components/interviews/InterviewInvite';
 import { LiveFollowButton } from '../components/live/LivePush';
 import { announceLiveStart, followToastText } from '../lib/liveFollows';
 import { PollAnswers, PollForm } from '../components/live/LivePoll';
@@ -577,8 +579,12 @@ function LiveMatchScreen({
           )}
           {recapData && (
             <div ref={recapCard}>
+              {clubId && <InterviewInvite clubId={clubId} userId={userId} matchId={match.id} />}
               <LiveRecap match={match} recap={recapData} />
             </div>
+          )}
+          {match.status === 'finished' && clubId && (
+            <LiveInterviews matchId={match.id} clubId={clubId} userId={userId} />
           )}
           {match.status === 'finished' && (
             <p className="feed-end">

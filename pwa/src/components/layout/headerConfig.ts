@@ -28,6 +28,8 @@ const ROUTES: Array<[string, HeaderConfig]> = [
                             backTo: '/matches', backLabel: 'Live' }],
   ['/matches/:id/score',  { mode: 'sub',  title: 'Live',
                             backTo: '/matches', backLabel: 'Live' }],
+  ['/interviews/:id',     { mode: 'sub',  title: 'Interview',
+                            backTo: '/matches', backLabel: 'Live' }],
   ['/login',              { mode: 'sub',  title: 'Connexion',
                             backTo: '/actu', backLabel: 'Actualités' }],
 ];

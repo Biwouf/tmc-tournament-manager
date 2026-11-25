@@ -20,6 +20,7 @@ import CoursesPage from './pages/CoursesPage';
 import ProfilePage from './pages/ProfilePage';
 import NewMatchPage from './pages/NewMatchPage';
 import LiveMatchPage from './pages/LiveMatchPage';
+import InterviewPage from './pages/InterviewPage';
 import { useAuth } from './hooks/useAuth';
 import { ClubProvider, useClub } from './contexts/ClubContext';
 import { useClubConfig } from './hooks/useClubConfig';
@@ -197,6 +198,7 @@ function AppShell() {
           <Route path="/matches/new" element={<RequireAuth><NewMatchPage /></RequireAuth>} />
           <Route path="/matches/:id" element={<LiveMatchPage />} />
           <Route path="/matches/:id/score" element={<LiveMatchPage />} />
+          <Route path="/interviews/:id" element={<RequireAuth><InterviewPage /></RequireAuth>} />
 
           {/* Compat : anciennes URLs → redirection */}
           <Route path="/actus" element={<Navigate to="/actu?tab=actus" replace />} />

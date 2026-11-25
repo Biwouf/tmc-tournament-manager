@@ -71,6 +71,7 @@ Les specs sont dans `docs/specs/` :
 - `ACTUS.md` — module Actus (BO + PWA + publication Facebook)
 - `EVENTS.md` — module Événements
 - `SHARED_COMPONENTS.md` — composants partagés
+- `INTERVIEWS.md` — interview d’après-match (live terminé → questions Claude → zone mixte)
 - *(nouveaux modules → créer un fichier dédié dans ce dossier)*
 
 ### Briefs de feature et de correctif

@@ -18,6 +18,8 @@ Extension de l'infra Web Push des cours et du Live (`docs/COURSE_PUSH.md`, `docs
 
 `course_push_subscriptions.notify_news` (vraie par défaut, **y compris pour les appareils déjà abonnés**). `push_subscribe` reçoit un 7ᵉ paramètre `p_news` (`NULL` conserve la préférence, vraie à la création) ; l'ancienne signature à 6 paramètres reste pour les clients en cache. PWA : ligne « Actus et événements » dans Mon profil → Notifications (`components/actu/NewsPushSettings.tsx`).
 
+**Interviews (21/11/2026)** : la même file porte les push d'interview d'après-match (`kind = 'interview'`, URL du live). Préférence `notify_interviews`, vraie par défaut, appareils existants compris ; `push_subscribe` à 8 paramètres (`p_interviews`), l'ancienne signature à 7 reste. Cf. `docs/specs/INTERVIEWS.md`.
+
 ## Tests
 
 ```sh

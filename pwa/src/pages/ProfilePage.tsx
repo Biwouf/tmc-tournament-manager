@@ -10,7 +10,9 @@ import { coursePushSupported, disableCoursePush } from '../lib/coursePush';
 import { returnPath } from '../components/layout/headerConfig';
 import CoursePushSettings from '../components/courses/CoursePushSettings';
 import { LivePushSettings } from '../components/live/LivePush';
+import InterviewInvite from '../components/interviews/InterviewInvite';
 import NewsPushSettings from '../components/actu/NewsPushSettings';
+import InterviewPushSettings from '../components/interviews/InterviewPushSettings';
 import '../components/courses/courses.css';
 import { uiMessage } from '../lib/uiMessage';
 
@@ -139,6 +141,7 @@ export default function ProfilePage() {
   return (
     <div className="booking-page">
       <h1 className="booking-profile-title">Mon profil</h1>
+      <InterviewInvite clubId={clubId} userId={user?.id ?? null} />
       {saved ? (
         <div className="booking-info success">
           <p role="status">Profil enregistré.</p>
@@ -183,6 +186,7 @@ export default function ProfilePage() {
             <CoursePushSettings clubId={clubId} userId={user.id} />
             <LivePushSettings clubId={clubId} userId={user.id} />
             <NewsPushSettings clubId={clubId} userId={user.id} />
+            <InterviewPushSettings clubId={clubId} userId={user.id} />
           </ul>
           {!coursePushSupported() && (
             <p className="booking-note">Indisponible ici. Sur iPhone ou iPad, ajoutez l’application à l’écran d’accueil.</p>

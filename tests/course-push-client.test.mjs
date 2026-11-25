@@ -11,7 +11,7 @@ const compiled = ts.transpileModule(source, { compilerOptions: {
 }}).outputText;
 function harness() {
   let active = true, userId = 'member', rpcError = false, unsubscribeError = false;
-  let pauseSubscribe, prefs = { courses: false, live: false, news: true };
+  let pauseSubscribe, prefs = { courses: false, live: false, news: true, interviews: true };
   const calls = [], storage = new Map(), rpcArgs = [];
   const subscription = {
     endpoint: 'https://fcm.googleapis.com/test',
@@ -35,9 +35,9 @@ function harness() {
         calls.push(name);
         if (name === 'push_subscribe' && pauseSubscribe) await pauseSubscribe;
         if (name === 'push_subscribe' && !rpcError) {
-          prefs = { courses: args.p_courses ?? prefs.courses, live: args.p_live ?? prefs.live, news: args.p_news ?? prefs.news };
+          prefs = { courses: args.p_courses ?? prefs.courses, live: args.p_live ?? prefs.live, news: args.p_news ?? prefs.news, interviews: args.p_interviews ?? prefs.interviews };
           rpcArgs.push(args);
-          return { data: [{ notify_courses: prefs.courses, notify_live: prefs.live, notify_news: prefs.news }], error: null };
+          return { data: [{ notify_courses: prefs.courses, notify_live: prefs.live, notify_news: prefs.news, notify_interviews: prefs.interviews }], error: null };
         }
         return {error: rpcError ? Error('network') : null};
       } },
@@ -89,15 +89,15 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 test('categories share one device subscription: turning one off keeps the other and the device', async () => {
   const h=harness(); const seen=[];
   h.api.onPushPreferences(p=>seen.push(p));
-  assert.deepEqual(plain(await h.api.enablePush('club','member',{live:true})),{courses:false,live:true,news:true});
+  assert.deepEqual(plain(await h.api.enablePush('club','member',{live:true})),{courses:false,live:true,news:true,interviews:true});
   assert.equal(h.rpcArgs[0].p_courses,null);
   await h.api.enableCoursePush('club','member');
-  assert.deepEqual(plain(await h.api.syncPush('club','member')),{courses:true,live:true,news:true});
-  assert.deepEqual(plain(await h.api.disablePushCategory('club','member',{live:false})),{courses:true,live:false,news:true});
+  assert.deepEqual(plain(await h.api.syncPush('club','member')),{courses:true,live:true,news:true,interviews:true});
+  assert.deepEqual(plain(await h.api.disablePushCategory('club','member',{live:false})),{courses:true,live:false,news:true,interviews:true});
   assert.equal(h.active,true);
   assert.equal(await h.api.disablePushCategory('club','other',{live:false}),null);
   // Empty patch: subscribe the device for followed matches without touching preferences.
-  assert.deepEqual(plain(await h.api.enablePush('club','member',{})),{courses:true,live:false,news:true});
+  assert.deepEqual(plain(await h.api.enablePush('club','member',{})),{courses:true,live:false,news:true,interviews:true});
   await h.api.disableCoursePush('club');
   assert.equal(h.active,false); assert.equal(seen.at(-1),null);
 });

@@ -36,6 +36,7 @@
     "pwa:phone": "bash scripts/pwa-phone-tunnel.sh",
     "test:live-push": "node --test tests/live-push-sql.test.mjs tests/live-push-client.test.mjs tests/course-push-dispatch.test.mjs",
     "test:event-registrations": "node --test tests/event-registrations-sql.test.mjs",
+    "test:interviews": "node --experimental-strip-types --test tests/live-interviews-sql.test.mjs tests/generate-interview-edge.test.mjs",
     "test:content-push": "node --test tests/content-push-sql.test.mjs tests/course-push-dispatch.test.mjs",
     "test:club-signup": "node --test tests/magic-link.test.mjs tests/club-signup-tunnel.test.mjs tests/club-signup-sql.test.mjs tests/club-signup-edge.test.mjs tests/domains.test.mjs tests/first-steps.test.mjs tests/team-onboarding-client.test.mjs tests/team-onboarding-sql.test.mjs tests/tenup-club-import-sql.test.mjs tests/dashboard-checklist.test.mjs tests/club-site-publish-sql.test.mjs tests/tenup-site-sql.test.mjs tests/tenup-site-import.test.mjs tests/onboarding-events-sql.test.mjs tests/club-name.test.mjs tests/tenup-lookup-sql.test.mjs tests/tenup-lookup-edge.test.mjs tests/logo-variants-sql.test.mjs tests/logo-identity.test.mjs"
   },

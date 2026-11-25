@@ -1,0 +1,176 @@
+/* Interview d'après-match : écran de réponse, invitation, zone mixte du récap. */
+.interview-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.interview-hero {
+  padding: 18px;
+  border-radius: 18px;
+  background: #121317;
+  color: white;
+}
+.interview-kicker,
+.mixed-zone-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: hsl(var(--primary));
+}
+.interview-hero h1 {
+  margin: 6px 0 4px;
+  font-size: 20px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.interview-score {
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.interview-state {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  font-size: 14px;
+}
+.interview-state h2 {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.interview-state a {
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+.interview-state .booking-button {
+  margin-top: 12px;
+}
+.interview-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.interview-form .booking-wide {
+  margin-top: 0;
+}
+.interview-form button:disabled {
+  opacity: 0.5;
+}
+.interview-intro {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+.interview-question {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+.interview-question-text {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.interview-question-index {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+}
+.interview-question textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--input));
+  background: hsl(var(--background));
+  font-size: 16px; /* pas de zoom iOS */
+  resize: vertical;
+}
+.interview-decline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+
+/* Invitation en tête de l'onglet Live. */
+.interview-invite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #121317;
+  color: white;
+  min-height: 44px;
+}
+.interview-invite-icon {
+  font-size: 22px;
+}
+.interview-invite strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+}
+.interview-invite-sub {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.interview-invite-arrow {
+  margin-left: auto;
+  font-weight: 800;
+  color: hsl(var(--primary));
+}
+
+/* Zone mixte, sous le récap d'un live terminé. */
+.mixed-zone {
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mixed-zone-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+.mixed-zone-card h3 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 4px 0 10px;
+}
+.mixed-zone-item + .mixed-zone-item {
+  margin-top: 12px;
+}
+.mixed-zone-question {
+  font-size: 13px;
+  font-weight: 700;
+  color: hsl(var(--muted-foreground));
+}
+.mixed-zone-answer {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.mixed-zone-delete {
+  margin-top: 12px;
+  min-height: 44px;
+  font-size: 12px;
+  font-weight: 700;
+  color: hsl(var(--muted-foreground));
+  text-decoration: underline;
+}

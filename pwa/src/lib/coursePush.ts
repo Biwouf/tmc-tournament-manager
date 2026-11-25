@@ -54,8 +54,8 @@ async function clearNotifications() {
   const registration = await navigator.serviceWorker.getRegistration('/');
   for (const notification of await registration?.getNotifications() || []) notification.close();
 }
-export type PushPreferences = { courses: boolean; live: boolean; news: boolean };
-type PreferencePatch = { courses?: boolean; live?: boolean; news?: boolean };
+export type PushPreferences = { courses: boolean; live: boolean; news: boolean; interviews: boolean };
+type PreferencePatch = { courses?: boolean; live?: boolean; news?: boolean; interviews?: boolean };
 
 // Shared by every push control on the page (profile, prompts, follow buttons).
 const listeners = new Set<(prefs: PushPreferences | null) => void>();
@@ -76,6 +76,7 @@ async function saveSubscription(clubId: string, userId: string, subscription: Pu
   const { data: rows, error } = await supabase.rpc('push_subscribe', {
     p_club: clubId, p_endpoint: endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth,
     p_courses: patch.courses ?? null, p_live: patch.live ?? null, p_news: patch.news ?? null,
+    p_interviews: patch.interviews ?? null,
   });
   if (error) throw new Error('Impossible d’enregistrer les notifications. Réessayez.');
   const current = await supabase.auth.getSession();
@@ -85,8 +86,9 @@ async function saveSubscription(clubId: string, userId: string, subscription: Pu
   }
   localStorage.setItem(bindingKey, JSON.stringify({ clubId, userId, endpoint }));
   const row = (Array.isArray(rows) ? rows[0] : rows) as
-    { notify_courses?: boolean; notify_live?: boolean; notify_news?: boolean } | null;
-  const prefs = { courses: Boolean(row?.notify_courses), live: Boolean(row?.notify_live), news: Boolean(row?.notify_news) };
+    { notify_courses?: boolean; notify_live?: boolean; notify_news?: boolean; notify_interviews?: boolean } | null;
+  const prefs = { courses: Boolean(row?.notify_courses), live: Boolean(row?.notify_live), news: Boolean(row?.notify_news),
+    interviews: Boolean(row?.notify_interviews) };
   publish(prefs);
   return prefs;
 }
