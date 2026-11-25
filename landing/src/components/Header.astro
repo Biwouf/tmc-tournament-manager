@@ -1,24 +1,26 @@
 ---
 import Logo from './Logo.astro';
 import TrackedLink from './TrackedLink.astro';
-import { loginUrl, trialCta } from '../config';
+import { loginUrl, playerUrl, trialCta } from '../config';
 
 // Hors de l'accueil, les ancres renvoient vers les sections de l'accueil.
 const base = /^\/(index(\.html)?)?$/.test(Astro.url.pathname) ? '' : '/';
 const links = [
-  { href: `${base}#un-match`, label: 'Un match' },
-  { href: `${base}#positionnement`, label: 'Pourquoi nous' },
+  { href: `${base}#surfaces`, label: 'Fonctionnalités' },
+  { href: `${base}#setup`, label: 'Ten’Up' },
   { href: `${base}#tarifs`, label: 'Tarifs' },
   { href: `${base}#faq`, label: 'FAQ' },
 ];
-const cta = trialCta('Essai gratuit', 'header');
+const cta = trialCta('Créer mon site et mon app', 'header');
 ---
 <header class="site-header">
   <div class="site-header__bar">
     <Logo href="/" label="feelike.pro, accueil" />
     <nav class="nav" aria-label="Navigation principale">
       {links.map(link => <a class="nav__link" href={link.href}>{link.label}</a>)}
-      <a class="nav__link nav__login" href={loginUrl}>Connexion</a>
+      <span class="nav__sep" aria-hidden="true"></span>
+      <a class="nav__player" href={playerUrl}>Joueur ? Trouver mon club</a>
+      <a class="nav__login" href={loginUrl}><span class="nav__long">Connexion club</span><span class="nav__short">Connexion</span></a>
       <TrackedLink class="nav__cta" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
       <button type="button" class="menu-btn" aria-expanded="false" aria-controls="menu-mobile" aria-label="Ouvrir le menu" data-menu-toggle>
         <svg class="icon-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18"></path></svg>
@@ -29,7 +31,8 @@ const cta = trialCta('Essai gratuit', 'header');
 </header>
 <nav id="menu-mobile" class="mobile-menu" aria-label="Menu mobile" hidden>
   {links.map(link => <a href={link.href} data-menu-close>{link.label}</a>)}
-  <a class="mobile-menu__login" href={loginUrl}>Connexion</a>
+  <a href={playerUrl}>Joueur ? Trouver mon club</a>
+  <a class="mobile-menu__login" href={loginUrl}>Connexion club</a>
 </nav>
 
 <script>
@@ -45,6 +48,6 @@ const cta = trialCta('Essai gratuit', 'header');
     button.addEventListener('click', () => setOpen(menu.hidden));
     menu.querySelectorAll('[data-menu-close]').forEach(link => link.addEventListener('click', () => setOpen(false)));
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.hidden) { setOpen(false); button.focus(); } });
-    matchMedia('(min-width: 721px)').addEventListener('change', event => { if (event.matches) setOpen(false); });
+    matchMedia('(min-width: 1181px)').addEventListener('change', event => { if (event.matches) setOpen(false); });
   }
 </script>

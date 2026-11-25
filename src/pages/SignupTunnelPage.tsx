@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { signupSlugProblem } from '../../shared/clubSlug.mjs';
 import { formatClubName, shortNameFor } from '../../shared/clubName.mjs';
 import {
-  accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, loadDraft, rememberTenupLink, saveDraft, signupConfig, slugify,
+  accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, draftFromLanding, loadDraft, rememberTenupLink, saveDraft, signupConfig, slugify,
   slugMessage, stepPosition, submitClubSignup, suggestSlug, tenupLogo,
   type FieldProblem, type LookupResult, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
 } from '../lib/clubSignup';
@@ -74,7 +74,12 @@ export default function SignupTunnelPage() {
 }
 
 function Tunnel() {
-  const [draft, setDraft] = useState<SignupDraft>(readDraft);
+  // PR-L1 : lien Ten'Up collé sur la landing (`?tenup=`), lu une seule fois à l'ouverture.
+  const [landing] = useState(() => draftFromLanding(readDraft(), window.location.search));
+  const [draft, setDraft] = useState<SignupDraft>(landing.draft);
+  // La recherche automatique ne sert qu'une fois : l'écran 01 est remonté à chaque retour.
+  const autoFind = useRef(landing.autoFind);
+  const takeAutoFind = () => { const take = autoFind.current; autoFind.current = false; return take; };
   const [slugCheck, setSlugCheck] = useState<SlugCheck>({ state: 'idle' });
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
@@ -96,6 +101,13 @@ function Tunnel() {
   const { step } = draft;
 
   useEffect(() => { try { saveDraft(window.sessionStorage, draft); } catch { /* stockage indisponible */ } }, [draft]);
+  // Le lien est passé dans la saisie : on le retire de l'adresse (un rechargement ne relance rien).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('tenup')) return;
+    url.searchParams.delete('tenup');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, []);
   // Changement d'étape : le titre reçoit le focus (lecteurs d'écran, clavier).
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
@@ -306,7 +318,7 @@ function Tunnel() {
       <main className="fl-main">
         <section className="fl-form" aria-label="Inscription">
           {step === 'find' && (
-            <FindStep draft={draft} update={update} title={title} siteKey={CONFIG.siteKey} endpoint={LOOKUP_ENDPOINT} notice={findNotice}
+            <FindStep draft={draft} update={update} title={title} siteKey={CONFIG.siteKey} endpoint={LOOKUP_ENDPOINT} notice={findNotice} takeAutoFind={takeAutoFind}
               onFound={found} onAlready={already} onManual={manual} />
           )}
 

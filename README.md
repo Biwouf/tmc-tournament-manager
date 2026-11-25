@@ -198,7 +198,7 @@ Site **public** du club, servi sur `<slug>.feelike.pro` (application séparée, 
 
 ### Landing `www.feelike.pro`
 
-Site marketing de la plateforme (application séparée, dossier `landing/`) : présentation du produit, récit d’un match (photo de la compo, matchs créés, live, notifications, story, affiche), tarifs (essai 30 jours sans carte, Saison 250 €/an), FAQ et appel à l'essai ou à un call de 20 minutes.
+Site marketing de la plateforme (application séparée, dossier `landing/`) : en tête de page, le champ « Lien Ten’Up de votre club » (« Voir mon club → » ouvre l'inscription avec le club déjà recherché), une vraie capture de l'app du CAC et un lien « Vous êtes joueur ? » vers l'app du club ; puis présentation du produit, récit d’un match (photo de la compo, matchs créés, live, notifications, story, affiche), tarifs (essai 30 jours sans carte, Saison 250 €/an), FAQ et appel à l'essai ou à un call de 20 minutes.
 
 - **Tant que l'inscription en ligne n'est pas ouverte**, les boutons d'essai affichent « Demander un accès » et mènent au call. Il suffit de renseigner `PUBLIC_SIGNUP_URL` dans Vercel pour les rebrancher.
 - Lien de réservation, mention TVA, e-mail de contact et mesure d'audience (Plausible, sans cookie ni bandeau) se règlent par variables d'environnement : voir `landing/README.md`.
@@ -208,7 +208,7 @@ Site marketing de la plateforme (application séparée, dossier `landing/`) : pr
 
 Un club crée son espace seul, en trois écrans depuis Ten'Up, avec 30 jours d'essai sans carte bancaire.
 
-- **Retrouvons votre club** : le club colle le lien de sa page sur tenup.fft.fr (n'importe quel onglet). Nom, adresse, sports, terrains, logo et bandeau sont lus sur Ten'Up. Si Ten'Up ne répond pas, on peut réessayer ou continuer à la main (le lien est gardé et prérempli plus tard à l'étape Équipes). Un club déjà inscrit sur feelike est signalé, sans rien révéler de son espace : « Se connecter » ou « Ce n'est pas mon club ».
+- **Retrouvons votre club** : le club colle le lien de sa page sur tenup.fft.fr (n'importe quel onglet). Collé depuis www.feelike.pro, le lien arrive prérempli et la recherche se lance seule. Nom, adresse, sports, terrains, logo et bandeau sont lus sur Ten'Up. Si Ten'Up ne répond pas, on peut réessayer ou continuer à la main (le lien est gardé et prérempli plus tard à l'étape Équipes). Un club déjà inscrit sur feelike est signalé, sans rien révéler de son espace : « Se connecter » ou « Ce n'est pas mon club ».
 - **C'est bien votre club ?** : la carte du club, la couleur tirée du logo (3 teintes, ou « Autre »), un nom court pour l'écran d'accueil (« Moissac TC », 12 caractères au plus) et une adresse web courte qui en découle (`moissac-tc.feelike.pro`, variante si elle est prise). Tout reste modifiable, le nom compris.
 - **Logo retouché** : quand le logo Ten'Up a un fond uni (souvent un carré noir ou blanc) ou de grandes marges, feelike le détoure, le recadre et l'agrandit, sans toucher au dessin. La carte montre le logo retouché par défaut, avec l'avant / après et une bascule « Retouché / Original » (sur ordinateur, un panneau à droite). Un logo trop petit est remplacé par les initiales. Les icônes de l'app installée en profitent (badge plus grand, sans carré noir). L'original reste disponible : Configuration du site › Identité, « Revenir au logo d'origine » / « Utiliser le logo retouché ».
 - **Gardez <nom court>** : l'e-mail, comme ci-dessous.
