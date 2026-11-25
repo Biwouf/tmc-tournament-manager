@@ -38,7 +38,7 @@ async function fixture() {
     INSERT INTO club_members (club_id, user_id, role) VALUES ('${CAC}', '${CAC_ADMIN}', 'admin');
   `);
   await db.exec(between(rls, 'CREATE OR REPLACE FUNCTION public.auth_club_ids()', '-- ============================================================\n-- 2.'));
-  for (const file of ['2026081802_super_admin_console.sql', '20260909_club_settings_public_read.sql', '2026102601_club_self_serve.sql', '2026112501_club_signup_change_email.sql']) {
+  for (const file of ['2026081802_super_admin_console.sql', '20260909_club_settings_public_read.sql', '2026102601_club_self_serve.sql', '2026112520_club_signup_change_email.sql']) {
     await db.exec(await migration(file));
   }
   // Une session : rôle PostgREST, sujet et claims du JWT, le temps d'une transaction.

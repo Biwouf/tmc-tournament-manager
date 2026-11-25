@@ -113,6 +113,8 @@ function Tunnel() {
   const firstRender = useRef(true);
   const mobile = useMobile();
   const { step } = draft;
+  // I2 : clavier ouvert, il reste ~470 px — cases, erreur et renvoi au centre (rien à faire sur ordinateur).
+  const revealCode = () => codeField.current?.scrollIntoView({ block: mobile ? 'center' : 'nearest' });
 
   useEffect(() => { try { saveDraft(window.sessionStorage, draft); } catch { /* stockage indisponible */ } }, [draft]);
   // Le lien est passé dans la saisie : on le retire de l'adresse (un rechargement ne relance rien).
@@ -126,10 +128,10 @@ function Tunnel() {
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
     // P2 : le code s'attend tout de suite (clavier numérique, suggestion iOS depuis Mail).
-    if (step === 'code') { codeInput.current?.focus({ preventScroll: true }); codeField.current?.scrollIntoView({ block: 'center' }); return; }
-    heading.current?.focus();
+    if (step === 'code') codeInput.current?.focus({ preventScroll: true }); else heading.current?.focus();
     window.scrollTo({ top: 0 });
-  }, [step]);
+    if (step === 'code') revealCode();
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Adresse : règle partagée tout de suite, puis disponibilité en base (≈ 300 ms après la frappe).
   useEffect(() => {
@@ -157,8 +159,7 @@ function Tunnel() {
     const timer = window.setTimeout(() => setNow(Date.now()), 1000);
     return () => window.clearTimeout(timer);
   }, [step, wait, now]);
-  // I2 : clavier ouvert, il reste ~470 px — les cases, l'erreur et le renvoi sont ramenés au centre.
-  useEffect(() => { if (codeError) codeField.current?.scrollIntoView({ block: 'center' }); }, [codeError]);
+  useEffect(() => { if (codeError) revealCode(); }, [codeError]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (step !== 'code') return;
     const text = resendAnnouncement(wait);
@@ -299,7 +300,7 @@ function Tunnel() {
   /** Le champ n'est jamais désactivé : le focus tient, même juste après une erreur. */
   function focusCode() {
     codeInput.current?.focus({ preventScroll: true });
-    codeField.current?.scrollIntoView({ block: 'center' });
+    revealCode();
   }
 
   async function submit(resend: boolean) {

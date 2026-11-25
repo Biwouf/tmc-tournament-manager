@@ -110,7 +110,7 @@ export default function LoginPage() {
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-60">
               {loading ? '...' : 'Se connecter'}
             </button>
-            <button type="button" disabled={loading || wait > 0} onClick={() => void resend()} className="block w-full text-center text-sm text-primary underline disabled:no-underline disabled:opacity-60">
+            <button type="button" disabled={loading || wait > 0} onClick={() => void resend()} className="block min-h-11 w-full text-center text-sm text-primary underline disabled:no-underline disabled:opacity-60">
               {wait > 0 ? `Renvoyer le code dans ${wait} s` : 'Renvoyer le code'}
             </button>
           </form>
