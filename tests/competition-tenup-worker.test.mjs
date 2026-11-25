@@ -33,6 +33,10 @@ test('public championship prefill reads name and rules; unknown rules require ma
  const advantages=parse(html.replace('1 - 3 sets à 6 jeux','2 - 2 sets à 6 jeux ; 3ème set = SJD à 10 points').replace('4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 pts','2 - 2 sets à 6 jeux ; 3ème set = SJD à 10 points').replace('2 points','1 point'));
  assert.equal(advantages.format,'3S1D');assert.equal(advantages.singles_set3_format,'super_tiebreak');assert.deepEqual(advantages.warnings,[]);
  assert.equal(parse(html.replace('4 - 2 sets à 6 jeux ; pt décisif ; 3ème set = SJD à 10 pts','2 - 3 sets à 6 jeux')).format,null);
+ // Two singles, one double worth 2 points (Challenge de la Garonne, November 2026).
+ const garonne=html.replace('3 simples','2 simples');
+ assert.equal(parse(garonne).format,'2S1D2');assert.deepEqual(parse(garonne).warnings,[]);
+ assert.equal(parse(garonne.replace('2 points','1 point')).format,'2S1D');
  const unsupported=parse(html.replace('3 simples','5 simples').replace('1 - 3 sets à 6 jeux','Format inconnu'));
  assert.equal(unsupported.format,null);assert.equal(unsupported.singles_set3_format,null);assert.equal(unsupported.warnings.length,2);
  assert.equal(parse(html.replace('égalité : </span>Non','égalité : </span>Oui')).format,null);

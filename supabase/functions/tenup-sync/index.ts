@@ -123,7 +123,7 @@ Deno.serve(async req => {
       if (raw.length > 10_000) return failed(502, 'Fiche du championnat Ten’Up illisible.');
       const payload = JSON.parse(raw);
       if (!payload || typeof payload.nom !== 'string' || !payload.nom.trim() || payload.nom.length > 160 ||
-          ![null, '2S1D', '3S1D', '3S1D2', '4S1D2', '4S2D'].includes(payload.format) ||
+          ![null, '2S1D', '2S1D2', '3S1D', '3S1D2', '4S1D2', '4S2D'].includes(payload.format) ||
           ![null, 'normal', 'super_tiebreak'].includes(payload.singles_set3_format) ||
           !Array.isArray(payload.warnings) || payload.warnings.length > 10 ||
           payload.warnings.some((warning: unknown) => typeof warning !== 'string' || warning.length > 500)) {

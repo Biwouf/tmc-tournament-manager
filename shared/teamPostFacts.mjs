@@ -12,6 +12,7 @@
 /** Points d'un double par format — même table que FORMAT_SPECS (teamMatchLabels.ts), vérifiée par test. */
 export const FORMAT_POINTS = {
   '2S1D': { simples: 2, doubles: 1, doublePoints: 1 },
+  '2S1D2': { simples: 2, doubles: 1, doublePoints: 2 },
   '3S1D': { simples: 3, doubles: 1, doublePoints: 1 },
   '3S1D2': { simples: 3, doubles: 1, doublePoints: 2 },
   '4S1D2': { simples: 4, doubles: 1, doublePoints: 2 },

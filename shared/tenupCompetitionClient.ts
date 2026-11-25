@@ -2,7 +2,7 @@ import { normalizeTenupCompetitionUrl } from './tenupCompetitionUrl.mjs';
 export interface TenupCompetitionPreview {
   url: string;
   nom: string;
-  format: '2S1D' | '3S1D' | '3S1D2' | '4S1D2' | '4S2D' | null;
+  format: '2S1D' | '2S1D2' | '3S1D' | '3S1D2' | '4S1D2' | '4S2D' | null;
   singles_set3_format: 'normal' | 'super_tiebreak' | null;
   warnings: string[];
 }

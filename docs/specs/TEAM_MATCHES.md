@@ -69,6 +69,7 @@ export type TeamCategorie = string;
 
 export type TeamFormat =
   | '2S1D'    // 2 simples et 1 double
+  | '2S1D2'   // 2 simples et 1 double (double = 2 pts)
   | '3S1D'    // 3 simples et 1 double
   | '3S1D2'   // 3 simples et 1 double (double = 2 pts)
   | '4S1D2'   // 4 simples et 1 double (double = 2 pts)
@@ -175,6 +176,7 @@ export interface TeamRencontre {
 | `13_14` | 13/14 ans |
 | `11_12` | 11/12 ans |
 | `2S1D` | 2 simples et 1 double |
+| `2S1D2` | 2 simples et 1 double (double = 2 pts) |
 | `3S1D` | 3 simples et 1 double |
 | `3S1D2` | 3 simples et 1 double (double = 2 pts) |
 | `4S1D2` | 4 simples et 1 double (double = 2 pts) |
@@ -244,7 +246,7 @@ CREATE TABLE IF NOT EXISTS team_competitions (
   categorie  TEXT        NOT NULL CHECK (categorie IN (
                            'seniors', '35_ans', '60_ans', '17_18', '15_16', '13_14', '11_12'
                          )),
-  format     TEXT        NOT NULL CHECK (format IN ('2S1D', '3S1D', '3S1D2', '4S1D2', '4S2D')),
+  format     TEXT        NOT NULL CHECK (format IN ('2S1D', '2S1D2', '3S1D', '3S1D2', '4S1D2', '4S2D')),
   terminee   BOOLEAN     NOT NULL DEFAULT false,  -- 20260820 : championnat clos
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );

@@ -29,6 +29,7 @@ test('championship edge authorizes before extraction, ignores client draft and n
   const directBody=await direct.text();assert.equal(directBody.includes(bypassToken),false);assert.equal(directBody.includes('secret-not-for-client'),false);
   assert.equal(marks.length,0,'refused or successful reads are not marked');
   const mark=['team_tenup_read_failed',{p_actor:'actor',p_club:body.club_id,p_club_import:false}];
+  payload={...payload,format:'2S1D2'};assert.equal((await handler(request())).status,200);
   payload={nom:'Error page',format:'nonsense',singles_set3_format:null,warnings:[]};assert.equal((await handler(request())).status,502);
   globalThis.fetch=async()=>{throw new Error('private network information');};
   const failed=await handler(request());assert.equal(failed.status,502);assert.equal((await failed.text()).includes('private network information'),false);
