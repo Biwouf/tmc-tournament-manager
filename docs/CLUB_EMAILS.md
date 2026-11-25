@@ -1,10 +1,15 @@
 # Emails aux couleurs du club
 
 Les notifications du formulaire de contact, les alertes de cours et les emails Auth utilisent le même
-rendu (`supabase/functions/_shared/email-template.ts`) : logo public HTTPS, nom du
-club, liseré et bouton dans `brand.color`, texte du bouton contrasté, version texte
-et lien de secours. Les contenus dynamiques sont échappés. Sans couleur valide,
-un bleu-gris neutre est utilisé ; sans logo public HTTPS, le nom reste affiché.
+rendu (`supabase/functions/_shared/email-template.ts`) : bandeau dans `brand.color` (nom du
+club en HTML, encre noire ou blanche la plus contrastée), logo public HTTPS dans un disque blanc
+(`alt` stylé, lisible images bloquées ; initiales en HTML sans logo ou si le logo est en **WebP**,
+jamais envoyé), bouton blanc sur la couleur du club assombrie jusqu'à 4,5:1 (+ VML `v:roundrect`
+pour Outlook Windows), clair et sombre (`color-scheme`, `prefers-color-scheme`, `[data-ogsc]`),
+pré-en-tête caché facultatif, version texte et lien de secours. Les contenus dynamiques sont
+échappés. Sans couleur valide, un bleu-gris neutre est utilisé (marque Feelike : ni logo ni
+initiales). Club au logo retouché par W3 : variante PNG `email-128` (`emailBrandFromConfig`).
+Inscription « Ten'Up d'abord » : voir `docs/specs/SAAS_ONBOARDING.md` §14.8.
 
 ## Identité du club
 

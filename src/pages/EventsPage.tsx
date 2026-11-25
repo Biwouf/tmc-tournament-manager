@@ -5,6 +5,7 @@ import { useClub } from '../contexts/ClubContext';
 import type { ClubEvent } from '../types';
 import EventCard from '../components/EventCard';
 import { STORAGE_BUCKETS, extractStoragePath } from '../lib/storage';
+import PageHeader from '../components/layout/PageHeader';
 
 const PAGE_SIZE = 10;
 
@@ -112,30 +113,10 @@ export default function EventsPage() {
     setPage(0);
   };
 
-  const handleLogout = () => supabase.auth.signOut();
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <Link
-              to="/"
-              className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              ← Accueil
-            </Link>
-            <h1 className="text-3xl font-semibold tracking-tight">Événements du club</h1>
-            <p className="mt-2 text-muted-foreground">Créer, modifier et gérer les événements.</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader title="Événements" description="Créer, modifier et gérer les événements." />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">

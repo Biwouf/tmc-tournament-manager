@@ -83,10 +83,8 @@ export default function TeamMatchesPage() {
   return (
     <div className="min-h-screen">
       <TeamMatchesHeader
-        title="Matches par équipe"
+        title="Rencontres"
         subtitle="Grille de saison — cliquez une cellule pour saisir un score."
-        backTo="/"
-        backLabel="Accueil"
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <div className="inline-flex rounded-full border border-border bg-card p-0.5">

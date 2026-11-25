@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useClub } from '../../contexts/ClubContext';
 import type { TeamFormat, TeamMatchLine, TeamRencontre } from '../../types';
 import { computeScore } from './teamMatchLabels';
+import SectionTitle from '../layout/SectionTitle';
 
 interface Props {
   rencontre: TeamRencontre;
@@ -56,13 +57,13 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
   if (hasResults) {
     const computed = computeScore(lines, format);
     return (
-      <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          Score final
-        </h2>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Calculé automatiquement à partir des vainqueurs des matches saisis.
-        </p>
+      <section aria-labelledby="section-score" className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+        <SectionTitle
+          id="section-score"
+          title="Score final"
+          className="mb-4"
+          description="Calculé automatiquement à partir des vainqueurs des matches saisis."
+        />
         <div className="flex items-center gap-6">
           <div className="text-center">
             <p className="text-xs text-muted-foreground">Notre score</p>
@@ -91,8 +92,8 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
   }
 
   return (
-    <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-      <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Score final</h2>
+    <section aria-labelledby="section-score" className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+      <SectionTitle id="section-score" title="Score final" className="mb-4" />
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <label className="block text-xs text-muted-foreground">Notre score</label>

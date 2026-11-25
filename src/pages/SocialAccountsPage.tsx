@@ -10,7 +10,6 @@
 // lisible par `authenticated`. D'où l'absence de champ pré-rempli — on ne peut pas
 // afficher ce qu'on ne lit pas, et c'est le but.
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import {
   connectFacebookPage,
@@ -18,6 +17,8 @@ import {
   getFacebookCredential,
   type SocialCredential,
 } from '../lib/socialCredentials';
+import PageHeader from '../components/layout/PageHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 
 function formatExpiry(iso: string | null): string {
   if (!iso) return 'Ce token n’a pas de date d’expiration connue.';
@@ -109,30 +110,18 @@ export default function SocialAccountsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Comptes sociaux</h1>
-            <p className="mt-2 text-muted-foreground">
-              La page Facebook sur laquelle{' '}
-              <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>{' '}
-              publie ses actualités.
-            </p>
-          </div>
-          <Link
-            to="/"
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            ← Accueil
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="Réseaux sociaux"
+        description={<>
+          La page Facebook sur laquelle{' '}
+          <span className="font-medium text-foreground">{club?.name ?? 'ce club'}</span>{' '}
+          publie ses actualités.
+        </>}
+      />
 
-      <main className="container mx-auto flex flex-col gap-9 px-4 py-12">
-        <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Facebook
-          </h2>
+      <main className="container mx-auto flex flex-col gap-10 px-4 py-12">
+        <section aria-labelledby="section-facebook">
+          <SectionTitle id="section-facebook" title="Facebook" />
 
           {loadError && (
             <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -158,7 +147,7 @@ export default function SocialAccountsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-card-foreground">
+                      <h3 className="text-base font-semibold text-card-foreground">
                         {credential.page_name || 'Page sans nom'}
                       </h3>
                       <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
@@ -207,7 +196,7 @@ export default function SocialAccountsPage() {
               </>
             ) : (
               <>
-                <h3 className="text-lg font-semibold text-card-foreground">
+                <h3 className="text-base font-semibold text-card-foreground">
                   Aucune page connectée
                 </h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">

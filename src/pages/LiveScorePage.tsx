@@ -9,6 +9,8 @@ import type { LiveMatch, LiveMatchWinner, Profile } from '../types';
 import { getTeamLabel } from '../liveScoreRules';
 import LiveMatchCard from '../components/LiveMatchCard';
 import LivePulse from '../components/LivePulse';
+import PageHeader from '../components/layout/PageHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 
 type SectionAccent = 'live' | 'pending' | 'finished';
 
@@ -161,7 +163,6 @@ export default function LiveScorePage() {
     fetchMatches();
   };
 
-  const handleLogout = () => supabase.auth.signOut();
 
   const live = matches
     .filter((m) => m.status === 'live')
@@ -187,16 +188,14 @@ export default function LiveScorePage() {
     list: LiveMatch[],
     emptyText: string,
   ) => (
-    <section className="mb-8">
-      <div className="mb-4 flex items-center gap-3">
-        <h2 className="text-base font-bold tracking-wide uppercase text-slate-900">{title}</h2>
-        <span
-          className={`inline-flex items-center justify-center min-w-6 h-6 px-1.5 rounded-md text-xs font-bold ${SECTION_ACCENT[accent]}`}
-        >
-          {list.length}
-        </span>
-        <div className="flex-1 h-px bg-slate-200" />
-      </div>
+    <section className="mb-10" aria-labelledby={`live-section-${accent}`}>
+      <SectionTitle
+        id={`live-section-${accent}`}
+        title={title}
+        count={list.length}
+        countClassName={SECTION_ACCENT[accent]}
+        className="mb-4"
+      />
       {list.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
           {emptyText}
@@ -219,40 +218,24 @@ export default function LiveScorePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-white border-b border-slate-200">
-        <div className="px-8 py-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
-            <Link
-              to="/"
-              className="text-sm text-slate-500 hover:text-slate-800 transition"
-            >
-              ← Accueil
-            </Link>
-            <span className="text-slate-300">/</span>
-            <h1 className="text-2xl font-bold tracking-tight">Live Score</h1>
-            {live.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 ml-2 text-[11px] font-semibold uppercase tracking-wider text-red-600">
-                <LivePulse />
-                {live.length} en cours
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              to="/live-score/new"
-              className="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold shadow-sm transition hover:brightness-95"
-            >
-              + Créer un match
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="min-h-11 rounded-lg border border-slate-200 text-slate-600 text-sm px-3 py-2 hover:bg-slate-50 transition"
-            >
-              Se déconnecter
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title="Live score"
+        // Le compteur vit hors du `<h1>` : dans le titre, un lecteur d'écran lisait « Live score 2 en cours ».
+        description={live.length > 0 ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-red-600">
+            <LivePulse />
+            {live.length} en cours
+          </span>
+        ) : undefined}
+        actions={
+          <Link
+            to="/live-score/new"
+            className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-95"
+          >
+            + Créer un match
+          </Link>
+        }
+      />
 
       <main className="px-8 py-8 max-w-[1400px] mx-auto">
         {loading ? (

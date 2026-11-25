@@ -11,10 +11,12 @@ import type {
   TeamStadeFinale,
 } from '../types';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 import TeamCaptainsSection from '../components/teamMatches/TeamCaptainsSection';
 import {
   STADES_FINALE,
   STADE_LABELS,
+  SEASONS_CRUMB,
   competitionLabel,
   stadesFromDepart,
 } from '../components/teamMatches/teamMatchLabels';
@@ -258,7 +260,7 @@ export default function TeamEquipePage() {
   if (notFound || !equipe || !competition || !saison) {
     return (
       <div className="min-h-screen">
-        <TeamMatchesHeader title="Équipe introuvable" backTo="/team-matches" backLabel="Matches par équipe" />
+        <TeamMatchesHeader title="Équipe introuvable" parents={[SEASONS_CRUMB]} />
         <main className="container mx-auto px-4 py-12 text-center text-muted-foreground">
           Cette équipe n'existe pas ou a été supprimée.
         </main>
@@ -270,8 +272,7 @@ export default function TeamEquipePage() {
     <div className="min-h-screen">
       <TeamMatchesHeader
         title={competitionLabel(competition)}
-        backTo="/team-matches"
-        backLabel="Matches par équipe"
+        parents={[SEASONS_CRUMB]}
       />
 
       <main className="container mx-auto max-w-4xl px-4 py-8 space-y-10">
@@ -280,7 +281,7 @@ export default function TeamEquipePage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm text-muted-foreground">Saison {saison.label}</p>
-              <h2 className="mt-1 text-2xl font-semibold">
+              <h2 className="mt-1 text-lg leading-7 font-semibold tracking-tight text-foreground">
                 Équipe {equipe.numero} — Division {equipe.division}
               </h2>
             </div>
@@ -295,20 +296,20 @@ export default function TeamEquipePage() {
         {clubId && <TeamCaptainsSection clubId={clubId} equipeId={equipe.id} />}
 
         {/* Phase de poule */}
-        <section>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Phase de poule
-            </h2>
-            {canQualify && (
-              <button
-                onClick={() => setShowQualif(true)}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
-              >
-                Qualifier pour les phases finales
-              </button>
-            )}
-          </div>
+        <section aria-labelledby="section-poule">
+          <SectionTitle
+            id="section-poule" title="Phase de poule" className="mb-4"
+            action={<>
+              {canQualify && (
+                <button
+                  onClick={() => setShowQualif(true)}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95"
+                >
+                  Qualifier pour les phases finales
+                </button>
+              )}
+            </>}
+          />
 
           <div className="divide-y divide-border rounded-xl border bg-card/90">
             {pouleEtapes.map((etape) => (
@@ -329,18 +330,18 @@ export default function TeamEquipePage() {
 
         {/* Phase finale */}
         {equipe.qualifiee === true && (
-          <section>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                Phase finale
-              </h2>
-              <button
-                onClick={handleAnnulerQualification}
-                className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-              >
-                Annuler la qualification
-              </button>
-            </div>
+          <section aria-labelledby="section-finale">
+            <SectionTitle
+              id="section-finale" title="Phase finale" className="mb-4"
+              action={<>
+                <button
+                  onClick={handleAnnulerQualification}
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                >
+                  Annuler la qualification
+                </button>
+              </>}
+            />
             <div className="divide-y divide-border rounded-xl border bg-card/90">
               {finaleEtapesVisibles.map((etape) => (
                 <EtapeRow

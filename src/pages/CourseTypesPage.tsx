@@ -102,7 +102,7 @@ export default function CourseTypesPage() {
     <CourseShell title="Types de cours">
       <CourseError message={error} />
       <form onSubmit={save} className="course-panel space-y-4">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">
           {editing ? "Modifier le type" : "Ajouter un type"}
         </h2>
         <label className="block">

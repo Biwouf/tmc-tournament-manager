@@ -5,6 +5,7 @@ import { useClub } from '../contexts/ClubContext';
 import { useClubRole } from '../contexts/ClubRoleContext';
 import type { Actu } from '../types';
 import { STORAGE_BUCKETS, extractStoragePath } from '../lib/storage';
+import PageHeader from '../components/layout/PageHeader';
 
 const STORAGE_BUCKET = STORAGE_BUCKETS.actuImages;
 
@@ -79,30 +80,10 @@ export default function ActusPage() {
     reload();
   };
 
-  const handleLogout = () => supabase.auth.signOut();
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <Link
-              to="/"
-              className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              ← Accueil
-            </Link>
-            <h1 className="text-3xl font-semibold tracking-tight">Actus du club</h1>
-            <p className="mt-2 text-muted-foreground">Rédiger et publier les actualités du club.</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader title="Actus" description="Rédiger et publier les actualités du club." />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex flex-wrap justify-end gap-2">
@@ -172,7 +153,8 @@ function ActuCard({ actu, onPublish, onUnpublish, onDelete }: CardProps) {
         )}
       </div>
 
-      <h3 className="text-lg font-semibold text-card-foreground">{actu.titre}</h3>
+      {/* `h2` : la page Actus n'a pas de titre de section, h1 → h2 sans saut. */}
+      <h2 className="text-base font-semibold text-card-foreground">{actu.titre}</h2>
       <p className="mt-2 text-sm text-muted-foreground">Créée le {formatDate(actu.created_at)}</p>
 
       <div className="mt-4 flex flex-wrap gap-2 pt-2">

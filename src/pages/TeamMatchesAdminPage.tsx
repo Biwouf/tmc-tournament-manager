@@ -13,6 +13,7 @@ import type {
 import CreateEquipeForm from '../components/teamMatches/CreateEquipeForm';
 import { addCaptain, loadCaptains, removeCaptain, type RosterMember } from '../lib/teamCaptains';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 import {
   CATEGORIES_BY_TYPE,
   FORMAT_LABELS,
@@ -109,10 +110,8 @@ export default function TeamMatchesAdminPage() {
   return (
     <div className="min-h-screen">
       <TeamMatchesHeader
-        title="Admin — Matches par équipe"
+        title="Rencontres"
         subtitle="Gérer les saisons, les compétitions et les équipes du club."
-        backTo="/team-matches"
-        backLabel="Matches par équipe"
       />
 
       <main className="container mx-auto max-w-5xl px-4 py-8 space-y-12">
@@ -220,8 +219,8 @@ function SaisonsSection({
   };
 
   return (
-    <section>
-      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-4">Saisons</h2>
+    <section aria-labelledby="section-saisons">
+      <SectionTitle id="section-saisons" title="Saisons" className="mb-4" />
 
       <div className="mb-4 flex gap-2">
         <input
@@ -473,31 +472,33 @@ function CompetitionsSection({
   };
 
   return (
-    <section>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Compétitions</h2>
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedSaisonId}
-            onChange={(e) => onSelectSaison(e.target.value)}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          >
-            {saisons.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-                {s.actif ? ' (active)' : ''}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={openCreate}
-            disabled={!selectedSaisonId}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-          >
-            + Compétition
-          </button>
-        </div>
-      </div>
+    <section aria-labelledby="section-competitions">
+      <SectionTitle
+        id="section-competitions" title="Compétitions" className="mb-4"
+        action={<>
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedSaisonId}
+              onChange={(e) => onSelectSaison(e.target.value)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              {saisons.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                  {s.actif ? ' (active)' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={openCreate}
+              disabled={!selectedSaisonId}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+            >
+              + Compétition
+            </button>
+          </div>
+        </>}
+      />
 
       <p className="mb-3 text-xs text-muted-foreground">
         <strong className="font-semibold">Terminé</strong> range le championnat dans la section
@@ -785,21 +786,23 @@ function EquipesSection({
   };
 
   return (
-    <section>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Équipes</h2>
-        <button
-          onClick={() => {
-            setError(null);
-            setShowForm(true);
-          }}
-          disabled={competitions.length === 0}
-          title={competitions.length === 0 ? "Créez d'abord une compétition dans cette saison" : undefined}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
-        >
-          + Équipe
-        </button>
-      </div>
+    <section aria-labelledby="section-equipes">
+      <SectionTitle
+        id="section-equipes" title="Équipes" className="mb-4"
+        action={<>
+          <button
+            onClick={() => {
+              setError(null);
+              setShowForm(true);
+            }}
+            disabled={competitions.length === 0}
+            title={competitions.length === 0 ? "Créez d'abord une compétition dans cette saison" : undefined}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
+          >
+            + Équipe
+          </button>
+        </>}
+      />
 
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 

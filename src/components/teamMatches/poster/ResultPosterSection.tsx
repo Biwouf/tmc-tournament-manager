@@ -10,6 +10,7 @@ import PhotoCropControls from './PhotoCropControls';
 import { DEFAULT_PHOTO_CROP, savedPhotoCrop, useCropAutoSave } from './photoCrops';
 import { finalResult } from './resultPoster';
 import { renderResultPoster, resultPosterFooterHeight, type ResultPosterInput } from './renderResultPoster';
+import SectionTitle from '../../layout/SectionTitle';
 
 interface Props {
   rencontre: TeamRencontre;
@@ -30,13 +31,15 @@ export default function ResultPosterSection(props: Props) {
   const { rencontre, lines, competition: { format } } = props;
   // Stable reference: the editor's render input depends on it, and the parent may re-render (batch in `/medias`).
   const result = useMemo(() => finalResult(rencontre, lines, format), [rencontre, lines, format]);
-  return <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">Visuel du résultat</h2>
-      <button type="button" className={button} disabled={!result} aria-expanded={open && !!result} onClick={() => setOpen(!open)}>
+  return <section aria-labelledby="section-result-poster" className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+    <SectionTitle
+      id="section-result-poster"
+      title="Visuel du résultat"
+      className="mb-0"
+      action={<button type="button" className={button} disabled={!result} aria-expanded={open && !!result} onClick={() => setOpen(!open)}>
         {open ? 'Fermer l’aperçu' : 'Générer le visuel'}
-      </button>
-    </div>
+      </button>}
+    />
     {!result && <p className="mt-3 text-sm text-muted-foreground">Disponible après le résultat de tous les matchs, ou après la saisie du score final d’une rencontre sans détail.</p>}
     {open && result && <ResultPosterEditor {...props} result={result} />}
   </section>;

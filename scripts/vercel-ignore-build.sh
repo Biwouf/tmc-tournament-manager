@@ -20,6 +20,13 @@ if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
   fi
 fi
 
+# Même commit que le dernier déploiement réussi : redéploiement demandé à la main (« Redeploy »,
+# « Create deployment »), typiquement après un changement de variable d'environnement → build.
+if [ "$(git rev-parse "$base^{commit}")" = "$(git rev-parse HEAD)" ]; then
+  echo "Redéploiement de $base (déjà déployé) : build."
+  exit 1
+fi
+
 if git diff --quiet "$base" HEAD -- "$@"; then
   echo "Aucun changement dans [$*] depuis $base : build ignoré."
   exit 0

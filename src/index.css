@@ -182,34 +182,18 @@
 .course-primary { @apply rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed; }
 .course-panel { @apply rounded-2xl border border-border bg-card p-5 shadow-sm; }
 
-/* Espace commun Cours / Types / Membres. */
-.course-back { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 600; color: hsl(var(--muted-foreground)); }
-.course-back:hover { color: hsl(var(--primary)); }
-.course-navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px; border: 1px solid hsl(var(--border)); border-radius: 18px; background: hsl(var(--muted) / .4); }
-.course-nav-item { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 14px 18px; border-radius: 12px; border: 1px solid transparent; color: hsl(var(--muted-foreground)); transition: background .15s, color .15s; }
-.course-nav-item:hover { background: hsl(var(--card) / .7); color: hsl(var(--foreground)); }
-.course-nav-item[aria-current=page] { background: hsl(var(--card)); border-color: hsl(var(--primary) / .25); color: hsl(var(--primary)); box-shadow: 0 2px 6px #00000006; }
-.course-nav-item svg { width: 24px; height: 24px; flex-shrink: 0; }
-.course-nav-item strong { display: block; font-size: 14px; font-weight: 700; }
-.course-nav-item small { display: block; font-size: 11px; margin-top: 3px; color: hsl(var(--muted-foreground)); }
-.course-page-heading { padding: 8px 0 4px; }
+/* Espace commun Cours / Types / Adhérents (contenu sous le `PageHeader`). */
 .course-workspace .course-panel { border-color: hsl(var(--border) / .8); box-shadow: 0 3px 14px #00000004; }
 .course-workspace .course-field { min-height: 44px; margin-top: 7px; padding: 10px 12px; }
 .course-workspace label { font-size: 13px; font-weight: 500; }
 .course-workspace .course-button, .course-workspace .course-primary { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; transition: background .15s, box-shadow .15s; }
 .course-workspace .course-primary:not(:disabled):hover { filter: brightness(.96); box-shadow: 0 3px 10px hsl(var(--primary) / .15); }
 .course-workspace :focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 3px; }
-@media (max-width: 640px) {
- .course-navigation { gap: 4px; padding: 5px; }
- .course-nav-item { flex-direction: column; gap: 7px; padding: 12px 4px; text-align: center; min-height: 82px; }
- .course-nav-item strong { font-size: 12px; }
- .course-nav-item small { display: none; }
-}
 
 /* Suivi des inscriptions : décisions principales et détails secondaires. */
 .registration-summary { display: grid; grid-template-columns: 1fr 1.2fr; align-items: center; gap: 28px; }
 .registration-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: hsl(var(--primary)); }
-.registration-summary h2 { font-size: 22px; font-weight: 700; margin: 6px 0 10px; overflow-wrap: anywhere; }
+.registration-summary h2 { font-size: 18px; line-height: 28px; font-weight: 600; margin: 6px 0 10px; overflow-wrap: anywhere; }
 .registration-summary p { font-size: 13px; color: hsl(var(--muted-foreground)); line-height: 1.7; }
 .registration-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .registration-metrics > div { padding: 15px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); }
@@ -247,7 +231,7 @@
 .member-suggestions small { display: block; font-size: 11px; margin-top: 3px; color: hsl(var(--muted-foreground)); }
 .member-search-hint { padding: 10px 12px; border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-size: 11px; line-height: 1.5; }
 .member-selection-note { font-size: 11px; color: #25673c; margin-top: 6px; }
-.registration-list-heading h2 { font-size: 20px; font-weight: 700; }
+.registration-list-heading h2 { font-size: 18px; line-height: 28px; font-weight: 600; }
 .registration-list-heading p { margin-top: 5px; font-size: 13px; color: hsl(var(--muted-foreground)); }
 .registration-filters { display: flex; gap: 5px; margin-top: 16px; flex-wrap: wrap; border-bottom: 1px solid hsl(var(--border)); padding-bottom: 10px; }
 .registration-filters button { min-height: 40px; padding: 8px 14px; border-radius: 9px; font-size: 12px; font-weight: 600; color: hsl(var(--muted-foreground)); }

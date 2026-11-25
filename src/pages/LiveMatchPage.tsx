@@ -6,6 +6,7 @@ import type { LiveMatch, LiveMatchWinner } from '../types';
 import { useLiveMatch } from '../hooks/useLiveMatch';
 import { firstServerFor, getMatchWinner, getServer, getTeamLabel, type Player } from '../liveScoreRules';
 import LiveScoreEntry from '../components/LiveScoreEntry';
+import PageHeader from '../components/layout/PageHeader';
 
 function formatDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', {
@@ -99,7 +100,6 @@ export default function LiveMatchPage() {
     await save(patch);
   };
 
-  const handleLogout = () => supabase.auth.signOut();
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Chargement...</div>;
@@ -130,22 +130,7 @@ export default function LiveMatchPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border/70 bg-card/85 text-card-foreground shadow-sm backdrop-blur">
-        <div className="container mx-auto flex items-start justify-between px-4 py-8">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Match en direct</h1>
-            <Link to="/live-score" className="mt-2 inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
-              ← Retour à la liste
-            </Link>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="mt-1 min-h-11 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted"
-          >
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <PageHeader title="Match en direct" breadcrumb={[{ label: 'Live score', to: '/live-score' }]} />
 
       <main className="container mx-auto max-w-3xl px-4 py-8">
         {/* Résumé du match */}

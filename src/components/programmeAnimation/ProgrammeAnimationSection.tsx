@@ -193,7 +193,7 @@ export default function ProgrammeAnimationSection({
   if (!ready) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 space-y-2">
-        <h2 className="text-lg font-semibold">Animation vidéo</h2>
+        <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Animation vidéo</h2>
         <p className="text-sm text-muted-foreground">
           Téléchargez d’abord l’affiche : la vidéo reprend exactement ses réglages (matchs, club mis en valeur, partenaires).
           Si vous modifiez un réglage, il faut régénérer l’affiche.
@@ -208,7 +208,7 @@ export default function ProgrammeAnimationSection({
 
   return (
     <div ref={rootRef} className="rounded-xl border border-border bg-card p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Animation vidéo</h2>
+      <h2 className="text-lg leading-7 font-semibold tracking-tight text-foreground">Animation vidéo</h2>
 
       <div className="flex flex-wrap gap-6">
         <fieldset className="space-y-1">

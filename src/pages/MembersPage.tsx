@@ -11,7 +11,8 @@ import MemberProfileEditor from '../components/courses/MemberProfileEditor';
 // policy d'écriture. Le serveur est la barrière — les contrôles désactivés ci-dessous
 // ne sont que du confort.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CourseShell } from '../components/courses/CourseUI';
+import PageHeader from '../components/layout/PageHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 import {
   listClubMembers,
   removeClubMember,
@@ -158,15 +159,18 @@ export default function MembersPage() {
   };
 
   return (
-    <CourseShell title="Membres">
-      <div className="space-y-8">
+    <>
+      <PageHeader
+        title="Adhérents"
+        description="Invitez les membres du club, complétez leurs profils et gérez leurs accès."
+      />
+      <main className="course-workspace mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="space-y-10">
         {clubId && <SignupRequests key={clubId} clubId={clubId} onChanged={load} />}
         <InvitePanel clubName={club?.name ?? 'ce club'} clubId={clubId} onInvited={load} />
 
-        <section>
-          <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Membres du club
-          </h2>
+        <section aria-labelledby="section-members">
+          <SectionTitle id="section-members" count={members?.length} title="Membres du club" />
 
           {loadError && (
             <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -199,7 +203,7 @@ export default function MembersPage() {
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold text-card-foreground">
+                          <h3 className="text-base font-semibold text-card-foreground">
                             {fullName(m)}
                           </h3>
                           {m.status === 'pending' && (
@@ -274,7 +278,8 @@ export default function MembersPage() {
           )}
         </section>
       </div>
-    </CourseShell>
+      </main>
+    </>
   );
 }
 
@@ -338,10 +343,8 @@ function InvitePanel({
   const busy = loading !== null;
 
   return (
-    <section>
-      <h2 className="mb-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-        Inviter quelqu’un
-      </h2>
+    <section aria-labelledby="section-invite">
+      <SectionTitle id="section-invite" title="Inviter quelqu’un" />
       <div className="rounded-2xl border bg-card/90 p-6 shadow-sm">
         {error && (
           <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

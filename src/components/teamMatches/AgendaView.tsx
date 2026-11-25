@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { CellState, RencontreEntry } from './gridTypes';
 import { CELL_CLASSES } from './gridTypes';
 import { formatCategorie, etapeLabelCourt } from './teamMatchLabels';
@@ -9,6 +10,7 @@ import {
   lastWeekendRange,
   weekRange,
 } from './weekend';
+import SectionTitle from '../layout/SectionTitle';
 
 interface Section {
   key: string;
@@ -92,6 +94,7 @@ export default function AgendaView({
   selectedEtapeId: string | null;
   onSelect: (etapeId: string) => void;
 }) {
+  const titleId = useId();
   const now = new Date();
   const courant = currentWeekendRange(now);
   const dernier = lastWeekendRange(now);
@@ -162,24 +165,17 @@ export default function AgendaView({
   }
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-10">
       {sections.map((section) => (
-        <section key={section.key}>
-          <div className="mb-2.5 flex items-baseline gap-2">
-            <h2
-              className={`text-xs font-semibold uppercase tracking-[0.08em] ${
-                section.accent ? 'text-primary' : 'text-muted-foreground'
-              }`}
-            >
-              {section.title}
-            </h2>
-            <span className="tabular rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold">
-              {section.entries.length}
-            </span>
-            {section.hint && (
-              <span className="text-[11px] text-muted-foreground">{section.hint}</span>
-            )}
-          </div>
+        <section key={section.key} aria-labelledby={`${titleId}-${section.key}`}>
+          {/* La couleur du club ne va plus sur le titre : une section « accent » la garde sur sa pastille. */}
+          <SectionTitle
+            id={`${titleId}-${section.key}`}
+            title={section.title}
+            count={section.entries.length}
+            countClassName={section.accent ? 'bg-primary/10 text-primary' : undefined}
+            description={section.hint}
+          />
           <div className="space-y-1.5">
             {section.entries.map((entry) => (
               <Row

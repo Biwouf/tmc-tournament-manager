@@ -13,6 +13,7 @@ import type {
   TeamRencontre,
 } from '../types';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
+import SectionTitle from '../components/layout/SectionTitle';
 import TeamMatchLineModal from '../components/teamMatches/TeamMatchLineModal';
 import TeamMatchScoreModal from '../components/teamMatches/TeamMatchScoreModal';
 import TeamScoreSection from '../components/teamMatches/TeamScoreSection';
@@ -20,6 +21,7 @@ import TeamPhotosSection from '../components/teamMatches/TeamPhotosSection';
 import TeamLineupPanel from '../components/teamMatches/TeamLineupPanel';
 import ResultPosterSection from '../components/teamMatches/poster/ResultPosterSection';
 import {
+  SEASONS_CRUMB,
   competitionLabel,
   etapeLabel,
   expectedMatchCount,
@@ -250,7 +252,7 @@ export default function TeamRencontrePage() {
   if (notFound || !rencontre) {
     return (
       <div className="min-h-screen">
-        <TeamMatchesHeader title="Rencontre introuvable" backTo="/team-matches" backLabel="Matches par équipe" />
+        <TeamMatchesHeader title="Rencontre introuvable" />
         <main className="container mx-auto px-4 py-12 text-center text-muted-foreground">
           Cette rencontre n'existe pas ou a été supprimée.
         </main>
@@ -264,8 +266,7 @@ export default function TeamRencontrePage() {
     <div className="min-h-screen">
       <TeamMatchesHeader
         title={rencontre.club_adverse}
-        backTo={backTo}
-        backLabel="Retour à l'équipe"
+        parents={context ? [SEASONS_CRUMB, { label: competitionLabel(context.competition), to: backTo }] : []}
         actions={
           <Link
             to={`/team-matches/rencontre/${rencontre.id}/edit`}
@@ -344,19 +345,13 @@ export default function TeamRencontrePage() {
         {!rencontre.wo && clubId && <TeamLineupPanel key={rencontre.id} clubId={clubId} rencontreId={rencontre.id} />}
 
         {/* Matches de la rencontre */}
-        <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                Matches de la rencontre
-              </h2>
-              {expected > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {lines.length}/{expected} matches saisis
-                </p>
-              )}
-            </div>
-            <button
+        <section aria-labelledby="section-lines" className="rounded-2xl border bg-card/90 p-6 shadow-sm">
+          <SectionTitle
+            id="section-lines"
+            title="Matches de la rencontre"
+            className="mb-4"
+            description={expected > 0 ? `${lines.length}/${expected} matches saisis` : undefined}
+            action={<button
               onClick={() => {
                 setEditingLine(undefined);
                 setShowModal(true);
@@ -372,8 +367,8 @@ export default function TeamRencontrePage() {
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:brightness-95 disabled:opacity-50"
             >
               + Ajouter un match
-            </button>
-          </div>
+            </button>}
+          />
 
           {/* Déclaration WO (walkover) */}
           {rencontre.wo ? (

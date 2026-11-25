@@ -112,7 +112,7 @@ export default function CoursesPage() {
                 {formatCourseDate(c.starts_at)} · {c.duration_minutes} min ·
                 Europe/Paris
               </p>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-base font-semibold">
                 {c.name}
                 {c.cancelled_at ? " — Annulé" : ""}
               </h2>
