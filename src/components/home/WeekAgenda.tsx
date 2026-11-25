@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import SectionTitle from '../layout/SectionTitle';
 import { supabase } from '../../lib/supabase';
 import { readCourses, type Course } from '../../lib/courses';
+import { competitionLabel } from '../teamMatches/teamMatchLabels';
+import type { TeamCompetition } from '../../types';
 
 interface Entry {
   key: string;
@@ -17,6 +19,9 @@ interface RawRencontre {
   club_adverse: string;
   date_heure: string;
   domicile: boolean;
+  team_etapes: {
+    team_equipes: { numero: number; team_competitions: Pick<TeamCompetition, 'nom' | 'genre' | 'categorie'> };
+  };
 }
 
 const WEEK_MS = 7 * 86_400_000;
@@ -33,7 +38,8 @@ async function readWeek(clubId: string, withCourses: boolean): Promise<Entry[]> 
     supabase.from('events').select('id, titre, date_debut').eq('club_id', clubId)
       .lte('date_debut', to)
       .or(`date_fin.gte.${from},and(date_fin.is.null,date_debut.gte.${from})`),
-    supabase.from('team_rencontres').select('id, club_adverse, date_heure, domicile').eq('club_id', clubId)
+    supabase.from('team_rencontres')
+      .select('id, club_adverse, date_heure, domicile, team_etapes(team_equipes(numero, team_competitions(nom, genre, categorie)))').eq('club_id', clubId)
       .eq('wo', false).gte('date_heure', from).lte('date_heure', to),
     // Lecture admin, cours à venir, les plus proches d'abord.
     withCourses ? readCourses<Course>(clubId, 'courses') : [],
@@ -45,10 +51,16 @@ async function readWeek(clubId: string, withCourses: boolean): Promise<Entry[]> 
     ...(events.data as { id: string; titre: string; date_debut: string }[]).map((e) => ({
       key: `event-${e.id}`, at: e.date_debut, kind: 'Événement', title: e.titre, to: `/events/${e.id}/edit`,
     })),
-    ...(rencontres.data as RawRencontre[]).map((r) => ({
-      key: `rencontre-${r.id}`, at: r.date_heure, kind: r.domicile ? 'Rencontre à domicile' : 'Rencontre à l’extérieur',
-      title: `Contre ${r.club_adverse}`, to: `/team-matches/rencontre/${r.id}`,
-    })),
+    ...(rencontres.data as unknown as RawRencontre[]).map((r) => {
+      const equipe = r.team_etapes.team_equipes;
+      return {
+        key: `rencontre-${r.id}`,
+        at: r.date_heure,
+        kind: `${r.domicile ? 'À domicile' : 'À l’extérieur'} · ${competitionLabel(equipe.team_competitions)}, éq. ${equipe.numero}`,
+        title: `Contre ${r.club_adverse}`,
+        to: `/team-matches/rencontre/${r.id}`,
+      };
+    }),
     ...courses.filter((c) => !c.cancelled_at && Date.parse(c.starts_at) <= Date.parse(to)).map((c) => ({
       key: `course-${c.id}`, at: c.starts_at, kind: 'Cours', title: c.name, to: `/courses/${c.id}/registrations`,
     })),
