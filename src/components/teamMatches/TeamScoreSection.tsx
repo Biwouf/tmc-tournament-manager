@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { notifyInboxChanged } from '../../lib/inboxSignal';
 import { useClub } from '../../contexts/ClubContext';
 import type { TeamFormat, TeamMatchLine, TeamRencontre } from '../../types';
 import { computeScore } from './teamMatchLabels';
@@ -40,6 +41,7 @@ export default function TeamScoreSection({ rencontre, lines, format, onSaved }: 
       setError(err.message);
       return;
     }
+    notifyInboxChanged();
     onSaved();
   };
 

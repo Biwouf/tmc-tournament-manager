@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import SectionTitle from './layout/SectionTitle';
 import { supabase } from '../lib/supabase';
+import { notifyInboxChanged } from '../lib/inboxSignal';
 type Request = { user_id: string; email: string; prenom: string; nom: string; sex: string | null; classement: string | null; status: 'pending' | 'denied' | 'revoked'; created_at: string };
 export default function SignupRequests({ clubId, onChanged }: { clubId: string; onChanged: () => void }) {
   const titleId = useId();
@@ -27,6 +28,7 @@ export default function SignupRequests({ clubId, onChanged }: { clubId: string; 
       const { error } = await supabase.rpc('club_signup_decide', { p_club: clubId, p_user: row.user_id, p_status: status });
       if (error) throw error;
       setSuccess(status === 'approved' ? 'Demande acceptée : l’accès Membre est accordé.' : 'Demande refusée.');
+      notifyInboxChanged();
       await load(); onChanged();
     } catch { setError('Décision impossible. Actualisez la liste : la demande a peut-être déjà été traitée.'); }
     finally { lock.current = false; setBusy(null); }

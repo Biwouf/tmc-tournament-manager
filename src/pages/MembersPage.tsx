@@ -11,6 +11,7 @@ import MemberProfileEditor from '../components/courses/MemberProfileEditor';
 // policy d'écriture. Le serveur est la barrière — les contrôles désactivés ci-dessous
 // ne sont que du confort.
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import PageHeader from '../components/layout/PageHeader';
 import SectionTitle from '../components/layout/SectionTitle';
 import {
@@ -82,6 +83,14 @@ export default function MembersPage() {
     });
     return () => { cancelled = true; };
   }, [clubId]);
+
+  // `/admin/members#demandes` et `#inviter` (accueil) : le routeur ne défile pas vers une ancre. Une
+  // fois la liste chargée, pour que la page ait sa hauteur.
+  const { hash } = useLocation();
+  const listReady = members !== null;
+  useEffect(() => {
+    if (listReady && hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+  }, [listReady, hash]);
 
   const adminCount = useMemo(
     () => (members ?? []).filter((m) => m.role === 'admin').length,
@@ -166,8 +175,13 @@ export default function MembersPage() {
       />
       <main className="course-workspace mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
       <div className="space-y-10">
-        {clubId && <SignupRequests key={clubId} clubId={clubId} onChanged={load} />}
-        <InvitePanel clubName={club?.name ?? 'ce club'} clubId={clubId} onInvited={load} />
+        {/* Ancres ouvertes par l'accueil : marge haute sous la barre fixe du téléphone. */}
+        <div id="demandes" className="scroll-mt-16">
+          {clubId && <SignupRequests key={clubId} clubId={clubId} onChanged={load} />}
+        </div>
+        <div id="inviter" className="scroll-mt-16">
+          <InvitePanel clubName={club?.name ?? 'ce club'} clubId={clubId} onInvited={load} />
+        </div>
 
         <section aria-labelledby="section-members">
           <SectionTitle id="section-members" count={members?.length} title="Membres du club" />

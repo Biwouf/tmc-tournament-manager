@@ -79,6 +79,8 @@ function load(relative) {
     if (file.endsWith('/contexts/ClubRoleContext.tsx')) return { useClubRole: () => ({ role: context.role, isMember: true, isSuperAdmin: false, loading: false }) };
     // L'étape affiches (S7b) importe l'export vidéo (Worker, import.meta) : hors de propos ici.
     if (file.endsWith('/rencontresAnimation/useRencontresVideo.ts')) return { useRencontresVideo: () => ({ encoderOk: false, canExport: false, exporting: false, progress: null, exportError: '', cancel() {}, download: async () => {} }) };
+    // PR-BO2 : l'agenda de l'accueil a son propre test (admin-inbox-client).
+    if (file.endsWith('/home/WeekAgenda.tsx')) return { __esModule: true, default: () => null };
     if (cache.has(file)) return cache.get(file).exports;
     const mod = { exports: {} }; cache.set(file, mod);
     const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
@@ -109,7 +111,7 @@ async function mountHome(path = '/') {
   const Page = load('src/pages/FirstStepsPage.tsx').default;
   const root = createRoot(document.getElementById('root'));
   await act(async () => root.render(h(MemoryRouter, { initialEntries: [path] }, h(Where), h(Routes, null,
-    h(Route, { path: '/', element: h(Home) }),
+    h(Route, { path: '/', element: h(Home, { user }) }),
     h(Route, { path: '/premiers-pas', element: h(Page) }),
     h(Route, { path: '/admin/site', element: h('p', null, 'CONFIG SITE') })))));
   await flush();
@@ -208,7 +210,7 @@ test('CAC and internal clubs: no banner, no checklist, no extra read', async () 
   reset({ club: cac, config: {} });
   const unmount = await mountHome();
   assert.doesNotMatch(text(), /Essai|Pour finir/);
-  assert.deepEqual(log.filter(l => l[0] !== 'read' || l[1] !== 'club_settings'), [], 'only the existing config read');
+  assert.deepEqual(log.filter(l => l[0] !== 'read' || !['club_settings', 'profiles'].includes(l[1])), [], 'only the existing reads (config, first name)');
   await unmount();
   reset({ config: {} }); context.role = 'member';
   const again = await mountHome();
