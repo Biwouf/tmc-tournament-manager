@@ -115,6 +115,13 @@ test('Perf is only a club singles win against a strictly higher known ranking, n
  assert.equal(isClubPerformance(match('0','-2/6')),true);
  assert.equal(isClubPerformance(match('-15','-30')),true);
  assert.equal(isClubPerformance(match('NC','40')),true);
+ // 5e série, ancien -30 (au-dessus de -15) et numérotés (« Top »).
+ assert.equal(isClubPerformance(match('NC','40/2')),true);
+ assert.equal(isClubPerformance(match('40/1','40')),true);
+ assert.equal(isClubPerformance(match('40','40/1')),false);
+ assert.equal(isClubPerformance(match('-15','Top')),true);
+ assert.equal(isClubPerformance(match('-30','Top')),true);
+ assert.equal(isClubPerformance(match('Top','-30')),false);
  assert.equal(isClubPerformance(match('30','30')),false);
  assert.equal(isClubPerformance(match('15/2','15/4')),false);
  assert.equal(isClubPerformance(match('30','15/5',{gagnant:'adverse'})),false);

@@ -1,11 +1,15 @@
 import { Link, useLocation } from 'react-router-dom';
 import type { User } from '@supabase/supabase-js';
+import { useAdminInbox } from '../../lib/adminInbox';
 import { useClubRole } from '../../contexts/ClubRoleContext';
 import { PLATFORM_ITEM, isActive, visibleGroups, type NavItem } from './navItems';
 import UserMenu from './UserMenu';
 
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
   const active = isActive(item, pathname);
+  // Non-admin : `inbox` reste null, donc aucun compteur.
+  const { inbox } = useAdminInbox();
+  const count = inbox && item.counter ? item.counter.value(inbox) : 0;
   return (
     <Link
       to={item.to}
@@ -18,7 +22,17 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
     >
       {/* Seul usage décoratif de la couleur du club dans la barre (brief §2.1). */}
       {active && <span aria-hidden className="absolute -left-3 top-2 bottom-2 w-[3px] rounded-r bg-primary" />}
-      {item.label}
+      <span className="min-w-0 flex-1">{item.label}</span>
+      {item.counter && count > 0 && (
+        <span
+          className={`ml-2 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums ${
+            item.counter.neutral ? 'bg-muted text-muted-foreground ring-1 ring-border' : 'bg-foreground text-background'
+          }`}
+        >
+          {count}
+          <span className="sr-only"> {item.counter.label}</span>
+        </span>
+      )}
     </Link>
   );
 }

@@ -3,11 +3,12 @@ import { supabase } from '../../lib/supabase';
 import { TEAM_FORMATS, type TeamDetail, type TeamPlayer } from '../../lib/teamMatches';
 import { useTeamAction } from '../../hooks/useTeamAction';
 import TeamSheet from './TeamSheet';
+import { RANK_NUMBERED, RANK_SERIES } from '../../../../shared/tennisRankings';
 
-const ranks = [
-  { label: '3e série', values: ['30', '15/5', '15/4', '15/3', '15/2', '15/1'] },
-  { label: '2e série', values: ['15', '5/6', '4/6', '3/6', '2/6', '1/6', '0', '-2/6', '-4/6', '-15', '-30'] },
-  { label: '4e série', values: ['NC', '40', '30/5', '30/4', '30/3', '30/2', '30/1'] },
+const ranks: { label: string; ranks: readonly string[] }[] = [
+  { label: 'Non classé', ranks: ['NC'] },
+  ...RANK_SERIES,
+  { label: 'Numéroté', ranks: [RANK_NUMBERED] },
 ];
 const empty = (): TeamPlayer => ({ prenom: '', nom: '', classement: 'NC' });
 const validPlayers = (players: TeamPlayer[]) => players.every(p => `${p.prenom} ${p.nom}`.trim().length > 0);
@@ -47,7 +48,7 @@ function PlayerFields({ value, onChange, clubId, index }: {
     <p className="text-sm font-medium">Classement : {value.classement}</p>
     {ranks.map(group => <div key={group.label}>
       <p className="mb-1 text-xs text-muted-foreground">{group.label}</p>
-      <div className="grid grid-cols-6 gap-1">{group.values.map(rank => <button type="button" key={rank} aria-pressed={value.classement === rank}
+      <div className="grid grid-cols-6 gap-1">{group.ranks.map(rank => <button type="button" key={rank} aria-pressed={value.classement === rank}
         onClick={() => onChange({ ...value, classement: rank })}
         className={`min-h-11 rounded-lg border text-xs font-semibold ${value.classement === rank ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background'}`}>{rank}</button>)}</div>
     </div>)}

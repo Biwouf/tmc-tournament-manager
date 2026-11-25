@@ -1,7 +1,8 @@
 import type { ClubRole } from '../../contexts/ClubRoleContext';
+import { inboxTotal, type AdminInbox } from '../../lib/adminInbox';
 
 // PR-BO1 — arborescence de la barre latérale (brief back office §2.1). Les rôles reprennent la
-// matrice des cartes de l'accueil (`AppHomePage` SECTIONS) : le masquage n'est que du confort, la
+// matrice de MULTI_TENANT.md §4 : le masquage n'est que du confort, la
 // RLS et les gardes de route (`adminOnly`) restent le contrôle d'accès.
 
 export interface NavItem {
@@ -10,6 +11,8 @@ export interface NavItem {
   roles: readonly ClubRole[];
   /** Autres préfixes de chemin qui rendent l'entrée active (sous-pages, alias). */
   match?: readonly string[];
+  /** Compteur lu dans `admin_inbox`. `neutral` : information, rien à faire (pastille grise). */
+  counter?: { value: (inbox: AdminInbox) => number; label: string; neutral?: boolean };
 }
 
 export interface NavGroup {
@@ -22,19 +25,19 @@ const ADMIN = ['admin'] as const;
 const ALL = ['admin', 'manager', 'member'] as const;
 
 export const NAV_GROUPS: readonly NavGroup[] = [
-  { label: null, items: [{ to: '/', label: 'Accueil', roles: ALL }] },
+  { label: null, items: [{ to: '/', label: 'Accueil', roles: ALL, counter: { value: inboxTotal, label: 'à traiter' } }] },
   {
     label: 'Adhérents',
     items: [
-      { to: '/admin/members', label: 'Adhérents', roles: ADMIN },
-      { to: '/courses', label: 'Cours', roles: ADMIN },
+      { to: '/admin/members', label: 'Adhérents', roles: ADMIN, counter: { value: (i) => i.signup_pending, label: 'demandes en attente' } },
+      { to: '/courses', label: 'Cours', roles: ADMIN, counter: { value: (i) => i.course_pending, label: 'inscriptions en attente' } },
     ],
   },
   {
     label: 'Sportif',
     items: [
-      { to: '/team-matches', label: 'Rencontres', roles: STAFF },
-      { to: '/live-score', label: 'Live score', roles: ALL },
+      { to: '/team-matches', label: 'Rencontres', roles: STAFF, counter: { value: (i) => i.scores_to_enter, label: 'scores à saisir' } },
+      { to: '/live-score', label: 'Live score', roles: ALL, counter: { value: (i) => i.live_count, label: 'en cours', neutral: true } },
       { to: '/tmc-planning', label: 'Tournois TMC', roles: STAFF },
     ],
   },

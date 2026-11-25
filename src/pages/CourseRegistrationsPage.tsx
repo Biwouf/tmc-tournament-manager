@@ -1,6 +1,6 @@
 import { useCourseClock } from "../hooks/useCourseClock";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useClub } from "../contexts/ClubContext";
 import {
   courseError,
@@ -30,7 +30,11 @@ export default function CourseRegistrationsPage() {
   const [course, setCourse] = useState<Course | null>(null);
   const [rows, setRows] = useState<Registration[]>([]);
   const [offset, setOffset] = useState(0);
-  const [filter, setFilter] = useState("");
+  const [searchParams] = useSearchParams();
+  // Filtre d'ouverture : l'accueil mène aux demandes en attente (`?status=pending`).
+  const [filter, setFilter] = useState(
+    searchParams.get("status") === "pending" ? "pending" : "",
+  );
   const [selectedMember, setSelectedMember] = useState<CourseMember | null>(
     null,
   );

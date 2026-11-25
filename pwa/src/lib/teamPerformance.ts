@@ -1,9 +1,9 @@
-import { TENNIS_RANKINGS } from '../../../shared/tennisRankings';
+import { RANK_NUMBERED, TENNIS_RANKINGS } from '../../../shared/tennisRankings';
 import type { LiveMatch } from '../types';
 import type { TeamLine } from './teamMatches';
 
-// The team composition form also supports -30, above the shared signup list.
-const rankings: readonly string[] = [...TENNIS_RANKINGS, '-30'];
+// Older compositions may hold -30: above -15, below numbered players. Compared in upper case ('Top').
+const rankings = [...TENNIS_RANKINGS.filter(r => r !== RANK_NUMBERED), '-30', RANK_NUMBERED].map(r => r.toUpperCase());
 
 export function isClubPerformance(line: TeamLine, live?: LiveMatch): boolean {
   if (line.match_type !== 'simple' || line.joueurs_club.length !== 1 || line.joueurs_adverse.length !== 1 || line.result_kind === 'wo') return false;

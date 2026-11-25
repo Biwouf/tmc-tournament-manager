@@ -1,118 +1,92 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useClubRole } from '../contexts/ClubRoleContext';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
+import { inboxTotal, useAdminInbox } from '../lib/adminInbox';
+import { useClubRole, type ClubRole } from '../contexts/ClubRoleContext';
 import { useClub } from '../contexts/ClubContext';
 import { useClubConfig } from '../hooks/useClubConfig';
 import ClubSetup from '../components/dashboard/ClubSetup';
+import InboxCard from '../components/home/InboxCard';
+import WeekAgenda from '../components/home/WeekAgenda';
 import PageHeader from '../components/layout/PageHeader';
 import SectionTitle from '../components/layout/SectionTitle';
 
-// `roles` = rôles autorisés à voir la carte (matrice MULTI_TENANT.md §4 / brief PR4 §6).
-// Le masquage est purement UI : la RLS tenant_isolation cloisonne par club, pas par rôle.
-const SECTIONS = [
-  {
-    id: 'club',
-    label: 'Actus du club',
-    hint: 'Contenu publié pour les adhérents',
-    items: [
-      { to: '/actus', label: 'Actus', description: 'Rédiger et publier les actualités du club.', roles: ['admin', 'manager'] },
-      { to: '/events', label: 'Événements', description: 'Créer et gérer les événements du club.', roles: ['admin', 'manager'] },
-      { to: '/live-score', label: 'Live score', description: 'Suivre et saisir le score des matchs en direct.', roles: ['admin', 'manager', 'member'] },
-      { to: '/team-matches', label: 'Rencontres', description: 'Gérer les rencontres interclubs des équipes.', roles: ['admin', 'manager'] },
-      { to: '/team-matches/admin', label: 'Saisons et équipes', description: 'Référentiel interclubs : saisons, compétitions, équipes.', roles: ['admin', 'manager'] },
-    ],
-  },
-  {
-    id: 'tools',
-    label: 'Outils',
-    hint: 'Générateurs et planning sportif',
-    items: [
-      { to: '/medias', label: 'Visuels', description: 'Images des tournois (programme, résultats) et des rencontres.', roles: ['admin', 'manager'] },
-      { to: '/tmc-planning', label: 'Tournois TMC', description: 'Créer et gérer les tournois, planifier les matchs.', roles: ['admin', 'manager'] },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Admin',
-    hint: 'Réservé aux administrateurs',
-    items: [
-      { to: '/courses', label: 'Cours', description: 'Programmer les cours et valider les inscriptions.', roles: ['admin'] },
-      { to: '/admin/members', label: 'Adhérents', description: 'Inviter, changer les rôles, retirer des accès.', roles: ['admin'] },
-      { to: '/admin/site', label: 'Site et identité', description: 'Identité, page d’accueil et coordonnées du site vitrine.', roles: ['admin'] },
-      { to: '/admin/social', label: 'Réseaux sociaux', description: 'Connecter la page Facebook sur laquelle les actus sont publiées.', roles: ['admin'] },
-      { to: '/admin/messages', label: 'Messages', description: 'Les messages reçus depuis le formulaire de contact du site.', roles: ['admin'] },
-    ],
-  },
-] as const;
+// Même matrice de rôles que la barre latérale (`navItems.ts`) : confort d'affichage seulement.
+const SHORTCUTS: { to: string; label: string; roles: readonly ClubRole[] }[] = [
+  { to: '/actus/new', label: 'Rédiger une actu', roles: ['admin', 'manager'] },
+  { to: '/events/new', label: 'Créer un événement', roles: ['admin', 'manager'] },
+  { to: '/live-score/new', label: 'Lancer un live', roles: ['admin', 'manager', 'member'] },
+  { to: '/admin/members#inviter', label: 'Inviter un adhérent', roles: ['admin'] },
+];
 
-export default function AppHomePage() {
+function today(): string {
+  const label = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return label[0].toUpperCase() + label.slice(1);
+}
+
+// PR-BO2 — accueil « À traiter » (brief back office §3.1). Les cartes de modules ont disparu : la
+// barre latérale suffit à naviguer. « À traiter » est réservé à l'admin (`admin_inbox`), l'agenda à
+// l'admin et au gestionnaire ; un membre n'a que ses raccourcis.
+export default function AppHomePage({ user }: { user: User }) {
   const { role, isSuperAdmin } = useClubRole();
-  const titleId = useId();
-  const { club } = useClub();
+  const { clubId } = useClub();
   const { config, loading: configLoading, reload } = useClubConfig();
-  const clubName = club?.name ?? 'Club';
+  const { inbox } = useAdminInbox();
+  const shortcutsId = useId();
+  const [prenom, setPrenom] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('profiles').select('prenom').eq('id', user.id).maybeSingle().then(({ data }) => {
+      if (!cancelled) setPrenom((data?.prenom ?? '').trim());
+    });
+    return () => { cancelled = true; };
+  }, [user.id]);
 
   // Super-admin non membre : accès support avec le rôle effectif 'admin'.
   const effectiveRole = isSuperAdmin ? 'admin' : role;
-  const sections = SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter(
-      (item) => effectiveRole !== null && (item.roles as readonly string[]).includes(effectiveRole),
-    ),
-  })).filter((section) => section.items.length > 0);
+  const isAdmin = effectiveRole === 'admin';
+  const total = inbox ? inboxTotal(inbox) : 0;
+  const shortcuts = SHORTCUTS.filter((item) => effectiveRole !== null && item.roles.includes(effectiveRole));
 
   return (
     <div className="min-h-screen">
-      <PageHeader title="Accueil" description={`Administration de ${clubName}`} />
+      <PageHeader
+        title={prenom ? `Bonjour ${prenom}` : 'Bonjour'}
+        description={total > 0
+          ? `${today()} · ${total > 1 ? `${total} éléments demandent` : '1 élément demande'} votre attention`
+          : today()}
+      />
 
-      <main className="container mx-auto px-4 py-12">
-        <div className="flex flex-col gap-10">
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex flex-col gap-8">
           {/* SaaS S8 — bandeau d'essai et checklist d'un club self-serve ; rien pour le CAC. */}
           <ClubSetup config={config} loading={configLoading} reloadConfig={reload} />
-          {/* PR5 — surface PLATEFORME, pas module club : volontairement hors de la
-              matrice de rôles ci-dessus (le super-admin n'est pas un rôle de club). */}
-          {isSuperAdmin && (
-            <section aria-labelledby={`${titleId}-platform`}>
-              <SectionTitle
-                id={`${titleId}-platform`}
-                title="Plateforme"
-                action={<span className="hidden text-xs text-muted-foreground md:inline">Réservé au super-admin</span>}
-              />
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Link
-                  to="/super-admin"
-                  className="rounded-2xl border bg-card/90 p-8 shadow-sm transition hover:border-primary/30 hover:shadow-md"
-                >
-                  <h3 className="text-base font-semibold text-card-foreground">Console plateforme</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Créer, lister et suspendre les clubs ; inviter leur premier administrateur.
-                  </p>
-                </Link>
-              </div>
-            </section>
-          )}
 
-          {sections.map((section) => (
-            <section key={section.id} aria-labelledby={`${titleId}-${section.id}`}>
-              <SectionTitle
-                id={`${titleId}-${section.id}`}
-                title={section.label}
-                action={<span className="hidden text-xs text-muted-foreground md:inline">{section.hint}</span>}
-              />
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {section.items.map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="rounded-2xl border bg-card/90 p-8 shadow-sm transition hover:border-primary/30 hover:shadow-md"
-                  >
-                    <h3 className="text-base font-semibold text-card-foreground">{item.label}</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">{item.description}</p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
+          <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+            {isAdmin && <InboxCard />}
+            <div className="flex min-w-0 flex-col gap-8">
+              {clubId && (isAdmin || effectiveRole === 'manager') && <WeekAgenda clubId={clubId} withCourses={isAdmin} />}
+              {shortcuts.length > 0 && (
+                <section aria-labelledby={shortcutsId}>
+                  <SectionTitle id={shortcutsId} title="Raccourcis" />
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                    {shortcuts.map((item) => (
+                      <li key={item.to}>
+                        <Link
+                          to={item.to}
+                          className="flex min-h-11 items-center rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted"
+                        >
+                          {item.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
+          </div>
         </div>
       </main>
     </div>

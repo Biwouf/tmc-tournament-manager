@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { notifyInboxChanged } from '../../lib/inboxSignal';
 import { useClub } from '../../contexts/ClubContext';
 import type { TeamCompetition, TeamEquipe, TeamEtape, TeamRencontre } from '../../types';
 import TeamMatchesHeader from './TeamMatchesHeader';
@@ -141,6 +142,7 @@ export default function TeamRencontreForm() {
         setSaving(false);
         return;
       }
+      notifyInboxChanged();
       navigate(`/team-matches/rencontre/${id}`);
     } else {
       const { data, error: insErr } = await supabase
@@ -159,6 +161,7 @@ export default function TeamRencontreForm() {
         setSaving(false);
         return;
       }
+      notifyInboxChanged();
       navigate(`/team-matches/rencontre/${data.id}`);
     }
   };
