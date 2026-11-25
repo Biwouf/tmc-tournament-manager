@@ -179,6 +179,18 @@ span.fl-edit { color: var(--fl-stone-400); cursor: default; }
 .fl-check input { width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--fl-clay); flex-shrink: 0; }
 .fl-turnstile:empty { display: none; }
 .fl-sent-box { background: var(--fl-night-2); border: 1px solid rgba(255, 255, 255, 0.12); padding: 16px 18px; font-family: var(--mono); font-size: 14px; overflow-wrap: anywhere; }
+/* P2 — écran du code : e-mail en lecture avec « Modifier », 6 cases sur un seul champ, renvoi. */
+.fl-sent-row { display: flex; align-items: center; gap: 12px; background: var(--fl-night-2); border: 1px solid rgba(255, 255, 255, 0.12); padding: 6px 6px 6px 16px; min-height: 56px; }
+.fl-sent-email { flex: 1; min-width: 0; font-size: 18px; overflow-wrap: anywhere; }
+.fl-sent-edit { background: transparent; border: 0; color: var(--fl-clay); font-family: var(--mono) !important; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; min-height: 44px; padding: 0 12px; cursor: pointer; }
+.fl-code-status { margin: 0; color: var(--fl-ok); font-size: 16px; font-weight: 500; }
+.fl-otp-box { display: flex; align-items: center; justify-content: center; aspect-ratio: 5 / 6; min-height: 52px; max-height: 72px; background: var(--fl-night-2); border: 1px solid rgba(255, 255, 255, 0.3); font: 500 30px var(--mono); color: var(--fl-chalk); }
+.fl-otp-box[data-filled] { border-color: rgba(255, 255, 255, 0.6); }
+.fl-otp-box[data-active] { outline: 2px solid var(--fl-clay); outline-offset: 1px; }
+.fl-otp-box[data-invalid] { border-color: var(--fl-bad); }
+.fl-resend { margin: 0; }
+.fl-resend-btn { width: 100%; padding: 10px 16px; min-height: 48px; font-size: 13px; }
+.fl button.fl-resend-btn:disabled { opacity: 1; color: var(--fl-stone-400); border-style: dashed; border-color: rgba(255, 255, 255, 0.2); }
 .fl-status { font-family: var(--mono); font-size: 13px; color: var(--fl-ok); }
 .fl-status:empty { display: none; }
 

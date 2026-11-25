@@ -40,23 +40,39 @@ export function headerName(value: string): string {
 export function signupSender(shortName: string): string {
   return `${headerName(shortName)} via Feelike`;
 }
-/** Objet d'un club Ten'Up. Le code (P2, pas encore branché) passe en tête : « 482 913 : … ». */
+/** Code à 6 chiffres lisible en tête d'objet : « 482 913 ». Autre format → null (objet sans code). */
+function subjectCode(code: string | undefined): string | null {
+  return code && /^\d{6}$/.test(code) ? `${code.slice(0, 3)} ${code.slice(3)}` : null;
+}
+/** Objet d'un club Ten'Up. P2 : le code passe en tête, pour l'aperçu des notifications. */
 export function signupSubject(shortName: string, code?: string): string {
   const name = headerName(shortName);
-  if (!code) return `Gardez ${name} sur Feelike`;
-  const digits = /^\d{6}$/.test(code) ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
-  return `${digits} : votre code pour garder ${name}`;
+  const digits = subjectCode(code);
+  return digits ? `${digits} : votre code pour garder ${name}` : `Gardez ${name} sur Feelike`;
 }
-function signupContent(signup: ClubSignup): Pick<EmailContent, 'title' | 'paragraphs' | 'preheader' | 'footer' | 'notes'> & { label: string } {
+/** Objet de la marque Feelike (P2 : club saisi à la main, connexion au BO central) : le code, jamais
+ * le nom libre d'un club ; sans code, l'objet ordinaire « Feelike — <titre> ». */
+export function feelikeSubject(title: string, code?: string): string {
+  const digits = subjectCode(code);
+  return digits ? `${digits} : votre code Feelike` : `Feelike — ${title}`;
+}
+/** Code d'e-mail à 6 chiffres (P2, réglage Auth « Email OTP length » = 6). */
+export const emailCode = (token: string | undefined): string | null => (token && /^\d{6,10}$/.test(token) ? token : null);
+const CODE_NOTE = 'Valable 10 minutes. Ne le communiquez à personne : Feelike ne vous le demandera jamais.';
+function signupContent(signup: ClubSignup, code: string | null): Pick<EmailContent, 'title' | 'paragraphs' | 'preheader' | 'footer' | 'notes'> & { label: string } {
   const host = `${signup.slug}.feelike.pro`;
+  // P2 : le code d'abord, saisi dans l'onglet de l'inscription ; le bouton reste en secours.
+  const confirm = code
+    ? 'Saisissez ce code là où vous avez commencé votre inscription pour la confirmer et démarrer vos 30 jours d’essai gratuit, sans carte bancaire. Vous pouvez aussi utiliser le bouton ci-dessous.'
+    : 'Confirmez votre adresse email pour la garder et démarrer vos 30 jours d’essai gratuit, sans carte bancaire.';
   return {
     title: 'Gardez votre club',
     paragraphs: [signup.tenup
-      ? `Votre app ${host} est prête. Confirmez votre adresse email pour la garder et démarrer vos 30 jours d’essai gratuit, sans carte bancaire.`
-      : `Votre club « ${signup.name} » vous attend à l’adresse ${host}. Confirmez votre adresse email pour le garder et démarrer vos 30 jours d’essai gratuit, sans carte bancaire.`],
+      ? `Votre app ${host} est prête. ${confirm}`
+      : `Votre club « ${signup.name} » vous attend à l’adresse ${host}. ${confirm}`],
     label: 'Garder mon club',
-    preheader: `Votre app ${host} est prête.`,
-    footer: `Vous recevez cet email parce que quelqu’un a créé l’espace du club ${signup.name} sur Feelike avec cette adresse. Ce n’est pas vous ? Ignorez-le : sans confirmation, l’espace est supprimé dans 7 jours. Ne partagez jamais ce lien.`,
+    preheader: code ? `Valable 10 minutes. Votre app ${host} est prête.` : `Votre app ${host} est prête.`,
+    footer: `Vous recevez cet email parce que quelqu’un a créé l’espace du club ${signup.name} sur Feelike avec cette adresse. Ce n’est pas vous ? Ignorez-le : sans confirmation, l’espace est supprimé dans 7 jours. Ne partagez jamais ce lien ni ce code.`,
     notes: ['Feelike · l’app des clubs de tennis · feelike.pro',
       ...(signup.tenup ? ['Le nom, le logo et la couleur viennent de la fiche publique Ten’Up du club.'] : [])],
   };
@@ -67,8 +83,11 @@ export function authEmails(payload: AuthEmailPayload, supabaseUrl: string, signu
   if (!user.email) throw new Error('Missing recipient');
   if (notices[type]) return [{ to: user.email, content: { title: notices[type], paragraphs: ['Cette modification concerne votre compte.', 'Si vous n’êtes pas à l’origine de cette modification, contactez rapidement l’administrateur de votre club.'] } }];
   if (!copy[type]) throw new Error('Unsupported email action');
-  const club = signup && type === 'magiclink' ? signupContent(signup) : null;
-  const [title, paragraph, label] = club ? [club.title, club.paragraphs[0], club.label] : copy[type];
+  // P2 : un lien magique porte aussi le code à 6 chiffres (inscription, « Recevoir un code »).
+  const code = type === 'magiclink' ? emailCode(data.token) : null;
+  const club = signup && type === 'magiclink' ? signupContent(signup, code) : null;
+  const [title, paragraph, label] = club ? [club.title, club.paragraphs[0], club.label]
+    : code ? [copy.magiclink[0], 'Saisissez ce code pour vous connecter, ou utilisez le bouton ci-dessous.', copy.magiclink[2]] : copy[type];
   const footer = 'Si vous n’êtes pas à l’origine de cette demande ou si vous n’attendiez pas cet email, vous pouvez l’ignorer. Ne partagez jamais ce lien ou ce code.';
   if (type === 'reauthentication') {
     if (!data.token) throw new Error('Missing code');
@@ -81,7 +100,7 @@ export function authEmails(payload: AuthEmailPayload, supabaseUrl: string, signu
     url.searchParams.set('type', type);
     if (data.redirect_to) url.searchParams.set('redirect_to', data.redirect_to);
     const extra = club ? { preheader: club.preheader, footer: club.footer, notes: club.notes } : { footer };
-    return { to, content: { title, paragraphs: [paragraph], action: { label, url: url.href }, ...extra } };
+    return { to, content: { title, paragraphs: [paragraph], ...(code ? { code, codeNote: CODE_NOTE } : {}), action: { label, url: url.href }, ...extra } };
   };
   // Supabase associe token_hash_new à l'adresse ACTUELLE (noms historiques inversés).
   if (type === 'email_change') return [

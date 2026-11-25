@@ -487,6 +487,37 @@ test('auth email: a Ten’Up club whose recipient is not its admin gets the plai
   assert.equal(mail.subject, 'Feelike — Connectez-vous à votre espace');
   assert.doesNotMatch(mail.htmlContent, /#f26524|Moissac/);
 });
+// Onboarding P2 (brief SAAS_11 §6.1) : le code en tête d'objet et en premier dans l'e-mail ; jamais
+// journalisé ; club saisi à la main → le code, jamais le nom libre.
+test('auth email (P2): the 6-digit code leads the subject and the body, and is never logged', async () => {
+  const withCode = { ...signupAuth, email_data: { ...signupAuth.email_data, token: '481902' } };
+  const logs = []; const [error, warn, log] = [console.error, console.warn, console.log];
+  console.error = console.warn = console.log = (...args) => logs.push(args);
+  try {
+    const app = await handler('send-auth-email', signupClubs({ name: 'Moissac Tennis Club', tenup_club_id: '60820110', brand: { short_name: 'Moissac TC', color: '#f26524' } }));
+    assert.equal((await app.call(withCode, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+    const mail = app.effects.find(e => e.feed)?.feed;
+    assert.equal(mail.subject, '481 902 : votre code pour garder Moissac TC');
+    const words = (html) => html.replace(/<style[^]*?<\/style>|<[^>]+>/g, '');
+    assert.ok(words(mail.htmlContent).indexOf('481902') > 0 && words(mail.htmlContent).indexOf('481902') < words(mail.htmlContent).lastIndexOf('Garder mon club'), 'code first, link as a fallback');
+    assert.match(mail.htmlContent, /token=test-hash/, 'the link still works');
+    const manual = await handler('send-auth-email', signupClubs({ name: 'Service client Banque', tenup_club_id: null, brand: { color: '#ff0000' } }));
+    assert.equal((await manual.call(withCode, { 'webhook-signature': 'valid-test-signature' })).status, 200);
+    const plain = manual.effects.find(e => e.feed)?.feed;
+    assert.equal(plain.subject, '481 902 : votre code Feelike');
+    assert.match(words(plain.htmlContent), /481902/);
+    const brevo = await handler('send-auth-email', { ...signupClubs({ name: 'Moissac Tennis Club', tenup_club_id: '60820110', brand: { short_name: 'Moissac TC' } }), brevoFails: true });
+    assert.equal((await brevo.call(withCode, { 'webhook-signature': 'valid-test-signature' })).status, 502);
+  } finally { [console.error, console.warn, console.log] = [error, warn, log]; }
+  assert.ok(logs.every(args => !JSON.stringify(args).includes('481902')), 'the code is never logged');
+});
+test('auth email (PR #277, M4): a sign-in code under the Feelike brand leads the subject; a club keeps its own', async () => {
+  const login = (redirect_to) => ({ user: { id: 'u', email: 'a@example.invalid' }, email_data: { email_action_type: 'magiclink', token: '481902', token_hash: 'h', redirect_to } });
+  const app = await handler('send-auth-email', { env: authEnv, emailClubs: { tennis: { id: 'cac', name: 'CAC Tennis Club', status: 'active', brand: { color: '#333dcc' } } } });
+  const subjectFor = async (url) => { assert.equal((await app.call(login(url), { 'webhook-signature': 'valid-test-signature' })).status, 200); return app.effects.filter(e => e.feed).at(-1).feed.subject; };
+  assert.equal(await subjectFor('https://admin.feelike.pro/'), '481 902 : votre code Feelike');
+  assert.equal(await subjectFor('https://app-tennis.feelike.pro/'), 'CAC Tennis Club — Connectez-vous à votre espace');
+});
 test('auth email: an active club (CAC) keeps its sender and subject', async () => {
   const app = await handler('send-auth-email', { env: authEnv, emailClubs: { tennis: { id: 'cac', name: 'CAC Tennis Club', status: 'active', brand: { color: '#333dcc', logo: 'https://s.invalid/cac.png', short_name: 'CAC' } } } });
   assert.equal((await app.call(authPayload, { 'webhook-signature': 'valid-test-signature' })).status, 200);

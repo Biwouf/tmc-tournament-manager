@@ -17,11 +17,17 @@
 // logo trop petit (`monogram`) n'est pas posé (initiales) mais reste restaurable. Événement
 // `logo_choice`. Copie incomplète → l'original, comme avant.
 //
+// P2 (retours PR #277, B1) : la création renvoie un `resume_token` signé (2 h, lié au club et au slug).
+// `{ resume_token, email, turnstile_token }` corrige l'adresse tant que le club est `pending` : l'admin
+// est remplacé (`club_self_serve_change_email`), l'ancien compte supprimé s'il est né ici, et le code
+// part à la nouvelle adresse. Sans jeton, rien ne change : connaître le slug ne suffit jamais.
+//
 // La réponse ne dit jamais si l'adresse avait déjà un compte : même statut, même corps.
 // Rien n'est journalisé de l'adresse, de l'IP, du jeton ni des fichiers.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { signupSlugProblem } from '../../../shared/clubSlug.mjs';
 import { validLookupSecret, verifyLookupToken } from '../_shared/lookup-token.ts';
+import { signResumeToken, verifyResumeToken } from '../_shared/resume-token.ts';
 import { clientIp } from '../_shared/client-ip.ts';
 import { LOGO_VARIANTS } from '../../../shared/tenupLogo.mjs';
 
@@ -95,6 +101,49 @@ Deno.serve(async (req: Request) => {
   if (throttleError) return json(500, { error: 'Inscription momentanément indisponible.' });
   if (allowed !== true) return json(429, { error: 'Trop de tentatives. Réessayez plus tard.' });
 
+  const hmacSecret = Deno.env.get('LOOKUP_HMAC_SECRET');
+  // Lien magique et code, envoyés par le hook `send-auth-email` (gabarit « Gardez votre club »).
+  const sendCode = async (to: string, clubSlug: string) => {
+    const target = new URL(redirect);
+    target.searchParams.set('inscription', clubSlug);
+    const publicClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await publicClient.auth.signInWithOtp({
+      email: to, options: { shouldCreateUser: false, emailRedirectTo: target.href },
+    });
+    return !error;
+  };
+  const NOT_SENT = { error: 'L’e-mail n’a pas pu être envoyé. Réessayez dans une minute.' };
+  // Compte créé s'il n'existe pas, sinon réutilisé. Marqué pour que la purge ne supprime jamais
+  // qu'un compte né de cette inscription.
+  const ensureAccount = async (): Promise<{ created: string | null } | null> => {
+    const { data, error } = await admin.auth.admin.createUser({
+      email, email_confirm: true, app_metadata: { created_via: 'club_signup' },
+    });
+    if (data?.user) return { created: data.user.id };
+    return error?.code === 'email_exists' || error?.status === 422 ? { created: null } : null;
+  };
+
+  // P2 : e-mail corrigé avant l'activation, sur présentation du jeton remis à la création.
+  const resumeToken = text(form, 'resume_token');
+  if (resumeToken) {
+    const proof = validLookupSecret(hmacSecret) ? await verifyResumeToken(hmacSecret, resumeToken) : null;
+    if (!proof) return json(400, { error: 'Le délai pour changer d’adresse est passé.', reason: 'resume_expired' });
+    if (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(400, { error: 'Informations incomplètes ou invalides.' });
+    const account = await ensureAccount();
+    if (!account) return json(500, { error: 'Inscription momentanément indisponible.' });
+    const { data: orphans, error: changeError } = await admin.rpc('club_self_serve_change_email',
+      { p_club: proof.club, p_slug: proof.slug, p_email: email });
+    if (changeError) {
+      if (account.created) await admin.auth.admin.deleteUser(account.created).catch(() => undefined);
+      if (changeError.code === 'PT409') return json(409, { error: 'Ce club n’attend plus d’activation.', reason: 'not_pending' });
+      return json(500, { error: 'Inscription momentanément indisponible.' });
+    }
+    for (const orphan of (orphans ?? []) as string[]) await admin.auth.admin.deleteUser(orphan).catch(() => undefined);
+    // L'adresse est changée même si l'e-mail ne part pas : un nouvel essai rejoue sans dommage.
+    if (!await sendCode(email, proof.slug)) return json(502, NOT_SENT);
+    return json(200, { ok: true, resume_token: await signResumeToken(hmacSecret!, proof.club, proof.slug) });
+  }
+
   // 3. Validation (la base revalide tout).
   const name = text(form, 'name'), city = text(form, 'city'), slug = text(form, 'slug');
   const sport = text(form, 'sport') || 'tennis', color = text(form, 'color');
@@ -110,8 +159,7 @@ Deno.serve(async (req: Request) => {
   const lookupToken = text(form, 'lookup_token');
   let lookup: { tenup_club_id: string } | null = null;
   if (lookupToken) {
-    const secret = Deno.env.get('LOOKUP_HMAC_SECRET');
-    lookup = validLookupSecret(secret) ? await verifyLookupToken(secret, lookupToken) : null;
+    lookup = validLookupSecret(hmacSecret) ? await verifyLookupToken(hmacSecret, lookupToken) : null;
     if (!lookup) return json(400, { error: 'La lecture de votre club sur Ten’Up a expiré. Retrouvez votre club à nouveau.', reason: 'lookup_expired' });
   }
   const logoVariant = text(form, 'logo_variant');
@@ -128,16 +176,10 @@ Deno.serve(async (req: Request) => {
     files.push({ field, data, ...kind });
   }
 
-  // 4. Compte : créé s'il n'existe pas, sinon réutilisé. Marqué pour que la purge ne
-  // supprime jamais qu'un compte né de cette inscription.
-  let createdAccount: string | null = null;
-  const { data: created, error: accountError } = await admin.auth.admin.createUser({
-    email, email_confirm: true, app_metadata: { created_via: 'club_signup' },
-  });
-  if (created?.user) createdAccount = created.user.id;
-  else if (accountError?.code !== 'email_exists' && accountError?.status !== 422) {
-    return json(500, { error: 'Inscription momentanément indisponible.' });
-  }
+  // 4. Compte.
+  const account = await ensureAccount();
+  if (!account) return json(500, { error: 'Inscription momentanément indisponible.' });
+  const createdAccount = account.created;
 
   // 5. Fichiers, même bucket et même convention que la configuration du site.
   const clubId = crypto.randomUUID();
@@ -232,13 +274,8 @@ Deno.serve(async (req: Request) => {
     await admin.storage.from(BUCKET).remove(Object.values(uploaded)).catch(() => undefined);
   }
 
-  // 7. Lien magique, envoyé par le hook `send-auth-email` (gabarit « Gardez votre club »).
-  const target = new URL(redirect);
-  target.searchParams.set('inscription', slug);
-  const publicClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { error: linkError } = await publicClient.auth.signInWithOtp({
-    email, options: { shouldCreateUser: false, emailRedirectTo: target.href },
-  });
-  if (linkError) return json(502, { error: 'L’e-mail n’a pas pu être envoyé. Réessayez dans une minute.' });
-  return json(200, { ok: true });
+  // 7. Code et lien magique. Jeton de reprise à la création seulement (jamais au rejeu).
+  const resume = result?.created === true && validLookupSecret(hmacSecret) ? { resume_token: await signResumeToken(hmacSecret, result.club_id, slug) } : {};
+  if (!await sendCode(email, slug)) return json(502, { ...NOT_SENT, ...resume });
+  return json(200, { ok: true, ...resume });
 });

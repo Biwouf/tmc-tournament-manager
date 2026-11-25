@@ -171,7 +171,11 @@ test('tenup-lookup: cache served for 24 h without counting; older entries read a
   assert.deepEqual(w.removed.sort(), previous.sort());
 });
 
-test('tenup-lookup: 20 reads per hour per IP, then 429; not found 404; worker down 504', async () => {
+test('tenup-lookup: 20 reads per hour per IP, then 429; not found 404; worker down 504', async (t) => {
+  // Worker occupé : l'attente de son tour (M6) est passée sans délai réel.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+  const pump = setInterval(() => t.mock.timers.tick(1_000), 1);
+  t.after(() => clearInterval(pump));
   const { w, ask } = await setup();
   w.attempts = 20;
   const limited = await ask({ url: URL_ROOT });
@@ -344,4 +348,77 @@ test('W3 tenup-lookup: never an error — slow, failing, malformed or partly sto
     assert.equal(body.logo_clean_url, undefined);
     assert.equal(body.logo_variants, undefined);
   }
+});
+
+// Onboarding P2 — « N équipes en championnat » sur la carte 02 : page des rencontres lue APRÈS
+// l'identité, sur preuve d'une lecture (jeton), seulement si le worker est libre ; jamais bloquant.
+const POOL = 'https://tenup.fft.fr/championnat/82000001?division=1&phase=1&poule=1';
+const clubPage = (teams) => ({ club: 'MOISSAC TENNIS CLUB', skipped: 0, teams: teams.map(([team, competition], i) => ({
+  team, competition, level: 'Départemental', category: 'Seniors', genre: 'Messieurs', dates: ['dim. 29 nov.'],
+  pool_url: POOL.replace('poule=1', `poule=${i + 1}`),
+})) });
+
+test('P2 tenup-lookup teams: counted from the encounters page, cached 24 h, never blocking', async () => {
+  const { w, ask } = await setup();
+  const first = await (await ask({ url: URL_ROOT })).json();
+  w.worker = async (init) => JSON.parse(init.body).kind === 'club'
+    ? Response.json(clubPage([['Moissac TC 1', 'Seniors Messieurs'], ['Moissac TC 2', 'Seniors Messieurs'], ['Moissac TC 1', 'Seniors Dames']]))
+    : Response.json({});
+  w.calls.length = 0; w.workerBodies.length = 0;
+  const teams = (body, ip) => ask({ teams: true, turnstile_token: undefined, ...body }, ip);
+
+  const res = await teams({ lookup_token: first.lookup_token });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { ok: true, teams: 3, championships: 2, cached: false });
+  assert.deepEqual(w.workerBodies, [{ kind: 'club', url: 'https://tenup.fft.fr/club/60820110/competitions/rencontres' }]);
+  assert.ok(!w.calls.includes('turnstile'), 'the signed token stands for Turnstile');
+  assert.ok(w.calls.includes('throttle'), 'a worker read counts toward the IP limit');
+  assert.equal(w.cache.payload.teams_count, 3);
+
+  w.calls.length = 0;
+  assert.deepEqual(await (await teams({ lookup_token: first.lookup_token })).json(), { ok: true, teams: 3, championships: 2, cached: true });
+  assert.deepEqual(w.calls, ['cache:read'], 'served from the cache: no throttle, no worker');
+
+  // Forged or missing token → 400, nothing read.
+  w.calls.length = 0;
+  assert.equal((await teams({ lookup_token: `${first.lookup_token}x` })).status, 400);
+  assert.equal((await teams({})).status, 400);
+  assert.deepEqual(w.calls, []);
+});
+
+test('P2 tenup-lookup teams: busy, slow or malformed worker → no line (teams: null); IP limit → 429', async () => {
+  const { w, ask } = await setup();
+  const { lookup_token } = await (await ask({ url: URL_ROOT })).json();
+  const teams = () => ask({ teams: true, lookup_token });
+  for (const worker of [
+    async () => Response.json({ error: 'Synchronisation en cours.' }, { status: 429 }),
+    async () => { throw new DOMException('timeout', 'TimeoutError'); },
+    async () => Response.json({ club: 'X', teams: 'nope' }),
+  ]) {
+    w.worker = worker;
+    const res = await teams();
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { ok: true, teams: null });
+  }
+  assert.equal(w.cache.payload.teams_count, undefined, 'nothing cached');
+  w.attempts = w.limit;
+  assert.equal((await teams()).status, 429);
+});
+
+test('PR #277, M6: a busy worker (someone else’s optional teams read) makes the identity wait its turn; the teams read gives up at once', async () => {
+  const { w, ask } = await setup();
+  const ready = w.worker;
+  let busy = 2;
+  w.worker = async (init) => busy-- > 0 ? Response.json({ error: 'Synchronisation en cours.' }, { status: 429 }) : ready(init);
+  const started = Date.now();
+  const res = await ask({ url: URL_ROOT });
+  assert.equal(res.status, 200, 'read once the worker is free');
+  assert.ok(Date.now() - started >= 1_900 && Date.now() - started < 9_000);
+  assert.equal(w.workerBodies.filter((b) => b.kind === 'club-identity').length, 3);
+  assert.equal(w.attempts, 1, 'counted once toward the IP limit');
+  const { lookup_token } = await res.json();
+  w.worker = async () => Response.json({ error: 'x' }, { status: 429 });
+  w.workerBodies.length = 0;
+  assert.deepEqual(await (await ask({ teams: true, lookup_token })).json(), { ok: true, teams: null });
+  assert.equal(w.workerBodies.length, 1, 'no retry for the optional read');
 });

@@ -113,6 +113,8 @@ signature, 5 Mo chacun, pas de SVG).
    gabarit **« Gardez votre club »** quand ce paramètre désigne un club `pending` dont le
    destinataire est admin (sinon : gabarit « magiclink » ordinaire).
 
+Depuis P2 (§14.9), l'e-mail porte aussi un code à 6 chiffres, et la création renvoie un `resume_token`.
+
 Réponse : `200 { ok: true }`, identique que l'adresse ait déjà un compte ou non. Rien n'est
 journalisé de l'adresse, de l'IP, du jeton ni des fichiers.
 
@@ -1240,8 +1242,7 @@ destinataire admin) :
   logo retouché est choisi (sinon `brand.logo`, écarté s'il est en WebP → initiales), surtitre
   « Votre app de club ». Expéditeur **« <nom court> via Feelike »**, adresse `AUTH_FROM_EMAIL`
   inchangée. Objet **« Gardez <nom court> sur Feelike »** ; la forme P2
-  `482 913 : votre code pour garder <nom court>` est prête (`signupSubject(short, code)`), pas
-  branchée. Pied : 7 jours, signature Feelike, « Le nom, le logo et la couleur viennent de la
+  `482 913 : votre code pour garder <nom court>` est branchée depuis P2 (§14.9). Pied : 7 jours, signature Feelike, « Le nom, le logo et la couleur viennent de la
   fiche publique Ten’Up du club. »
 - club **saisi à la main** → marque Feelike, expéditeur « Feelike », objet « Feelike — Gardez votre
   club » : le nom du club n'est que dans le corps et le pied, échappé.
@@ -1263,3 +1264,83 @@ expéditeur), `tests/edge-security.test.mjs` (hook : Ten'Up, manuel, non-admin, 
 `course-email-dispatch` et `signup-email-dispatch` (elles importent le gabarit). À vérifier à la
 main : rendus réels (Gmail web et mobile sombre, Apple Mail, Outlook Windows, Outlook.com, images
 bloquées) et en-têtes SPF / DKIM aligné / DMARC d'un e-mail reçu (pas de « via brevo »).
+
+### 14.9 P2 — code à 6 chiffres et « Votre app est prête » (`feat/onboarding-otp`)
+
+**Écran 03** (`step` : `account` → `code`). « Recevoir mon code » appelle `club-signup`, puis l'onglet
+attend le code. L'écran du code n'a ni chapô ni vignette (mobile) : titre, e-mail en lecture avec
+« Modifier », un **seul champ** à 6 cases (`OtpCodeInput` : `one-time-code`, collage « 481 902 »), envoi
+au 6ᵉ chiffre, « Renvoyer le code » (48 px, bloqué 60 s, décompte visible `aria-hidden`, annoncé aux
+secondes 60, 45, 30, 15 puis à la fin), « Créer mon club · 30 jours offerts » en repli, « Je n'ai reçu
+qu'un lien » → écran `sent`. Sur mobile, le champ est ramené au centre à l'arrivée et à chaque erreur :
+à 390 × 470 (clavier ouvert), cases, message et renvoi tiennent sans défiler. Le champ n'est **jamais
+désactivé** pendant la vérification (frappe ignorée, `aria-busy`) : sinon il perdrait le focus et le
+clavier se fermerait. « Code envoyé… » passe par une région `role="status"` toujours dans le DOM.
+
+**Vérification** (`lib/emailCode.ts`) : `verifyOtp({ email, token, type: 'email' })`, brouillon effacé,
+`/?inscription=<slug>` → `AdminEntry` (§8.1), claim `amr = otp` accepté tel quel (§5.2).
+
+| Réponse | Rendu (champ vidé sauf réseau, focus dessus) |
+|---|---|
+| 4xx, envoi de moins de 10 min | « Ce code ne correspond pas… » |
+| 4xx, envoi de plus de 10 min | « Ce code a expiré. Nous vous en envoyons un nouveau. » + renvoi |
+| 5ᵉ refus sur le même code | « Trop d'essais avec ce code… » : nouveau code imposé (renvoi d'office si 60 s sont passées) |
+| 429 | « Trop d'essais. Réessayez dans quelques minutes. » |
+| réseau, 5xx | « Connexion impossible… », code gardé |
+
+GoTrue répond la même erreur (`otp_expired`) pour un code faux et un code expiré : on les sépare par
+l'heure du dernier envoi (`sent.at`). Il ne limite les vérifications que par IP (30 / 5 min, réglage
+« Rate limits » laissé par défaut), d'où la limite par code côté écran (`sent.tries`). Le renvoi
+(`requestMagicLink`) part du navigateur en flux **implicite** : aucun challenge PKCE, son lien s'ouvre
+aussi sur un autre appareil. Si un autre compte est déjà connecté dans ce navigateur, `verifyOtp` le
+remplace, dans tous les onglets.
+
+**Corriger son e-mail** (retours PR #277, B1). Le club existe dès le premier envoi : `club-signup`
+renvoie un **`resume_token`** (HMAC-SHA256, `LOOKUP_HMAC_SECRET`, 2 h, lié au club et au slug,
+`_shared/resume-token.ts`) **à la création seulement**, jamais à un rejeu — sinon quiconque connaît
+l'adresse et le slug détournerait le club. Gardé dans `draft.sent.resume`. « Modifier » et « Changer
+d'adresse » renvoient alors `{ resume_token, email, turnstile_token }` (Turnstile et limite de débit
+d'abord) : `club_self_serve_change_email` (migration `2026112520_club_signup_change_email.sql`, service
+role) remplace l'admin du club `pending`, l'ancien compte est supprimé aux conditions de la purge, le
+code part à la nouvelle adresse. `clubs.created_at` repart de maintenant : une session OTP antérieure
+au rattachement n'active pas le club, et les 7 jours de la purge repartent. Club activé → `409
+not_pending` ; jeton invalide ou passé → `400 resume_expired` et retour possible au code envoyé. Club
+créé mais e-mail non parti (`502`) : le jeton est remis aussi. Une fois le club créé, seule l'adresse
+se corrige (plus de « Retour » vers la carte). Adresse inchangée à moins de 60 s : retour au code sans
+requête.
+
+**E-mail** : code en premier (affiché « 481 902 » par espacement, « 481902 » à la copie ; « 481 902 » en
+texte brut), lien en secours, « Valable 10 minutes ». Objets : `481 902 : votre code pour garder <nom
+court>` (Ten'Up), `481 902 : votre code Feelike` (club saisi à la main, connexion sous la marque
+Feelike). Un club actif (CAC…) garde son objet ; le corps de ses liens de connexion porte aussi le code.
+
+**Connexion** (§8.3) : « Recevoir un code », même e-mail, même champ, mêmes limites.
+
+**Carte 02** : « N équipes en championnat » — `tenup-lookup` `{ lookup_token, teams: true }` (le jeton
+remplace Turnstile ; cache 24 h dans `tenup_lookup_cache.payload`, limite par IP, 12 s). Worker occupé,
+lent ou en erreur → `teams: null`, pas de ligne. Priorité à l'identité : elle attend son tour (une
+tentative par seconde dans ses 10 s) quand le worker répond 429 ; la lecture « équipes » renonce.
+
+**Écran 04** (`AppReadyStep`, étape `equipes` d'un club dont `tenup_club_id` est connu ; sinon l'étape
+d'avant) : lecture d'office, « N équipes trouvées dans M championnats. Importer mes équipes · Choisir »,
+`progressbar` « Import des équipes · N sur M » (dite toutes les 15 s au plus), aperçu compact de 3
+rencontres visible sans clic sous 720 px, « Quand vous voulez » (affiche, site — coché s'il est publié —,
+bureau), « Partager l'app » (fenêtre de §12 ; **secondaire tant qu'aucune équipe n'est importée**),
+« Aller au tableau de bord » (étape faite si des équipes existent, puis `finished_at`). Chapô :
+« Importez vos équipes pour voir ce que verront vos adhérents. » tant que l'app est vide. Échec :
+« Réessayer » / « Passer pour l'instant ».
+
+**Mesure** : `signup_view` et `signup_code_result` ne sont pas enregistrés (décision 1, pas d'événement
+avant l'activation) ; le temps médian `signup_view` → `teams_imported` n'est donc pas calculable.
+Approximation disponible : `clubs.created_at` → `teams_imported` (`onboarding_events`).
+
+**Tests** : `club-signup-tunnel`, `magic-link`, `first-steps`, `club-signup-sql`, `club-signup-edge`,
+`tenup-lookup-edge`, `email-template`, `edge-security`. Recette en Chromium (Supabase simulé) à 390 × 844,
+390 × 470 et 1280 px : focus après faux / expiré / 429, tunnel et `/login`, import de bout en bout.
+
+**Mise en service**, dans l'ordre : appliquer `2026112520_club_signup_change_email.sql` ; réglages Auth
+**OTP length = 6** et **OTP expiration = 600 s** (sinon l'e-mail et l'écran annoncent 10 minutes à tort, et
+un code d'une autre longueur ne se saisit pas) ; redéployer `club-signup`, `send-auth-email`,
+`tenup-lookup`, `contact-form`, `course-email-dispatch`, `signup-email-dispatch` ; BO. Contrôle : envoyer
+un code, attendre 10 min 30, vérifier le refus. `LOOKUP_HMAC_SECRET` existe déjà ; sans lui, pas de
+jeton de reprise.
