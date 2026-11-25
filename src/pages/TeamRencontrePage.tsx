@@ -3,6 +3,7 @@ import { tenupClient } from '../../shared/tenupClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { notifyInboxChanged } from '../lib/inboxSignal';
 import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCompetition,
@@ -197,6 +198,7 @@ export default function TeamRencontrePage() {
         p_data: { id: line.id, revision: line.revision }, p_request_id: liveRequest.current.key,
       });
       if (error) { setActionError(error.message); return; }
+      notifyInboxChanged();
       // L'alerte de début ne bloque jamais l'ouverture du live (au pire, pas d'alerte).
       if (data?.live_match_id && notifyStart) {
         await supabase.rpc('live_push_announce_start', { p_club: clubId, p_match: data.live_match_id });
@@ -223,6 +225,7 @@ export default function TeamRencontrePage() {
       return;
     }
     setDeclaringWo(false);
+    notifyInboxChanged();
     load();
   };
 
@@ -238,6 +241,7 @@ export default function TeamRencontrePage() {
       setActionError(error.message);
       return;
     }
+    notifyInboxChanged();
     load();
   };
 
@@ -280,7 +284,7 @@ export default function TeamRencontrePage() {
       <main className="container mx-auto max-w-3xl px-4 py-8 space-y-8">
         {!rencontre.wo && clubId && <TenupSync key={rencontre.id} sourceUrl={rencontre.tenup_url} sourceSide={rencontre.tenup_side} syncedAt={rencontre.tenup_synced_at}
           clubName={club?.name ?? 'Notre club'} opponent={rencontre.club_adverse} date={rencontre.date_heure} dateManuelle={rencontre.date_manuelle} lines={lines}
-          {...tenupClient(supabase, clubId, rencontre.id)} onSynced={() => void load(true)} />}
+          {...tenupClient(supabase, clubId, rencontre.id)} onSynced={() => { notifyInboxChanged(); void load(true); }} />}
         {/* Informations de la rencontre */}
         <section className="rounded-2xl border bg-card/90 p-6 shadow-sm">
           {context && (

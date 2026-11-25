@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { notifyInboxChanged } from '../lib/inboxSignal';
 import { useClub } from '../contexts/ClubContext';
 import type {
   TeamCompetition,
@@ -185,6 +186,7 @@ export default function TeamEquipePage() {
       alert(`Erreur suppression : ${error.message}`);
       return;
     }
+    notifyInboxChanged();
     load();
   };
 
@@ -234,6 +236,7 @@ export default function TeamEquipePage() {
       alert(`Erreur suppression : ${error.message}`);
       return;
     }
+    notifyInboxChanged();
     load();
   };
 

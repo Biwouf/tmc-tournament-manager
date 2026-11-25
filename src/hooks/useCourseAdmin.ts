@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { courseCommand, courseError } from "../lib/courses";
+import { notifyInboxChanged } from "../lib/inboxSignal";
 // Même requête après erreur réseau => même clé. Aucun succès optimiste.
 export function useCourseAdmin(clubId: string | null) {
   const [busy, setBusy] = useState(false);
@@ -23,6 +24,7 @@ export function useCourseAdmin(clubId: string | null) {
           last.current.id,
         );
         last.current = null;
+        notifyInboxChanged();
         return result;
       } catch (e) {
         setError(courseError(e));

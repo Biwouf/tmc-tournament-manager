@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { notifyInboxChanged } from './inboxSignal';
 import type { LiveMatch } from '../types';
 
 export function hasLiveMatchRevision(match: LiveMatch): boolean {
@@ -31,6 +32,8 @@ export async function writeLiveMatch(match: LiveMatch, clubId: string | null, pa
     .eq('id', match.id).eq('club_id', clubId).eq('revision', match.revision).abortSignal(signal).select('*').single());
   if (error || !data) throw new Error(error?.code === 'PGRST116' || !error
     ? 'Le match a changé ou n’est plus accessible. Rechargez-le avant de réessayer.' : error.message);
+  // Pas à chaque point : seul un changement de statut touche les compteurs.
+  if (patch.status) notifyInboxChanged();
   return requireRevision(data as LiveMatch);
 }
 
@@ -40,4 +43,5 @@ export async function deleteLiveMatch(match: LiveMatch, clubId: string | null) {
     .eq('id', match.id).eq('club_id', clubId).eq('revision', match.revision).abortSignal(signal).select('id').single());
   if (error || !data) throw new Error(error?.code === 'PGRST116' || !error
     ? 'Le match a changé ou n’est plus accessible. Actualisez la liste.' : error.message);
+  notifyInboxChanged();
 }
