@@ -28,7 +28,7 @@ import {
 import { previewTenupCompetition } from '../../shared/tenupCompetitionClient';
 import { normalizeTenupCompetitionUrl } from '../../shared/tenupCompetitionUrl.mjs';
 
-const FORMATS: TeamFormat[] = ['2S1D', '3S1D', '3S1D2', '4S1D2', '4S2D'];
+const FORMATS: TeamFormat[] = ['2S1D', '2S1D2', '3S1D', '3S1D2', '4S1D2', '4S2D'];
 
 export default function TeamMatchesAdminPage() {
   const { clubId } = useClub();

@@ -14,6 +14,7 @@ test('Finished results respect double weighting and ignore stale persisted total
   const lines = [line('simple', 'club'), line('simple', 'adverse'), line('simple', 'club'), line('double', 'club')];
   assert.deepEqual(finalResult(rencontre, lines, '3S1D2'), { club: 4, adverse: 1 });
   assert.deepEqual(finalResult(rencontre, lines, '3S1D'), { club: 3, adverse: 1 });
+  assert.deepEqual(finalResult(rencontre, [line('simple', 'club'), line('simple', 'club'), line('double', 'adverse')], '2S1D2'), { club: 2, adverse: 2 });
 });
 test('Manual results, ties, zero scores and encounter WO remain available', () => {
   assert.deepEqual(finalResult({ ...rencontre, score_club: 0, score_adverse: 0 }, [], '3S1D'), { club: 0, adverse: 0 });

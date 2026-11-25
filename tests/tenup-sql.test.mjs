@@ -193,6 +193,15 @@ test('Ten’Up import is atomic, tenant scoped, idempotent and overwrites existi
   }
   await attach(pid,forfeitSheet('b',[3,1]));
   await assert.rejects(apply(pid),/total Ten’Up/,'the forfeiting side cannot win the match');
+  // Two singles and a double worth 2 points: both singles against the double is a 2-2 draw.
+  await db.exec(await migration('2026112540_team_format_2s1d2'));
+  assert.deepEqual((await db.query("SELECT team_format_spec('2S1D2') AS spec")).rows[0].spec,[2,1,2]);
+  await db.exec(`UPDATE team_competitions SET format='2S1D2' WHERE id='${id(11)}'; DELETE FROM team_match_lines;`);
+  const drawn=structuredClone(sheet);drawn.lines.splice(2,1);drawn.lines[2].sets=[{a:1,b:6},{a:0,b:6}];
+  await resetRate();pid=await begin();
+  await attach(pid,{...drawn,scores:[2,1]});await assert.rejects(apply(pid),/total Ten’Up/);
+  await attach(pid,{...drawn,scores:[2,2]});await apply(pid);
+  r=(await db.query('SELECT * FROM team_rencontres')).rows[0];assert.equal(r.score_club,2);assert.equal(r.score_adverse,2);assert.ok(r.confirmed_at);
   await db.exec(`UPDATE team_rencontres SET tenup_url='${url}',tenup_side=1 WHERE id='${id(14)}'`);
   // A duplicate association within one club is refused.
   await db.exec(`INSERT INTO team_etapes(id,equipe_id,phase,numero_journee) VALUES('${id(16)}','${id(12)}','poule',2); INSERT INTO team_rencontres(id,etape_id,club_adverse,date_heure,domicile) VALUES('${id(15)}','${id(16)}','X','2026-09-23',true)`);

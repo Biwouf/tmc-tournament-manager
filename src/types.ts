@@ -258,6 +258,7 @@ export type TeamCategorie = string;
 
 export type TeamFormat =
   | '2S1D'    // 2 simples et 1 double
+  | '2S1D2'   // 2 simples et 1 double (double = 2 pts)
   | '3S1D'    // 3 simples et 1 double
   | '3S1D2'   // 3 simples et 1 double (double = 2 pts)
   | '4S1D2'   // 4 simples et 1 double (double = 2 pts)

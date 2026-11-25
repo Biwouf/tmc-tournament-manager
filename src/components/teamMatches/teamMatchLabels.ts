@@ -45,6 +45,7 @@ export function formatCategorie(c: TeamCategorie): string {
 
 export const FORMAT_LABELS: Record<TeamFormat, string> = {
   '2S1D': '2 simples et 1 double',
+  '2S1D2': '2 simples et 1 double (double = 2 pts)',
   '3S1D': '3 simples et 1 double',
   '3S1D2': '3 simples et 1 double (double = 2 pts)',
   '4S1D2': '4 simples et 1 double (double = 2 pts)',
@@ -155,6 +156,7 @@ export interface FormatSpec {
 
 export const FORMAT_SPECS: Record<TeamFormat, FormatSpec> = {
   '2S1D': { simples: 2, doubles: 1, doublePoints: 1 },
+  '2S1D2': { simples: 2, doubles: 1, doublePoints: 2 },
   '3S1D': { simples: 3, doubles: 1, doublePoints: 1 },
   '3S1D2': { simples: 3, doubles: 1, doublePoints: 2 },
   '4S1D2': { simples: 4, doubles: 1, doublePoints: 2 },

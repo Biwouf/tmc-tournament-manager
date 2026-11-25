@@ -15,7 +15,7 @@ export function extractTenupCompetition(document) {
   }
   const warnings = [];
   const singles = Number(composition?.[1]), doubles = Number(composition?.[2]), points = Number(doublePoints?.[1]);
-  const formats = [[2,1,1,'2S1D'],[3,1,1,'3S1D'],[3,1,2,'3S1D2'],[4,1,2,'4S1D2'],[4,2,1,'4S2D']];
+  const formats = [[2,1,1,'2S1D'],[2,1,2,'2S1D2'],[3,1,1,'3S1D'],[3,1,2,'3S1D2'],[4,1,2,'4S1D2'],[4,2,1,'4S2D']];
   let format = formats.find(([s,d,p]) => s === singles && d === doubles && p === points)?.[3] ?? null;
   const extraDouble = value("Double supplémentaire en cas d'égalité") || value('Double supplémentaire en cas d’égalité');
   if (!singlePoints || extraDouble !== 'Non' || value('Point de bonus pour les deux doubles gagnés') !== 'Non') format = null;
