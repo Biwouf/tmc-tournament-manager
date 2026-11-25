@@ -631,7 +631,14 @@ test('onboarding P2: tenup_club_id known → « Votre app est prête », read wi
   const unmount = await mount(page());
   for (let i = 0; i < 4; i++) await flush();
   assert.equal(document.querySelector('h2').textContent, 'Votre app est prête');
-  assert.match(text(), /Voici ce que verront vos adhérents, avec vos vraies rencontres\./);
+  // I4 : app vide → le chapô invite à importer, « Partager » est secondaire, un seul bouton plein.
+  assert.match(text(), /Importez vos équipes pour voir ce que verront vos adhérents\./);
+  assert.doesNotMatch(text(), /avec vos vraies rencontres/);
+  assert.deepEqual([...document.querySelectorAll('.fs-step .fs-btn-p')].filter(b => !b.closest('details')).map(b => b.textContent), ['Importer mes équipes']);
+  assert.ok(buttonNamed('Partager l’app aux adhérents').classList.contains('fs-btn-o'));
+  // M5 : la région live ne contient que la phrase, pas les boutons.
+  assert.equal(document.querySelector('.fs-confirm').getAttribute('role'), null);
+  assert.match(document.querySelector('.fs-confirm p[role="status"]').textContent, /1 équipe trouvée dans 1 championnat\./);
   assert.equal(document.getElementById('fs-club-url'), null, 'no link to paste');
   assert.deepEqual(log.filter(l => l[0] === 'tenup').map(l => l[1]), ['club'], 'read once, without a click');
   // Aperçu compact (visible sans clic sur mobile) : en-tête aux couleurs du club, adresse de l'app.
@@ -674,6 +681,8 @@ test('onboarding P2: one tap imports, progress « N sur M », encounters appear 
   assert.match(glance.textContent, /US BETA 1/, 'the imported encounters appear in the compact preview');
   assert.equal(glance.querySelectorAll('li').length <= 3, true, '3 encounters at most');
   assert.match(text(), /Une équipe dans votre app\./);
+  assert.match(text(), /Voici ce que verront vos adhérents, avec vos vraies rencontres\./);
+  assert.ok(buttonNamed('Partager l’app aux adhérents').classList.contains('fs-btn-p'), 'I4: primary once the app has teams');
   // Partager : la fenêtre existante (QR + lien + message), le partage est noté.
   await click('Partager l’app aux adhérents');
   for (let i = 0; i < 6; i++) await flush();
@@ -708,6 +717,27 @@ test('onboarding P2: read failure → Réessayer or Passer pour l’instant; no 
   assert.match(text(), /Aucune rencontre à venir sur Ten’Up pour l’instant\. Vous pourrez ajouter une équipe depuis le lien de sa poule\./);
   assert.ok(document.querySelector('details.fs-more'), 'pool link available');
   await unmount();
+});
+
+test('PR #277: during the import, the progress is spoken politely every 15 s at most; site published → row marked done', async () => {
+  atReady(); db.clubs[0].site_published = true;
+  let release; tenup.create = () => new Promise(resolve => { release = () => resolve({ data: null, error: { message: 'x' } }); });
+  const ticks = []; const [set, clear] = [window.setInterval, window.clearInterval];
+  window.setInterval = (fn, ms) => { ticks.push([fn, ms]); return ticks.length; }; window.clearInterval = () => {};
+  const unmount = await mount(page());
+  try {
+    for (let i = 0; i < 4; i++) await flush();
+    assert.equal(document.querySelector('a.fs-anytime-row[href="/admin/site"] .fs-anytime-mark').textContent, '✓Fait : ');
+    await click('Importer mes équipes');
+    for (let i = 0; i < 6; i++) await flush();
+    const spoken = document.querySelector('.fs-import [aria-live="polite"]');
+    assert.equal(spoken.textContent, '', 'nothing before the first tick');
+    const tick = ticks.find(([, ms]) => ms === 15_000);
+    assert.ok(tick, 'every 15 s');
+    await act(async () => tick[0]());
+    assert.equal(spoken.textContent, '0 équipe sur 1.');
+    await act(async () => release()); await flush();
+  } finally { window.setInterval = set; window.clearInterval = clear; await unmount(); }
 });
 
 test('onboarding P2: « Affiche du week-end » opens the posters step', async () => {

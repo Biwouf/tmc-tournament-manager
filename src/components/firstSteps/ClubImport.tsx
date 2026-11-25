@@ -152,6 +152,16 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
   // P2 : « Import des équipes · N sur M » — une équipe compte dès qu'elle est réglée (créée, déjà là, en échec).
   const total = Object.keys(outcomes).length;
   const settled = Object.values(outcomes).filter((o) => o.status !== 'waiting' && o.status !== 'reading').length;
+  // `progressbar` ne s'annonce pas : une phrase polie, toutes les 15 s au plus (la fin a son message).
+  const [spoken, setSpoken] = useState('');
+  const progress = useRef('');
+  useEffect(() => { progress.current = `${settled} équipe${settled > 1 ? 's' : ''} sur ${total}.`; }, [settled, total]);
+  const importing = ready && phase === 'importing';
+  useEffect(() => {
+    if (!importing) return;
+    const timer = window.setInterval(() => setSpoken(progress.current), 15_000);
+    return () => window.clearInterval(timer);
+  }, [importing]);
 
   return <>
     {phase === 'idle' && known && (
@@ -192,8 +202,8 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
     )}
 
     {phase === 'select' && ready && groups.length > 0 && !choosing && (
-      <div className="fs-confirm" role="status">
-        <p className="fs-question">
+      <div className="fs-confirm">
+        <p className="fs-question" role="status">
           {selectedCount
             ? `${plural(selectedCount, 'équipe')} trouvée${selectedCount > 1 ? 's' : ''} dans ${plural(selectedChampionships, 'championnat')}.`
             : 'Toutes vos équipes sont déjà là.'}
@@ -260,6 +270,7 @@ export default function ClubImport({ club, tenupClubId = null, autoRead = false,
         <div className="fs-import-bar" role="progressbar" aria-labelledby="fs-import-label" aria-valuemin={0} aria-valuemax={total} aria-valuenow={settled}>
           <div style={{ width: `${(settled / total) * 100}%` }} />
         </div>
+        <span className="fs-sr" aria-live="polite">{importing ? spoken : ''}</span>
       </div>
     )}
 

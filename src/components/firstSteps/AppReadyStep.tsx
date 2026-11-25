@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
+import { useSitePublication } from '../../hooks/useSitePublication';
 import { clubAppHost, markAppShared } from '../../lib/firstSteps';
 import type { MatchCard } from '../signup/SignupPreview';
 import type { StepProps } from './FirstStepsFlow';
@@ -57,11 +58,16 @@ export default function AppReadyStep({ club, config, state, complete, goTo, fini
   };
   const toDashboard = () => leave(async () => { const failure = await finish(); if (failure) setError(failure); });
 
+  const matches = useUpcoming(club.id);
+  const { published } = useSitePublication(club);
+
   return <>
     <h2 className="fs-h" tabIndex={-1}>Votre app est prête</h2>
-    <p className="fs-lede">Voici ce que verront vos adhérents, avec vos vraies rencontres.</p>
+    <p className="fs-lede">{matches?.length
+      ? 'Voici ce que verront vos adhérents, avec vos vraies rencontres.'
+      : hasTeams ? 'Voici ce que verront vos adhérents.' : 'Importez vos équipes pour voir ce que verront vos adhérents.'}</p>
 
-    <AppGlance clubId={club.id} name={name} host={host} logo={config.brand.logo || null} />
+    <AppGlance matches={matches} name={name} host={host} logo={config.brand.logo || null} />
 
     {teamCount !== null && !skipped && (
       <ClubImport club={club} tenupClubId={tenupClubId} autoRead={!hasTeams} variant="ready"
@@ -84,7 +90,7 @@ export default function AppReadyStep({ club, config, state, complete, goTo, fini
         </li>
         <li>
           <Link className="fs-anytime-row" to="/admin/site" onClick={() => void settle()}>
-            <Mark done={false} /><span>Relire et publier le site</span><span className="fs-anytime-time">prérempli</span>
+            <Mark done={published} /><span>Relire et publier le site</span><span className="fs-anytime-time">prérempli</span>
           </Link>
         </li>
         <li>
@@ -98,7 +104,8 @@ export default function AppReadyStep({ club, config, state, complete, goTo, fini
     {error && <p role="alert" className="fs-error">{error}</p>}
 
     <div className="fs-footer fs-ready-footer">
-      <button type="button" className="fs-btn fs-btn-p" disabled={leaving} onClick={openShare}>Partager l’app aux adhérents</button>
+      {/* Tant que l'app est vide, le premier geste est l'import : partager passe en secondaire. */}
+      <button type="button" className={`fs-btn ${hasTeams ? 'fs-btn-p' : 'fs-btn-o'}`} disabled={leaving} onClick={openShare}>Partager l’app aux adhérents</button>
       <button type="button" className="fs-link" disabled={busy || leaving} onClick={() => void toDashboard()}>Aller au tableau de bord</button>
     </div>
 
@@ -110,8 +117,23 @@ export default function AppReadyStep({ club, config, state, complete, goTo, fini
   </>;
 }
 
+/** Les 3 prochaines rencontres (null : en lecture), relues à chaque équipe créée (`teamsSignal`). */
+function useUpcoming(clubId: string): MatchCard[] | null {
+  const teams = useTeamsVersion();
+  const [matches, setMatches] = useState<MatchCard[] | null>(null);
+  useEffect(() => {
+    let active = true;
+    loadMatchesScreen(clubId).then(
+      (screen) => { if (active) setMatches(screen?.upcoming.slice(0, 3) ?? []); },
+      () => { if (active) setMatches((current) => current ?? []); },
+    );
+    return () => { active = false; };
+  }, [clubId, teams]);
+  return matches;
+}
+
 const Mark = ({ done }: { done: boolean }) => (
-  <span aria-hidden="true" className={`fs-anytime-mark${done ? ' ok' : ''}`}>{done ? '✓' : ''}</span>
+  <span className={`fs-anytime-mark${done ? ' ok' : ''}`}>{done && <><span aria-hidden="true">✓</span><span className="fs-sr">Fait : </span></>}</span>
 );
 
 const day = (date: Date) => {
@@ -126,18 +148,8 @@ const category = (comp: string) => comp.split(' · ').at(-1) ?? comp;
  * L'aperçu compact (maquette 04) : en-tête aux couleurs du club, puis 3 rencontres à venir au plus,
  * relues à chaque équipe créée (`teamsSignal`). Masqué sur ordinateur, où le téléphone est à droite.
  */
-function AppGlance({ clubId, name, host, logo }: { clubId: string; name: string; host: string; logo: string | null }) {
-  const teams = useTeamsVersion();
-  const [matches, setMatches] = useState<MatchCard[] | null>(null);
+function AppGlance({ matches, name, host, logo }: { matches: MatchCard[] | null; name: string; host: string; logo: string | null }) {
   const [logoOk, setLogoOk] = useState(true);
-  useEffect(() => {
-    let active = true;
-    loadMatchesScreen(clubId).then(
-      (screen) => { if (active) setMatches(screen?.upcoming.slice(0, 3) ?? []); },
-      () => { if (active) setMatches((current) => current ?? []); },
-    );
-    return () => { active = false; };
-  }, [clubId, teams]);
 
   const days: { label: string; items: MatchCard[] }[] = [];
   for (const match of matches ?? []) {

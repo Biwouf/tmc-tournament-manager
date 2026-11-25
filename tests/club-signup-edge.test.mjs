@@ -48,6 +48,7 @@ function world() {
         return { data: w.throttle, error: null };
       }
       if (name === 'club_self_serve_create') return w.createError ? { data: null, error: w.createError } : { data: { club_id: args.p_club, created: true }, error: null };
+      if (name === 'club_self_serve_change_email') return w.changeError ? { data: null, error: w.changeError } : { data: w.orphans ?? [], error: null };
       throw new Error(`unexpected rpc ${name}`);
     },
     auth: {
@@ -61,7 +62,7 @@ function world() {
         },
         deleteUser: async (id) => { w.deleted.push(id); return { error: null }; },
       },
-      signInWithOtp: async (params) => { assert.equal(key, 'anon'); w.otp.push(params); w.effects.push('otp'); return { error: null }; },
+      signInWithOtp: async (params) => { assert.equal(key, 'anon'); w.otp.push(params); w.effects.push('otp'); return { error: w.otpError ?? null }; },
     },
     // Onboarding Ten'Up d'abord : cache des lectures `tenup-lookup` et copies `_lookup/` → `config/`.
     from: (table) => {
@@ -422,4 +423,82 @@ test('club-signup W3: retouched logo by default, original kept, variants copied 
   ({ w, status } = await signup({ logo_variant: 'ia' }));
   assert.equal(status, 400);
   assert.equal(w.accounts.length, 0);
+});
+
+// Retours PR #277, B1 — corriger son e-mail : jeton signé remis à la création seulement.
+const RESUME_SECRET = 'r'.repeat(40);
+const resumeForm = (fields) => {
+  const body = new FormData();
+  for (const [key, value] of Object.entries({ turnstile_token: 'ok', ...fields })) if (value !== undefined) body.set(key, value);
+  return new Request('https://edge.example/functions/v1/club-signup', { method: 'POST', body, headers: { 'x-forwarded-for': '203.0.113.7' } });
+};
+async function resumeLib() {
+  const out = new URL('resume-token.mjs', dir);
+  await build({ entryPoints: [new URL('../supabase/functions/_shared/resume-token.ts', import.meta.url).pathname], outfile: out.pathname, bundle: true, platform: 'node', format: 'esm' });
+  return import(`${out.href}?${Date.now()}`);
+}
+
+test('resume token: signed, 2 hours, never interchangeable with a lookup token', async () => {
+  await load('club-signup');
+  const { signResumeToken, verifyResumeToken, RESUME_TOKEN_TTL_MS } = await resumeLib();
+  const club = '11111111-1111-4111-8111-111111111111';
+  const token = await signResumeToken(RESUME_SECRET, club, 'tc-nouveau', 1000);
+  assert.deepEqual(await verifyResumeToken(RESUME_SECRET, token, 2000), { club, slug: 'tc-nouveau' });
+  assert.equal(await verifyResumeToken(RESUME_SECRET, token, 1000 + RESUME_TOKEN_TTL_MS), null, 'expired');
+  assert.equal(await verifyResumeToken('x'.repeat(40), token, 2000), null);
+  const forged = btoa(JSON.stringify({ club, slug: 'autre', exp: 9e15 })).replace(/=+$/, '') + '.' + token.split('.')[1];
+  for (const bad of [forged, `${token}x`, 'a.b', '', null]) assert.equal(await verifyResumeToken(RESUME_SECRET, bad, 2000), null);
+});
+
+test('club-signup (B1): the resume token is given at creation only, never on a replay', async () => {
+  const handler = await load('club-signup');
+  const { verifyResumeToken } = await resumeLib();
+  let w = world(); w.env.LOOKUP_HMAC_SECRET = RESUME_SECRET;
+  const created = await (await handler(form())).json();
+  const club = w.rpc.find(r => r.name === 'club_self_serve_create').args.p_club;
+  assert.deepEqual(await verifyResumeToken(RESUME_SECRET, created.resume_token), { club, slug: 'tc-nouveau' });
+  // E-mail non parti : le club existe, le jeton est quand même remis (adresse peut-être fausse).
+  w = world(); w.env.LOOKUP_HMAC_SECRET = RESUME_SECRET; w.otpError = { status: 500 };
+  const unsent = await handler(form());
+  assert.equal(unsent.status, 502);
+  assert.ok((await unsent.json()).resume_token);
+  // Rejeu (même adresse, même slug — connus d'un tiers) : pas de jeton.
+  w = world(); w.env.LOOKUP_HMAC_SECRET = RESUME_SECRET;
+  const client = globalThis.__client;
+  globalThis.__client = (...args) => { const c = client(...args); const rpc = c.rpc; c.rpc = async (name, a) => name === 'club_self_serve_create' ? { data: { club_id: a.p_club, created: false }, error: null } : rpc(name, a); return c; };
+  assert.deepEqual(await (await handler(form())).json(), { ok: true });
+});
+
+test('club-signup (B1): with the token, a corrected address replaces the admin, deletes the orphan account and gets the code', async () => {
+  const handler = await load('club-signup');
+  const { signResumeToken } = await resumeLib();
+  const club = '11111111-1111-4111-8111-111111111111';
+  const w = world(); w.env.LOOKUP_HMAC_SECRET = RESUME_SECRET; w.orphans = ['user-faute'];
+  const token = await signResumeToken(RESUME_SECRET, club, 'tc-nouveau');
+  const response = await handler(resumeForm({ resume_token: token, email: 'Juste@Example.test' }));
+  assert.equal(response.status, 200);
+  assert.ok((await response.json()).resume_token, 'a fresh token, for another correction');
+  assert.deepEqual(w.effects, ['turnstile:203.0.113.7', 'club_self_serve_throttle', 'createUser', 'club_self_serve_change_email', 'otp'], 'Turnstile and throttle first, no second club');
+  assert.deepEqual(w.rpc.at(-1).args, { p_club: club, p_slug: 'tc-nouveau', p_email: 'juste@example.test' });
+  assert.deepEqual(w.deleted, ['user-faute']);
+  assert.deepEqual(w.otp, [{ email: 'juste@example.test', options: { shouldCreateUser: false, emailRedirectTo: 'https://admin.feelike.pro/?inscription=tc-nouveau' } }]);
+});
+
+test('club-signup (B1): forged or expired token, or club already activated → refused, nothing left behind', async () => {
+  const handler = await load('club-signup');
+  const { signResumeToken, RESUME_TOKEN_TTL_MS } = await resumeLib();
+  const club = '11111111-1111-4111-8111-111111111111';
+  for (const token of ['faux.jeton', await signResumeToken('x'.repeat(40), club, 'tc-nouveau'), await signResumeToken(RESUME_SECRET, club, 'tc-nouveau', Date.now() - RESUME_TOKEN_TTL_MS)]) {
+    const w = world(); w.env.LOOKUP_HMAC_SECRET = RESUME_SECRET;
+    const response = await handler(resumeForm({ resume_token: token, email: 'voleur@example.test' }));
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).reason, 'resume_expired');
+    assert.equal(w.accounts.length + w.otp.length, 0);
+  }
+  const w = world(); w.env.LOOKUP_HMAC_SECRET = RESUME_SECRET; w.changeError = { code: 'PT409' };
+  const late = await handler(resumeForm({ resume_token: await signResumeToken(RESUME_SECRET, club, 'tc-nouveau'), email: 'juste@example.test' }));
+  assert.equal(late.status, 409);
+  assert.equal((await late.json()).reason, 'not_pending');
+  assert.deepEqual(w.deleted, ['user-juste@example.test'], 'the account just created is rolled back');
+  assert.equal(w.otp.length, 0);
 });

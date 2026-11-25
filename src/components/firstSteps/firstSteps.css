@@ -278,7 +278,7 @@
 .fs-anytime-mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--edge); display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
 .fs-anytime-mark.ok { background: var(--brand-fill); border-color: var(--brand-fill); color: var(--brand-foreground); }
 .fs-anytime-time { color: var(--mu); font-size: 13px; font-weight: 600; }
-.fs-ready-footer .fs-btn-p { flex: 1 1 100%; }
+.fs-ready-footer .fs-btn { flex: 1 1 100%; }
 @media (prefers-reduced-motion: reduce) { .fs-glance li { animation: none; } .fs-import-bar div { transition: none; } }
 /* Mobile : l'aperçu compact remplace le téléphone repliable (visible sans clic). */
 @media (max-width: 719px) { .fs-glance { display: block; } }

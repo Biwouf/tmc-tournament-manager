@@ -266,7 +266,7 @@ async function renderTunnel({ draft, rawDraft, mobile = false, turnstileToken = 
   const flush = () => act(async () => { await new Promise(r => setTimeout(r, 0)); });
   await act(async () => rootNode.render(h(MemoryRouter, null, h(Page))));
   await flush();
-  const button = (name) => [...container.querySelectorAll('button, a')].find(b => b.textContent === name);
+  const button = (name) => [...container.querySelectorAll('button, a')].find(b => b.textContent.replace(/ dans \d+\u00a0s$/, '') === name);
   const click = async (el) => { await act(async () => el.click()); await flush(); };
   const type = async (id, value, { paste = false } = {}) => {
     const input = container.querySelector(`#${id}`);
@@ -1142,7 +1142,13 @@ test('P2 écran 03 : « Recevoir mon code », puis un seul champ à 6 cases ; le
     assert.equal(t.container.querySelector('h1').textContent, 'Gardez Moissac TC');
     assert.equal(t.container.querySelector('.fl-sent-email').textContent, 'president@moissac-tc.fr', 'e-mail en lecture');
     assert.ok(t.button('Modifier'));
-    assert.equal(t.container.querySelector('[role="status"].fl-code-status').textContent, '✓ Code envoyé. Il arrive en moins d’une minute.');
+    // I5 : région live toujours dans le DOM, texte sans « ✓ » ; la ligne visible est décorative.
+    assert.equal(t.container.querySelector('p[role="status"].fl-sr').textContent, 'Code envoyé. Il arrive en moins d’une minute.');
+    assert.equal(t.container.querySelector('.fl-code-status').getAttribute('aria-hidden'), 'true');
+    assert.equal(t.container.querySelector('.fl-code-status').textContent, '✓ Code envoyé. Il arrive en moins d’une minute.');
+    // I2 : ni vignette ni chapô sur cet écran.
+    assert.equal(t.container.querySelector('.fl-mini'), null);
+    assert.equal(t.container.querySelector('.fl-lede'), null);
     const field = t.container.querySelector('#fl-code');
     assert.equal(t.container.querySelectorAll('input#fl-code').length, 1, 'un seul champ');
     assert.deepEqual(['type', 'inputmode', 'autocomplete', 'pattern', 'maxlength'].map(a => field.getAttribute(a)), ['text', 'numeric', 'one-time-code', '[0-9]{6}', '6']);
@@ -1150,9 +1156,11 @@ test('P2 écran 03 : « Recevoir mon code », puis un seul champ à 6 cases ; le
     assert.equal(t.container.querySelectorAll('.fl-otp-box').length, 6);
     assert.equal(document.activeElement, field, 'focus sur le code à l’arrivée');
     // Renvoyer : bloqué 60 s, décompte visible et annoncé (une fois par palier de 15 s).
-    const resend = t.button('renvoyer le code');
+    const resend = t.button('Renvoyer le code');
     assert.equal(resend.disabled, true);
-    assert.match(t.container.querySelector('#fl-code-help').textContent, /Rien reçu \? Regardez les indésirables, ou renvoyer le code dans 60 s\./);
+    assert.equal(t.container.querySelector('#fl-code-help').textContent, 'Rien reçu ? Regardez les indésirables.');
+    assert.equal(resend.textContent, 'Renvoyer le code dans 60\u00a0s');
+    assert.equal(resend.querySelector('span').getAttribute('aria-hidden'), 'true', 'nom accessible stable');
     assert.equal(t.container.querySelector('[aria-live="polite"].fl-sr').textContent, 'Renvoi du code possible dans 60 secondes.');
     assert.equal(t.auth.verifies.length, 0);
     // Collage « 481 902 » : espaces retirés, envoi automatique au 6ᵉ chiffre.
@@ -1194,12 +1202,12 @@ test('P2 écran 03 : code faux, trop d’essais, code expiré (renvoyé d’offi
     email: 'a@b.fr', sent: { email: 'a@b.fr', slug: 'tc-nouveau', at: Date.now() - 11 * 60_000 } };
   const u = await renderTunnel({ draft, verify: () => ({ data: {}, error: { status: 403, code: 'otp_expired' } }) });
   try {
-    assert.equal(u.button('renvoyer le code').disabled, false, 'plus de 60 s : renvoi possible');
+    assert.equal(u.button('Renvoyer le code').disabled, false, 'plus de 60 s : renvoi possible');
     await u.type('fl-code', '333333');
     await u.settle(10);
     assert.equal(u.container.querySelector('#fl-code-error').textContent, 'Ce code a expiré. Nous vous en envoyons un nouveau.');
     assert.deepEqual(u.auth.otps, [{ email: 'a@b.fr', options: { shouldCreateUser: false, emailRedirectTo: 'https://admin.feelike.pro/?inscription=tc-nouveau' } }]);
-    assert.equal(u.button('renvoyer le code').disabled, true, 'nouveau décompte');
+    assert.equal(u.button('Renvoyer le code').disabled, true, 'nouveau décompte');
     assert.equal(u.requests.length, 0, 'le renvoi ne repasse pas par club-signup');
   } finally { await u.unmount(); }
 });
@@ -1209,11 +1217,11 @@ test('P2 écran 03 : renvoyer après 60 s ; « Modifier » l’e-mail ; repli «
     email: 'a@b.fr', sent: { email: 'a@b.fr', slug: 'tc-nouveau', at: Date.now() - 61_000 } };
   const t = await renderTunnel({ draft });
   try {
-    await t.click(t.button('renvoyer le code'));
+    await t.click(t.button('Renvoyer le code'));
     assert.equal(t.auth.otps.length, 1);
     assert.equal(t.auth.otps[0].options.shouldCreateUser, false);
-    assert.equal(t.container.querySelector('.fl-code-status').textContent, '✓ Nouveau code envoyé. Il arrive en moins d’une minute.');
-    assert.equal(t.button('renvoyer le code').disabled, true);
+    assert.equal(t.container.querySelector('p[role="status"].fl-sr').textContent, 'Nouveau code envoyé. Il arrive en moins d’une minute.');
+    assert.equal(t.button('Renvoyer le code').disabled, true);
     assert.ok(JSON.parse(t.saved()).sent.at > Date.now() - 5_000, 'heure du nouvel envoi gardée');
     await t.click(t.button('Je n’ai reçu qu’un lien'));
     assert.match(t.container.textContent, /Un lien vous attend/);
@@ -1222,4 +1230,125 @@ test('P2 écran 03 : renvoyer après 60 s ; « Modifier » l’e-mail ; repli «
     await t.click(t.button('Modifier'));
     assert.equal(t.container.querySelector('#fl-email').value, 'a@b.fr');
   } finally { await t.unmount(); }
+});
+
+// ── Retours PR #277 ───────────────────────────────────────────────────────────────────────────
+test('I1 : le champ du code n’est jamais désactivé pendant la vérification ; focus gardé, frappe ignorée, recentré sur l’erreur', async () => {
+  let answer;
+  const t = await toCodeScreen({ mobile: true, verify: () => new Promise(resolve => { answer = resolve; }) });
+  try {
+    const field = () => t.container.querySelector('#fl-code');
+    const scrolled = [];
+    t.dom.window.HTMLElement.prototype.scrollIntoView = function (options) { scrolled.push([this.contains(field()), options?.block]); };
+    for (const [error, message] of [[{ status: 403 }, /ne correspond pas/], [{ status: 429 }, /Trop d’essais/], [{ status: 0 }, /Connexion impossible/]]) {
+      await t.type('fl-code', '');
+      await t.type('fl-code', '111111');
+      assert.equal(field().disabled, false, 'pendant la vérification');
+      assert.equal(field().readOnly, false);
+      assert.equal(field().getAttribute('aria-busy'), 'true');
+      const sent = t.auth.verifies.length;
+      await t.type('fl-code', '222222');
+      assert.equal(t.auth.verifies.length, sent, 'frappe ignorée pendant la vérification');
+      await t.act(async () => answer({ data: {}, error }));
+      await t.flush();
+      assert.match(t.container.querySelector('#fl-code-error').textContent, message);
+      assert.equal(document.activeElement, field(), String(message));
+      assert.deepEqual(scrolled.at(-1), [true, 'center'], 'I2 : champ, erreur et renvoi ramenés au centre');
+    }
+  } finally { await t.unmount(); }
+});
+
+test('M2 : 5 refus sur le même code → nouveau code imposé, sans autre vérification ; compté au rechargement', async () => {
+  const wrong = () => ({ data: {}, error: { status: 403, code: 'otp_expired' } });
+  const draft = (at) => ({ step: 'code', mode: 'manual', name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau', email: 'a@b.fr', sent: { email: 'a@b.fr', slug: 'tc-nouveau', at } });
+  const t = await renderTunnel({ draft: draft(Date.now()), verify: wrong });
+  let raw;
+  try {
+    for (let i = 0; i < 5; i++) { await t.type('fl-code', String(111111 + i)); await t.settle(5); }
+    assert.equal(t.container.querySelector('#fl-code-error').textContent, 'Trop d’essais avec ce code. Demandez-en un nouveau.');
+    assert.equal(t.auth.otps.length, 0, 'moins de 60 s : pas de renvoi d’office');
+    raw = t.saved();
+  } finally { await t.unmount(); }
+  const u = await renderTunnel({ rawDraft: raw, verify: wrong });
+  try {
+    await u.type('fl-code', '999999'); await u.settle(5);
+    assert.equal(u.auth.verifies.length, 0);
+    assert.match(u.container.querySelector('#fl-code-error').textContent, /Demandez-en un nouveau/);
+  } finally { await u.unmount(); }
+  const v = await renderTunnel({ draft: draft(Date.now() - 61_000), verify: wrong });
+  try {
+    for (let i = 0; i < 5; i++) { await v.type('fl-code', String(111111 + i)); await v.settle(5); }
+    assert.equal(v.container.querySelector('#fl-code-error').textContent, 'Trop d’essais avec ce code. Nous vous en envoyons un nouveau.');
+    assert.equal(v.auth.otps.length, 1);
+    await v.type('fl-code', '123456'); await v.settle(5);
+    assert.equal(v.auth.verifies.length, 6, 'le nouveau code a ses propres essais');
+  } finally { await v.unmount(); }
+});
+
+test('B1 : e-mail corrigé après l’envoi → même club (jeton de reprise), jamais « déjà sur feelike » ; code envoyé à la nouvelle adresse', async () => {
+  const signups = [];
+  const t = await toCodeScreen({ respond: network({ signup: (entry) => {
+    signups.push(Object.fromEntries(entry.form.entries()));
+    return json(200, { ok: true, resume_token: `reprise-${signups.length}` });
+  } }) });
+  try {
+    assert.equal(JSON.parse(t.saved()).sent.resume, 'reprise-1');
+    await t.click(t.button('Modifier'));
+    assert.equal(t.button('← Retour'), undefined, 'le club est créé : seule l’adresse se corrige');
+    // Adresse inchangée, code de moins d'une minute : retour au code, sans requête.
+    await t.click(t.button('Recevoir mon code'));
+    assert.ok(t.container.querySelector('#fl-code'));
+    assert.equal(signups.length, 1);
+    await t.click(t.button('Modifier'));
+    await t.click(t.button('← Revenir au code envoyé à president@moissac-tc.fr'));
+    assert.ok(t.container.querySelector('#fl-code'));
+    await t.click(t.button('Modifier'));
+    await t.type('fl-email', 'Presidente@Moissac-TC.fr');
+    await t.settle(5);
+    await t.click(t.button('Recevoir mon code'));
+    await t.settle(10);
+    const { turnstile_token, ...sentFields } = signups[1];
+    assert.ok(turnstile_token);
+    assert.deepEqual(sentFields, { resume_token: 'reprise-1', email: 'presidente@moissac-tc.fr' });
+    assert.equal(t.container.querySelector('.fl-sent-email').textContent, 'presidente@moissac-tc.fr');
+    const sent = JSON.parse(t.saved()).sent;
+    assert.deepEqual([sent.slug, sent.resume], ['moissac-tc', 'reprise-2']);
+    await t.type('fl-code', '481902'); await t.settle(10);
+    assert.deepEqual(t.auth.verifies, [{ email: 'presidente@moissac-tc.fr', token: '481902', type: 'email' }]);
+    assert.deepEqual(t.auth.assigned, ['/?inscription=moissac-tc']);
+  } finally { await t.unmount(); }
+});
+
+test('B1 : « Changer d’adresse » passe aussi par la reprise ; délai passé → message et retour au code ; e-mail non parti → corrigeable', async () => {
+  const draft = { step: 'sent', mode: 'manual', name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau',
+    email: 'a@b.fr', sent: { email: 'a@b.fr', slug: 'tc-nouveau', at: Date.now() - 61_000, resume: 'reprise' } };
+  const forms = [];
+  const t = await renderTunnel({ draft, turnstileToken: 'jeton', respond: (entry) => { forms.push(Object.fromEntries(entry.form.entries())); return json(400, { reason: 'resume_expired' }); } });
+  try {
+    await t.click(t.button('Changer d’adresse'));
+    await t.type('fl-email', 'b@b.fr');
+    await t.click(t.container.querySelector('#fl-consent'));
+    await t.click(t.button('Recevoir mon code'));
+    await t.settle(10);
+    assert.equal(forms[0].resume_token, 'reprise');
+    assert.equal(forms[0].name, undefined, 'le club n’est pas recréé');
+    assert.match(t.container.querySelector('.fl-alert').textContent, /délai pour changer d’adresse est passé/);
+    await t.click(t.button('← Revenir au code envoyé à a@b.fr'));
+    assert.ok(t.container.querySelector('#fl-code'));
+  } finally { await t.unmount(); }
+
+  const answers = [json(502, { resume_token: 'reprise' }), json(200, { ok: true, resume_token: 'reprise-2' })];
+  const seen = [];
+  const u = await renderTunnel({ draft: { step: 'account', mode: 'manual', name: 'TC Nouveau', city: 'Moissac', slug: 'tc-nouveau' }, turnstileToken: 'jeton',
+    respond: (entry) => { seen.push(Object.fromEntries(entry.form.entries())); return answers.shift(); } });
+  try {
+    await u.type('fl-email', 'faute@b.fr');
+    await u.click(u.container.querySelector('#fl-consent'));
+    await u.click(u.button('Recevoir mon code')); await u.settle(10);
+    assert.match(u.container.querySelector('.fl-alert').textContent, /l’e-mail n’a pas pu partir/);
+    await u.type('fl-email', 'juste@b.fr');
+    await u.click(u.button('Recevoir mon code')); await u.settle(10);
+    assert.equal(seen[1].resume_token, 'reprise');
+    assert.equal(u.container.querySelector('.fl-sent-email').textContent, 'juste@b.fr');
+  } finally { await u.unmount(); }
 });

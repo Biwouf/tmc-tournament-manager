@@ -167,23 +167,26 @@ test('W2 : contenu Ten’Up vs manuel, expéditeur et objet', () => {
 
 // Onboarding P2 (brief SAAS_11 §6.1) : le code à 6 chiffres en premier, en gros ; le lien en secours.
 test('P2 : « Gardez votre club » — code en premier, lien en secours, objet qui commence par le code', async () => {
-  const { manualSignupSubject } = await import('../supabase/functions/_shared/auth-email.ts');
+  const { feelikeSubject } = await import('../supabase/functions/_shared/auth-email.ts');
   const payload = { ...signupPayload, email_data: { ...signupPayload.email_data, token: '481902' } };
   const [tenup] = authEmails(payload, 'https://project.supabase.co', { name: 'Moissac TC', slug: 'moissac-tc', tenup: true });
   assert.equal(tenup.content.code, '481902');
   assert.equal(tenup.content.codeNote, 'Valable 10 minutes. Ne le communiquez à personne : Feelike ne vous le demandera jamais.');
   assert.equal(tenup.content.preheader, 'Valable 10 minutes. Votre app moissac-tc.feelike.pro est prête.');
-  assert.match(tenup.content.paragraphs[0], /Saisissez ce code dans l’onglet de votre inscription/);
+  assert.match(tenup.content.paragraphs[0], /Saisissez ce code là où vous avez commencé votre inscription/);
   assert.equal(tenup.content.action.label, 'Garder mon club', 'le lien reste');
   const { html, text } = renderEmail({ name: 'Moissac TC', color: '#f26524' }, tenup.content);
-  const at = (needle) => html.indexOf(needle);
+  const words = html.replace(/<style[^]*?<\/style>|<[^>]+>/g, '');
+  const at = (needle) => words.lastIndexOf(needle);
+  assert.match(tenup.content.footer, /Ne partagez jamais ce lien ni ce code\.$/);
   assert.ok(at('481902') > 0 && at('481902') < at('Saisissez ce code'), 'code avant le texte');
   assert.ok(at('Saisissez ce code') < at('Garder mon club'), 'bouton en secours, après');
-  assert.match(html, /font-size:34px[^"]*">481902</);
-  assert.ok(text.indexOf('481902') < text.indexOf('Saisissez ce code'), 'texte brut : même ordre');
+  // M9 : l'œil lit « 481 902 » (espacement), la copie et le remplissage automatique gardent « 481902 ».
+  assert.match(html, /font-size:34px[^"]*">48<span style="letter-spacing:24px">1<\/span>902</);
+  assert.ok(text.indexOf('481\u00a0902') > 0 && text.indexOf('481\u00a0902') < text.indexOf('Saisissez ce code'), 'texte brut : même ordre');
   assert.equal(signupSubject('Moissac TC', '481902'), '481 902 : votre code pour garder Moissac TC');
-  assert.equal(manualSignupSubject('481902'), '481 902 : votre code Feelike', 'branche manuelle : jamais le nom libre');
-  assert.equal(manualSignupSubject(), 'Feelike — Gardez votre club');
+  assert.equal(feelikeSubject('Gardez votre club', '481902'), '481 902 : votre code Feelike', 'branche manuelle : jamais le nom libre');
+  assert.equal(feelikeSubject('Gardez votre club'), 'Feelike — Gardez votre club');
   assert.equal(signupSubject('Moissac TC', 'abc'), 'Gardez Moissac TC sur Feelike', 'pas un code : objet sans code');
   // Réauthentification (code seul) : inchangée, le code après le texte.
   const [reauth] = authEmails({ user: { email: 'a@b.fr' }, email_data: { email_action_type: 'reauthentication', token: '123456' } }, 'https://project.supabase.co');

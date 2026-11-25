@@ -184,6 +184,46 @@ test('LoginPage (P2): « Recevoir un code » sends the same e-mail, the code is 
   } finally { console.warn = warn; verifyReply = { data: {}, error: null }; await page.close(); }
 });
 
+test('LoginPage (PR #277, I1 / M2): focus on the code when it appears and after each refusal; 5 refusals ask for a new code', async () => {
+  at('https://admin.feelike.pro/login');
+  const warn = console.warn; console.warn = () => {};
+  const page = await mountLogin();
+  try {
+    await page.click('Recevoir un code');
+    await page.change('login-email', 'a@example.com');
+    await page.click('Recevoir un code');
+    const field = () => document.getElementById('login-code');
+    assert.equal(document.activeElement, field(), 'on arrival');
+    for (let i = 0; i < 5; i++) {
+      let answer; verifyReply = new Promise(resolve => { answer = resolve; });
+      await page.change('login-code', String(111111 + i));
+      assert.equal(field().disabled, false, 'never disabled while verifying');
+      await act(async () => answer({ data: {}, error: { status: 403 } }));
+      assert.equal(document.activeElement, field());
+    }
+    assert.match(document.body.textContent, /Trop d’essais avec ce code\. Demandez-en un nouveau\./);
+    const before = calls.length;
+    await page.change('login-code', '999999');
+    assert.equal(calls.length, before, 'no more verification on this code');
+  } finally { console.warn = warn; verifyReply = { data: {}, error: null }; await page.close(); }
+});
+
+// PR #277, I6 : le renvoi part du navigateur. En flux implicite, aucun `code_verifier` n'y reste :
+// le lien de cet e-mail s'ouvre dans un autre navigateur, comme celui de `club-signup`.
+test('resent magic links are not bound to this browser: implicit flow, no PKCE challenge', async () => {
+  const source = readFileSync(resolve(base, 'src/lib/supabase.ts'), 'utf8');
+  assert.doesNotMatch(source, /pkce/i);
+  const bodies = [];
+  const { createClient } = req('@supabase/supabase-js');
+  const client = createClient('https://x.supabase.co', 'anon', { auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: async (url, init) => { bodies.push([String(url), JSON.parse(init.body)]); return Response.json({}); } } });
+  const { requestMagicLink } = load('src/lib/magicLink.ts');
+  assert.equal(await requestMagicLink(client, 'a@example.com', 'https://admin.feelike.pro/?inscription=gamma'), 'sent');
+  assert.match(bodies[0][0], /\/auth\/v1\/otp/);
+  assert.equal(bodies[0][1].code_challenge, null, 'the key is sent, empty');
+  assert.equal(bodies[0][1].code_challenge_method, null);
+});
+
 test('every signInWithOtp call sets shouldCreateUser: false', () => {
   const files = [];
   const walk = (dir) => { for (const name of readdirSync(dir)) { const p = join(dir, name); if (statSync(p).isDirectory()) walk(p); else if (/\.(ts|tsx|mjs|js)$/.test(name)) files.push(p); } };

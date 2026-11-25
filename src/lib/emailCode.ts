@@ -7,6 +7,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const CODE_TTL_MS = 10 * 60 * 1000;
 /** Délai entre deux envois : la limite par défaut de GoTrue pour une même adresse. */
 export const RESEND_DELAY_S = 60;
+/**
+ * Refus tolérés sur un même code. GoTrue ne limite que par IP (30 vérifications / 5 min) : au-delà,
+ * l'écran impose un nouveau code (l'envoi remplace l'ancien).
+ */
+export const MAX_CODE_TRIES = 5;
 
 /** Heure de l'envoi (hors rendu : horloge des gestionnaires d'événement). */
 export const sentNow = () => Date.now();
@@ -19,6 +24,9 @@ export const CODE_MESSAGES = {
   wrong: 'Ce code ne correspond pas. Vérifiez-le ou demandez-en un nouveau.',
   expired: 'Ce code a expiré. Nous vous en envoyons un nouveau.',
   throttled: 'Trop d’essais. Réessayez dans quelques minutes.',
+  /** M2 : 5 refus sur le même code → un nouveau code s'impose. */
+  exhausted: 'Trop d’essais avec ce code. Demandez-en un nouveau.',
+  exhaustedSent: 'Trop d’essais avec ce code. Nous vous en envoyons un nouveau.',
   failed: 'Connexion impossible. Vérifiez votre réseau, puis réessayez.',
 } as const;
 

@@ -171,7 +171,11 @@ test('tenup-lookup: cache served for 24 h without counting; older entries read a
   assert.deepEqual(w.removed.sort(), previous.sort());
 });
 
-test('tenup-lookup: 20 reads per hour per IP, then 429; not found 404; worker down 504', async () => {
+test('tenup-lookup: 20 reads per hour per IP, then 429; not found 404; worker down 504', async (t) => {
+  // Worker occupé : l'attente de son tour (M6) est passée sans délai réel.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.now() });
+  const pump = setInterval(() => t.mock.timers.tick(1_000), 1);
+  t.after(() => clearInterval(pump));
   const { w, ask } = await setup();
   w.attempts = 20;
   const limited = await ask({ url: URL_ROOT });
@@ -399,4 +403,22 @@ test('P2 tenup-lookup teams: busy, slow or malformed worker → no line (teams: 
   assert.equal(w.cache.payload.teams_count, undefined, 'nothing cached');
   w.attempts = w.limit;
   assert.equal((await teams()).status, 429);
+});
+
+test('PR #277, M6: a busy worker (someone else’s optional teams read) makes the identity wait its turn; the teams read gives up at once', async () => {
+  const { w, ask } = await setup();
+  const ready = w.worker;
+  let busy = 2;
+  w.worker = async (init) => busy-- > 0 ? Response.json({ error: 'Synchronisation en cours.' }, { status: 429 }) : ready(init);
+  const started = Date.now();
+  const res = await ask({ url: URL_ROOT });
+  assert.equal(res.status, 200, 'read once the worker is free');
+  assert.ok(Date.now() - started >= 1_900 && Date.now() - started < 9_000);
+  assert.equal(w.workerBodies.filter((b) => b.kind === 'club-identity').length, 3);
+  assert.equal(w.attempts, 1, 'counted once toward the IP limit');
+  const { lookup_token } = await res.json();
+  w.worker = async () => Response.json({ error: 'x' }, { status: 429 });
+  w.workerBodies.length = 0;
+  assert.deepEqual(await (await ask({ teams: true, lookup_token })).json(), { ok: true, teams: null });
+  assert.equal(w.workerBodies.length, 1, 'no retry for the optional read');
 });

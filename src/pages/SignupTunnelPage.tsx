@@ -6,14 +6,14 @@ import { formatClubName, shortNameFor } from '../../shared/clubName.mjs';
 import {
   accountProblem, BRAND_FALLBACK, clubProblem, COLOR_SAMPLES, cleanSlugInput, draftFromLanding, DRAFT_KEY, loadDraft, rememberTenupLink, saveDraft, signupConfig, slugify,
   slugMessage, stepPosition, submitClubSignup, suggestSlug, tenupLogo, fetchTeamsCount,
-  type FieldProblem, type TeamsCount, type LookupResult, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
+  type FieldProblem, type TeamsCount, changeSignupEmail, type LookupResult, type SignupDraft, type SignupOutcome, type SignupStep, type SlugCheck,
 } from '../lib/clubSignup';
 import { tidyCase } from '../lib/tenupSiteImport';
 import { dataUrlToBlob, paletteFromUrl, prepareSignupImage, SIGNUP_IMAGE_TYPES } from '../lib/signupImage';
 import Turnstile, { type TurnstileHandle } from '../components/signup/Turnstile';
 import { AlreadyStep, ConfirmStep, FindStep, LogoChoicePanel } from '../components/signup/TenupSteps';
 import OtpCodeInput from '../components/OtpCodeInput';
-import { CODE_MESSAGES, resendAnnouncement, resendWait, verifyEmailCode } from '../lib/emailCode';
+import { CODE_MESSAGES, MAX_CODE_TRIES, resendAnnouncement, resendWait, verifyEmailCode } from '../lib/emailCode';
 import { magicLinkRedirect, requestMagicLink, MAGIC_LINK_MESSAGES } from '../lib/magicLink';
 import { AppPreview, SitePreview } from '../components/signup/SignupPreview';
 import '@fontsource/instrument-sans/latin-400';
@@ -104,6 +104,7 @@ function Tunnel() {
   const [now, setNow] = useState(() => Date.now());
   const [announce, setAnnounce] = useState('');
   const codeInput = useRef<HTMLInputElement>(null);
+  const codeField = useRef<HTMLDivElement>(null);
   // P2 : « N équipes en championnat » de la carte 02, pour CE club ; absent tant qu'inconnu.
   const [teams, setTeams] = useState<{ id: string; count: TeamsCount | null } | null>(null);
   const turnstile = useRef<TurnstileHandle>(null);
@@ -125,7 +126,8 @@ function Tunnel() {
   useEffect(() => {
     if (firstRender.current) { firstRender.current = false; return; }
     // P2 : le code s'attend tout de suite (clavier numérique, suggestion iOS depuis Mail).
-    if (step === 'code') codeInput.current?.focus(); else heading.current?.focus();
+    if (step === 'code') { codeInput.current?.focus({ preventScroll: true }); codeField.current?.scrollIntoView({ block: 'center' }); return; }
+    heading.current?.focus();
     window.scrollTo({ top: 0 });
   }, [step]);
 
@@ -155,6 +157,8 @@ function Tunnel() {
     const timer = window.setTimeout(() => setNow(Date.now()), 1000);
     return () => window.clearTimeout(timer);
   }, [step, wait, now]);
+  // I2 : clavier ouvert, il reste ~470 px — les cases, l'erreur et le renvoi sont ramenés au centre.
+  useEffect(() => { if (codeError) codeField.current?.scrollIntoView({ block: 'center' }); }, [codeError]);
   useEffect(() => {
     if (step !== 'code') return;
     const text = resendAnnouncement(wait);
@@ -273,6 +277,8 @@ function Tunnel() {
   /** Envoi de l'étape 4 : message et focus sur le premier manque, aucune requête. */
   function submitAccount() {
     if (busy) return;
+    // E-mail inchangé, code envoyé il y a moins d'une minute : on y retourne, sans nouvel envoi.
+    if (draft.sent?.at && draft.sent.email === draft.email.trim().toLowerCase() && draft.sent.slug === draft.slug && resendWait(draft.sent.at) > 0) { go('code'); return; }
     const problem = accountProblem({ email: draft.email, consent, token });
     if (problem) show(problem); else void submit(false);
   }
@@ -283,11 +289,33 @@ function Tunnel() {
   const fieldError = (field: FieldProblem['field']) => missing?.field === field
     && <p id={`fl-${field}-error`} role="alert" className="fl-field-error">{missing.message}</p>;
 
+  /** P2 : on reste dans l'onglet, le code arrive par e-mail. */
+  function waitForCode(email: string, slug: string, resume?: string) {
+    const at = Date.now();
+    setCode(''); setCodeError(''); setNow(at);
+    setStatus('Code envoyé. Il arrive en moins d’une minute.');
+    setDraft(current => ({ ...current, step: 'code', sent: { email, slug, at, ...(resume ? { resume } : {}) } }));
+  }
+  /** Le champ n'est jamais désactivé : le focus tient, même juste après une erreur. */
+  function focusCode() {
+    codeInput.current?.focus({ preventScroll: true });
+    codeField.current?.scrollIntoView({ block: 'center' });
+  }
+
   async function submit(resend: boolean) {
     if (!token || busy) return;
     const email = resend && draft.sent ? draft.sent.email : draft.email.trim().toLowerCase();
     setBusy(true); setError(''); setStatus('');
     try {
+      // B1 : le club est créé et en attente — on ne le recrée pas, on corrige son e-mail (code renvoyé).
+      const created = !resend ? draft.sent : null;
+      if (created?.resume) {
+        const outcome = await changeSignupEmail(fetch, ENDPOINT, { resume: created.resume, email, turnstileToken: token });
+        setToken(null);
+        if (outcome.ok) waitForCode(email, created.slug, outcome.resume ?? created.resume);
+        else { if (outcome.resetTurnstile) turnstile.current?.reset(); setError(outcome.message); }
+        return;
+      }
       // Le renvoi rejoue l'inscription (S2 la rend idempotente) : les images ne servent plus.
       const [logo, photo] = resend ? [null, null] : await Promise.all([
         draft.logo ? dataUrlToBlob(draft.logo) : null, draft.photo ? dataUrlToBlob(draft.photo) : null,
@@ -303,16 +331,16 @@ function Tunnel() {
         if (draft.mode === 'manual' && draft.tenupUrl.trim()) {
           try { rememberTenupLink(window.localStorage, draft.slug, draft.tenupUrl); } catch { /* stockage indisponible */ }
         }
-        if (resend) { turnstile.current?.reset(); setStatus(`Lien renvoyé à ${email}.`); }
-        else {
-          // P2 : on reste dans l'onglet, le code arrive par e-mail.
-          const at = Date.now();
-          setCode(''); setCodeError(''); setNow(at);
-          setStatus('✓ Code envoyé. Il arrive en moins d’une minute.');
-          setDraft(current => ({ ...current, step: 'code', sent: { email, slug: current.slug, at } }));
-        }
+        if (resend) {
+          turnstile.current?.reset(); setStatus(`Lien renvoyé à ${email}.`);
+          setDraft(current => current.sent ? { ...current, sent: { ...current.sent, at: Date.now(), tries: 0 } } : current);
+        } else waitForCode(email, draft.slug, outcome.resume);
         setToken(null);
-      } else applyFailure(outcome, email, resend);
+      } else {
+        // Club créé mais e-mail non parti : le jeton est gardé, l'adresse reste corrigeable.
+        if (outcome.resume) setDraft(current => ({ ...current, sent: { email, slug: current.slug, resume: outcome.resume } }));
+        applyFailure(outcome, email, resend);
+      }
     } finally { setBusy(false); }
   }
 
@@ -326,16 +354,18 @@ function Tunnel() {
     if (result === 'sent') {
       const at = Date.now();
       setNow(at);
-      setDraft(current => current.sent ? { ...current, sent: { ...current.sent, at } } : current);
-      setStatus(auto ? '' : '✓ Nouveau code envoyé. Il arrive en moins d’une minute.');
+      setDraft(current => current.sent ? { ...current, sent: { ...current.sent, at, tries: 0 } } : current);
+      setStatus(auto ? '' : 'Nouveau code envoyé. Il arrive en moins d’une minute.');
       if (!auto) setCodeError('');
     } else setCodeError(MAGIC_LINK_MESSAGES[result]);
-    codeInput.current?.focus();
+    focusCode();
   }
   /** P2 : vérification dans l'onglet ; réussie → `AdminEntry` active le club et ouvre les premiers pas. */
   async function checkCode(value: string) {
     if (!draft.sent || busy) return;
-    if (value.length !== 6) { setCodeError('Saisissez les 6 chiffres du code.'); codeInput.current?.focus(); return; }
+    if (value.length !== 6) { setCodeError('Saisissez les 6 chiffres du code.'); focusCode(); return; }
+    // M2 : ce code a été refusé 5 fois, il en faut un nouveau.
+    if ((draft.sent.tries ?? 0) >= MAX_CODE_TRIES) { setCodeError(CODE_MESSAGES.exhausted); setCode(''); focusCode(); return; }
     setBusy(true); setCodeError(''); setStatus('');
     const result = await verifyEmailCode(supabase, draft.sent.email, value, sentAt);
     if (result === 'ok') {
@@ -345,10 +375,14 @@ function Tunnel() {
       return;
     }
     setBusy(false);
-    setCodeError(CODE_MESSAGES[result]);
+    const tries = (draft.sent.tries ?? 0) + (result === 'wrong' ? 1 : 0);
+    const exhausted = result === 'wrong' && tries >= MAX_CODE_TRIES;
+    const renew = (result === 'expired' || exhausted) && resendWait(sentAt) === 0;
+    setDraft(current => current.sent ? { ...current, sent: { ...current.sent, tries } } : current);
+    setCodeError(exhausted ? CODE_MESSAGES[renew ? 'exhaustedSent' : 'exhausted'] : CODE_MESSAGES[result]);
     if (result !== 'failed') setCode('');
-    codeInput.current?.focus();
-    if (result === 'expired' && resendWait(sentAt) === 0) void resendCode(true);
+    focusCode();
+    if (renew) void resendCode(true);
   }
 
   const fromTenup = draft.mode === 'tenup' ? draft.tenup : null;
@@ -361,7 +395,7 @@ function Tunnel() {
   };
   // P0 : sur mobile, l'app reste visible sous le titre ; « Voir l'aperçu » garde la version complète.
   // P1 : pas de vignette sur la carte « C'est bien votre club ? » (ses rencontres d'exemple passeraient pour le vrai calendrier).
-  const mini = mobile && step !== 'find' && step !== 'already' && step !== 'confirm' && (
+  const mini = mobile && step !== 'code' && step !== 'find' && step !== 'already' && step !== 'confirm' && (
     <button type="button" className="fl-mini" aria-controls="fl-preview-body" onClick={openPreview}>
       <span className="fl-mini-phone" aria-hidden="true"><AppPreview data={previewData} /></span>
       <span className="fl-mini-text">
@@ -398,6 +432,8 @@ function Tunnel() {
 
       <main className="fl-main">
         <section className="fl-form" aria-label="Inscription">
+          {/* I5 : région toujours présente (vide avant l'envoi) — un texte déjà là à l'insertion n'est pas annoncé. */}
+          <p role="status" className="fl-sr">{step === 'code' ? status : ''}</p>
           {step === 'find' && (
             <FindStep draft={draft} update={update} title={title} siteKey={CONFIG.siteKey} endpoint={LOOKUP_ENDPOINT} notice={findNotice} takeAutoFind={takeAutoFind}
               onFound={found} onAlready={already} onManual={manual} />
@@ -564,15 +600,16 @@ function Tunnel() {
                 </button>
                 <span className="fl-small">Sans carte bancaire. Un code à 6 chiffres arrive dans votre boîte mail.</span>
               </div>
-              <button type="button" className="fl-link" onClick={() => go(draft.mode === 'tenup' && draft.tenup ? 'confirm' : 3)}>← Retour</button>
+              {/* Club créé : seule l'adresse se corrige encore, la carte et le slug sont enregistrés. */}
+              {draft.sent?.resume
+                ? draft.sent.at && <button type="button" className="fl-link" onClick={() => go('code')}>← Revenir au code envoyé à {draft.sent.email}</button>
+                : <button type="button" className="fl-link" onClick={() => go(draft.mode === 'tenup' && draft.tenup ? 'confirm' : 3)}>← Retour</button>}
             </form>
           )}
 
           {step === 'code' && draft.sent && (
             <form className="fl-step" noValidate onSubmit={event => { event.preventDefault(); void checkCode(code); }}>
-              {kicker('dernière ligne droite')}
               {title(keepTitle)}
-              <p className="fl-lede">Votre e-mail sert à vous reconnecter. Pas de mot de passe, pas de carte bancaire.</p>
               <div className="fl-field">
                 <span className="fl-label" id="fl-sent-label">Votre e-mail</span>
                 <div className="fl-sent-row" aria-labelledby="fl-sent-label">
@@ -581,19 +618,18 @@ function Tunnel() {
                     onClick={() => { update({ email: draft.sent!.email }); go('account'); }}>Modifier</button>
                 </div>
               </div>
-              <p role="status" className="fl-code-status">{status}</p>
-              <div className="fl-field">
+              {status && <p className="fl-code-status" aria-hidden="true">✓ {status}</p>}
+              <div className="fl-field" ref={codeField}>
                 <label htmlFor="fl-code" className="fl-label">Code à 6 chiffres</label>
-                <OtpCodeInput ref={codeInput} id="fl-code" value={code} disabled={busy} invalid={Boolean(codeError)}
+                <OtpCodeInput ref={codeInput} id="fl-code" value={code} busy={busy} invalid={Boolean(codeError)}
                   describedBy={['fl-code-help', codeError ? 'fl-code-error' : ''].filter(Boolean).join(' ')}
                   boxClassName="fl-otp-box" onChange={value => { setCode(value); if (codeError) setCodeError(''); }}
                   onComplete={value => void checkCode(value)} />
                 {codeError && <p id="fl-code-error" role="alert" className="fl-field-error">{codeError}</p>}
-                <p id="fl-code-help" className="fl-small fl-resend">
-                  Rien reçu ? Regardez les indésirables, ou{' '}
-                  <button type="button" className="fl-resend-btn" disabled={busy || wait > 0} onClick={() => void resendCode()}>renvoyer le code</button>
-                  {wait > 0 && <span aria-hidden="true"> dans {wait}&nbsp;s</span>}.
-                </p>
+                <p id="fl-code-help" className="fl-small fl-resend">Rien reçu ? Regardez les indésirables.</p>
+                <button type="button" className="fl-ghost fl-resend-btn" disabled={busy || wait > 0} onClick={() => void resendCode()}>
+                  Renvoyer le code{wait > 0 && <span aria-hidden="true"> dans {wait}&nbsp;s</span>}
+                </button>
                 <span className="fl-sr" aria-live="polite">{announce}</span>
               </div>
               <div className="fl-actions" style={{ flexDirection: 'column', alignItems: 'stretch' }}>

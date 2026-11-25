@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { initialLinkError, inscriptionSlug, magicLinkRedirect, MAGIC_LINK_MESSAGES, requestMagicLink } from '../lib/magicLink';
-import { CODE_MESSAGES, resendWait, sentNow, verifyEmailCode } from '../lib/emailCode';
+import { CODE_MESSAGES, MAX_CODE_TRIES, resendWait, sentNow, verifyEmailCode } from '../lib/emailCode';
 import OtpCodeInput from '../components/OtpCodeInput';
 
 export default function LoginPage() {
@@ -21,7 +21,11 @@ export default function LoginPage() {
   const [code, setCode] = useState('');
   const [sentAt, setSentAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [tries, setTries] = useState(0);
   const codeInput = useRef<HTMLInputElement>(null);
+  // Le champ du code vient d'apparaître : il reçoit le focus une fois rendu.
+  const codeShown = mode === 'code' && sent;
+  useEffect(() => { if (codeShown) codeInput.current?.focus(); }, [codeShown]);
   const wait = mode === 'code' && sent ? resendWait(sentAt, now) : 0;
   useEffect(() => {
     if (wait === 0) return;
@@ -45,8 +49,7 @@ export default function LoginPage() {
       if (result === 'sent') {
         setSent(true);
         const at = sentNow();
-        setSentAt(at); setNow(at);
-        if (mode === 'code') window.setTimeout(() => codeInput.current?.focus(), 0);
+        setSentAt(at); setNow(at); setTries(0);
       } else setError(MAGIC_LINK_MESSAGES[result]);
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -58,11 +61,15 @@ export default function LoginPage() {
   /** Code juste : la session s'ouvre dans l'onglet, la garde d'auth prend le relais. */
   async function checkCode(value: string) {
     if (value.length !== 6) { setError('Saisissez les 6 chiffres du code.'); codeInput.current?.focus(); return; }
+    if (tries >= MAX_CODE_TRIES) { setError(CODE_MESSAGES.exhausted); setCode(''); codeInput.current?.focus(); return; }
     setLoading(true); setError(null);
     const result = await verifyEmailCode(supabase, email, value, sentAt);
     setLoading(false);
     if (result === 'ok') return;
-    setError(result === 'expired' ? 'Ce code a expiré. Demandez-en un nouveau.' : CODE_MESSAGES[result]);
+    const refused = tries + (result === 'wrong' ? 1 : 0);
+    setTries(refused);
+    setError(result === 'expired' ? 'Ce code a expiré. Demandez-en un nouveau.'
+      : result === 'wrong' && refused >= MAX_CODE_TRIES ? CODE_MESSAGES.exhausted : CODE_MESSAGES[result]);
     if (result !== 'failed') setCode('');
     codeInput.current?.focus();
   }
@@ -70,8 +77,9 @@ export default function LoginPage() {
     setError(null); setLoading(true);
     const result = await requestMagicLink(supabase, email, magicLinkRedirect(window.location.origin, inscription));
     setLoading(false);
-    if (result === 'sent') { const at = sentNow(); setSentAt(at); setNow(at); setCode(''); codeInput.current?.focus(); }
+    if (result === 'sent') { const at = sentNow(); setSentAt(at); setNow(at); setCode(''); setTries(0); }
     else setError(MAGIC_LINK_MESSAGES[result]);
+    codeInput.current?.focus();
   }
 
   const switchMode = (next: 'password' | 'link' | 'code') => { setMode(next); setError(null); setSent(false); setCode(''); };
@@ -94,7 +102,7 @@ export default function LoginPage() {
             )}
             <div>
               <label htmlFor="login-code" className="mb-1.5 block text-sm font-medium text-foreground">Code à 6 chiffres</label>
-              <OtpCodeInput ref={codeInput} id="login-code" value={code} disabled={loading} invalid={Boolean(error)}
+              <OtpCodeInput ref={codeInput} id="login-code" value={code} busy={loading} invalid={Boolean(error)}
                 describedBy={error ? 'login-code-error' : undefined} onChange={setCode} onComplete={value => void checkCode(value)}
                 boxClassName="flex h-12 items-center justify-center rounded-lg border border-input bg-background text-xl font-semibold tabular-nums text-foreground data-[active]:ring-2 data-[active]:ring-ring data-[invalid]:border-destructive" />
             </div>

@@ -50,10 +50,11 @@ export function signupSubject(shortName: string, code?: string): string {
   const digits = subjectCode(code);
   return digits ? `${digits} : votre code pour garder ${name}` : `Gardez ${name} sur Feelike`;
 }
-/** Objet d'un club saisi à la main (P2) : le code, jamais le nom libre du club. */
-export function manualSignupSubject(code?: string): string {
+/** Objet de la marque Feelike (P2 : club saisi à la main, connexion au BO central) : le code, jamais
+ * le nom libre d'un club ; sans code, l'objet ordinaire « Feelike — <titre> ». */
+export function feelikeSubject(title: string, code?: string): string {
   const digits = subjectCode(code);
-  return digits ? `${digits} : votre code Feelike` : 'Feelike — Gardez votre club';
+  return digits ? `${digits} : votre code Feelike` : `Feelike — ${title}`;
 }
 /** Code d'e-mail à 6 chiffres (P2, réglage Auth « Email OTP length » = 6). */
 export const emailCode = (token: string | undefined): string | null => (token && /^\d{6,10}$/.test(token) ? token : null);
@@ -62,7 +63,7 @@ function signupContent(signup: ClubSignup, code: string | null): Pick<EmailConte
   const host = `${signup.slug}.feelike.pro`;
   // P2 : le code d'abord, saisi dans l'onglet de l'inscription ; le bouton reste en secours.
   const confirm = code
-    ? 'Saisissez ce code dans l’onglet de votre inscription pour la confirmer et démarrer vos 30 jours d’essai gratuit, sans carte bancaire. Vous pouvez aussi utiliser le bouton ci-dessous.'
+    ? 'Saisissez ce code là où vous avez commencé votre inscription pour la confirmer et démarrer vos 30 jours d’essai gratuit, sans carte bancaire. Vous pouvez aussi utiliser le bouton ci-dessous.'
     : 'Confirmez votre adresse email pour la garder et démarrer vos 30 jours d’essai gratuit, sans carte bancaire.';
   return {
     title: 'Gardez votre club',
@@ -71,7 +72,7 @@ function signupContent(signup: ClubSignup, code: string | null): Pick<EmailConte
       : `Votre club « ${signup.name} » vous attend à l’adresse ${host}. ${confirm}`],
     label: 'Garder mon club',
     preheader: code ? `Valable 10 minutes. Votre app ${host} est prête.` : `Votre app ${host} est prête.`,
-    footer: `Vous recevez cet email parce que quelqu’un a créé l’espace du club ${signup.name} sur Feelike avec cette adresse. Ce n’est pas vous ? Ignorez-le : sans confirmation, l’espace est supprimé dans 7 jours. Ne partagez jamais ce lien.`,
+    footer: `Vous recevez cet email parce que quelqu’un a créé l’espace du club ${signup.name} sur Feelike avec cette adresse. Ce n’est pas vous ? Ignorez-le : sans confirmation, l’espace est supprimé dans 7 jours. Ne partagez jamais ce lien ni ce code.`,
     notes: ['Feelike · l’app des clubs de tennis · feelike.pro',
       ...(signup.tenup ? ['Le nom, le logo et la couleur viennent de la fiche publique Ten’Up du club.'] : [])],
   };

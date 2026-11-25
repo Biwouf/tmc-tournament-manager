@@ -38,7 +38,7 @@ async function fixture() {
     INSERT INTO club_members (club_id, user_id, role) VALUES ('${CAC}', '${CAC_ADMIN}', 'admin');
   `);
   await db.exec(between(rls, 'CREATE OR REPLACE FUNCTION public.auth_club_ids()', '-- ============================================================\n-- 2.'));
-  for (const file of ['2026081802_super_admin_console.sql', '20260909_club_settings_public_read.sql', '2026102601_club_self_serve.sql']) {
+  for (const file of ['2026081802_super_admin_console.sql', '20260909_club_settings_public_read.sql', '2026102601_club_self_serve.sql', '2026112501_club_signup_change_email.sql']) {
     await db.exec(await migration(file));
   }
   // Une session : rôle PostgREST, sujet et claims du JWT, le temps d'une transaction.
@@ -230,6 +230,57 @@ test('club-signup SQL (P2): a session from the 6-digit code (amr otp only) activ
     const rows = await f.as('authenticated', id(202), 'SELECT club_self_serve_activate() id', [], [{ method: 'otp', timestamp: created + 30 }]);
     assert.deepEqual(rows, [{ id: clubId }]);
     assert.equal((await f.club('tc-code')).status, 'active');
+  } finally { await f.db.close(); }
+});
+
+// Retours PR #277, B1 : e-mail corrigé avant l'activation.
+test('club-signup SQL (B1): a corrected e-mail replaces the admin of the pending club, the old account can no longer open it', async () => {
+  const f = await fixture();
+  try {
+    // Le verrou « dernier admin » réel est en place.
+    const audit = await migration('20260905_audit_content_permissions.sql');
+    await f.db.exec(between(audit, 'CREATE OR REPLACE FUNCTION public.protect_last_club_admin()', 'COMMIT;'));
+    await f.account(210, 'faute@example.test', { created_via: 'club_signup' });
+    await f.account(211, 'juste@example.test', { created_via: 'club_signup' });
+    const { club_id: clubId } = await f.create({ email: 'faute@example.test' });
+    await f.db.query("UPDATE clubs SET created_at = now() - interval '1 hour' WHERE id = $1", [clubId]);
+    // Sans la fonction : l'impasse constatée en revue.
+    await assert.rejects(f.create({ email: 'juste@example.test' }), (e) => e.code === 'PT409');
+    const change = (email, slug = 'tc-nouveau', club = clubId, role = 'service_role', user = null) =>
+      f.as(role, user, 'SELECT club_self_serve_change_email($1,$2,$3) id', [club, slug, email]);
+    for (const role of ['anon', 'authenticated']) await assert.rejects(change('juste@example.test', 'tc-nouveau', clubId, role, id(210)), /permission denied/);
+    await assert.rejects(change('inconnu@example.test'), (e) => e.code === 'PT400');
+    await assert.rejects(change('juste@example.test', 'autre-slug'), (e) => e.code === 'PT409');
+    await assert.rejects(change('juste@example.test', 'cac-tennis', CAC), (e) => e.code === 'PT409', 'an internal, active club is out of reach');
+
+    const early = Math.floor(Date.now() / 1000) - 600; // session de la bonne adresse AVANT le rattachement
+    assert.deepEqual(await change(' JUSTE@example.test '), [{ id: id(210) }], 'the account born from the typo can go');
+    const members = (await f.db.query('SELECT user_id, role FROM club_members WHERE club_id = $1', [clubId])).rows;
+    assert.deepEqual(members, [{ user_id: id(211), role: 'admin' }], 'one club, one admin: the new one');
+    assert.deepEqual(await change('juste@example.test'), [], 'replayed: nothing to do');
+
+    const activate = (user, at) => f.as('authenticated', user, 'SELECT club_self_serve_activate() id', [], [{ method: 'otp', timestamp: at }]);
+    const now = Math.floor(Date.now() / 1000) + 5;
+    assert.deepEqual(await activate(id(210), now), [], 'the old address no longer opens the club');
+    assert.deepEqual(await activate(id(211), early), [], 'a session older than the change does not activate it');
+    assert.deepEqual(await activate(id(211), now), [{ id: clubId }]);
+    await assert.rejects(change('faute@example.test'), (e) => e.code === 'PT409', 'an activated club never changes hands this way');
+  } finally { await f.db.close(); }
+});
+
+test('club-signup SQL (B1): a pre-existing account, or one that belongs elsewhere, is never returned for deletion', async () => {
+  const f = await fixture();
+  try {
+    await f.account(220, 'ancien@example.test');
+    await f.account(221, 'autre@example.test', { created_via: 'club_signup' });
+    await f.account(222, 'juste@example.test');
+    const { club_id: one } = await f.create({ email: 'ancien@example.test', slug: 'tc-un' });
+    const { club_id: two } = await f.create({ email: 'autre@example.test', slug: 'tc-deux' });
+    await f.db.query("INSERT INTO club_members (club_id, user_id, role) VALUES ($1, $2, 'member')", [CAC, id(221)]);
+    for (const [club, slug] of [[one, 'tc-un'], [two, 'tc-deux']]) {
+      assert.deepEqual(await f.as('service_role', null, 'SELECT club_self_serve_change_email($1,$2,$3) id', [club, slug, 'juste@example.test']), []);
+    }
+    assert.equal((await f.db.query('SELECT 1 FROM club_members WHERE club_id = $1 AND user_id = $2', [CAC, id(221)])).rows.length, 1, 'other memberships untouched');
   } finally { await f.db.close(); }
 });
 

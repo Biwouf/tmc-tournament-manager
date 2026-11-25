@@ -9,7 +9,7 @@
 //      `already_on_feelike: true`, sans lecture, avec au plus le nom Ten'Up du cache ;
 //   4. cache de 24 h (`tenup_lookup_cache`) → réponse sans lecture, `cached: true` ;
 //   5. limite `tenup_lookup_throttle` (20 lectures / h / IP ; le cache ne compte pas) → 429 ;
-//   6. worker `kind: 'club-identity'`, délai 10 s → 504 `tenup_unavailable` (délai, Queue-it, worker
+//   6. worker `kind: 'club-identity'`, délai 10 s, relancé chaque seconde tant qu'il est occupé → 504 `tenup_unavailable` (délai, Queue-it, worker
 //      occupé ou en erreur) ; 404 `not_found` (club inconnu de Ten'Up, page sans JSON-LD) ;
 //   7. logo et bandeau copiés de `cmsclub.fft.fr` dans `content-images/_lookup/<id>/` (signature
 //      PNG / JPEG / WebP, ≤ 5 Mo) : jamais d'URL Ten'Up dans la réponse ;
@@ -45,6 +45,10 @@ const WORKER_TIMEOUT_MS = 10_000;
 /** W3 : nettoyage du logo, ~0,3 s mesuré ; au-delà, la carte garde l'original. */
 const LOGO_TIMEOUT_MS = 4_000;
 const MAX_LOGO_RESPONSE = 4 * 1024 * 1024;
+/** Retours PR #277, M6 : le worker ne lit qu'une page à la fois. Occupé (429), l'identité attend son
+ *  tour dans son délai de 10 s : une lecture facultative « équipes » (~4 s) ne fait plus échouer celle
+ *  d'un autre visiteur. La lecture « équipes », elle, renonce aussitôt. */
+const BUSY_RETRY_MS = 1_000;
 /** P2 : page des rencontres, ~3 à 6 s mesurés ; au-delà, la carte s'affiche sans la ligne. */
 const TEAMS_TIMEOUT_MS = 12_000;
 const UNAVAILABLE = { error: 'Ten’Up ne répond pas pour le moment.', reason: 'tenup_unavailable' };
@@ -263,14 +267,20 @@ Deno.serve(async (req: Request) => {
     if (throttleError) return json(500, FAILED);
     if (allowed !== true) return json(429, { error: 'Trop de recherches depuis votre connexion.', reason: 'throttled' });
 
-    // 6. Worker : la page « Le club » seule. Il lit une page à la fois : un import en cours le rend
-    // occupé (429), ce qui donne ici `tenup_unavailable` ; le tunnel propose de réessayer.
+    // 6. Worker : la page « Le club » seule. Il lit une page à la fois : occupé (429), on attend son
+    // tour dans les 10 s ; au-delà, `tenup_unavailable` et le tunnel propose de réessayer.
     const worker = workerFrom((key) => Deno.env.get(key));
     if (!worker) return json(504, UNAVAILABLE);
     const callWorker = worker.call;
     let profile;
     try {
-      const response = await callWorker({ kind: 'club-identity', url }, WORKER_TIMEOUT_MS);
+      const deadline = Date.now() + WORKER_TIMEOUT_MS;
+      let response = await callWorker({ kind: 'club-identity', url }, WORKER_TIMEOUT_MS);
+      while (response.status === 429 && Date.now() + BUSY_RETRY_MS < deadline) {
+        await response.body?.cancel();
+        await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_MS));
+        response = await callWorker({ kind: 'club-identity', url }, Math.max(1, deadline - Date.now()));
+      }
       if (response.status === 404) return json(404, { error: 'Club introuvable sur Ten’Up.', reason: 'not_found' });
       if (!response.ok) return json(504, UNAVAILABLE);
       const text = await response.text();

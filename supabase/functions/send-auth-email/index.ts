@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 import { clubSlugForEmail, emailBrandFromConfig, platformBrand, renderEmail, type EmailBrand } from '../_shared/email-template.ts';
-import { authEmails, clubSignupSlug, headerName, manualSignupSubject, signupSender, signupSubject, type AuthEmailPayload, type ClubSignup } from '../_shared/auth-email.ts';
+import { authEmails, clubSignupSlug, feelikeSubject, headerName, signupSender, signupSubject, type AuthEmailPayload, type ClubSignup } from '../_shared/auth-email.ts';
 
 const failure = (status: number, message: string) => Response.json({ error: { http_code: status, message } }, { status });
 Deno.serve(async (req: Request) => {
@@ -37,9 +37,12 @@ Deno.serve(async (req: Request) => {
     // W2 (brief SAAS_11 §13.3) : club lu sur Ten'Up (`tenup_club_id`) → aux couleurs du club,
     // expéditeur « <nom court> via Feelike » ; club saisi à la main → e-mail Feelike, le nom du
     // club seulement dans le corps (jamais dans l'expéditeur ni l'objet).
+    // Retours PR #277, M4 : connexion sous la marque Feelike → le code en tête d'objet. Un club actif
+    // (CAC…) garde le sien.
     let signup: ClubSignup | null = null;
     let sender = brand.name;
-    let subject: ((title: string) => string) = title => `${brand.name} — ${title}`;
+    let subject: ((title: string) => string) = title => brand === platformBrand && payload.email_data.email_action_type === 'magiclink'
+      ? feelikeSubject(title, payload.email_data.token) : `${brand.name} — ${title}`;
     const signupSlug = payload.email_data.email_action_type === 'magiclink'
       ? clubSignupSlug(payload.email_data.redirect_to) : null;
     if (signupSlug && payload.user.id) {
@@ -65,7 +68,7 @@ Deno.serve(async (req: Request) => {
           brand = platformBrand;
           sender = platformBrand.name;
           // P2 : le code en tête d'objet, jamais le nom libre du club.
-          subject = () => manualSignupSubject(payload.email_data.token);
+          subject = title => feelikeSubject(title, payload.email_data.token);
         }
       }
     }
