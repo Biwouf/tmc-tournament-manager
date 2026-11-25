@@ -38,6 +38,10 @@ export type Profile = {
 };
 export type CourseContext = {
   signup_status?: 'pending' | 'approved' | 'denied' | 'revoked' | null;
+  /** Date de la demande d'inscription dans ce club (migration 2026112102). */
+  signup_requested_at?: string | null;
+  /** Équipes de la saison active dont on est capitaine, dans ce club (migration 2026112102). */
+  captain_teams?: { genre: string; categorie: string; numero: number }[];
   is_member: boolean;
   can_manage: boolean;
   profile: Profile | null;

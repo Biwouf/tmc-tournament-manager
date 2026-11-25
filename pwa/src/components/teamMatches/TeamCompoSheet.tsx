@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import type { TeamDetail, TeamPlayer } from '../../lib/teamMatches';
-import { COMPO_RANKS, PROFILE_RANKS, matchMember, type CompoEntry, type RosterMember } from '../../lib/teamCompo';
+import { COMPO_RANKS, matchMember, type CompoEntry, type RosterMember } from '../../lib/teamCompo';
 import { scanCompoPhoto } from '../../lib/compoScan';
 import { useTeamAction } from '../../hooks/useTeamAction';
 import { formatClubName } from '../../../../shared/formatClubName';
@@ -37,7 +37,7 @@ export default function TeamCompoSheet({ detail, clubId, slots, onClose }: {
   const members = roster.data ?? [];
   const rankChange = (row: Row) => {
     const member = members.find(m => m.id === row.member_id);
-    return member && member.classement !== row.classement && PROFILE_RANKS.includes(row.classement) ? member : null;
+    return member && member.classement !== row.classement && COMPO_RANKS.includes(row.classement) ? member : null;
   };
   const setRow = (s: Side, index: number, row: Row) => setRows(previous => previous.map((list, i) => i === s ? list.map((old, j) => j === index ? row : old) : list));
 
