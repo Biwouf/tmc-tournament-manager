@@ -7,7 +7,8 @@ import './index.css';
 import { inject } from '@vercel/analytics';
 import App from './App';
 
-inject();
+// Chemin relayé par web/scripts/domain-routes.mjs vers le Web Analytics du projet PWA.
+inject({ endpoint: '/pwa-insights' });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -87,7 +87,7 @@ test('hostname resolution isolates surfaces and never falls back on arbitrary ho
   assert.equal(resolveClubSlug('admin.feelike.pro', 'bo', { VITE_ALLOWED_HOSTS: 'admin.feelike.pro', VITE_DEV_CLUB_SLUG: 'alpha' }), null);
 });
 test('wildcard routes PWA paths before storefront assets, without redirect', () => {
-  const [route] = domainRoutes('https://pwa-fixture.vercel.app');
+  const [insights, route] = domainRoutes('https://pwa-fixture.vercel.app');
   const host = new RegExp(route.has[0].value);
   for (const name of ['app-alpha.feelike.pro', 'app-beta-tennis.feelike.pro']) assert.ok(host.test(name));
   for (const name of ['alpha.feelike.pro', 'admin.feelike.pro', 'app-alpha.feelike.pro.evil.com']) assert.ok(!host.test(name));
@@ -95,6 +95,9 @@ test('wildcard routes PWA paths before storefront assets, without redirect', () 
     assert.equal(path.replace(new RegExp(route.src), route.dest), 'https://pwa-fixture.vercel.app' + path);
   }
   assert.equal(route.status, undefined);
+  assert.equal('/pwa-insights/view'.replace(new RegExp(insights.src), insights.dest), 'https://pwa-fixture.vercel.app/_vercel/insights/view');
+  assert.deepEqual(insights.has, route.has);
+  assert.match(readFileSync('pwa/src/main.tsx', 'utf8'), /inject\(\{ endpoint: '\/pwa-insights' \}\)/);
   assert.deepEqual(domainRoutes(''), []);
   for (const origin of ['http://pwa.vercel.app', 'https://app-alpha.feelike.pro', 'https://pwa.vercel.app/x', 'https://user@pwa.vercel.app']) assert.throws(() => domainRoutes(origin));
 });
