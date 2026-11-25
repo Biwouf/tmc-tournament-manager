@@ -111,7 +111,7 @@ export default function RencontrePanel({
         {equipe.division}
       </p>
 
-      <h2 className="mt-1.5 text-[21px] font-extrabold leading-tight">
+      <h2 className="mt-1.5 break-words text-lg leading-7 font-semibold tracking-tight text-foreground">
         {etapeLabel(etape)}
         {rencontre ? ` — ${rencontre.club_adverse}` : ''}
       </h2>
@@ -146,7 +146,7 @@ export default function RencontrePanel({
       {/* Matches individuels */}
       <div className="mt-5">
         <div className="mb-2 flex items-baseline justify-between">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          <h3 className="text-base leading-6 font-semibold text-foreground">
             Matches
           </h3>
           <span className="text-[10px] text-muted-foreground">{FORMAT_LABELS[competition.format]}</span>
