@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
+import { TENNIS_RANKINGS } from '../shared/tennisRankings.ts';
 import { id, coursesFixtureSQL } from './helpers/courses-fixture.mjs';
 
 const migration = (file) => readFile(new URL('../supabase/migrations/' + file, import.meta.url), 'utf8');
@@ -11,7 +12,7 @@ async function fixture() {
   const db = new PGlite();
   await db.exec(coursesFixtureSQL);
   await db.exec("ALTER TABLE auth.users ADD COLUMN email text, ADD COLUMN raw_user_meta_data jsonb DEFAULT '{}';");
-  for (const file of ['2026091001_courses.sql', '2026091002_courses_pwa.sql', '2026091101_course_owner_identity.sql', '2026091602_pwa_signup.sql'])
+  for (const file of ['2026091001_courses.sql', '2026091002_courses_pwa.sql', '2026091101_course_owner_identity.sql', '2026091602_pwa_signup.sql', '2026092001_signup_profile_fix.sql'])
     await db.exec(await migration(file));
   // Tables d'équipes réduites aux colonnes lues par course_my_context.
   await db.exec(`
@@ -21,6 +22,7 @@ async function fixture() {
     CREATE TABLE team_equipe_captains(club_id uuid, equipe_id uuid REFERENCES team_equipes(id), user_id uuid, PRIMARY KEY(equipe_id, user_id));
   `);
   await db.exec(await migration('2026112102_account_hub.sql'));
+  await db.exec(await migration('2026112201_classement_fft.sql'));
   async function rpc(user, name, args) {
     await db.exec(`BEGIN; SET LOCAL ROLE ${user ? 'authenticated' : 'anon'}; SELECT set_config('request.jwt.claim.sub','${user ? id(user) : ''}',true);`);
     try {
@@ -69,7 +71,7 @@ test('account_save_profile : révision, validation, classement gardé ou effacé
     assert.equal((await f.context(103)).profile.classement, null);
     for (const args of [[' ', 'Martin', 'male', rev + 3], ['Léa', 'Martin', 'other', rev + 3]])
       await assert.rejects(f.rpc(103, 'account_save_profile', args), /VALIDATION_ERROR/);
-    await assert.rejects(f.rpc(103, 'account_save_profile', ['Léa', 'Martin', 'male', rev + 3, 'invalide']), /check constraint|violates/);
+    await assert.rejects(f.rpc(103, 'account_save_profile', ['Léa', 'Martin', 'male', rev + 3, 'invalide']), /VALIDATION_ERROR/);
     await assert.rejects(f.rpc(null, 'account_save_profile', ['Léa', 'Martin', 'male', 0]), /permission denied|FORBIDDEN/);
   } finally { await f.db.close(); }
 });
@@ -86,5 +88,34 @@ test('course_my_context : équipes de la saison active dont on est capitaine, da
     assert.deepEqual((await f.context(103)).captain_teams, [{ genre: 'hommes', categorie: '35_ans', numero: 2 }]);
     assert.deepEqual((await f.context(104)).captain_teams, []);
     assert.equal((await f.context(103)).signup_requested_at, null);
+  } finally { await f.db.close(); }
+});
+
+test('barème FFT : même liste en base et dans shared/tennisRankings.ts', async () => {
+  const f = await fixture();
+  try {
+    let revision = (await f.context(103)).profile.revision;
+    for (const rank of TENNIS_RANKINGS) {
+      ({ revision } = await f.rpc(103, 'account_save_profile', ['Léa', 'Martin', 'female', revision, rank]));
+      assert.equal((await f.context(103)).profile.classement, rank);
+    }
+    for (const rank of ['-30', '40/3', 'top', 'libre']) {
+      await assert.rejects(f.rpc(103, 'account_save_profile', ['Léa', 'Martin', 'female', revision, rank]), /VALIDATION_ERROR/, rank);
+      await assert.rejects(f.db.query('UPDATE profile_details SET classement=$1 WHERE user_id=$2', [rank, id(103)]), /profile_details_classement_check/, rank);
+    }
+    for (const name of ['is_tennis_ranking', 'signup_fill_profile_internal'])
+      assert.equal((await f.db.query("SELECT bool_or(has_function_privilege('authenticated', p.oid, 'execute')) x FROM pg_proc p WHERE proname=$1", [name])).rows[0].x, false, name);
+  } finally { await f.db.close(); }
+});
+
+test('inscription : 40/1 et Top acceptés, valeur hors barème refusée', async () => {
+  const f = await fixture();
+  try {
+    const fill = (user, rank) => f.db.query('SELECT signup_fill_profile_internal($1,$2,$3,$4,$5)', [id(user), 'A', 'B', 'male', rank]);
+    await f.db.query('DELETE FROM profile_details');
+    await fill(104, '40/1');
+    await fill(105, 'Top');
+    assert.deepEqual((await f.db.query('SELECT classement FROM profile_details ORDER BY user_id')).rows.map((r) => r.classement), ['40/1', 'Top']);
+    await assert.rejects(fill(103, '-30'), /VALIDATION_ERROR/);
   } finally { await f.db.close(); }
 });

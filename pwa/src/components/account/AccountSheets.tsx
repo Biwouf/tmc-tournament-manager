@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ACCOUNT_COPY as T, RANK_SERIES } from '../../../../shared/accountCopy.mjs';
+import { ACCOUNT_COPY as T } from '../../../../shared/accountCopy.mjs';
+import { RANK_NUMBERED, RANK_NUMBERED_LABEL, RANK_SERIES } from '../../../../shared/tennisRankings';
 import PasswordInput from '../PasswordInput';
+import type { PasswordResult } from '../../lib/account';
 import type { Profile, Sex } from '../../lib/courses';
 
 // Mêmes champs que l'inscription : 48 px, texte 16 px (pas de zoom iOS au focus).
@@ -34,7 +36,7 @@ function AccountSheet({ title, onClose, busy = false, children }: {
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 id={titleId} className="text-lg font-bold">{title}</h2>
         <button type="button" disabled={busy} onClick={onClose} aria-label="Fermer"
-          className="min-h-11 min-w-11 rounded-lg border border-border px-3">✕</button>
+          className="-mr-2 min-h-11 min-w-11 rounded-lg px-3 active:bg-muted">✕</button>
       </div>
       {children}
     </dialog>,
@@ -119,18 +121,19 @@ export function NameSexSheet({ profile, onSave, onReload, onClose }: {
 }
 
 /** Classement : grille par série ; toucher une valeur l'enregistre (le toast propose Annuler). */
-export function RankSheet({ current, canSave, onPick, onClose }: {
+export function RankSheet({ current, onPick, onClose }: {
   current: string | null;
-  canSave: boolean;
   onPick: (rank: string | null) => void;
   onClose: () => void;
 }) {
+  // « NC » (compos, anciennes inscriptions) dit la même chose que « non classé·e ».
+  const selectedRank = current === 'NC' ? null : current;
   const chip = (value: string | null, label: string, wide = false) => {
-    const selected = current === value;
+    const selected = selectedRank === value;
     return (
-      <button key={label} type="button" disabled={!canSave} aria-pressed={selected}
+      <button key={label} type="button" aria-pressed={selected}
         onClick={() => selected ? onClose() : onPick(value)}
-        className={`min-h-12 rounded-xl border text-base font-semibold disabled:opacity-50 ${wide ? 'w-full px-4 text-left' : ''} ${selected ? 'border-foreground bg-foreground text-background' : 'border-border bg-background'}`}>
+        className={`min-h-11 rounded-xl border font-semibold ${wide ? 'w-full px-4 text-left text-base' : 'text-sm'} ${selected ? 'border-foreground bg-foreground text-background' : 'border-border bg-background'}`}>
         {label}
       </button>
     );
@@ -138,37 +141,58 @@ export function RankSheet({ current, canSave, onPick, onClose }: {
   return (
     <AccountSheet title={T.rankRow} onClose={onClose}>
       <p className="mb-3 text-sm text-muted-foreground">{T.rankHint}</p>
-      {!canSave && <p role="alert" className={`mb-3 ${errorClass}`}>{T.rankNeedsProfile}</p>}
       {chip(null, T.rankUnknown, true)}
       {RANK_SERIES.map(series => (
-        <section key={series.label} aria-label={series.label} className="mt-4">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{series.label}</h3>
-          <div className="grid grid-cols-4 gap-2">{series.ranks.map(rank => chip(rank, rank))}</div>
+        <section key={series.label} aria-label={series.label} className="mt-3">
+          <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">{series.label}</h3>
+          <div className="grid grid-cols-6 gap-1.5">{series.ranks.map(rank => chip(rank, rank))}</div>
         </section>
       ))}
+      <div className="mt-3">{chip(RANK_NUMBERED, RANK_NUMBERED_LABEL, true)}</div>
     </AccountSheet>
   );
 }
 
-/** Mot de passe : l'actuel est vérifié avant le changement. */
-export function PasswordSheet({ onSave, onClose }: {
-  onSave: (current: string, next: string) => Promise<string | null>;
+/** Mot de passe : l'actuel est vérifié avant le changement ; oubli, autres appareils, reconnexion. */
+export function PasswordSheet({ email, onSave, onForgot, onReauth, onClose }: {
+  email: string;
+  onSave: (current: string, next: string, others: boolean) => Promise<PasswordResult>;
+  /** Envoie le lien de réinitialisation ; renvoie un message d'erreur, ou `null`. */
+  onForgot: () => Promise<string | null>;
+  /** Déconnexion puis connexion ; renvoie un message d'erreur si la déconnexion échoue. */
+  onReauth: () => Promise<string | null>;
   onClose: () => void;
 }) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
+  const [others, setOthers] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  const [reauth, setReauth] = useState(false);
+  const [sent, setSent] = useState(false);
+  async function run(action: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
     setError('');
-    const failure = await onSave(current, next);
+    setReauth(false);
+    await action();
     setBusy(false);
-    if (failure) setError(failure);
-    else onClose();
   }
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    void run(async () => {
+      const result = await onSave(current, next, others);
+      if (result.ok) return onClose();
+      setError(result.error);
+      setReauth(!!result.reauth);
+    });
+  };
+  const forgot = () => run(async () => {
+    const failure = await onForgot();
+    setError(failure ?? '');
+    setSent(!failure);
+  });
+  const reconnect = () => run(async () => setError(await onReauth() ?? ''));
   return (
     <AccountSheet title={T.passwordSheet} onClose={onClose} busy={busy}>
       <form onSubmit={submit} className="space-y-4" aria-busy={busy}>
@@ -177,6 +201,8 @@ export function PasswordSheet({ onSave, onClose }: {
             <label className={labelClass} htmlFor="account-current-password">{T.currentPassword}</label>
             <PasswordInput id="account-current-password" className={inputClass} autoComplete="current-password" required
               value={current} onChange={e => setCurrent(e.target.value)} />
+            <button type="button" onClick={() => void forgot()} className="-ml-1 min-h-11 px-1 text-sm font-semibold text-primary underline underline-offset-2">{T.passwordForgot}</button>
+            <p role="status" className="text-sm">{sent && T.passwordResetSent(email)}</p>
           </div>
           <div>
             <label className={labelClass} htmlFor="account-new-password">{T.newPassword}</label>
@@ -184,8 +210,17 @@ export function PasswordSheet({ onSave, onClose }: {
               aria-describedby="account-new-password-hint" value={next} onChange={e => setNext(e.target.value)} />
             <p id="account-new-password-hint" className={hintClass}>{T.passwordHint}</p>
           </div>
+          <label className="flex min-h-11 items-center gap-3 text-base">
+            <input type="checkbox" checked={others} onChange={e => setOthers(e.target.checked)} className="h-5 w-5 accent-foreground" />
+            {T.passwordOtherDevices}
+          </label>
         </fieldset>
-        {error && <p role="alert" className={errorClass}>{error}</p>}
+        {error && (
+          <div role="alert" className={errorClass}>
+            {error}
+            {reauth && <button type="button" disabled={busy} onClick={() => void reconnect()} className="mt-1 block min-h-11 font-semibold underline">{T.passwordReauthCta}</button>}
+          </div>
+        )}
         <button className={buttonClass} disabled={busy || !current || next.length < 8}>{busy ? T.saving : T.save}</button>
       </form>
     </AccountSheet>

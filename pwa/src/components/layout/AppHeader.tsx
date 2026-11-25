@@ -6,6 +6,7 @@ import { useClubConfig } from '../../hooks/useClubConfig';
 import { useAuth } from '../../hooks/useAuth';
 import { useCourseContext } from '../../hooks/useCourses';
 import Avatar from '../Avatar';
+import { sessionPerson } from '../../lib/account';
 import { returnPath } from './headerConfig';
 import { formatClubName } from '../../../../shared/formatClubName';
 import { originLabel, useBackOrigin, useGoBack } from './useGoBack';
@@ -73,9 +74,7 @@ function AccountButton() {
     return <ActionButton action={{ kind: 'text', label: 'Connexion',
       onClick: () => navigate('/login', { state: { from: here } }) }} />;
   }
-  // Pendant le chargement du profil : initiales tirées des métadonnées de la session.
-  const signup = (user.user_metadata?.club_signup ?? {}) as { prenom?: string; nom?: string };
-  const profile = context.data?.profile;
+  const person = sessionPerson(user, context.data?.profile, !context.isPending);
   return (
     <button
       type="button"
@@ -83,7 +82,7 @@ function AccountButton() {
       aria-label="Mon compte"
       className="flex h-11 w-11 items-center justify-center rounded-full active:opacity-70"
     >
-      <Avatar size={32} person={{ id: user.id, prenom: profile?.prenom || signup.prenom || user.email, nom: profile?.nom || signup.nom }} />
+      <Avatar size={32} person={person} />
     </button>
   );
 }

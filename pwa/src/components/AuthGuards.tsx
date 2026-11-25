@@ -1,11 +1,15 @@
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useCourseContext } from '../hooks/useCourses';
+import { leaveAfterSignOut, signOutTarget } from '../lib/signOutTarget';
 import { AppLoading } from './layout/LoadState';
 
 function LoginRedirect() {
   const location = useLocation();
+  const [target] = useState(signOutTarget);
+  useEffect(() => leaveAfterSignOut(null), []);
+  if (target) return <Navigate to={target} replace />;
   return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
 }
 

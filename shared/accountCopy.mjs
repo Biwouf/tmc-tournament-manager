@@ -25,12 +25,10 @@ export function avatarTone(userId) {
   return (hash % 6) + 1;
 }
 
-/** Classements FFT groupés par série, pour la grille de la feuille Classement. */
-export const RANK_SERIES = [
-  { label: '4e série', ranks: ['NC', '40', '30/5', '30/4', '30/3', '30/2', '30/1', '30'] },
-  { label: '3e série', ranks: ['15/5', '15/4', '15/3', '15/2', '15/1', '15'] },
-  { label: '2e série', ranks: ['5/6', '4/6', '3/6', '2/6', '1/6', '0', '-2/6', '-4/6', '-15'] },
-];
+/** Classement affiché : `null` et l'ancien « NC » disent la même chose. */
+export function rankLabel(rank) {
+  return !rank || rank === 'NC' ? ACCOUNT_COPY.unranked : rank;
+}
 
 export const SEX_LABEL = { female: 'Femme', male: 'Homme' };
 
@@ -64,7 +62,6 @@ export const ACCOUNT_COPY = {
   nameHint: 'Tel qu’il apparaît sur votre licence : c’est ce nom que voient vos capitaines.',
   rankHint: 'Votre classement FFT actuel. Il s’affiche à côté de votre nom dans les compos.',
   rankUnknown: 'Je ne sais pas / non classé·e',
-  rankNeedsProfile: 'Renseignez d’abord votre nom et votre sexe.',
   rankSaved: rank => `Classement : ${rank}`,
   allClubsNote: 'Ces informations valent pour tous vos clubs.',
   nameSheet: 'Nom et sexe',
@@ -75,6 +72,7 @@ export const ACCOUNT_COPY = {
   reload: 'Recharger le profil actuel',
   notificationsSection: 'Notifications',
   notificationsLater: 'Disponibles après validation',
+  notificationsMembersOnly: 'Réservées aux membres du club',
   notificationsLaterHint: 'Cours, live et actus du club',
   pushUnavailable: 'Notifications indisponibles ici. Sur iPhone ou iPad, ajoutez l’application à l’écran d’accueil.',
   loginSection: 'Connexion',
@@ -89,6 +87,15 @@ export const ACCOUNT_COPY = {
   passwordWrong: 'Mot de passe actuel incorrect.',
   passwordSame: 'Choisissez un mot de passe différent de l’actuel.',
   passwordShort: 'Le nouveau mot de passe doit faire au moins 8 caractères.',
+  passwordForgot: 'Mot de passe oublié ?',
+  passwordResetSent: email => `Un lien vous a été envoyé à ${email}.`,
+  passwordResetFailed: 'L’envoi du lien a échoué. Réessayez dans quelques instants.',
+  passwordOtherDevices: 'Déconnecter mes autres appareils',
+  passwordSavedOthers: 'Mot de passe modifié. Vos autres appareils sont déconnectés.',
+  passwordOthersFailed: 'Mot de passe modifié, mais vos autres appareils n’ont pas pu être déconnectés.',
+  passwordReauth: 'Pour des raisons de sécurité, reconnectez-vous puis réessayez.',
+  passwordReauthCta: 'Me reconnecter',
+  tooManyRequests: 'Trop de demandes. Patientez quelques minutes avant de réessayer.',
   passwordFailed: 'Modification impossible. Réessayez.',
   logout: 'Se déconnecter',
   loggingOut: 'Déconnexion…',

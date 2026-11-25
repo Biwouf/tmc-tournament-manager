@@ -1,7 +1,7 @@
 export function dayMonth(value: string | Date): string;
 export function initials(prenom: string | null | undefined, nom: string | null | undefined): string;
 export function avatarTone(userId: string | null | undefined): 1 | 2 | 3 | 4 | 5 | 6;
-export const RANK_SERIES: { label: string; ranks: string[] }[];
+export function rankLabel(rank: string | null | undefined): string;
 export const SEX_LABEL: Record<'female' | 'male', string>;
 export function captainTeamLabel(team: { genre: string; categorie: string; numero: number }): string;
 export const ACCOUNT_COPY: {
@@ -25,7 +25,6 @@ export const ACCOUNT_COPY: {
   nameHint: string;
   rankHint: string;
   rankUnknown: string;
-  rankNeedsProfile: string;
   rankSaved: (rank: string) => string;
   allClubsNote: string;
   nameSheet: string;
@@ -36,6 +35,7 @@ export const ACCOUNT_COPY: {
   reload: string;
   notificationsSection: string;
   notificationsLater: string;
+  notificationsMembersOnly: string;
   notificationsLaterHint: string;
   pushUnavailable: string;
   loginSection: string;
@@ -50,6 +50,15 @@ export const ACCOUNT_COPY: {
   passwordWrong: string;
   passwordSame: string;
   passwordShort: string;
+  passwordForgot: string;
+  passwordResetSent: (email: string) => string;
+  passwordResetFailed: string;
+  passwordOtherDevices: string;
+  passwordSavedOthers: string;
+  passwordOthersFailed: string;
+  passwordReauth: string;
+  passwordReauthCta: string;
+  tooManyRequests: string;
   passwordFailed: string;
   logout: string;
   loggingOut: string;

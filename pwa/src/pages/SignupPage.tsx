@@ -5,7 +5,8 @@ import PasswordInput from '../components/PasswordInput';
 import { useClub } from '../contexts/ClubContext';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-import { isRencontrePath, signupError, signupReturnTo, validateSignup, TENNIS_RANKINGS, type SignupFields } from '../lib/signup';
+import { isRencontrePath, signupError, signupReturnTo, validateSignup, type SignupFields } from '../lib/signup';
+import { RANK_NUMBERED, RANK_NUMBERED_LABEL, RANK_SERIES } from '../../../shared/tennisRankings';
 
 // Champs de 48 px, texte 16 px : pas de zoom automatique d'iOS au focus.
 const inputClass = 'min-h-12 w-full rounded-xl border border-border bg-background px-3.5 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -121,7 +122,7 @@ export default function SignupPage({ confirmed = false }: { confirmed?: boolean 
             <PasswordInput id="signup-password" className={inputClass} minLength={8} autoComplete="new-password" value={fields.password} onChange={change('password')} required />
             <p className="mt-1 text-sm text-muted-foreground">8 caractères minimum.</p>
           </div>
-          <div className="border-t border-border/70 pt-4"><label className={labelClass} htmlFor="signup-classement">Classement <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-accent-foreground">Facultatif</span></label><select id="signup-classement" className={inputClass} value={fields.classement} onChange={change('classement')}><option value="">Je ne sais pas / non classé·e</option>{TENNIS_RANKINGS.map(r => <option key={r}>{r}</option>)}</select></div>
+          <div className="border-t border-border/70 pt-4"><label className={labelClass} htmlFor="signup-classement">Classement <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-accent-foreground">Facultatif</span></label><select id="signup-classement" className={inputClass} value={fields.classement} onChange={change('classement')}><option value="">Je ne sais pas / non classé·e</option>{RANK_SERIES.map(s => <optgroup key={s.label} label={s.label}>{s.ranks.map(r => <option key={r}>{r}</option>)}</optgroup>)}<option value={RANK_NUMBERED}>{RANK_NUMBERED_LABEL}</option></select></div>
         </fieldset>
       </form>}
     </div>

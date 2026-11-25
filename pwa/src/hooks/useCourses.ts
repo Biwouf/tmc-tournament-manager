@@ -10,11 +10,13 @@ import {
   type CoursePage,
 } from '../lib/courses';
 
+export const courseContextKey = (clubId: string | null, userId: string | undefined) => ['courses', clubId, userId, 'context'];
+
 export function useCourseContext() {
   const { clubId } = useClub();
   const { user } = useAuth();
   return useQuery({
-    queryKey: ['courses', clubId, user?.id, 'context'],
+    queryKey: courseContextKey(clubId, user?.id),
     enabled: Boolean(clubId && user),
     queryFn: () =>
       courseRpc<CourseContext>('course_my_context', { p_club: clubId }),

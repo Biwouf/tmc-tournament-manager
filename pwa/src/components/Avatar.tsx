@@ -13,10 +13,12 @@ const TONES: Record<number, { background: string; color: string }> = {
 export type AvatarPerson = { id: string; prenom?: string | null; nom?: string | null };
 
 /**
- * Rond d'une personne. En P0-b, toujours les initiales (la photo arrive en P1).
+ * Rond d'une personne ; `null` (nom pas encore connu) : rond neutre, sans initiales provisoires.
+ * En P0-b, toujours les initiales (la photo arrive en P1).
  * Décoratif (`aria-hidden`) : le nom est écrit à côté, ou le bouton qui l'entoure a son libellé.
  */
-export default function Avatar({ person, size }: { person: AvatarPerson; size: 24 | 26 | 32 | 36 | 40 | 88 | 96 }) {
+export default function Avatar({ person, size }: { person: AvatarPerson | null; size: 24 | 26 | 32 | 36 | 40 | 88 | 96 }) {
+  if (!person) return <span aria-hidden="true" className="inline-block shrink-0 rounded-full bg-muted" style={{ width: size, height: size }} />;
   const text = initials(person.prenom, person.nom);
   return (
     <span aria-hidden="true"

@@ -28,7 +28,8 @@ export default function LoginPage() {
   const state = location.state as LocationState | undefined;
   // `?returnTo=` survit à un rechargement, contrairement au state du routeur.
   const requested = state?.from ?? params.get('returnTo');
-  const fromPath = returnPath(requested) ?? '/actu';
+  // `returnPath` écarte /profil (jamais son propre retour) ; après une connexion, y revenir est normal.
+  const fromPath = requested && /^\/profil(?:\?|$)/.test(requested) ? requested : returnPath(requested) ?? '/actu';
   const toRencontre = isRencontrePath(fromPath);
   const signupReturn = signupReturnTo(fromPath);
 

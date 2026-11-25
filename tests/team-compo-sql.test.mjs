@@ -34,6 +34,7 @@ test('Team compo: roster, atomic creation of the singles, replay and member rank
   for (const name of ['20260907_live_match_consistency','2026092101_team_scoring_rules','2026092401_team_match_commands','2026092601_team_format_3s1d',
    '2026093001_live_activity','2026093002_team_live_shared_scoring','2026100104_live_encounter_scores','2026100401_no_retry_errcodes','2026101107_team_live_auto_result','2026101105_team_compo','2026101201_team_compo_scan_quota'])
    await db.exec(await migration(name));
+  await db.exec(await migration('2026112201_classement_fft'));
   await db.exec(`UPDATE team_competitions SET singles_set3_format='normal' WHERE id='${id(11)}';
    UPDATE profiles SET prenom='Marie',nom='Callot' WHERE id='${id(104)}';
    UPDATE profiles SET prenom='',nom='' WHERE id='${id(105)}';
@@ -74,6 +75,12 @@ test('Team compo: roster, atomic creation of the singles, replay and member rank
   assert.equal((await db.query('SELECT classement FROM profile_details WHERE user_id=$1',[id(104)])).rows[0].classement,'30/3');
   assert.deepEqual((await compo({simples},103,key)).ids,result.ids,'a network retry returns the same matches');
   assert.equal((await lines()).length,3);
+  // Barème FFT (2026112201) : la 5e série et les numérotés atteignent la fiche du membre, pas -30.
+  for (const [rank,expected] of [['40/1','40/1'],['Top','Top'],['-30','Top']]) {
+   await db.exec('DELETE FROM team_match_lines WHERE slot=2');
+   await compo({simples:[{...simples[0],joueur_club:{...simples[0].joueur_club,classement:rank}}]});
+   assert.equal((await db.query('SELECT classement FROM profile_details WHERE user_id=$1',[id(104)])).rows[0].classement,expected);
+  }
   await assert.rejects(compo({simples:[simples[1]]}),/unique/,'an existing slot cannot be created twice');
   assert.equal((await db.query('SELECT count(*)::int n FROM team_match_history')).rows[0].n>=3,true,'each single leaves a history');
 
