@@ -10,6 +10,12 @@ export const contactEmail = clean(env.PUBLIC_CONTACT_EMAIL);
 
 export const loginUrl = 'https://admin.feelike.pro';
 
+/** « Joueur ? Trouver mon club » : l'app du CAC, seul club client, en attendant la page /club (PR-L5). */
+export const playerUrl = 'https://app-cac-tennis.feelike.pro';
+
+/** Cible du champ « Lien Ten'Up » du hero : le tunnel sans paramètres (le formulaire GET ajoute `?tenup=`). */
+export const signupForm = signupUrl ? (({ origin, pathname }) => origin + pathname)(new URL(signupUrl)) : null;
+
 /** Call de 20 min : lien de réservation, sinon e-mail de contact, sinon rien. */
 export const callHref = bookingUrl ?? (contactEmail ? `mailto:${contactEmail}` : null);
 

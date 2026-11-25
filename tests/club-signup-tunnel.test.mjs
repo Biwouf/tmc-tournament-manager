@@ -1006,3 +1006,26 @@ test('W3 ordinateur : panneau « Nous avons retouché votre logo » à la place 
     } finally { await u.unmount(); }
   }
 });
+
+test('arrivée depuis la landing (?tenup=) : lien repris, recherche automatique s’il est valide', () => {
+  const link = 'https://tenup.fft.fr/club/60820110';
+  const empty = lib.emptyDraft();
+  assert.deepEqual(lib.draftFromLanding(empty, ''), { draft: empty, autoFind: false });
+  assert.deepEqual(lib.draftFromLanding(empty, '?utm_source=landing'), { draft: empty, autoFind: false });
+  const arrived = lib.draftFromLanding(empty, `?tenup=${encodeURIComponent(link)}&utm_source=landing&utm_content=hero`);
+  assert.equal(arrived.autoFind, true);
+  assert.deepEqual(arrived.draft, { ...empty, tenupUrl: link });
+  // Sans « https:// », comme l'exemple du champ de la landing : complété, recherche lancée.
+  assert.deepEqual(lib.draftFromLanding(empty, '?tenup=tenup.fft.fr/club/60820110'), { draft: { ...empty, tenupUrl: link }, autoFind: true });
+  // Lien hors Ten'Up : prérempli, mais pas de recherche (le message s'affichera à l'envoi).
+  const bad = lib.draftFromLanding(empty, '?tenup=https://example.com');
+  assert.equal(bad.draft.tenupUrl, 'https://example.com'); assert.equal(bad.autoFind, false);
+  // Autre saisie en cours (manuelle, autre club) : remplacée par le lien de la landing.
+  const manual = { ...empty, mode: 'manual', step: 2, name: 'TC Ancien' };
+  assert.deepEqual(lib.draftFromLanding(manual, `?tenup=${link}`).draft, { ...empty, tenupUrl: link });
+  // Même club déjà lu : rien ne change.
+  const read = { ...empty, step: 'confirm', tenupUrl: link, tenup: { tenup_club_id: '60820110' }, name: 'TC Lu' };
+  assert.deepEqual(lib.draftFromLanding(read, `?tenup=${link}`), { draft: read, autoFind: false });
+  assert.deepEqual(lib.draftFromLanding(read, `?tenup=${link}/offres`), { draft: read, autoFind: false }, 'même club, autre onglet');
+  assert.equal(lib.draftFromLanding(read, '?tenup=https://tenup.fft.fr/club/12345678').autoFind, true, 'autre club');
+});

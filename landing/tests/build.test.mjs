@@ -26,7 +26,10 @@ test('accueil : tout le texte est dans le HTML servi', () => {
     'Soit 20,83 € par mois',
     'Que se passe-t-il à la fin des 30 jours ?',
     'Offrez-leur le court central.',
-    'C. Durand',
+    'C. Vidal',
+    'Le site et l’app de votre club de tennis, à ses couleurs',
+    'actus, événements, rencontres Ten’Up, live et affiches.',
+    'Retrouvez l’app de votre club',
   ]) assert.ok(body.includes(fragment), `texte absent : ${fragment}`);
 });
 
@@ -92,6 +95,24 @@ test('avec le tunnel, chaque CTA d’essai mène à l’inscription avec sa sour
     return url.searchParams.get('utm_content');
   });
   assert.equal(new Set(placements).size, placements.length, `emplacements en double : ${placements}`);
+});
+
+test('hero : champ Ten’Up vers le tunnel (avec PUBLIC_SIGNUP_URL), capture réelle, lien joueur', () => {
+  const html = read('index.html');
+  assert.match(html, /<a class="hero__player" href="https:\/\/app-cac-tennis\.feelike\.pro">/);
+  assert.match(html, /<a class="nav__player" href="https:\/\/app-cac-tennis\.feelike\.pro">/);
+  assert.match(html, /alt="Capture de l’app du CAC Tennis Club/);
+  const hero = html.match(/<section id="top"[\s\S]*?<\/section>/)[0];
+  assert.doesNotMatch(hero, /hachur|capture · /i, 'aucun emplacement factice dans le hero');
+  const form = html.match(/<form class="tenup"[^>]*>[\s\S]*?<\/form>/)?.[0];
+  if (!process.env.PUBLIC_SIGNUP_URL) { assert.equal(form, undefined, 'sans tunnel, pas de champ'); return; }
+  const signup = new URL(process.env.PUBLIC_SIGNUP_URL);
+  assert.ok(form, 'champ Ten’Up absent');
+  assert.match(form, new RegExp(`action="${(signup.origin + signup.pathname).replace(/[.]/g, '\\.')}" method="get"`));
+  assert.match(form, /<input name="tenup"[^>]*required/);
+  assert.match(form, /name="utm_source" value="landing"/);
+  assert.match(form, /name="utm_content" value="hero"/);
+  assert.ok(text(form).includes('Voir mon club →'));
 });
 
 test('promesses alignées sur le produit', () => {
