@@ -806,7 +806,7 @@ pas** dans la limite de 24 h, mais 3 échecs par club et par 24 h bloquent.
   image illisible est signalée (`image_errors`), le reste de la lecture est gardé. Aucune écriture
   dans `club_settings`, aucun journal du contenu lu.
 - **Déclencheurs** : `tenup-sync` enregistre `clubs.tenup_club_id` à la réussite de la page club
-  (S6b) ; `ClubImport` appelle `startTenupSiteBackground` une fois la dernière poule importée
+  (S6b ; tous les clubs depuis le 25/11/2026, le profil restant jamais lu pour un club `internal`) ; `ClubImport` appelle `startTenupSiteBackground` une fois la dernière poule importée
   (réussie ou non), sans attendre ni afficher d'erreur. La lecture au premier plan enregistre aussi
   l'identifiant à sa réussite.
 
@@ -1054,7 +1054,8 @@ lecture qui tombe pendant un import d'équipes reçoit `504 tenup_unavailable` (
   sont pas envoyées).
 - **`tenup-sync`** (`kind: 'club'`, §10.6) : un identifiant déjà rattaché à un autre club (`23505`
   sur l'index) n'est pas écrit ; l'import continue et la réponse porte `tenup_id_conflict: true`.
-  Rien n'est affiché (décision 8). Rien ne change pour le CAC (`internal` : identifiant jamais écrit).
+  Rien n'est affiché (décision 8). Depuis le 25/11/2026, l'identifiant est aussi écrit pour un club
+  `internal` (« Synchroniser Ten'Up », `TEAM_MATCHES.md`).
 - **`club-signup-purge`** (§5.3) : après les clubs, lignes du cache de plus de 48 h → fichiers
   `_lookup/<id>/` antérieurs à cette limite (images d'une lecture remplacée comprises), puis la
   ligne. Réponse `{ purged, accounts, lookups, failed }`. Le cron n'appelle la fonction que s'il y
@@ -1139,8 +1140,8 @@ correspond. Sur un autre appareil, rien n'est prérempli.
 
 **Étape Équipes** (§10, `EquipesStep`) : `clubs.tenup_club_id` connu → pas de champ, la page des
 rencontres (`/club/<id>/competitions/rencontres`) est lue dès l'arrivée tant qu'aucune équipe n'existe
-(1 lecture, comme le clic) ; « Trouver mes équipes » / « Réessayer » relance sans lien. Le CAC n'a pas
-d'identifiant écrit (`internal`) et ne voit pas les premiers pas.
+(1 lecture, comme le clic) ; « Trouver mes équipes » / « Réessayer » relance sans lien. Le CAC
+(`internal`) ne voit pas les premiers pas.
 
 **Mobile** : bouton principal collé en bas dans le flux (`position: sticky`), cibles ≥ 44 px ; pas de
 vignette de l'app sur l'écran 01 ni sur la carte (ses rencontres d'exemple passeraient pour le vrai

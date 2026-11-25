@@ -31,7 +31,7 @@ function fixture() {
  return {calls,helper,get destination(){return destination;},set failure(x){failure=x;},set rpcFailure(x){rpcFailure=x;},set pending(x){pending=x;},set hasSession(x){hasSession=x;},
  async mount(path='/inscription'){await act(async()=>{root=createRoot(document.getElementById('root'));root.render(h(MemoryRouter,{initialEntries:[path]},h(Page)));});},
  async close(){await act(async()=>root.unmount());},
- async change(id,value){const el=document.getElementById('signup-'+id);await act(async()=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))].onChange({target:{value}}));},
+ async change(id,value){const el=document.getElementById(id==='sex'?'signup-sex-'+value:'signup-'+id);await act(async()=>el[Object.keys(el).find(k=>k.startsWith('__reactProps'))].onChange({target:{value}}));},
  async fill(){for(const [key,value]of Object.entries({prenom:' Alice ',nom:' Dupont ',email:'alice@example.test',sex:'female',password:'password123',classement:'3/6'}))await this.change(key,value);},
  async submit(){await act(async()=>document.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));}
  };
@@ -55,6 +55,6 @@ test('signup client: RPC retry does not recreate Auth account; email confirmatio
  }
 });
 test('signup client: shared ranking order and safe returnTo',()=>{
- const f=fixture();assert.deepEqual([...f.helper.TENNIS_RANKINGS],['NC','40','30/5','30/4','30/3','30/2','30/1','30','15/5','15/4','15/3','15/2','15/1','15','5/6','4/6','3/6','2/6','1/6','0','-2/6','-4/6','-15']);
+ const f=fixture();assert.deepEqual([...f.helper.TENNIS_RANKINGS],['NC','40/2','40/1','40','30/5','30/4','30/3','30/2','30/1','30','15/5','15/4','15/3','15/2','15/1','15','5/6','4/6','3/6','2/6','1/6','0','-2/6','-4/6','-15','Top']);
  for(const path of ['//evil.test','https://evil.test','/cours/evil','/coursx',null])assert.equal(f.helper.signupReturnTo(path),'/actu');
 });

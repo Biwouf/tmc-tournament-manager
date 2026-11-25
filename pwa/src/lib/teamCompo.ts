@@ -1,13 +1,13 @@
 // Compo lue sur la photo d'une feuille (Edge Function compo-scan) : classements admis et
-// rapprochement des noms avec les membres du club. Aucune dépendance : testé par `npm run test:team-compo`.
+// rapprochement des noms avec les membres du club. Testé par `npm run test:team-compo`.
+// Extension `.ts` obligatoire : ce module est aussi importé par l'Edge Function compo-scan (Deno).
+import { TENNIS_RANKINGS } from '../../../shared/tennisRankings.ts';
 
 export type CompoEntry = { ordre: number; prenom: string; nom: string; classement: string | null };
 export type RosterMember = { id: string; prenom: string; nom: string; classement: string | null };
 
-export const COMPO_RANKS = ['NC', '40', '30/5', '30/4', '30/3', '30/2', '30/1', '30', '15/5', '15/4', '15/3', '15/2', '15/1',
-  '15', '5/6', '4/6', '3/6', '2/6', '1/6', '0', '-2/6', '-4/6', '-15', '-30'];
-// Valeurs acceptées par profile_details.classement (pas de -30).
-export const PROFILE_RANKS = COMPO_RANKS.filter(rank => rank !== '-30');
+// Classements proposés, tous acceptés par profile_details.classement. `-30` (anciennes compos) reste affiché, plus proposé.
+export const COMPO_RANKS: string[] = [...TENNIS_RANKINGS];
 
 const normalize = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   .replace(/[^a-z]+/g, ' ').trim();

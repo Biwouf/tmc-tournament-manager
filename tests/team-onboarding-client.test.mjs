@@ -87,14 +87,11 @@ test('season: active reused, otherwise this sporting year (September → August)
   assert.deepEqual(io.chooseSeason([s('2025/2026', false)], now), { kind: 'create', label: '2026/2027' });
 });
 
-test('helpers shared with CreateEquipeForm', () => {
+test('team number and club team candidates', () => {
   assert.equal(io.nextTeamNumber([], 'c'), 1);
   assert.equal(io.nextTeamNumber([{ competition_id: 'c', numero: 2 }, { competition_id: 'x', numero: 9 }], 'c'), 3);
   const pool = { teams: [{ id: '1', name: 'TC ALPHA 1' }, { id: '2', name: 'TC ALPHA 2' }, { id: '3', name: 'US BETA 1' }], rounds: [] };
   assert.deepEqual(io.clubTeamCandidates(pool, ['TC Alpha'], '', [{ competition_id: 'c', tenup_team_id: '1' }], 'c'), ['2']);
-  const form = readFileSync(resolve(base, 'src/components/teamMatches/CreateEquipeForm.tsx'), 'utf8');
-  assert.match(form, /nextTeamNumber\(/);
-  assert.match(form, /clubTeamCandidates\(/);
 });
 
 // --- Enchaînement, client simulé ---
@@ -261,6 +258,28 @@ test('club page grouped by championship; already imported teams are flagged; poo
   assert.equal(club.poolTeamId(POOL, 'tc alpha 1'), '11');
   assert.equal(club.poolTeamId(POOL, 'TC ALPHA 9'), null);
   assert.equal(club.poolTeamId({ teams: [{ id: '1', name: 'X 1' }, { id: '2', name: 'x 1' }] }, 'X 1'), null, 'ambiguous');
+});
+
+test('Ten’Up sync: only the new teams; those that may already be there are flagged', () => {
+  const competitions = [{ id: 'k1', saison_id: 's1', tenup_url: POOL_URL }];
+  const linked = { id: 'e1', competition_id: 'k1', tenup_source_url: POOL_URL, tenup_team_name: 'TC ALPHA 1', tenup_team_id: '11' };
+  const run = (equipes) => club.newClubTeams(club.groupClubTeams(PAGE, competitions, equipes), equipes)
+    .map((g) => [g.name, g.teams.map((t) => [t.team, g.doubtful.has(t.key)])]);
+  // Équipe liée : absente de la liste, les autres sont sûres.
+  assert.deepEqual(run([linked]), [
+    ['Championnat Seniors Messieurs', [['TC ALPHA 2', false]]],
+    ['Pyrénées Interclubs', [['TC ALPHA 1', false]]],
+  ]);
+  // Même nom dans une autre poule du championnat : à confirmer.
+  assert.deepEqual(run([{ ...linked, tenup_source_url: OTHER }])[0][1], [['TC ALPHA 1', true], ['TC ALPHA 2', false]]);
+  // Équipe créée à la main : tout le championnat est à confirmer, pas les autres.
+  assert.deepEqual(run([linked, { id: 'e2', competition_id: 'k1', tenup_source_url: null, tenup_team_name: null }]), [
+    ['Championnat Seniors Messieurs', [['TC ALPHA 2', true]]],
+    ['Pyrénées Interclubs', [['TC ALPHA 1', false]]],
+  ]);
+  // Tout est déjà là : plus rien à proposer.
+  const all = [linked, { ...linked, id: 'e2', tenup_source_url: POOL2, tenup_team_name: 'TC ALPHA 2' }];
+  assert.deepEqual(club.newClubTeams(club.groupClubTeams({ ...PAGE, teams: PAGE.teams.filter((t) => t.pool_url !== OTHER) }, competitions, all), all), []);
 });
 
 test('club import: competitions reused or read with badges, pools read one at a time, teams created; quota and busy worker retried; misses reported', async () => {
