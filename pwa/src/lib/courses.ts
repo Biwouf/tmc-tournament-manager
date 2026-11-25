@@ -35,6 +35,10 @@ export type Profile = {
   sex: Sex | null;
   revision: number;
   classement: string | null;
+  /** Photo `{user}/{version}`, année de naissance et e-mail (migration 2026112530). */
+  avatar_path?: string | null;
+  birth_year?: number | null;
+  email?: string | null;
 };
 export type CourseContext = {
   signup_status?: 'pending' | 'approved' | 'denied' | 'revoked' | null;
