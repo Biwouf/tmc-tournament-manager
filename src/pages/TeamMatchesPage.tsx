@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { notifyInboxChanged } from '../lib/inboxSignal';
 import { useClub } from '../contexts/ClubContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import TeamMatchesHeader from '../components/teamMatches/TeamMatchesHeader';
@@ -127,7 +128,7 @@ export default function TeamMatchesPage() {
                 saisonLabel={saisons.find((s) => s.id === saisonId)?.label ?? ''}
                 className={MENU_ITEM_CLASS}
               />
-              <TenupBatchSync entries={entries} onDone={reload} className={MENU_ITEM_CLASS} />
+              <TenupBatchSync entries={entries} onDone={() => { notifyInboxChanged(); reload(); }} className={MENU_ITEM_CLASS} />
               <button type="button" onClick={() => setPosterMode(true)} className={MENU_ITEM_CLASS}>
                 Générer une affiche
               </button>

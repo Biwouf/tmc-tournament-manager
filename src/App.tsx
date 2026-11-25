@@ -30,6 +30,7 @@ import ContactMessagesPage from './pages/ContactMessagesPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import SuperAdminPage from './pages/SuperAdminPage';
 import FirstStepsGate from './components/firstSteps/FirstStepsGate';
+import AdminInboxProvider from './components/layout/AdminInboxProvider';
 import AdminLayout from './components/layout/AdminLayout';
 import TeamMatchesPage from './pages/TeamMatchesPage';
 import TeamMatchesAdminPage from './pages/TeamMatchesAdminPage';
@@ -161,8 +162,8 @@ function GuardedRoutes({ user }: { user: User | null }) {
         <Route path="/premiers-pas" element={auth(<Suspense fallback={null}><FirstStepsPage /></Suspense>)} />
         {/* PR-BO1 — barre latérale + `<Outlet/>` autour de toutes les pages protégées. Hors layout :
             connexion, mots de passe, invitation, premiers pas (plein écran). */}
-        <Route element={user ? <AdminLayout user={user} /> : auth(<></>)}>
-          <Route path="/" element={auth(<FirstStepsGate><AppHomePage /></FirstStepsGate>)} />
+        <Route element={user ? <AdminInboxProvider><AdminLayout user={user} /></AdminInboxProvider> : auth(<></>)}>
+          <Route path="/" element={auth(<FirstStepsGate><AppHomePage user={user!} /></FirstStepsGate>)} />
           <Route path="/tmc-planning" element={auth(<HomePage user={user!} />)} />
           <Route path="/tmc-planning/:id" element={auth(<TournamentPage user={user!} />)} />
           <Route path="/tournament/:id" element={<RedirectTournament />} />
