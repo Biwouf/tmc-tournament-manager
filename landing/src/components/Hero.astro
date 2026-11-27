@@ -1,12 +1,12 @@
 ---
-import { Picture } from 'astro:assets';
+import PhoneFrame from './PhoneFrame.astro';
+import TenupForm from './TenupForm.astro';
 import TrackedLink from './TrackedLink.astro';
-import { playerUrl, signupForm, trialCta } from '../config';
+import { playerUrl, trialCta } from '../config';
 import appCapture from '../assets/hero/app-cac-actus.png';
 import appTabs from '../assets/hero/app-cac-onglets.png';
 import clubLogo from '../assets/hero/logo-cac.png';
 
-const cta = trialCta('Essayer avec mon club', 'hero');
 const bar = trialCta('Créer mon site et mon app', 'barre-mobile');
 // État initial du score de démo (repris par le script) : 3e set, juste après la notification de fin du 2e.
 const players = [
@@ -29,59 +29,21 @@ const players = [
       <h1>Faites-les se sentir comme des <span class="accent">pros.</span></h1>
       <p class="hero__sub">Le site et l’app de votre club de tennis, à ses couleurs&nbsp;: actus, événements, rencontres Ten’Up, live et affiches.</p>
 
-      {signupForm ? (
-        <form class="tenup" action={signupForm} method="get" data-event="cta_tenup_submit" data-tenup-form>
-          <input type="hidden" name="utm_source" value="landing" />
-          <input type="hidden" name="utm_content" value="hero" />
-          <label class="tenup__field">
-            <span>Lien Ten’Up de votre club</span>
-            <input name="tenup" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500" required placeholder="tenup.fft.fr/club/…" />
-          </label>
-          <button class="btn btn--accent tenup__btn" type="submit">Voir mon club →</button>
-        </form>
-      ) : (
-        <div class="btn-row hero__fallback" data-tenup-form>
-          <TrackedLink class="btn btn--accent" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
-        </div>
-      )}
-      <div class="hero__under">
-        <span class="ok">30 jours gratuits</span>
-        <span class="ok">Sans carte bancaire</span>
-        {signupForm && <span class="ok">En ligne en 2 min</span>}
-        {signupForm && (
-          <details class="hero__help">
-            <summary>Où trouver ce lien ?</summary>
-            <p>Sur tenup.fft.fr, cherchez votre club (Rechercher › Un club), ouvrez sa page, puis copiez l’adresse.</p>
-          </details>
-        )}
-      </div>
+      <TenupForm placement="hero" label="Essayer avec mon club">
+        <span class="ok">En ligne en 2 min</span>
+        <details class="hero__help">
+          <summary>Où trouver ce lien ?</summary>
+          <p>Sur tenup.fft.fr, cherchez votre club (Rechercher › Un club), ouvrez sa page, puis copiez l’adresse.</p>
+        </details>
+      </TenupForm>
       <a class="hero__player" href={playerUrl}>
         <span class="hero__player-ic" aria-hidden="true">🎾</span>
-        <span>Vous êtes joueur ? <b>Retrouvez l’app de votre club →</b></span>
+        <span>Vous êtes joueur ? <b>Retrouvez l’app de votre club →</b></span>
       </a>
     </div>
 
     <div class="hero-stage">
-      <div class="hero-phone">
-        <div class="hero-phone__screen">
-          <div class="hero-phone__status" aria-hidden="true">
-            <span>9:41</span>
-            <span class="hero-phone__island"></span>
-            <svg viewBox="0 0 66 13" fill="currentColor">
-              <rect x="0" y="8" width="3" height="5" rx="1"/><rect x="5" y="5.5" width="3" height="7.5" rx="1"/><rect x="10" y="3" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="13" rx="1"/>
-              <path d="M30.5 12.6 28 9.9a3.6 3.6 0 0 1 5 0zM26.6 8.4l-1.5-1.6a7.7 7.7 0 0 1 10.8 0l-1.5 1.6a5.5 5.5 0 0 0-7.8 0zM23.7 5.4l-1.5-1.6a12 12 0 0 1 16.6 0l-1.5 1.6a9.8 9.8 0 0 0-13.6 0z"/>
-              <rect x="42.5" y=".5" width="20" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".4"/><rect x="44" y="2" width="17" height="9" rx="2.2"/><rect x="64" y="4.5" width="1.6" height="4" rx=".8" opacity=".5"/>
-            </svg>
-          </div>
-          <div class="hero-phone__content">
-            <Picture src={appCapture} formats={['avif', 'webp']} widths={[260, 520, 780]} sizes="260px" loading="eager" decoding="async"
-              alt="Capture de l’app du CAC Tennis Club : le fil des actualités du club" />
-          </div>
-          <div class="hero-phone__tabs" aria-hidden="true">
-            <Picture src={appTabs} formats={['avif', 'webp']} widths={[260, 520, 780]} sizes="260px" loading="eager" decoding="async" alt="" />
-          </div>
-        </div>
-      </div>
+      <PhoneFrame class="hero-phone" content={appCapture} tabs={appTabs} loading="eager" alt="Capture de l’app du CAC Tennis Club : le fil des actualités du club" />
       <div class="hero-notif" aria-hidden="true">
         <img src={clubLogo.src} width="26" height="26" alt="" />
         <div><b>Fin du 2<sup>e</sup> set</b>Claire Vidal remporte le 2<sup>e</sup> set 6/4</div>
@@ -106,7 +68,7 @@ const players = [
           ))}
         </div>
       </div>
-      <p class="hero-stage__cap">Capture réelle : app du CAC Tennis Club · score de démo</p>
+      <p class="hero-stage__cap">Capture réelle : app du CAC Tennis Club · score de démo</p>
     </div>
   </div>
 </section>
@@ -170,12 +132,19 @@ const players = [
     }
   }
 
-  // Barre fixe mobile : visible une fois le champ Ten'Up du hero sorti de l'écran.
+  // Barre fixe mobile : après le hero, et jamais en même temps qu'un champ Ten'Up à l'écran.
   const mbar = document.querySelector<HTMLElement>('[data-mbar]');
-  const form = document.querySelector('[data-tenup-form]');
-  if (mbar && form) {
-    new IntersectionObserver(([entry]) => {
-      mbar.classList.toggle('is-on', !entry.isIntersecting && entry.boundingClientRect.top < 0);
-    }).observe(form);
+  const forms = [...document.querySelectorAll('[data-tenup-form]')];
+  if (mbar && forms.length) {
+    const visible = new Set<Element>();
+    let passed = false;
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) visible.add(entry.target); else visible.delete(entry.target);
+        if (entry.target === forms[0]) passed = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+      }
+      mbar.classList.toggle('is-on', passed && visible.size === 0);
+    });
+    forms.forEach(form => observer.observe(form));
   }
 </script>

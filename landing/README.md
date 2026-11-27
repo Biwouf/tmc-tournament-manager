@@ -1,7 +1,7 @@
 # Landing `www.feelike.pro`
 
 Site marketing **statique** de la plateforme (brief S1). Astro 7, aucun JavaScript de framework :
-trois petits scripts en ligne (score animé, récit d’un match au défilement, menu mobile) et, si configuré,
+trois petits scripts en ligne (score animé, barre fixe mobile, menu mobile) et, si configuré,
 Plausible. Tout le texte est dans le HTML généré.
 
 Maquette de référence : `docs/briefs/design_handoff_saas_onboarding/Main.dc.html` (non versionnée).
@@ -24,12 +24,12 @@ Node 22 (Astro 7.3 exige ≥ 22.12).
 | Fichier | Rôle |
 |---|---|
 | `src/pages/index.astro` | Assemble les sections + JSON-LD (`Organization`, `WebSite`, `SoftwareApplication` avec les offres, `FAQPage`) |
-| `src/data/content.ts` | Textes des listes (comparatif, surfaces, moments, étapes, tarifs, FAQ) repris de la maquette |
+| `src/data/content.ts` | Textes des listes (écrans, récit, étapes, comparatif, tarifs, FAQ). Rien que le produit ne fasse aujourd'hui : pas de paiement en ligne, de facture automatique ni de lecture seule avant S9 |
 | `src/components/*.astro` | Une section = un composant |
 | `src/config.ts` | Lecture des variables `PUBLIC_*` et règle des CTA |
 | `src/assets/affiche-resultat.png` | Moitié « Avec feelike.pro » du curseur : affiche de résultat produite par `renderResultPoster()` du BO, données fictives de la rencontre de gauche |
 | `src/assets/hero/` | Hero : capture réelle de l'app du CAC Tennis Club (fil des actus, avec photos de joueurs), coupée en deux images 780 px de large (`app-cac-actus` jusqu'à y = 1574, `app-cac-onglets` pour la barre d'onglets) et logo du CAC. La barre d'état et l'indicateur d'accueil sont ajoutés en HTML/CSS aux cotes d'un iPhone. Accord du club CAC donné par Maxime le 22/11/2026 ; accord écrit des personnes photographiées confirmé par Maxime le 25/11/2026 ; aucun autre club sans accord noté ici |
-| `src/assets/captures/` | Captures réelles de la section « trois courts » : `site`, `app`, `backoffice` (`.png`, `.jpg` ou `.webp`). Tant qu'un fichier manque, l'emplacement hachuré de la maquette reste affiché |
+| `src/assets/captures/` | Captures **obligatoires** (le build échoue s'il en manque une). `site` : accueil du site du CAC, **accord écrit des 7 personnes visibles confirmé par Maxime le 25/11/2026** ; `app` + `app-onglets` : app publique du CAC, onglet Équipes, prise le 25/11/2026 à 390 × 844 @2x et coupée à y = 1574 ; `backoffice` : grille Rencontres du BO du CAC, prise le 25/11/2026 et rognée (bandeau, menu plateforme et nom de l'utilisateur exclus) ; clubs et scores seulement, aucun joueur ; `tunnel` : écran réel « C'est bien votre club ? », club fictif |
 | `public/` | `robots.txt` (robots IA autorisés), `llms.txt`, `og.png` (1200×630), `favicon.svg`, `favicon.ico` et `apple-touch-icon.png` (tirés de `logo.png`), `logo.png` |
 | `src/pages/mentions-legales.astro`, `cgv.astro` | **Contenu à fournir.** Pages en `noindex` et hors sitemap tant qu'elles sont vides |
 
@@ -37,7 +37,7 @@ Node 22 (Astro 7.3 exige ≥ 22.12).
 
 | Variable | Rôle | Si absente |
 |---|---|---|
-| `PUBLIC_SIGNUP_URL` | Cible des CTA d'essai (tunnel S3, `https://admin.feelike.pro/inscription`), complétée par `utm_source=landing&utm_content=<emplacement>` (`header`, `hero`, `echauffement`, `tarifs-essai`, `tarifs-saison`, `cta-final`) | Les CTA d'essai deviennent « Demander un accès » et mènent au call |
+| `PUBLIC_SIGNUP_URL` | Cible des CTA d'essai (tunnel S3, `https://admin.feelike.pro/inscription`), complétée par `utm_source=landing&utm_content=<emplacement>` (`header`, `barre-mobile`, `saisie-manuelle`, `tarifs-essai`, `tarifs-saison` ; champs Ten'Up : `hero`, `echauffement`, `cta-final`) | Les CTA d'essai deviennent « Demander un accès » et mènent au call |
 | `PUBLIC_BOOKING_URL` | Call de 20 min (Cal.com ou agenda Google) | Repli sur `PUBLIC_CONTACT_EMAIL` ; sans les deux, le bouton « Réserver un créneau » est masqué |
 | `PUBLIC_ANALYTICS_DOMAIN` | Domaine Plausible (`www.feelike.pro`) | Aucun script chargé |
 | `PUBLIC_PRICE_NOTE` | Mention TVA sous le prix Saison | `[mention TVA à confirmer]` |
@@ -64,4 +64,4 @@ Rien de ceci n'est exécuté par le code.
    `www.feelike.pro` (previews, `*.vercel.app`). Après mise en ligne : Search Console et Bing
    Webmaster Tools, soumettre `https://www.feelike.pro/sitemap.xml`.
 5. **Avant l'ouverture publique** : contenu des mentions légales et des CGV (obligation légale),
-   lien de réservation, mention TVA, et les trois captures.
+   lien de réservation, mention TVA.

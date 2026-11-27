@@ -1,95 +1,62 @@
-// Textes repris de la maquette « Landing v3 » (design_handoff_saas_onboarding/Main.dc.html).
+// Textes de la landing (brief LANDING_FEELIKE). Ne promettre que ce que le produit fait aujourd'hui.
 
-export const tickerItems = [
-  'Live score en temps réel',
-  'Affiches de programmation',
-  'Planning TMC automatique',
-  'Interclubs : grille de saison',
-  'Synchro TEN’UP',
-  'Actus publiées sur Facebook',
-  'Site vitrine référencé',
-  'App installable',
-];
-
-// Section « Un match » : un chapitre = un écran du téléphone. Les textes des notifications sont
-// ceux que le produit envoie (docs/LIVE_PUSH.md), avec la rencontre fictive de l'affiche.
-type StoryNotif = { at: string; title: string; body: string };
-type StoryChapter = { time: string; who: string; title: string; text: string; screen: 'compo' | 'matches' | 'lock' | 'live' | 'story' | 'poster'; notif?: boolean; notifs?: StoryNotif[] };
-
-export const matchStory: StoryChapter[] = [
-  { time: '09:02', who: 'la capitaine', screen: 'compo', title: 'La compo, en une photo', text: 'La capitaine photographie la feuille de composition, puis celle de l’adversaire. Joueuses, classements et adversaires sont lus et rapprochés des membres du club.' },
-  { time: '09:06', who: 'la capitaine', screen: 'matches', title: 'Les matchs se créent d’un coup', text: 'Tous les simples sont créés en un geste, pour les deux équipes. Au moment de lancer le live, une case suffit pour prévenir le club.' },
-  { time: '09:15', who: 'tout le club', screen: 'lock', notif: true, title: 'Le club est prévenu', text: 'Dès le premier service, les membres qui ont activé les alertes Live reçoivent une notification. Une cloche, et ils suivent ce match jusqu’au bout.', notifs: [
-    { at: 'maintenant', title: 'Match en direct', body: 'Claire Vidal - Anne Marchand - Le match commence !' },
-  ] },
-  { time: '09:48', who: 'au bord du court', screen: 'live', title: 'Le score, point par point', text: 'N’importe quel membre saisit le score depuis le bord du court. Messages, photos et sondages font vivre le fil, et chacun réagit.' },
-  { time: '10:58', who: 'dans la poche des supporters', screen: 'lock', notif: true, title: 'Chaque set, en temps réel', text: 'Fins de set, nouvelles publications : ceux qui suivent le match sont prévenus sans ouvrir l’app. Les publications rapprochées tiennent en une seule alerte.', notifs: [
-    { at: '10:58', title: 'Fin du 2e set', body: 'Claire Vidal remporte le 2e set 6/4 contre Anne Marchand' },
-    { at: '10:31', title: 'Claire Vidal – Anne Marchand', body: '3 nouvelles publications dans le fil' },
-    { at: '10:02', title: 'Fin du 1er set', body: 'Anne Marchand remporte le 1er set 6/1 contre Claire Vidal' },
-  ] },
-  { time: '11:20', who: 'après la balle de match', screen: 'story', notif: true, title: 'Le match se revit en story', text: 'L’alerte « Match terminé » ouvre le récap : le match en accéléré, le moment fort, les photos les plus aimées, la tribune et la gagnante.' },
-  { time: '19:07', who: 'pour les réseaux', screen: 'poster', title: 'L’affiche est déjà prête', text: 'Résultat, détail des simples et du double, aux couleurs du club : l’affiche de la rencontre se génère, prête à publier.' },
-];
+// Section « Un match » : quatre moments. Les textes des notifications sont ceux que le produit envoie
+// (docs/LIVE_PUSH.md), avec la rencontre fictive de l'affiche.
+export const matchStory = [
+  { time: '09:02', who: 'la capitaine', screen: 'compo', title: 'La compo est annoncée', text: 'La capitaine photographie la feuille : joueuses et classements sont lus et rapprochés des membres du club.' },
+  { time: '09:15', who: 'tout le club', screen: 'lock', title: 'Le club est prévenu', text: 'Une alerte au premier service, une autre à chaque set, pour les membres qui suivent le match.' },
+  { time: '10:58', who: 'au bord du court', screen: 'live', title: 'Le score, point par point', text: 'N’importe quel membre saisit le score ; la famille suit le match comme à la télé.' },
+  { time: '19:07', who: 'pour les réseaux', screen: 'poster', title: 'L’affiche est prête', text: 'Résultat et détail des matchs, aux couleurs du club, prêts à publier.' },
+] as const;
 
 export const compare = [
-  { k: 'Ce qu’ils font', a: 'Adhésions, cotisations, comptabilité, réservation des courts.', b: 'Affiches, live score, site et app aux couleurs du club.' },
-  { k: 'Pour qui', a: 'Le trésorier et le secrétaire.', b: 'Les joueurs, leurs familles, vos partenaires.' },
-  { k: 'La saisie', a: 'Des formulaires, des exports, des relances.', b: 'Aucune : TEN’UP s’en charge.' },
-  { k: 'Ce qu’on voit', a: 'Un tableau bien tenu.', b: 'Un club qui donne envie d’y jouer.' },
-  { k: 'Le ressenti', a: 'Un outil.', b: 'Un dimanche de finale.' },
-];
-
-export const promises = [
-  { n: '15', title: 'Une direction artistique de circuit', text: 'Typographies de tableau d’affichage, affiches de programmation, score bug en direct. Le même soin qu’une retransmission, aux couleurs de votre club.' },
-  { n: '30', title: 'Zéro ressaisie', text: 'Rencontres et scores arrivent depuis TEN’UP. Vos bénévoles ne recopient plus rien : ils publient.' },
-  { n: '40', title: 'Un prix, tout le club', text: 'Pas de tarif par adhérent, pas de module en option. Membres, bénévoles et enseignants illimités.' },
+  { us: false, label: 'Vous gardez', title: 'Vos logiciels de gestion et Ten’Up', rows: [
+    { k: 'Ils font', v: 'Adhésions, cotisations, compta, réservation des courts' },
+    { k: 'Pour', v: 'Le trésorier et le secrétaire' },
+    { k: 'Saisie', v: 'Formulaires, exports, relances' },
+  ] },
+  { us: true, label: 'feelike.pro ajoute', title: 'La vitrine et la tribune du club', rows: [
+    { k: 'Il fait', v: 'Site, app, live score, affiches et stories aux couleurs du club' },
+    { k: 'Pour', v: 'Les joueurs, leurs familles, vos partenaires' },
+    { k: 'Saisie', v: 'Rencontres et résultats repris de Ten’Up, sans ressaisie' },
+  ] },
 ];
 
 export const surfaces = [
-  { key: 'site', url: 'votreclub.feelike.pro', cap: 'capture · site vitrine', title: 'Le site web', items: ['Accueil, Le Club, Infrastructures, Tarifs, Contact', 'Référencement automatique, sans champ à remplir', 'Aux couleurs et au logo du club'] },
-  { key: 'app', url: 'app-votreclub.feelike.pro', cap: 'capture · app mobile', title: 'L’app des adhérents', items: ['Actus, matchs par équipe, live score', 'S’installe sur l’écran d’accueil, iOS et Android', 'Scores mis à jour en temps réel'] },
-  { key: 'backoffice', url: 'admin.feelike.pro', cap: 'capture · back-office', title: 'Le back-office', items: ['Tout le contenu du club, sans une ligne de code', 'Rôles Administrateur, Gestionnaire, Membre', 'Planning TMC, affiches, interclubs, actus'] },
+  { key: 'site', url: 'tennisclubcastelsarrasin.fr', alt: 'Capture du site du CAC Tennis Club : la page d’accueil', title: 'Le site du club', items: ['Accueil, club, courts, tarifs, contact', 'À vos couleurs, sur votre adresse', 'Référencement prêt, sans réglage'] },
+  { key: 'app', url: '', alt: '', title: 'L’app des adhérents', items: ['Actus, rencontres, live et cours', 'S’installe en deux gestes, iOS et Android', 'Alertes à chaque set'] },
+  { key: 'backoffice', url: 'admin.feelike.pro', alt: 'Capture du back-office du CAC Tennis Club : la grille des rencontres de la saison', title: 'Le back-office', items: ['Actus (aussi sur Facebook), cours, TMC, affiches', 'Administrateurs, capitaines et membres', 'Sans une ligne de code'] },
 ] as const;
 
-export const moments = [
-  { score: '15', title: 'Leur nom sur l’affiche', text: 'Importez la feuille de programmation TEN’UP : l’affiche du jour sort aux couleurs du club, prête à publier. Huit matchs par page, sans ressaisie.' },
-  { score: '30', title: 'Leur score en direct', text: 'Chaque point saisi au bord du court s’affiche en temps réel dans l’app. La famille et le club suivent le match comme à la télé.' },
-  { score: '40', title: 'Leur équipe suivie toute la saison', text: 'Grille de saison, résultats des rencontres, affiche des matchs du week-end : l’interclub prend des airs de championnat.' },
-  { score: 'Jeu', title: 'Leur victoire à la une', text: 'Une actu en deux clics, photos de la rencontre incluses, publiée en même temps sur la page Facebook du club.' },
-];
-
 export const steps = [
-  { n: '01', t: 'Collez le lien TEN’UP', d: 'Le lien de votre club sur tenup.fft.fr : nom, logo et couleurs sont repris aussitôt.', time: '10 s' },
-  { n: '02', t: 'C’est bien votre club ?', d: 'Vous vérifiez l’aperçu, choisissez votre adresse : votreclub.feelike.pro pour le site, app-votreclub pour l’app.', time: '30 s' },
-  { n: '03', t: 'Un lien par e-mail, et c’est en ligne', d: 'Vos rencontres de la saison arrivent de TEN’UP, sans ressaisie.', time: '1 min' },
+  { n: '1', t: 'Collez le lien Ten’Up du club', d: 'N’importe quelle page du club sur tenup.fft.fr fait l’affaire.', time: '10 s' },
+  { n: '2', t: '« C’est bien votre club ? »', d: 'Nom, logo, couleurs et adresse sont déjà remplis. Vous validez.', time: '30 s' },
+  { n: '3', t: 'Un e-mail, et c’est en ligne', d: 'Vous confirmez votre adresse : le site et l’app s’ouvrent, et vos rencontres à venir arrivent de Ten’Up.', time: '1 min' },
 ];
 
 export const trialItems = [
-  'Tout le produit, sans limite',
+  'Le site, l’app et le back-office',
   'Sans carte bancaire',
-  'Votre site et votre app en ligne en 2 minutes',
-  'Tout est conservé quand vous passez à la saison',
+  'Rien n’est perdu en passant à la saison',
 ];
 
 export const seasonItems = [
-  'Site vitrine, app des adhérents, back-office',
-  'Synchro TEN’UP : rencontres et scores',
-  'Live score, affiches, interclubs, planning TMC, cours',
-  'Les nouveautés publiées pendant votre saison, incluses',
+  'Site, app des adhérents et back-office',
+  'Synchro Ten’Up : rencontres, équipes, résultats',
+  'Live, affiches, stories, interclubs, TMC, cours',
   'Membres, bénévoles et enseignants illimités',
-  'Carte bancaire ou prélèvement SEPA, facture automatique',
 ];
 
 export const faq = [
-  { q: 'Est-ce que ça remplace notre logiciel de gestion ?', a: 'Non. Adhésions, cotisations, comptabilité et réservation des courts restent dans vos outils actuels, comme les données sportives dans TEN’UP. feelike.pro s’occupe de ce que vos joueurs et vos partenaires voient.' },
-  { q: 'Faut-il quelqu’un de technique au club ?', a: 'Non. Tout se fait depuis le back-office, sans code ni hébergement. Si quelqu’un sait publier sur la page Facebook du club, il saura utiliser feelike.pro.' },
-  { q: 'Que se passe-t-il à la fin des 30 jours ?', a: 'Rien n’est supprimé. Sans abonnement, le back-office passe en lecture seule ; dès que vous choisissez la saison, vous reprenez exactement là où vous en étiez.' },
-  { q: 'Comment payer ?', a: 'Par carte bancaire ou prélèvement SEPA, en ligne. La facture est envoyée automatiquement au trésorier. Un paiement par virement sur facture est aussi possible.' },
-  { q: 'Peut-on arrêter quand on veut ?', a: 'Oui, depuis votre espace, en un clic. L’abonnement n’est simplement pas renouvelé à la fin de la saison payée.' },
-  { q: 'Qui peut modifier quoi ?', a: 'Chaque personne invitée a un rôle : administrateur, gestionnaire ou membre. Elle ne voit que ce qui la concerne, et vous gardez la main sur les accès.' },
-  { q: 'Et pour les autres sports ?', a: 'Le tennis est disponible aujourd’hui. D’autres sports sont en préparation : écrivez-nous pour être prévenu.' },
+  { q: 'Est-ce que ça remplace notre logiciel de gestion ?', a: 'Non. Adhésions, cotisations, compta et réservation des courts restent dans vos outils. feelike.pro s’occupe de ce que vos joueurs et vos partenaires voient.' },
+  { q: 'D’où viennent les données ? Est-ce lié à la FFT ?', a: 'feelike.pro lit les pages publiques Ten’Up de votre club : rencontres, équipes, résultats. C’est un service indépendant, non affilié à la FFT.' },
+  { q: 'Nos adhérents doivent-ils télécharger une app ?', a: 'Non. Elle s’installe depuis le navigateur sur l’écran d’accueil, iOS et Android, sans passer par un store.' },
+  { q: 'Combien de temps ça prend au bureau chaque semaine ?', a: 'Quelques minutes. Les rencontres viennent de Ten’Up et les résultats se synchronisent en quelques clics ; restent une actu ou une affiche quand vous en avez envie.' },
+  { q: 'Faut-il quelqu’un de technique au club ?', a: 'Non. Si quelqu’un sait publier sur la page Facebook du club, il saura utiliser feelike.pro.' },
+  { q: 'Que se passe-t-il à la fin des 30 jours ?', a: 'Rien n’est supprimé et rien n’est prélevé : aucune carte n’est demandée pour l’essai. Pour continuer, le club choisit la saison à 250 € par an.' },
+  { q: 'Peut-on garder notre site ou notre adresse ?', a: 'Oui. Votre nom de domaine peut pointer vers le site du club, on le rattache avec vous : c’est le cas de tennisclubcastelsarrasin.fr. Et rien n’oblige à fermer un site existant.' },
+  { q: 'Où sont hébergées les données de nos joueurs ?', a: 'La base de données est hébergée dans l’Union européenne (Irlande). Les compositions à venir ne sont visibles que des membres connectés.' },
 ];
 
 // Description factuelle réutilisée par les métadonnées et le JSON-LD.
-export const siteDescription = 'feelike.pro crée le site, l’app des adhérents et les affiches d’un club de tennis, alimentés automatiquement par TEN’UP. Essai gratuit de 30 jours sans carte bancaire, puis 250 € par an pour tout le club.';
+export const siteDescription = 'feelike.pro crée le site, l’app des adhérents et les affiches d’un club de tennis, à ses couleurs, à partir de son lien Ten’Up. Essai gratuit de 30 jours sans carte bancaire, puis 250 € par an pour tout le club.';

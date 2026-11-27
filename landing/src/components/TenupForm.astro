@@ -1,0 +1,29 @@
+---
+// Champ « Lien Ten'Up » : formulaire GET vers le tunnel (`?tenup=`, sans JavaScript). Sans tunnel
+// configuré, l'appel d'essai habituel.
+import TrackedLink from './TrackedLink.astro';
+import { signupForm, trialCta } from '../config';
+interface Props { placement: string; label: string; class?: string; light?: boolean }
+const { placement, label, class: className, light = false } = Astro.props;
+const cta = trialCta(label, placement);
+---
+<div class:list={['tenup-box', { 'tenup-box--light': light }, className]} data-tenup-form>
+  {signupForm ? (
+    <form class="tenup" action={signupForm} method="get" data-event="cta_tenup_submit">
+      <input type="hidden" name="utm_source" value="landing" />
+      <input type="hidden" name="utm_content" value={placement} />
+      <label class="tenup__field">
+        <span>Lien Ten’Up de votre club</span>
+        <input name="tenup" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="500" required placeholder="tenup.fft.fr/club/…" />
+      </label>
+      <button class="btn btn--accent tenup__btn" type="submit">Voir mon club →</button>
+    </form>
+  ) : (
+    <div class="btn-row tenup-box__fallback"><TrackedLink class="btn btn--accent" href={cta.href} event={cta.event}>{cta.label}</TrackedLink></div>
+  )}
+  <div class="tenup-box__under">
+    <span class="ok">30 jours gratuits</span>
+    <span class="ok">Sans carte bancaire</span>
+    {signupForm && <slot />}
+  </div>
+</div>

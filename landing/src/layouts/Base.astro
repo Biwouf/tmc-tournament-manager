@@ -2,14 +2,12 @@
 import '@fontsource/instrument-sans/latin-400';
 import '@fontsource/instrument-sans/latin-500';
 import '@fontsource/ibm-plex-mono/latin-400';
-import '@fontsource/ibm-plex-mono/latin-500';
 import '../styles/tokens.css';
 import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import Analytics from '../components/Analytics.astro';
 import { analyticsDomain } from '../config';
-import display700 from '@fontsource/big-shoulders-display/files/big-shoulders-display-latin-700-normal.woff2?url';
 import display800 from '@fontsource/big-shoulders-display/files/big-shoulders-display-latin-800-normal.woff2?url';
 import display900 from '@fontsource/big-shoulders-display/files/big-shoulders-display-latin-900-normal.woff2?url';
 import bodyFont from '@fontsource/instrument-sans/files/instrument-sans-latin-400-normal.woff2?url';
@@ -28,7 +26,7 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, '').replace(/\/i
 const ogImage = new URL('/og.png', Astro.site).href;
 // Police des titres déclarée ici en `font-display: block` (préchargée) : avec `swap`, le
 // remplacement d'une police de repli bien plus large décale le hero (CLS).
-const displayFaces = [[700, display700], [800, display800], [900, display900]]
+const displayFaces = [[800, display800], [900, display900]]
   .map(([weight, url]) => `@font-face{font-family:'Big Shoulders Display';font-style:normal;font-weight:${weight};font-display:block;src:url(${url}) format('woff2')}`)
   .join('');
 ---
@@ -43,7 +41,7 @@ const displayFaces = [[700, display700], [800, display800], [900, display900]]
     {noindex && <meta name="robots" content="noindex" />}
     <meta name="theme-color" content="#13120f" />
     <link rel="preload" href={display900} as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href={display700} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={display800} as="font" type="font/woff2" crossorigin />
     <style set:html={displayFaces}></style>
     <link rel="preload" href={bodyFont} as="font" type="font/woff2" crossorigin />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />

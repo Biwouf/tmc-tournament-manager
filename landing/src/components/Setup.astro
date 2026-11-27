@@ -1,26 +1,42 @@
 ---
+import { Picture } from 'astro:assets';
+import TenupForm from './TenupForm.astro';
 import TrackedLink from './TrackedLink.astro';
+import tunnel from '../assets/captures/tunnel.png';
 import { steps } from '../data/content';
 import { trialCta } from '../config';
 
-const cta = trialCta('Essayer avec mon club', 'echauffement');
+const manual = trialCta('Club non affilié FFT ? Saisie à la main', 'saisie-manuelle');
 ---
-<section id="setup" class="sec setup">
-  <div class="container setup__grid">
-    <div class="setup__intro">
-      <span class="eyebrow">Échauffement</span>
-      <h2 class="h2">Votre club en ligne avant la fin de l’échauffement.</h2>
-      <p class="lead">Collez le lien TEN’UP de votre club : vous voyez votre site et votre app se construire sous vos yeux, à ses couleurs. Rien à coder, rien à installer, personne à appeler.</p>
-      <TrackedLink class="btn btn--accent" style="margin-top:8px" href={cta.href} event={cta.event}>{cta.label}</TrackedLink>
+<section id="setup" class="sec sec--paper sec--light">
+  <div class="container">
+    <div class="stack">
+      <span class="eyebrow">Votre club en 2 minutes via Ten’Up · sans ressaisie</span>
+      <h2 class="h2">En ligne avant la fin de l’échauffement.</h2>
     </div>
-    <ol class="steps">
-      {steps.map(step => (
-        <li class="step">
-          <span class="step__n">{step.n}</span>
-          <div><h3>{step.t}</h3><p>{step.d}</p></div>
-          <span class="step__time">{step.time}</span>
-        </li>
-      ))}
-    </ol>
+    <div class="setup__grid">
+      <div>
+        <ol class="steps">
+          {steps.map(step => (
+            <li class="step">
+              <span class="step__n">{step.n}</span>
+              <div><h3 class="h3">{step.t}</h3><p>{step.d}</p></div>
+              <span class="step__time">{step.time}</span>
+            </li>
+          ))}
+        </ol>
+        <TenupForm placement="echauffement" label="Essayer avec mon club" light>
+          <TrackedLink class="underline" href={manual.href} event={manual.event}>{manual.label}</TrackedLink>
+        </TenupForm>
+      </div>
+      <figure class="setup__shot">
+        <div class="browser">
+          <div class="browser__bar" aria-hidden="true"><i></i><i></i><i></i><span>admin.feelike.pro/inscription</span></div>
+          <Picture src={tunnel} formats={['avif', 'webp']} widths={[480, 800, 1200]} sizes="(max-width: 900px) 92vw, 640px" loading="lazy" decoding="async"
+            alt="Écran « C’est bien votre club ? » de l’inscription : la carte du club à gauche, l’aperçu de son site et de son app à droite" />
+        </div>
+        <figcaption class="caption">Écran réel de l’inscription · club fictif</figcaption>
+      </figure>
+    </div>
   </div>
 </section>
