@@ -53,6 +53,11 @@ const button = text => [...document.querySelectorAll('button')].find(b => b.text
 const row = name => [...document.querySelectorAll('[role=checkbox]')].find(r => r.textContent.includes(name));
 const click = async target => act(async () => target.dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
 const wait = () => act(async () => { await new Promise(r => setTimeout(r, 0)); });
+const pick = async (label, value) => act(async () => {
+  const select = document.querySelector(`select[aria-label="${label}"]`);
+  Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(select, value);
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+});
 const type = async (value) => act(async () => {
   const input = document.querySelector('input[type=search]');
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -148,7 +153,10 @@ test('Capitaine : filtre Hommes, coche, invité sans compte, doublon refusé, en
     assert.match(document.body.textContent, /Aucun membre du club ne s’appelle « Paul Girard »/);
     assert.match(document.body.textContent, /Ajouter Paul Girard, sans compte/);
     await click([...document.querySelectorAll('[role=radio]')].find(b => b.textContent === 'Homme'));
+    assert.equal(document.querySelector('select[aria-label="Classement (facultatif)"]').value, '', 'classement facultatif');
+    await pick('Classement (facultatif)', '30/2');
     await click(button('Ajouter'));
+    assert.equal(document.querySelector('select[aria-label="Classement de Paul Girard"]').value, '30/2');
     assert.equal(row('Paul Girard').getAttribute('aria-checked'), 'true');
     assert.match(document.querySelector('[role=status]').textContent, /3 joueurs retenus · il en faut au moins 3 pour 3 simples/);
     assert.equal([...document.querySelectorAll('h3')].find(x => x.textContent.startsWith('Retenus')).textContent, 'Retenus · 3');
@@ -165,7 +173,7 @@ test('Capitaine : filtre Hommes, coche, invité sans compte, doublon refusé, en
     await type('');
 
     await click(button('Enregistrer la compo')); await wait();
-    assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { user_id: 'u2' }, { prenom: 'Paul', nom: 'Girard', sex: 'male' }]);
+    assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { user_id: 'u2' }, { prenom: 'Paul', nom: 'Girard', sex: 'male', classement: '30/2' }]);
     // Le faux serveur renvoie une compo vide : le bouton d'ouverture est encore « Choisir les joueurs ».
     assert.equal(document.activeElement.textContent, 'Choisir les joueurs', 'le focus revient au bouton d’ouverture');
     assert.equal(saved[0].p_version, 0);
@@ -216,8 +224,13 @@ test('Capitaine : version périmée, abandon des changements', async () => {
     // Un invité gardé est renvoyé par son id.
     saveError = null; saved = [];
     await click(button('Modifier')); await wait();
+    // Son classement se modifie dans les retenus, et suffit à rendre la compo modifiée.
+    await pick('Classement de Paul Girard', '15');
+    await click(document.querySelector('[aria-label=Fermer]')); await wait();
+    assert.match(document.body.textContent, /Abandonner vos changements \?/);
+    await click(button('Continuer à modifier'));
     await click(button('Enregistrer la compo')); await wait();
-    assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { id: 'g1' }]);
+    assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { id: 'g1', classement: '15' }]);
   } finally { await unmount(); }
 });
 

@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import TeamSheet from './TeamSheet';
 import { COMPO_COPY as T, compoErrorMessage, compoNameKey, countHint, isStaleCompo, mixedCountLabel, splitGuestName } from '../../../../shared/teamCompoCopy.mjs';
+import { RANK_SERIES, RANK_NUMBERED } from '../../../../shared/tennisRankings.ts';
 import { fetchLineupCandidates, fullName, lineupEditable, outOfGenreLabel, saveLineup, type LineupCandidate, type LineupEntry, type LineupSex, type TeamLineup } from '../../lib/teamLineup';
 
 type Filter = 'all' | 'male' | 'female';
-type GuestDraft = { key: string; id?: string; prenom: string; nom: string; sex: LineupSex; checked: boolean };
+type GuestDraft = { key: string; id?: string; prenom: string; nom: string; sex: LineupSex; classement: string | null; saved?: string | null; checked: boolean };
+type GuestForm = { prenom: string; nom: string; sex: LineupSex; classement: string | null };
 type Person = { prenom: string; nom: string };
 
 const nameKey = (p: Person) => compoNameKey(fullName(p));
@@ -16,21 +18,33 @@ const matches = (p: Person, search: string) => {
 const initialFilter = (genre: string): Filter => genre === 'hommes' || genre === 'garcons' ? 'male' : genre === 'femmes' || genre === 'filles' ? 'female' : 'all';
 const sexWord = (sex: LineupSex) => sex === 'male' ? 'homme' : sex === 'female' ? 'femme' : null;
 
-/** Ligne cochable : toute la ligne est la cible (56 px), la case fait 26 px. */
-function PlayerRow({ name, subtitle, rank, checked, onToggle }: {
-  name: string; subtitle?: string | null; rank?: string | null; checked: boolean; onToggle: () => void;
+/** Classement facultatif d'un invité (barème FFT, « Non précisé » = null). 16 px : pas de zoom iOS au focus. */
+function RankSelect({ value, onChange, label, className }: {
+  value: string | null; onChange: (rank: string | null) => void; label: string; className: string;
 }) {
-  return <li><div role="checkbox" aria-checked={checked} tabIndex={0} onClick={onToggle}
+  return <select value={value ?? ''} onChange={event => onChange(event.target.value || null)} aria-label={label} className={className}>
+    <option value="">{T.rankUnset}</option>
+    <option value="NC">NC</option>
+    {RANK_SERIES.map(serie => <optgroup key={serie.label} label={serie.label}>{serie.ranks.map(rank => <option key={rank}>{rank}</option>)}</optgroup>)}
+    <option value={RANK_NUMBERED}>{RANK_NUMBERED}</option>
+  </select>;
+}
+
+/** Ligne cochable : toute la ligne est la cible (56 px), la case fait 26 px. `trailing` reste hors de la case. */
+function PlayerRow({ name, subtitle, rank, checked, onToggle, trailing }: {
+  name: string; subtitle?: string | null; rank?: string | null; checked: boolean; onToggle: () => void; trailing?: ReactNode;
+}) {
+  return <li className="flex items-center gap-2"><div role="checkbox" aria-checked={checked} tabIndex={0} onClick={onToggle}
     onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); onToggle(); } }}
     aria-label={subtitle ? `${name}, ${subtitle}` : name}
-    className={`flex min-h-14 cursor-pointer items-center gap-3 px-1 py-2 active:opacity-70 ${checked ? 'bg-primary/5' : ''}`}>
+    className={`flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 px-1 py-2 active:opacity-70 ${checked ? 'bg-primary/5' : ''}`}>
     <span aria-hidden className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border-2 text-sm font-bold ${checked ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card'}`}>{checked ? '✓' : ''}</span>
     <span className="min-w-0 flex-1">
       <span className="block truncate text-[15px] font-medium">{name}</span>
       {subtitle && <span className="block text-sm text-muted-foreground">{subtitle}</span>}
     </span>
     {rank && <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-sm font-semibold tabular-nums">{rank}</span>}
-  </div></li>;
+  </div>{trailing}</li>;
 }
 
 export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose, onSaved, onReload }: {
@@ -49,10 +63,10 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
   const expected = initialFilter(lineup.genre);
   const [selected, setSelected] = useState(() => new Set(initialMembers));
   const [guests, setGuests] = useState<GuestDraft[]>(() => lineup.players.filter(p => p.is_guest)
-    .map(p => ({ key: p.id, id: p.id, prenom: p.prenom, nom: p.nom, sex: p.sex, checked: true })));
+    .map(p => ({ key: p.id, id: p.id, prenom: p.prenom, nom: p.nom, sex: p.sex, classement: p.classement, saved: p.classement, checked: true })));
   const [filter, setFilter] = useState<Filter>(expected);
   const [search, setSearch] = useState('');
-  const [guestForm, setGuestForm] = useState<{ prenom: string; nom: string; sex: LineupSex } | null>(null);
+  const [guestForm, setGuestForm] = useState<GuestForm | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ message: string; stale: boolean } | null>(null);
@@ -73,7 +87,7 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
   const checkedGuests = guests.filter(g => g.checked);
   const count = selected.size + checkedGuests.length;
   const dirty = selected.size !== initialMembers.length || initialMembers.some(id => !selected.has(id))
-    || guests.some(g => !g.id || !g.checked);
+    || guests.some(g => !g.id || !g.checked || g.classement !== g.saved);
   const hint = countHint(count, lineup.min_players, lineup.simples);
   const genreLabel = T.genreLabel(lineup.genre);
   /** Mention sur une personne cochée hors du genre de la rencontre (n'empêche rien). */
@@ -101,10 +115,12 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
     setSelected(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
   const toggleGuest = (key: string) => { setError(null); setGuests(prev => prev.map(g => g.key === key ? { ...g, checked: !g.checked } : g)); };
+  const setGuestRank = (key: string, classement: string | null) => { setError(null); setGuests(prev => prev.map(g => g.key === key ? { ...g, classement } : g)); };
   const guestSexDefault: LineupSex = expected === 'all' ? null : expected;
-  const openGuestForm = () => setGuestForm({ ...splitGuestName(typed), sex: guestSexDefault });
+  const blankGuest = (): GuestForm => ({ ...splitGuestName(typed), sex: guestSexDefault, classement: null });
+  const openGuestForm = () => setGuestForm(blankGuest());
   // La carte n'apparaît que pour un nom absent des invités (`exactGuest`) : pas de doublon possible ici.
-  const addGuest = (form: { prenom: string; nom: string; sex: LineupSex }) => {
+  const addGuest = (form: GuestForm) => {
     if (!form.prenom) return;
     setGuests(prev => [...prev, { key: `new-${prev.length}-${compoNameKey(fullName(form))}`, ...form, checked: true }]);
     setGuestForm(null);
@@ -120,7 +136,7 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
     setSaving(true);
     setError(null);
     const entries: LineupEntry[] = [...[...selected].map(user_id => ({ user_id })),
-      ...checkedGuests.map(g => g.id ? { id: g.id } : { prenom: g.prenom, nom: g.nom, sex: g.sex })];
+      ...checkedGuests.map(g => g.id ? { id: g.id, classement: g.classement } : { prenom: g.prenom, nom: g.nom, sex: g.sex, classement: g.classement })];
     try {
       onSaved(await saveLineup(clubId, rencontreId, entries, lineup.version));
     } catch (e) {
@@ -168,7 +184,9 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
         <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{T.retained(count)}</h3>
         <ul className="mt-1 divide-y divide-border">
           {retainedMembers.map(id => { const p = person(id); return <PlayerRow key={id} name={fullName(p)} subtitle={leftClub(id) ? T.notMember : memberSubtitle(p, selected.has(id))} rank={p.classement} checked={selected.has(id)} onToggle={() => toggleMember(id)} />; })}
-          {retainedGuests.map(g => <PlayerRow key={g.key} name={fullName(g)} subtitle={guestSubtitle(g)} checked={g.checked} onToggle={() => toggleGuest(g.key)} />)}
+          {retainedGuests.map(g => <PlayerRow key={g.key} name={fullName(g)} subtitle={guestSubtitle(g)} checked={g.checked} onToggle={() => toggleGuest(g.key)}
+            trailing={g.checked && <RankSelect value={g.classement} onChange={rank => setGuestRank(g.key, rank)} label={T.rankOf(fullName(g))}
+              className="min-h-11 shrink-0 rounded-md border border-border bg-muted px-2 text-base font-semibold tabular-nums" />} />)}
         </ul>
       </>}
 
@@ -183,7 +201,7 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
         {canAddGuest && !guestForm && partialMembers.length > 0 && <button onClick={openGuestForm}
           className="mt-2 min-h-12 w-full rounded-xl border border-dashed border-border px-4 text-left text-[15px] font-semibold">{T.addGuestQuoted(typed)}</button>}
         {canAddGuest && (guestForm || partialMembers.length === 0) && (() => {
-          const form = guestForm ?? { ...splitGuestName(typed), sex: guestSexDefault };
+          const form = guestForm ?? blankGuest();
           return <div className="mt-3 rounded-2xl border border-primary p-4">
             <p className="text-[17px] font-bold">{T.addGuest(fullName(form))}</p>
             <p className="mt-1 text-sm text-muted-foreground">{T.guestNote}</p>
@@ -193,6 +211,9 @@ export default function TeamLineupEditor({ clubId, rencontreId, lineup, onClose,
                 onClick={() => setGuestForm({ ...form, sex: (value || null) as LineupSex })}
                 className={`min-h-11 whitespace-nowrap rounded-xl border px-1 text-sm font-semibold ${(form.sex ?? '') === value ? 'border-2 border-foreground' : 'border-border'}`}>{label}</button>)}
             </div>
+            <p aria-hidden className="mt-3 text-sm font-semibold">{T.guestRank}</p>
+            <RankSelect value={form.classement} onChange={classement => setGuestForm({ ...form, classement })} label={T.guestRank}
+              className="mt-2 min-h-12 w-full rounded-xl border border-border bg-card px-3 text-base" />
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button onClick={() => { setGuestForm(null); setSearch(''); }} className="min-h-12 rounded-xl border border-border font-semibold">{T.cancel}</button>
               <button onClick={() => addGuest(form)} className="min-h-12 rounded-xl bg-primary font-semibold text-primary-foreground">{T.add}</button>

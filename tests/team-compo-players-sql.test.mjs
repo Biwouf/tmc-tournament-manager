@@ -80,6 +80,9 @@ async function setup() {
     ('${C1}','${id(12)}','${id(104)}')`);
   await db.exec(await text('supabase/migrations/2026111901_team_compo_players.sql'));
   await db.exec(await text('supabase/migrations/2026111902_team_compo_user_id.sql'));
+  // Barème FFT : seule la fonction de 2026112201 (le reste touche l'inscription, absente ici).
+  await db.exec((await text('supabase/migrations/2026112201_classement_fft.sql')).match(/CREATE OR REPLACE FUNCTION public\.is_tennis_ranking[\s\S]*?\$\$;/)[0]);
+  await db.exec(await text('supabase/migrations/2026112801_team_compo_guest_classement.sql'));
   const get = (user, rencontre = FUTURE) => as(user, 'SELECT team_compo_get($1,$2) AS r', [C1, rencontre]).then(x => x.rows[0].r);
   const save = (user, players, version, rencontre = FUTURE) =>
     as(user, 'SELECT team_compo_save($1,$2,$3,$4) AS r', [C1, rencontre, JSON.stringify(players), version]).then(x => x.rows[0].r);
@@ -235,5 +238,34 @@ test('Résumés de la liste : un appel, 3 aperçus au plus, moi puis le capitain
     await assert.rejects(as(id(301), 'SELECT team_compo_summaries($1,$2)', [C1, Array.from({ length: 201 }, () => FUTURE)]), /COMPO_INVALID/);
     // Les rencontres d'un autre club passées en paramètre sont ignorées.
     assert.deepEqual((await as(id(201), 'SELECT team_compo_summaries($1,$2) AS r', [id(2), [FUTURE]])).rows[0].r, []);
+  } finally { await db.close(); }
+});
+
+test('Classement d’un invité : facultatif à l’ajout, modifiable, gardé par un client pas à jour', async () => {
+  const { db, save, get } = await setup();
+  try {
+    await assert.rejects(save(id(102), [{ prenom: 'Paul', classement: '-30' }], 0), /COMPO_INVALID/);
+    const first = await save(id(102), [{ user_id: id(102) }, { prenom: 'Paul', nom: 'Girard', classement: '30/2' },
+      { prenom: 'Léo', nom: 'Sans', classement: '' }], 0);
+    const paul = first.players.find(p => p.nom === 'Girard');
+    assert.equal(paul.classement, '30/2');
+    assert.equal(first.players.find(p => p.nom === 'Sans').classement, null, 'vide = non précisé');
+    assert.equal(first.players.find(p => p.nom === 'Escaffre').classement, '15/2', 'membre : classement du profil');
+    // Lu aussi par un simple membre.
+    assert.equal((await get(id(103))).players.find(p => p.nom === 'Girard').classement, '30/2');
+
+    // {id} sans la clé : inchangé ; {id, classement} : modifié ; null : effacé.
+    const leo = first.players.find(p => p.nom === 'Sans').id;
+    const kept = await save(id(102), [{ id: paul.id }, { id: leo, classement: 'NC' }], 1);
+    assert.equal(kept.players.find(p => p.nom === 'Girard').classement, '30/2');
+    assert.equal(kept.players.find(p => p.nom === 'Sans').classement, 'NC');
+    const changed = await save(id(101), [{ id: paul.id, classement: '15' }, { id: leo, classement: null }], 2);
+    assert.equal(changed.players.find(p => p.nom === 'Girard').id, paul.id, 'id stable');
+    assert.equal(changed.players.find(p => p.nom === 'Girard').classement, '15');
+    assert.equal(changed.players.find(p => p.nom === 'Sans').classement, null);
+    await assert.rejects(save(id(101), [{ id: paul.id, classement: 'top' }], 3), /COMPO_INVALID/);
+    // Un membre ne porte jamais de classement d'invité.
+    await db.exec(`INSERT INTO team_match_players(club_id,rencontre_id,user_id) VALUES ('${C1}','${FUTURE}','${id(103)}')`);
+    await assert.rejects(db.exec(`UPDATE team_match_players SET guest_classement='30' WHERE user_id='${id(103)}'`), /check/);
   } finally { await db.close(); }
 });

@@ -81,10 +81,14 @@ test('BO : coche des membres, invité sans compte, mêmes règles et un seul enr
 
     // Invité : sexe prérempli selon la rencontre ; un nom de membre renvoie vers la case à cocher.
     const [name] = document.querySelectorAll('input[placeholder="Prénom et nom"]');
-    assert.equal(document.querySelector('select').value, 'male');
+    assert.equal(document.querySelector('select[aria-label="Sexe (facultatif)"]').value, 'male');
+    const rank = document.querySelector('select[aria-label="Classement (facultatif)"]');
+    assert.equal(rank.value, '', 'classement facultatif, non précisé par défaut');
     await setValue(name, 'julien marty'); await click(button('Ajouter'));
     assert.match(document.querySelector('[role=alert]').textContent, /Julien Marty est membre du club : cochez-le dans la liste\./);
-    await setValue(name, 'Paul Girard'); await click(button('Ajouter'));
+    await setValue(name, 'Paul Girard'); await setValue(rank, '30/2'); await click(button('Ajouter'));
+    assert.equal(rank.value, '', 'remis à « non précisé » après l’ajout');
+    assert.equal(document.querySelector('select[aria-label="Classement de Paul Girard"]').value, '30/2');
     await setValue(name, 'PAUL girard'); await click(button('Ajouter'));
     assert.match(document.querySelector('[role=alert]').textContent, /Paul Girard est déjà dans la compo\./);
     assert.deepEqual([...document.querySelectorAll('ul[aria-label] li')].map(li => li.querySelector('.font-medium').textContent), ['Romain Escaffre', 'Paul Girard', 'Julien Marty'].sort((a, b) => a.split(' ')[1].localeCompare(b.split(' ')[1])));
@@ -97,7 +101,7 @@ test('BO : coche des membres, invité sans compte, mêmes règles et un seul enr
     await click(button('Retirer Claire Dupont'));
 
     await click(button('Enregistrer la compo')); await wait();
-    assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { user_id: 'u2' }, { prenom: 'Paul', nom: 'Girard', sex: 'male' }]);
+    assert.deepEqual(saved[0].p_players, [{ user_id: 'u1' }, { user_id: 'u2' }, { prenom: 'Paul', nom: 'Girard', sex: 'male', classement: '30/2' }]);
     assert.equal(saved[0].p_version, 0);
     assert.match(document.body.textContent, /Compo enregistrée/);
     assert.doesNotMatch(document.body.textContent, /Non enregistrée/);

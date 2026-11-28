@@ -18,7 +18,9 @@ export type LineupCandidate = {
   id: string; prenom: string; nom: string; classement: string | null; sex: LineupSex; is_captain: boolean;
 };
 /** Entrée envoyée à `team_compo_save` : membre, invité déjà présent, ou nouvel invité. */
-export type LineupEntry = { user_id: string } | { id: string } | { prenom: string; nom: string; sex: LineupSex };
+// `classement` d'un invité : facultatif ; sur {id}, la clé absente garde la valeur enregistrée.
+export type LineupEntry = { user_id: string } | { id: string; classement?: string | null }
+  | { prenom: string; nom: string; sex: LineupSex; classement: string | null };
 
 /** Résumé d'une rencontre pour sa carte dans la liste (`team_compo_summaries`, connectés seulement). */
 export type LineupSummary = {
