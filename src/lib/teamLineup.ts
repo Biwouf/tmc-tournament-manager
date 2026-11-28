@@ -16,7 +16,9 @@ export type TeamLineup = {
 export type LineupCandidate = {
   id: string; prenom: string; nom: string; classement: string | null; sex: LineupSex; is_captain: boolean;
 };
-export type LineupEntry = { user_id: string } | { id: string } | { prenom: string; nom: string; sex: LineupSex };
+// `classement` d'un invité : facultatif ; sur {id}, la clé absente garde la valeur enregistrée.
+export type LineupEntry = { user_id: string } | { id: string; classement?: string | null }
+  | { prenom: string; nom: string; sex: LineupSex; classement: string | null };
 
 export async function fetchLineup(clubId: string, rencontreId: string): Promise<TeamLineup> {
   const { data, error } = await supabase.rpc('team_compo_get', { p_club: clubId, p_rencontre: rencontreId });

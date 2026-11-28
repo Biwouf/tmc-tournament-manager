@@ -24,6 +24,7 @@ export const COMPO_COPY: {
   captain: string; guest: string; you: string; sexUnknown: string; rankUnknown: string;
   noMember: (name: string) => string; addGuest: (name: string) => string; addGuestQuoted: (name: string) => string;
   guestNote: string; guestSex: string; sexOptions: [string, string][];
+  guestRank: string; rankUnset: string; rankOf: (name: string) => string;
   cancel: string; add: string; save: string; saving: string; saved: string;
   discardTitle: string; keepEditing: string; discard: string;
   duplicate: (name: string) => string; reload: string; loadError: string; candidatesError: string; notMember: string; notMemberError: (names: string[]) => string; cannotEdit: string; retry: string;

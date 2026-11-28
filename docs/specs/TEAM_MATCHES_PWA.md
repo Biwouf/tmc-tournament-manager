@@ -213,7 +213,7 @@ PWA parcours visiteur, BO. **PR1 — SQL** (`2026111901_team_compo_players.sql`)
   qu'un visiteur (policies `*_authenticated_public_read`, même règle que les lives en
   `2026093001`). Avant, `tenant_isolation` lui renvoyait une liste vide là où un visiteur voyait tout.
 - **Tables** `team_match_players` (un membre `user_id`, ou un invité `guest_prenom`/`guest_nom`/
-  `guest_sex` facultatif ; `notified_at` réservé à l'option P1 « Prévenir les joueurs ») et
+  `guest_sex` et `guest_classement` facultatifs — barème `is_tennis_ranking`, migration `2026112801` ; `notified_at` réservé à l'option P1 « Prévenir les joueurs ») et
   `team_match_compos` (en-tête : `revision`, `updated_at`, `updated_by`). **Aucun accès direct**,
   ni anon ni authenticated : tout passe par les RPC ci-dessous. Unicité d'un membre par rencontre,
   et d'un invité par nom normalisé (`team_compo_name_key` : casse, espaces, accents).
@@ -224,14 +224,17 @@ PWA parcours visiteur, BO. **PR1 — SQL** (`2026111901_team_compo_players.sql`)
     is_captain, is_me, sex}]` triés par nom, `captains`, `version` (révision, 0 = jamais
     enregistrée), `updated_at`, `updated_by {prenom, nom, role: capitaine|admin}`, `can_edit`,
     `min_players = max(simples, 2 × doubles)`, `simples`, `doubles`, `format`, `genre`. Le sexe
-    n'est renvoyé qu'en compétition mixte ou à qui peut modifier. Le classement est affiché à tous.
+    n'est renvoyé qu'en compétition mixte ou à qui peut modifier. Le classement est affiché à tous
+    (profil du membre, ou `guest_classement` d'un invité).
   - `team_compo_summaries(club, rencontres[])` (200 ids au plus) → pour chaque rencontre ayant au
     moins un joueur : `count`, `is_me`, `preview` (3 au plus : moi, puis capitaines, puis par nom ;
     prénom et initiales), `updated_at`. Une seule requête pour la liste « Matchs équipes ».
   - `team_compo_candidates(club, rencontre)` (`team_can_compose`) → membres au nom renseigné,
     avec classement, sexe et `is_captain`. `team_member_roster` reste inchangé pour ses usages.
   - `team_compo_save(club, rencontre, players, version)` (`team_can_compose`) : `players` =
-    `[{user_id}]`, `[{id}]` (invité déjà présent) ou `[{prenom, nom?, sex?}]` ; 30 entrées au plus,
+    `[{user_id}]`, `[{id, classement?}]` (invité déjà présent ; sans la clé `classement`, la valeur
+    enregistrée est gardée — `null` l'efface) ou `[{prenom, nom?, sex?, classement?}]` ; classement hors
+    barème → `COMPO_INVALID` ; 30 entrées au plus,
     liste vide autorisée. Enregistre en **diff** (ids et `notified_at` stables), incrémente la
     révision et renvoie `team_compo_get`.
 - **Codes d'erreur** (message stable, traduit côté client par `shared/teamCompoCopy`) :
@@ -277,7 +280,8 @@ Tests : `npm run test:team-compo` (`tests/team-compo-players-sql.test.mjs`).
   case 26 px) ; classement en pastille, rien s'il n'est pas renseigné (NC est un vrai classement).
   Nom introuvable : « Aucun membre du club ne s'appelle « … » » + carte « Ajouter …, sans compte »
   (sexe facultatif, prérempli selon la rencontre : Homme en messieurs, Femme en dames, « Non précisé »
-  en mixte) ; si des membres correspondent en partie, ils sont
+  en mixte ; classement facultatif, « Non précisé » par défaut) ; le classement d'un invité retenu se
+  change dans sa ligne (liste déroulante hors de la case à cocher) ; si des membres correspondent en partie, ils sont
   listés et l'ajout sans compte vient en dernier ; un invité déjà dans la liste n'est pas reproposé. Pied fixe : indication de nombre
   (`role="status"`, orange sous le minimum, jamais bloquante ; en mixte « 5 joueurs · 3 femmes,
   2 hommes »), masquée si les membres n'ont pas pu être chargés, et `Enregistrer la compo`, jamais
@@ -332,7 +336,7 @@ Tests : `npm run test:team-compo` (`tests/team-compo-visitor-client.test.mjs`).
 Membres du club à cocher à gauche (recherche, puces Tous / Hommes / Femmes présélectionnées selon le
 genre ; une recherche parcourt tout le club ; classement, rien s'il n'est pas renseigné ; colonne
 Sexe H / F), compo à droite triée par nom avec ✕ pour retirer, formulaire « Joueur sans compte »
-(sexe prérempli selon la rencontre ; un nom de membre renvoie vers sa case ; un invité en double est
+(sexe prérempli selon la rencontre, classement facultatif, modifiable ensuite dans la compo ; un nom de membre renvoie vers sa case ; un invité en double est
 refusé), indication de nombre, rappel « Mêmes règles et même enregistrement que dans l'app », badge
 « Non enregistrée », `Annuler les changements` / `Enregistrer la compo`. Mêmes RPC, mêmes textes
 partagés et mêmes garde-fous que l'app : version périmée avec `Recharger`, joueur sorti du club

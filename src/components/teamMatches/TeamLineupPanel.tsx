@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   COMPO_COPY as T, compoErrorMessage, compoNameKey, countHint, isStaleCompo, mixedCountLabel, playersLabel, splitGuestName, updatedLine,
 } from '../../../shared/teamCompoCopy.mjs';
+import { RANK_NUMBERED, RANK_SERIES } from '../../../shared/tennisRankings';
 import {
   expectedSex, fetchLineup, fetchLineupCandidates, fullName, lineupEditable, saveLineup,
   type LineupCandidate, type LineupEntry, type LineupSex, type TeamLineup,
 } from '../../lib/teamLineup';
 
 type Filter = 'all' | 'male' | 'female';
-type GuestDraft = { key: string; id?: string; prenom: string; nom: string; sex: LineupSex };
+type GuestDraft = { key: string; id?: string; prenom: string; nom: string; sex: LineupSex; classement: string | null };
 type Person = { prenom: string; nom: string };
 
 const SEX_SHORT = { male: 'H', female: 'F' } as const;
@@ -17,6 +18,17 @@ const matches = (p: Person, search: string) => {
   const q = compoNameKey(search);
   return !q || compoNameKey(fullName(p)).includes(q) || compoNameKey(`${p.nom} ${p.prenom}`).includes(q);
 };
+/** Classement facultatif d'un invité (barème FFT, « Non précisé » = null). */
+function RankSelect({ value, onChange, label, className, emptyLabel = T.rankUnset }: {
+  value: string | null; onChange: (rank: string | null) => void; label: string; className: string; emptyLabel?: string;
+}) {
+  return <select value={value ?? ''} onChange={e => onChange(e.target.value || null)} aria-label={label} className={className}>
+    <option value="">{emptyLabel}</option>
+    <option value="NC">NC</option>
+    {RANK_SERIES.map(serie => <optgroup key={serie.label} label={serie.label}>{serie.ranks.map(rank => <option key={rank}>{rank}</option>)}</optgroup>)}
+    <option value={RANK_NUMBERED}>{RANK_NUMBERED}</option>
+  </select>;
+}
 const initials = (p: Person) => `${p.prenom.trim()[0] ?? ''}${p.nom.trim()[0] ?? ''}`.toUpperCase();
 
 /**
@@ -35,6 +47,7 @@ export default function TeamLineupPanel({ clubId, rencontreId }: { clubId: strin
   const [search, setSearch] = useState('');
   const [guestName, setGuestName] = useState('');
   const [guestSex, setGuestSex] = useState<LineupSex>(null);
+  const [guestRank, setGuestRank] = useState<string | null>(null);
   const [guestError, setGuestError] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ message: string; stale: boolean } | null>(null);
@@ -44,7 +57,7 @@ export default function TeamLineupPanel({ clubId, rencontreId }: { clubId: strin
   const reset = useCallback((fresh: TeamLineup) => {
     setLineup(fresh);
     setSelected(fresh.players.filter(p => p.user_id).map(p => p.user_id!));
-    setGuests(fresh.players.filter(p => p.is_guest).map(p => ({ key: p.id, id: p.id, prenom: p.prenom, nom: p.nom, sex: p.sex })));
+    setGuests(fresh.players.filter(p => p.is_guest).map(p => ({ key: p.id, id: p.id, prenom: p.prenom, nom: p.nom, sex: p.sex, classement: p.classement })));
     setFilter(expectedSex(fresh.genre) ?? 'all');
     setGuestSex(expectedSex(fresh.genre));
     setError(null);
@@ -78,9 +91,9 @@ export default function TeamLineupPanel({ clubId, rencontreId }: { clubId: strin
     byId.get(id) ?? lineup.players.find(p => p.user_id === id) ?? { prenom: '', nom: '' };
   const leftClub = (id: string) => !!candidates && !byId.has(id);
   const initialMembers = lineup.players.filter(p => p.user_id).map(p => p.user_id!);
-  const initialGuests = lineup.players.filter(p => p.is_guest).map(p => p.id);
+  const initialGuests = lineup.players.filter(p => p.is_guest);
   const dirty = selected.length !== initialMembers.length || initialMembers.some(id => !selected.includes(id))
-    || guests.length !== initialGuests.length || guests.some(g => !g.id);
+    || guests.length !== initialGuests.length || guests.some(g => !g.id || g.classement !== initialGuests.find(p => p.id === g.id)?.classement);
   const count = selected.length + guests.length;
   const hint = countHint(count, lineup.min_players, lineup.simples);
   const mixed = lineup.genre === 'mixte' ? mixedCountLabel([...selected.map(id => person(id).sex ?? null), ...guests.map(g => g.sex)]) : null;
@@ -105,9 +118,10 @@ export default function TeamLineupPanel({ clubId, rencontreId }: { clubId: strin
     if (member) { setGuestError(T.boMemberExists(fullName(member))); return; }
     const same = guests.find(g => compoNameKey(fullName(g)) === key);
     if (same) { setGuestError(T.duplicate(fullName(same))); return; }
-    setGuests(prev => [...prev, { key: `new-${prev.length}-${key}`, prenom, nom, sex: guestSex }]);
+    setGuests(prev => [...prev, { key: `new-${prev.length}-${key}`, prenom, nom, sex: guestSex, classement: guestRank }]);
     setGuestName('');
     setGuestSex(expected);
+    setGuestRank(null);
     setGuestError('');
   };
   const save = async () => {
@@ -118,7 +132,7 @@ export default function TeamLineupPanel({ clubId, rencontreId }: { clubId: strin
     setSaving(true);
     setError(null);
     const entries: LineupEntry[] = [...selected.map(user_id => ({ user_id })),
-      ...guests.map(g => g.id ? { id: g.id } : { prenom: g.prenom, nom: g.nom, sex: g.sex })];
+      ...guests.map(g => g.id ? { id: g.id, classement: g.classement } : { prenom: g.prenom, nom: g.nom, sex: g.sex, classement: g.classement })];
     try {
       reset(await saveLineup(clubId, rencontreId, entries, lineup.version));
       setSaved(true);
@@ -207,6 +221,9 @@ export default function TeamLineupPanel({ clubId, rencontreId }: { clubId: strin
               return <li key={key} className="flex items-center gap-2 py-2">
                 <span aria-hidden className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${guest ? 'border border-dashed border-muted-foreground text-muted-foreground' : 'bg-muted'}`}>{initials(p)}</span>
                 <span className="min-w-0 flex-1 text-sm"><span className="block truncate font-medium">{fullName(p)}</span>{sub && <span className="block text-xs text-muted-foreground">{sub}</span>}</span>
+                {guest && <RankSelect value={(p as GuestDraft).classement} label={T.rankOf(fullName(p))}
+                  onChange={rank => { setError(null); setGuests(prev => prev.map(g => g.key === key ? { ...g, classement: rank } : g)); }}
+                  className="min-h-11 w-20 shrink-0 rounded-lg border border-border bg-muted px-1 text-sm font-semibold tabular-nums" />}
                 {!guest && (p as LineupCandidate).classement && <span className="rounded bg-muted px-2 py-0.5 text-sm font-semibold tabular-nums">{(p as LineupCandidate).classement}</span>}
                 <button type="button" aria-label={`Retirer ${fullName(p)}`} onClick={() => guest ? setGuests(prev => prev.filter(g => g.key !== key)) : toggle(id)}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">✕</button>
@@ -219,6 +236,8 @@ export default function TeamLineupPanel({ clubId, rencontreId }: { clubId: strin
           <input value={guestName} onChange={e => { setGuestName(e.target.value); setGuestError(''); }} placeholder={T.boGuestName} aria-labelledby="bo-guest"
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGuest(); } }}
             className="mt-2 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm" />
+          <RankSelect value={guestRank} onChange={setGuestRank} label={T.guestRank} emptyLabel={`${T.guestRank} : non précisé`}
+            className="mt-2 min-h-11 w-full rounded-lg border border-border bg-background px-2 text-sm" />
           <div className="mt-2 flex gap-2">
             <select value={guestSex ?? ''} onChange={e => setGuestSex((e.target.value || null) as LineupSex)} aria-label={T.guestSex}
               className="min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-background px-2 text-sm">
