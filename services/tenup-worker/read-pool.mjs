@@ -1,12 +1,13 @@
 import { extractTenupPoolRound } from './parse-pool.mjs';
 
-/** Wait for a complete round, including cards rendered after the heading. */
-async function readRound(page, numero) {
+/** Wait for a complete (or empty) round, including cards rendered after the heading. */
+async function waitRound(page, numero) {
   const result = await page.waitForFunction(
     `(() => {
     try {
       const pool = (${extractTenupPoolRound.toString()})(document);
-      if (pool.round.numero !== ${numero} || pool.round.matches.length !== Math.floor(pool.teams.length / 2)) return false;
+      const count = pool.round.matches.length;
+      if (pool.round.numero !== ${numero} || (count && count !== Math.floor(pool.teams.length / 2))) return false;
       return pool;
     } catch { return false; }
   })()`,
@@ -18,6 +19,17 @@ async function readRound(page, numero) {
   } finally {
     await result.dispose();
   }
+}
+
+// Ten'Up can list a round without any rencontre (Challenge de la Garonne, journée 6 in
+// November 2026). Cards may still be loading: a round is empty only if it stays so 2 s later.
+async function readRound(page, numero) {
+  let pool = await waitRound(page, numero);
+  if (!pool.round.matches.length) {
+    await page.waitForTimeout(2_000);
+    pool = await waitRound(page, numero);
+  }
+  return pool;
 }
 
 /** Round selector of the calendar section (the only unlabelled select). */
@@ -85,6 +97,9 @@ export async function readTenupPool(page) {
     pool = current;
     rounds.push(current.round);
   }
+  // Only trailing empty rounds are dropped: an empty one in the middle would shift the
+  // numbering, so it stays and the calendar is refused downstream.
+  while (rounds.length > 1 && !rounds.at(-1).matches.length) rounds.pop();
   return {
     division: pool.division,
     phase: pool.phase,

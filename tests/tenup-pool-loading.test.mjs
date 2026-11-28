@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { chromium } from '../services/tenup-worker/node_modules/playwright/index.mjs';
 import { readTenupPool } from '../services/tenup-worker/read-pool.mjs';
 
-test('pool extraction waits for delayed options and every card of the next round', async () => {
+test('pool extraction waits for delayed options and every card of the next round, and drops a trailing empty round', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -26,13 +26,18 @@ test('pool extraction waits for delayed options and every card of the next round
             setTimeout(() => {
               const list = document.createElement('ul');
               list.setAttribute('role', 'listbox');
-              for (let n = 1; n <= 2; n++) {
+              for (let n = 1; n <= 3; n++) {
                 const option = document.createElement('li');
                 option.setAttribute('role', 'option');
                 option.textContent = `Journée ${n}`;
                 option.onclick = () => {
                   button.querySelector('span').textContent = `Journée ${n}`;
                   list.remove();
+                  // Journée 3 lists no rencontre (Challenge de la Garonne, November 2026).
+                  if (n === 3)
+                    parent
+                      .querySelectorAll('[data-slot="card"]')
+                      .forEach((a) => a.remove());
                   if (n === 2) {
                     cards.forEach((a) => a.remove());
                     cards.forEach((a, i) =>
