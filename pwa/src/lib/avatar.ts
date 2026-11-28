@@ -1,5 +1,5 @@
 // Photo de profil (brief compte/profil §5.3) : recadrage et export locaux, envoi, corbeille.
-import { decodePhoto } from './decodePhoto';
+import { PhotoNeedsNetwork, decodePhoto } from './decodePhoto';
 import { supabase } from './supabase';
 import { courseRpc, type CourseContext } from './courses';
 import { ACCOUNT_COPY as T } from '../../../shared/accountCopy.mjs';
@@ -14,6 +14,9 @@ export function isMinor(birthYear: number | null | undefined): boolean | null {
   if (birthYear == null) return null;
   return currentYear() - birthYear <= 18;
 }
+/** Écran à souris : « Prendre une photo » y ouvrirait le même sélecteur que « Choisir ». */
+export const mousePointer = () =>
+  typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 export const currentYear = () =>
   Number(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', year: 'numeric' }).format(new Date()));
 
@@ -61,7 +64,9 @@ async function encode(canvas: HTMLCanvasElement): Promise<Blob> {
 
 /** Ouvre le fichier choisi. Erreur affichable : illisible, ou moins de 200 px de côté. */
 export async function openPhoto(file: File): Promise<OpenedPhoto> {
-  const bitmap = await decodePhoto(file).catch(() => { throw new Error(T.photoUnreadable); });
+  const bitmap = await decodePhoto(file).catch(error => {
+    throw new Error(error instanceof PhotoNeedsNetwork ? T.photoNeedsNetwork : T.photoUnreadable);
+  });
   try {
     const { width, height } = bitmap;
     if (Math.min(width, height) < MIN_SIDE) throw new Error(T.photoTooSmall);
@@ -86,8 +91,11 @@ export type AvatarFiles = Record<512 | 128, Blob>;
 
 export async function exportAvatar(photo: OpenedPhoto, crop: Crop): Promise<AvatarFiles> {
   const side = cropSide(photo, crop);
-  const large = drawn(512, 512, context =>
-    context.drawImage(photo.bitmap, crop.x - side / 2, crop.y - side / 2, side, side, 0, 0, 512, 512));
+  // Au-delà de 1 024 px, deux réductions successives : Safari crénelle une réduction trop forte.
+  const step = Math.min(side, 1024);
+  const cropped = drawn(step, step, context =>
+    context.drawImage(photo.bitmap, crop.x - side / 2, crop.y - side / 2, side, side, 0, 0, step, step));
+  const large = drawn(512, 512, context => context.drawImage(cropped, 0, 0, 512, 512));
   const small = drawn(128, 128, context => context.drawImage(large, 0, 0, 128, 128));
   return { 512: await encode(large), 128: await encode(small) };
 }

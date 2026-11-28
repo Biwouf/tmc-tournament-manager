@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ACCOUNT_COPY as T, SEX_LABEL, captainTeamLabel, dayMonth, rankLabel } from '../../../shared/accountCopy.mjs';
@@ -14,7 +14,7 @@ import Avatar from '../components/Avatar';
 import AccountToast, { type Toast } from '../components/account/AccountToast';
 import { leaveAfterSignOut } from '../lib/signOutTarget';
 import { uiMessage } from '../lib/uiMessage';
-import { closePhoto, exportAvatar, isMinor, openPhoto, setBirthYear, type Crop, type OpenedPhoto } from '../lib/avatar';
+import { closePhoto, exportAvatar, isMinor, mousePointer, openPhoto, setBirthYear, type Crop, type OpenedPhoto } from '../lib/avatar';
 import { useAvatarUrls } from '../hooks/useAvatarUrls';
 import { useProfilePhoto } from '../hooks/useProfilePhoto';
 import PhotoSheet from '../components/account/PhotoSheet';
@@ -57,7 +57,7 @@ function ProgressRing({ percent }: { percent: number }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 108 108" className="pointer-events-none absolute -inset-1.5 -rotate-90">
       <circle cx="54" cy="54" r="52" fill="none" strokeWidth="3" className="stroke-muted" />
-      <circle cx="54" cy="54" r="52" fill="none" strokeWidth="3" strokeLinecap="round" className="stroke-primary transition-[stroke-dashoffset]"
+      <circle cx="54" cy="54" r="52" fill="none" strokeWidth="3" strokeLinecap="round" className="stroke-primary motion-safe:transition-[stroke-dashoffset]"
         strokeDasharray={length} strokeDashoffset={length * (1 - percent / 100)} />
     </svg>
   );
@@ -140,6 +140,11 @@ export default function ProfilePage() {
   const large = useAvatarUrls([avatarPath], 96);
   const small = useAvatarUrls([avatarPath], 32);
   const uploading = !!photo.upload && !photo.upload.failed;
+  // Sur ordinateur sans photo, le sélecteur de fichiers s'ouvre tout de suite (pas de menu à un choix).
+  const directPick = useRef<HTMLInputElement>(null);
+  const retryButton = useRef<HTMLButtonElement>(null);
+  const failed = !!photo.upload?.failed;
+  useEffect(() => { if (failed) retryButton.current?.focus(); }, [failed]);
   const srcFor = (urls: Map<string, string>) => photo.localUrl ?? (avatarPath ? urls.get(avatarPath) : undefined);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['courses'] });
@@ -210,7 +215,17 @@ export default function ProfilePage() {
   }
 
   function openPhotoSheet(event: MouseEvent<HTMLElement>) {
-    if (profile && !uploading) setPhotoSheet(event.currentTarget);
+    if (!profile || uploading) return;
+    if (mousePointer() && minor === false && !profile.avatar_path) directPick.current?.click();
+    else setPhotoSheet(event.currentTarget);
+  }
+
+  async function pickedDirectly(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    const failure = await choosePhoto(file);
+    if (failure) setToast({ text: failure });
   }
 
   async function saveBirthYear(year: number): Promise<string | null> {
@@ -233,8 +248,9 @@ export default function ProfilePage() {
       setPhotoSheet(false);
       return null;
     } catch (error) {
-      // Seuls nos deux messages sont montrés, jamais une erreur technique du navigateur.
-      return error instanceof Error && error.message === T.photoTooSmall ? T.photoTooSmall : T.photoUnreadable;
+      // Seuls nos messages sont montrés, jamais une erreur technique du navigateur.
+      const known = [T.photoTooSmall, T.photoNeedsNetwork];
+      return error instanceof Error && known.includes(error.message) ? error.message : T.photoUnreadable;
     }
   }
 
@@ -299,7 +315,9 @@ export default function ProfilePage() {
       <h1 className="sr-only">{T.title}</h1>
       <section className={`${cardClass} flex flex-col items-center gap-2 px-4 py-6 text-center`}>
         {user && (profile ? (
-          <button type="button" onClick={openPhotoSheet} disabled={uploading} aria-label={minor ? T.photoSheetTitle : T.photoChange}
+          // `aria-disabled` plutôt que `disabled` : le focus peut revenir au rond après le recadrage.
+          <button type="button" onClick={openPhotoSheet} aria-disabled={uploading || undefined}
+            aria-label={minor ? T.photoSheetTitle : profile.avatar_path ? T.photoChange : T.photoAddAria}
             className="relative rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring">
             <Avatar person={person} size={96} src={srcFor(large)} />
             {uploading && photo.upload && <ProgressRing percent={photo.upload.percent} />}
@@ -312,9 +330,10 @@ export default function ProfilePage() {
         ) : <Avatar person={person} size={96} />)}
         {fullName && <p className="mt-2 text-[22px] font-bold leading-tight text-foreground">{fullName}</p>}
         {uploading && photo.upload
-          ? <p role="progressbar" aria-label={T.photoUploadLabel} aria-valuemin={0} aria-valuemax={100} aria-valuenow={photo.upload.percent}
-              className="text-base text-muted-foreground">{T.photoUploading(photo.upload.percent)}</p>
+          ? <p aria-hidden="true" className="text-base text-muted-foreground">{T.photoUploading(photo.upload.percent)}</p>
           : user?.email && <p className="break-all text-base text-muted-foreground">{user.email}</p>}
+        {/* Annonce le début de l'envoi une seule fois, sans chaque pourcentage ; la fin passe par le toast. */}
+        <p aria-live="polite" className="sr-only">{uploading ? `${T.photoUploadLabel}…` : ''}</p>
         {data && clubName && (
           <div className="mt-1 flex flex-wrap justify-center gap-2">
             {data.is_member && <Pill tone="member" icon={ICONS.check}>{T.memberPill(clubName)}</Pill>}
@@ -346,7 +365,7 @@ export default function ProfilePage() {
                 <div className="min-w-0 flex-1">
                   <p>{photo.upload.previous ? T.photoFailed : T.photoFailedFirst}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" onClick={photo.retry} className="min-h-11 rounded-xl bg-primary px-4 font-bold text-primary-foreground">{T.retry}</button>
+                    <button ref={retryButton} type="button" onClick={photo.retry} className="min-h-11 rounded-xl bg-primary px-4 font-bold text-primary-foreground">{T.retry}</button>
                     <button type="button" onClick={() => void photo.cancel()} className="min-h-11 rounded-xl border border-border bg-card px-4 font-semibold">{T.cancel}</button>
                   </div>
                 </div>
@@ -371,9 +390,9 @@ export default function ProfilePage() {
 
           <h2 className={sectionTitleClass}>{T.playerSection}</h2>
           <ul className={cardClass}>
-            {profile && <Row label={T.photoRow} hint={minor ? T.minorLater : T.photoRowHint}
+            {profile && <Row label={T.photoRow} hint={minor ? T.minorLater : profile.avatar_path ? undefined : T.photoRowHint}
               leading={<Avatar person={person} size={32} src={srcFor(small)} />}
-              value={minor ? undefined : profile.avatar_path ? T.edit : T.add} onClick={minor ? undefined : openPhotoSheet} />}
+              value={minor ? undefined : uploading ? T.photoSending : profile.avatar_path ? T.edit : T.add} onClick={minor ? undefined : openPhotoSheet} />}
             <Row label={T.nameRow} value={fullName || T.toComplete} onClick={() => open('name')} />
             <Row label={T.sexRow} hint={T.sexRowHint} value={profile?.sex ? SEX_LABEL[profile.sex] : T.toComplete} onClick={() => open('name')} />
             <Row label={T.rankRow} value={rankLabel(profile?.classement)} onClick={() => open(complete ? 'rank' : 'name')} />
@@ -419,6 +438,8 @@ export default function ProfilePage() {
         <PhotoSheet anchor={photoSheet} hasPhoto={!!profile.avatar_path} birthYear={profile.birth_year}
           onBirthYear={saveBirthYear} onFile={choosePhoto} onRemove={removePhoto} onClose={() => setPhotoSheet(false)} />
       )}
+      <input ref={directPick} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden="true"
+        onChange={event => void pickedDirectly(event.currentTarget)} />
       {opened && <PhotoCrop photo={opened} onUse={applyCrop} onCancel={closeCrop} />}
       {sheet === 'password' && <PasswordSheet email={user?.email ?? ''} onSave={savePassword} onForgot={() => sendPasswordReset(user?.email ?? '', club?.slug)}
         onReauth={() => signOut(null)} onClose={() => setSheet(null)} />}

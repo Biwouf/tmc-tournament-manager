@@ -109,5 +109,16 @@ export const ACCOUNT_COPY: {
   photoRemoveFailed: string;
   photoNudgeTitle: string;
   photoNudgeText: string;
+  photoAddAria: string;
+  photoSending: string;
+  photoRemoveAnytime: string;
+  photoNeedsNetwork: string;
+  cropMoveLeft: string;
+  cropMoveRight: string;
+  cropMoveUp: string;
+  cropMoveDown: string;
+  birthYearConfirm: (year: number) => string;
+  birthYearFix: string;
+  birthYearConfirmCta: string;
   photoNudgeHide: string;
 };

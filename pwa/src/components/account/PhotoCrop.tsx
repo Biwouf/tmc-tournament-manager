@@ -66,13 +66,17 @@ export default function PhotoCrop({ photo, onUse, onCancel }: {
   }
   const up = (event: PointerEvent) => { pointers.current.delete(event.pointerId); };
 
+  /** Déplace le cadrage d'une fraction du côté du cercle (flèches à l'écran et au clavier). */
+  const moveBy = (dx: number, dy: number, fraction = 0.05) => {
+    const step = cropSide(photo, crop) * fraction;
+    update(old => ({ ...old, x: old.x + dx * step, y: old.y + dy * step }));
+  };
+
   function key(event: KeyboardEvent) {
-    const step = cropSide(photo, crop) * (event.shiftKey ? 0.2 : 0.05);
-    const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-    if (moves[event.key]) {
-      const [dx, dy] = moves[event.key];
-      update(old => ({ ...old, x: old.x + dx, y: old.y + dy }));
-    } else if (event.key === '+' || event.key === '=') zoomBy(ZOOM_STEP);
+    const fraction = event.shiftKey ? 0.2 : 0.05;
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (moves[event.key]) moveBy(...moves[event.key], fraction);
+    else if (event.key === '+' || event.key === '=') zoomBy(ZOOM_STEP);
     else if (event.key === '-' || event.key === '−') zoomBy(-ZOOM_STEP);
     else return;
     event.preventDefault();
@@ -93,7 +97,7 @@ export default function PhotoCrop({ photo, onUse, onCancel }: {
       onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}
       className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none flex-col open:flex bg-[#111] p-0 text-white backdrop:bg-black"
       style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <header className="flex min-h-14 items-center justify-between px-2">
+      <header className="mx-auto flex min-h-14 w-full max-w-lg items-center justify-between px-2">
         <button type="button" disabled={busy} onClick={onCancel} className="min-h-11 px-3 text-[17px] font-semibold disabled:opacity-60">{T.cancel}</button>
         <h2 id={titleId} className="text-[17px] font-bold">{T.cropTitle}</h2>
         <button type="button" disabled={busy} onClick={() => void use()} className="min-h-11 px-3 text-[17px] font-bold text-amber-300 disabled:opacity-60">{T.cropUse}</button>
@@ -101,8 +105,8 @@ export default function PhotoCrop({ photo, onUse, onCancel }: {
 
       <div tabIndex={0} role="application" aria-label={T.cropArea} aria-describedby={helpId}
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}
-        className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#222] outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-amber-300">
-        <div ref={circle} className="relative aspect-square" style={{ width: 'min(78vw, 46dvh, 360px)' }}>
+        className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden bg-[#222] [container-type:size] outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-amber-300">
+        <div ref={circle} className="relative aspect-square" style={{ width: 'min(78cqw, 90cqh, 360px)' }}>
           <Framed photo={photo} crop={crop} />
           {/* Assombrit tout ce qui sort du cercle ; grille des tiers dedans. */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-full border-2 border-white shadow-[0_0_0_100vmax_rgba(0,0,0,0.55)]">
@@ -121,6 +125,12 @@ export default function PhotoCrop({ photo, onUse, onCancel }: {
             onChange={event => update(old => ({ ...old, zoom: Number(event.target.value) }))}
             className="h-11 min-w-0 flex-1 accent-white" />
           <button type="button" aria-label={T.cropZoomIn} disabled={crop.zoom >= MAX_ZOOM} onClick={() => zoomBy(ZOOM_STEP)} className={`${round} disabled:opacity-40`}>+</button>
+        </div>
+        {/* Déplacement sans glisser, à un seul pointeur (WCAG 2.5.7). */}
+        <div className="flex justify-center gap-3">
+          {([[T.cropMoveLeft, -1, 0, '←'], [T.cropMoveUp, 0, -1, '↑'], [T.cropMoveDown, 0, 1, '↓'], [T.cropMoveRight, 1, 0, '→']] as const).map(([label, dx, dy, arrow]) => (
+            <button key={label} type="button" aria-label={label} onClick={() => moveBy(dx, dy)} className={`${round} text-xl`}>{arrow}</button>
+          ))}
         </div>
         <div aria-hidden="true" className="flex items-end justify-center gap-6">
           <Preview photo={photo} crop={crop} size={88} label={T.cropPreviewProfile} />

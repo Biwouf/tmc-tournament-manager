@@ -1,7 +1,7 @@
 import { useLayoutEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { ACCOUNT_COPY as T } from '../../../../shared/accountCopy.mjs';
-import { isMinor } from '../../lib/avatar';
+import { currentYear, isMinor, mousePointer } from '../../lib/avatar';
 import { useModalDialog } from '../../hooks/useModalDialog';
 
 const DESKTOP = '(min-width: 640px)';
@@ -59,11 +59,16 @@ export default function PhotoSheet({ anchor, hasPhoto, birthYear, onBirthYear, o
   const take = useRef<HTMLInputElement>(null);
   const pick = useRef<HTMLInputElement>(null);
   const [year, setYear] = useState('');
+  // Année qui ferait de la personne un mineur : on la fait confirmer, elle ne se corrige plus ensuite.
+  const [confirming, setConfirming] = useState<number | null>(null);
+  const yearInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const minor = isMinor(birthYear);
   // Sur ordinateur, `capture` est ignoré : « Prendre une photo » ouvrirait le même sélecteur.
-  const canTake = !media('(hover: hover) and (pointer: fine)');
+  const mouse = mousePointer();
+  // Menu (souris) : pas d'« Annuler », on ferme en cliquant dehors ou avec Échap.
+  const menu = mouse && minor === false;
 
   async function chosen(input: HTMLInputElement) {
     const file = input.files?.[0];
@@ -76,11 +81,16 @@ export default function PhotoSheet({ anchor, hasPhoto, birthYear, onBirthYear, o
     if (failure) setError(failure);
   }
 
-  async function saveYear(event: FormEvent) {
-    event.preventDefault();
+  async function saveYear(event?: FormEvent, confirmed = false) {
+    event?.preventDefault();
     if (busy) return;
     const value = Number(year);
-    if (!/^\d{4}$/.test(year.trim()) || value < 1900 || isMinor(value) === null) return setError(T.birthYearInvalid);
+    if (!/^\d{4}$/.test(year.trim()) || value < 1900 || value > currentYear()) return setError(T.birthYearInvalid);
+    if (isMinor(value) && !confirmed) {
+      setError('');
+      return setConfirming(value);
+    }
+    setConfirming(null);
     setBusy(true);
     setError('');
     const failure = await onBirthYear(value);
@@ -89,11 +99,23 @@ export default function PhotoSheet({ anchor, hasPhoto, birthYear, onBirthYear, o
   }
 
   let body: ReactNode;
-  if (minor === null) {
+  if (minor === null && confirming !== null) {
+    body = (
+      <div className="space-y-3 px-4 pb-4 pt-1 text-left">
+        <p className="text-base">{T.birthYearConfirm(confirming)}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <button type="button" disabled={busy} onClick={() => { setConfirming(null); setTimeout(() => yearInput.current?.focus()); }}
+            className="min-h-12 rounded-xl border border-border bg-card px-4 text-base font-semibold disabled:opacity-60">{T.birthYearFix}</button>
+          <button type="button" disabled={busy} onClick={() => void saveYear(undefined, true)}
+            className="min-h-12 rounded-xl bg-primary px-4 text-base font-bold text-primary-foreground disabled:opacity-60">{busy ? T.saving : T.birthYearConfirmCta}</button>
+        </div>
+      </div>
+    );
+  } else if (minor === null) {
     body = (
       <form onSubmit={saveYear} className="space-y-3 px-4 pb-4 pt-1 text-left">
         <label htmlFor="photo-birth-year" className="block text-base">{T.birthYearAsk}</label>
-        <input id="photo-birth-year" inputMode="numeric" autoComplete="bday-year" maxLength={4} placeholder="AAAA"
+        <input ref={yearInput} id="photo-birth-year" inputMode="numeric" autoComplete="bday-year" maxLength={4} placeholder="AAAA"
           aria-describedby="photo-birth-year-hint" disabled={busy}
           value={year} onChange={event => setYear(event.target.value.replace(/\D/g, ''))}
           className="min-h-12 w-full rounded-xl border border-border bg-background px-3.5 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
@@ -110,7 +132,7 @@ export default function PhotoSheet({ anchor, hasPhoto, birthYear, onBirthYear, o
     </>;
   } else {
     body = <>
-      {canTake && <button type="button" disabled={busy} onClick={() => take.current?.click()} className={`${itemClass} border-t border-border`}><Icon d={CAMERA} />{T.photoTake}</button>}
+      {!mouse && <button type="button" disabled={busy} onClick={() => take.current?.click()} className={`${itemClass} border-t border-border`}><Icon d={CAMERA} />{T.photoTake}</button>}
       <button type="button" disabled={busy} onClick={() => pick.current?.click()} className={`${itemClass} border-t border-border`}><Icon d={IMAGE} />{T.photoPick}</button>
       {hasPhoto && <button type="button" disabled={busy} onClick={onRemove} className={`${itemClass} border-t border-border text-red-700`}><Icon d={TRASH} />{T.photoRemove}</button>}
       {/* Les champs restent montés tant que la feuille l'est : rien n'est perdu si l'appareil photo est refusé. */}
@@ -129,16 +151,16 @@ export default function PhotoSheet({ anchor, hasPhoto, birthYear, onBirthYear, o
       <div className="mx-auto max-w-lg overflow-hidden rounded-2xl bg-card text-center shadow-xl">
         <div className="px-4 pb-3 pt-4">
           <h2 id={titleId} className="text-[15px] font-semibold">{T.photoSheetTitle}</h2>
-          <p id={hintId} className="text-sm text-muted-foreground">{minor ? '' : T.photoSheetHint}</p>
+          <p id={hintId} className="text-sm text-muted-foreground">{minor ? '' : `${T.photoSheetHint}. ${T.photoRemoveAnytime}`}</p>
         </div>
         {body}
         {busy && minor === false && <p role="status" className="border-t border-border px-4 py-3 text-sm text-muted-foreground">{T.photoOpening}</p>}
         {error && <p role="alert" className="border-t border-border px-4 py-3 text-left text-sm text-red-700">{error}</p>}
       </div>
-      <button type="button" disabled={busy} onClick={onClose}
+      {!menu && <button type="button" disabled={busy} onClick={onClose}
         className="mx-auto mt-2 block min-h-14 w-full max-w-lg rounded-2xl bg-card text-[17px] font-bold shadow-xl active:bg-muted disabled:opacity-60">
         {minor ? T.minorLaterOk : T.cancel}
-      </button>
+      </button>}
     </dialog>,
     document.body,
   );

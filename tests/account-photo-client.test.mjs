@@ -30,9 +30,10 @@ const OLD = `${ME}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`;
 
 // ── Navigateur simulé : décodage, canvas, envoi ────────────────────────────
 
-const browser = { webp: true, draws: [], blobs: [] };
+const browser = { webp: true, draws: [], blobs: [], offline: false };
 globalThis.createImageBitmap = async (file, options) => {
-  assert.equal(options?.imageOrientation, 'from-image');
+  // Sans option : `from-image` est la valeur par défaut (un ancien navigateur lèverait une TypeError).
+  assert.equal(options, undefined);
   if (file.name === 'casse.jpg') throw new Error('decode');
   const [width, height] = file.name === 'petite.jpg' ? [150, 300] : [4032, 3024];
   return { width, height, close() {} };
@@ -129,6 +130,7 @@ function loader(mock) {
       compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
     }).outputText;
     const require = (name) => {
+      if (name === 'heic-to' && browser.offline) throw new TypeError('Failed to fetch dynamically imported module');
       if (name === 'heic-to') return { isHeic: async () => false, heicTo: async () => { throw new Error('heic'); } };
       if (!name.startsWith('.')) return req(name);
       const path = resolve(dirname(file), name);
@@ -161,10 +163,10 @@ const pickInput = () => [...dialog().querySelectorAll('input[type=file]')].find(
 async function key(el, k) {
   await act(async () => el.dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true })));
 }
-/** Délai du toast (5 s) déclenché à la main. */
+/** Délai du toast avec « Annuler » (10 s) déclenché à la main. */
 function toastTimers() {
   const realSet = globalThis.setTimeout, realClear = globalThis.clearTimeout, timers = new Map();
-  globalThis.setTimeout = (fn, ms, ...rest) => { if (ms !== 5000) return realSet(fn, ms, ...rest); const id = { fn }; timers.set(id, fn); return id; };
+  globalThis.setTimeout = (fn, ms, ...rest) => { if (ms !== 10000) return realSet(fn, ms, ...rest); const id = { fn }; timers.set(id, fn); return id; };
   globalThis.clearTimeout = (id) => { if (!timers.delete(id)) realClear(id); };
   return {
     fire: () => act(async () => { const fns = [...timers.values()]; timers.clear(); fns.forEach((fn) => fn()); }),
@@ -187,12 +189,16 @@ test.beforeEach(() => {
   browser.webp = true;
   browser.draws = [];
   browser.blobs = [];
+  browser.offline = false;
   delete window.matchMedia;
 });
 
 /** Rond → feuille → photo → recadrage → « Utiliser ». */
+const rond = () => document.querySelector('button[aria-label="Ajouter une photo de profil"], button[aria-label="Changer la photo de profil"]');
 async function addPhoto(mock, { keys = [] } = {}) {
-  await click(button('Changer la photo de profil'), 'rond');
+  // Comme au clavier : le rond a le focus quand on l'active (jsdom ne le donne pas au clic).
+  await act(async () => rond().focus());
+  await click(rond(), 'rond');
   await choose(pickInput());
   const area = document.querySelector('[role=application]');
   assert.ok(area, 'recadrage ouvert');
@@ -206,10 +212,12 @@ async function addPhoto(mock, { keys = [] } = {}) {
 test('sans photo : pastille, carte « Ajoutez une photo » et ligne Photo ouvrent la même feuille', async () => {
   const screen = await mount(api());
   try {
-    assert.ok(document.querySelector('button[aria-label="Changer la photo de profil"] svg'), 'pastille appareil photo');
+    assert.ok(rond().querySelector('svg'), 'pastille appareil photo');
     assert.match(document.body.textContent, /Ajoutez une photo/);
+    assert.doesNotMatch(document.body.textContent, /compos\./, 'pas de promesse sur les compos avant P1-c');
+    assert.equal(rond().getAttribute('aria-label'), 'Ajouter une photo de profil');
     assert.equal(row('Photo').getAttribute('aria-label'), 'Photo, Ajouter');
-    for (const trigger of [() => button('Changer la photo de profil'), () => button('Ajouter'), () => row('Photo')]) {
+    for (const trigger of [() => rond(), () => button('Ajouter'), () => row('Photo')]) {
       await click(trigger(), 'ouvrir la feuille');
       assert.match(dialog().textContent, /Photo de profilVisible uniquement par les membres de vos clubs/);
       assert.deepEqual([...dialog().querySelectorAll('button')].map((b) => b.textContent), ['Prendre une photo', 'Choisir une photo', 'Annuler']);
@@ -232,7 +240,7 @@ test('carte d’incitation masquable, et masquée durablement', async () => {
 test('caméra refusée : la feuille reste ouverte et « Choisir une photo » fonctionne', async () => {
   const screen = await mount(api());
   try {
-    await click(button('Changer la photo de profil'), 'rond');
+    await click(rond(), 'rond');
     const [take, pick] = dialog().querySelectorAll('input[type=file]');
     assert.equal(take.getAttribute('capture'), 'user');
     assert.equal(take.getAttribute('accept'), 'image/*');
@@ -245,14 +253,34 @@ test('caméra refusée : la feuille reste ouverte et « Choisir une photo » fon
   } finally { await screen.close(); }
 });
 
-test('ordinateur : menu ancré, sans « Prendre une photo »', async () => {
+test('ordinateur sans photo : le sélecteur de fichiers s’ouvre tout de suite, sans menu', async () => {
   window.matchMedia = (query) => ({ matches: true, media: query });
+  const clicked = [];
+  const realClick = window.HTMLInputElement.prototype.click;
+  window.HTMLInputElement.prototype.click = function () { clicked.push(this); };
   const screen = await mount(api());
   try {
-    await click(button('Changer la photo de profil'), 'rond');
-    assert.equal(button('Prendre une photo'), undefined);
-    assert.ok(button('Choisir une photo'));
+    for (const trigger of [() => rond(), () => button('Ajouter'), () => row('Photo')]) await click(trigger(), 'ouvrir');
+    assert.equal(dialog(), null, 'pas de menu à un seul choix');
+    assert.equal(clicked.length, 3);
+    assert.equal(clicked[0].type, 'file');
+    assert.equal(clicked[0].hasAttribute('capture'), false);
+    await choose(clicked[0]);
+    assert.ok(document.querySelector('[role=application]'), 'recadrage ouvert');
+  } finally { window.HTMLInputElement.prototype.click = realClick; await screen.close(); }
+});
+
+test('ordinateur avec photo : menu ancré « Choisir / Retirer », sans « Prendre » ni « Annuler »', async () => {
+  window.matchMedia = (query) => ({ matches: true, media: query });
+  const screen = await mount(api({ avatar_path: OLD }));
+  try {
+    await click(rond(), 'rond');
+    assert.deepEqual([...dialog().querySelectorAll('button')].map((b) => b.textContent), ['Choisir une photo', 'Retirer la photo']);
     assert.match(dialog().getAttribute('style'), /top: \d+px/);
+    assert.match(dialog().textContent, /Vous pouvez la retirer à tout moment/);
+    // Clic en dehors des cartes : fermé.
+    await act(async () => dialog().dispatchEvent(new window.MouseEvent('click', { bubbles: true })));
+    assert.equal(dialog(), null);
   } finally { await screen.close(); }
 });
 
@@ -260,7 +288,7 @@ test('photo trop petite ou illisible : message dans la feuille, aucun envoi', as
   const mock = api();
   const screen = await mount(mock);
   try {
-    await click(button('Changer la photo de profil'), 'rond');
+    await click(rond(), 'rond');
     await choose(pickInput(), 'petite.jpg');
     assert.match(dialog().querySelector('[role=alert]').textContent, /au moins 200 pixels/);
     await choose(pickInput(), 'casse.jpg');
@@ -271,6 +299,10 @@ test('photo trop petite ou illisible : message dans la feuille, aucun envoi', as
     await choose(pickInput());
     URL.createObjectURL = real;
     assert.match(dialog().querySelector('[role=alert]').textContent, /ne peut pas être ouverte/);
+    // Hors ligne, le décodeur HEIC ne se charge pas : on le dit, plutôt que « illisible ».
+    browser.offline = true;
+    await choose(pickInput(), 'casse.jpg');
+    assert.match(dialog().querySelector('[role=alert]').textContent, /Connexion nécessaire pour ouvrir ce format/);
     assert.equal(names(mock, 'upload').length, 0);
   } finally { await screen.close(); }
 });
@@ -281,7 +313,7 @@ test('année inconnue : demandée avant la première photo, une seule fois', asy
   const mock = api({ birth_year: null });
   const screen = await mount(mock);
   try {
-    await click(button('Changer la photo de profil'), 'rond');
+    await click(rond(), 'rond');
     assert.match(dialog().textContent, /Elle sert à protéger les joueurs mineurs/);
     assert.match(dialog().textContent, /seul votre club pourra la corriger/);
     assert.equal(button('Choisir une photo'), undefined);
@@ -300,12 +332,36 @@ test('année inconnue : demandée avant la première photo, une seule fois', asy
   } finally { await screen.close(); }
 });
 
+test('année qui fait un mineur : confirmation avant l’enregistrement, « Corriger » revient au champ', async () => {
+  const mock = api({ birth_year: null });
+  const screen = await mount(mock);
+  try {
+    await click(rond(), 'rond');
+    const typeYear = async (v) => {
+      const input = document.getElementById('photo-birth-year');
+      await act(async () => input[Object.keys(input).find((k) => k.startsWith('__reactProps'))].onChange({ target: { value: v } }));
+      await act(async () => dialog().querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
+      await flush();
+    };
+    await typeYear(String(YEAR - 13));
+    assert.match(dialog().textContent, new RegExp(`Vous avez saisi ${YEAR - 13}\\. Ce choix ne pourra être modifié que par votre club`));
+    assert.equal(names(mock, 'profile_set_birth_year').length, 0, 'rien n’est enregistré avant la confirmation');
+    await click(button('Corriger'), 'Corriger');
+    assert.equal(document.activeElement, document.getElementById('photo-birth-year'));
+    assert.equal(document.getElementById('photo-birth-year').value, String(YEAR - 13));
+    await typeYear(String(YEAR - 12));
+    await click(button('Confirmer'), 'Confirmer');
+    assert.deepEqual(names(mock, 'profile_set_birth_year').map((c) => c.args), [{ p_year: YEAR - 12 }]);
+    assert.match(dialog().textContent, /Les photos des joueurs mineurs arrivent bientôt/);
+  } finally { await screen.close(); }
+});
+
 test('année déjà enregistrée ailleurs : message, et la feuille suit l’année en base', async () => {
   const mock = api({ birth_year: null });
   mock.server.lockedYear = true;
   const screen = await mount(mock);
   try {
-    await click(button('Changer la photo de profil'), 'rond');
+    await click(rond(), 'rond');
     const input = document.getElementById('photo-birth-year');
     await act(async () => input[Object.keys(input).find((k) => k.startsWith('__reactProps'))].onChange({ target: { value: '1986' } }));
     await act(async () => dialog().querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
@@ -352,7 +408,7 @@ test('recadrage au clavier (flèches, + et −), export 512 et 128 en WebP 0,82'
   const mock = api();
   const screen = await mount(mock);
   try {
-    await click(button('Changer la photo de profil'), 'rond');
+    await click(rond(), 'rond');
     await choose(pickInput());
     const area = document.querySelector('[role=application]');
     const zoom = document.querySelector('input[type=range]');
@@ -365,14 +421,17 @@ test('recadrage au clavier (flèches, + et −), export 512 et 128 en WebP 0,82'
     await click(button('Zoomer'), '+');
     await click(button('Dézoomer'), '−');
     await key(area, 'ArrowRight');
-    await key(area, 'ArrowDown');
+    // Déplacement sans glisser ni clavier (WCAG 2.5.7) : boutons à l'écran.
+    await click(button('Déplacer vers le bas'), 'bas');
     browser.draws = [];
     await click(button('Utiliser'), 'Utiliser');
     await flush(30);
     const side = 3024 / 1.25;
-    const [sx, sy, sw, sh, , , dw, dh] = browser.draws.find((d) => d.width === 512).args.slice(1);
+    // Deux réductions : la photo vers 1 024 px, puis vers 512 px.
+    const [sx, sy, sw, sh, , , dw, dh] = browser.draws.find((d) => d.width === 1024).args.slice(1);
     assert.deepEqual([sx, sy, sw, sh, dw, dh].map((n) => Math.round(n * 100) / 100),
-      [2016 + side * 0.05 - side / 2, 1512 + side * 0.05 - side / 2, side, side, 512, 512].map((n) => Math.round(n * 100) / 100));
+      [2016 + side * 0.05 - side / 2, 1512 + side * 0.05 - side / 2, side, side, 1024, 1024].map((n) => Math.round(n * 100) / 100));
+    assert.deepEqual(browser.draws.find((d) => d.width === 512).args.slice(1), [0, 0, 512, 512]);
     assert.deepEqual(browser.blobs.filter((b) => b.width >= 128 && b.width <= 512), [
       { width: 512, type: 'image/webp', quality: 0.82 }, { width: 128, type: 'image/webp', quality: 0.82 }]);
     const uploads = names(mock, 'upload');
@@ -401,15 +460,19 @@ test('envoi : progression, enregistrement, toast « Photo mise à jour », ligne
   try {
     await addPhoto(mock);
     // 512 px : 5 120 octets, 128 px : 1 280 ; la moitié du premier fichier est partie.
-    const bar = document.querySelector('[role=progressbar]');
-    assert.equal(bar.textContent, 'Envoi de la photo… 40 %');
-    assert.equal(bar.getAttribute('aria-valuenow'), '40');
-    assert.ok(document.querySelector('button[aria-label="Changer la photo de profil"]').disabled, 'pas de second envoi pendant le premier');
+    assert.match(document.body.textContent, /Envoi de la photo… 40 %/);
+    const live = [...document.querySelectorAll('[aria-live=polite].sr-only')].map((n) => n.textContent);
+    assert.deepEqual(live, ['Envoi de la photo…'], 'annonce sans pourcentage');
+    assert.equal(row('Photo').getAttribute('aria-label'), 'Photo, Envoi…');
+    assert.ok(rond().getAttribute('aria-disabled') === 'true', 'pas de second envoi pendant le premier');
+    assert.equal(document.activeElement, rond(), 'le focus revient au rond, pas sur la page');
+    await click(rond(), 'rond pendant l’envoi');
+    assert.equal(dialog(), null, 'rond inactif pendant l’envoi');
     assert.match(document.querySelector('img').getAttribute('src'), /^blob:local-/, 'la photo recadrée s’affiche tout de suite');
     mock.server.hold = null;
     await act(async () => release());
     await flush(40);
-    assert.equal(document.querySelector('[role=progressbar]'), null);
+    assert.doesNotMatch(document.body.textContent, /Envoi de la photo…/);
     const [set] = names(mock, 'profile_set_avatar');
     assert.match(set.args.p_version, /^[0-9a-f-]{36}$/);
     assert.equal(mock.server.profile.avatar_path, `${ME}/${set.args.p_version}`);
@@ -429,6 +492,7 @@ test('échec d’envoi : l’ancienne photo reste, « Réessayer » reprend la m
     await addPhoto(mock);
     const alert = [...document.querySelectorAll('[role=alert]')].find((a) => /n’a pas été envoyée/.test(a.textContent));
     assert.match(alert.textContent, /Votre ancienne photo reste affichée/);
+    assert.equal(document.activeElement, button('Réessayer'), 'focus sur Réessayer');
     assert.equal(mock.server.profile.avatar_path, OLD);
     assert.equal(names(mock, 'profile_set_avatar').length, 0);
     await click(button('Réessayer'), 'Réessayer');
@@ -488,7 +552,7 @@ test('retirer : immédiat, toast « Photo retirée · Annuler » qui la remet', 
   const mock = api({ avatar_path: OLD });
   const screen = await mount(mock);
   try {
-    await click(button('Changer la photo de profil'), 'rond');
+    await click(rond(), 'rond');
     await click(button('Retirer la photo'), 'Retirer');
     assert.equal(dialog(), null);
     assert.equal(mock.server.profile.avatar_path, null);
