@@ -441,7 +441,7 @@ test('essai abandonné mais abouti : la nouvelle tentative n’est pas un confli
   } finally { await screen.close(); }
 });
 
-test('toast : au-dessus du bandeau d’installation, délai en pause au focus et au survol', async () => {
+test('toast : au-dessus du bandeau d’installation, 10 s avec Annuler, pause au focus et à la souris (jamais au toucher), Échap', async () => {
   const css = readFileSync(resolve(src, 'index.css'), 'utf8');
   const banner = Number(css.match(/\.install-banner \{[^}]*z-index: (\d+)/)[1]);
   const mock = api();
@@ -450,7 +450,7 @@ test('toast : au-dessus du bandeau d’installation, délai en pause au focus et
   const timers = new Map();
   try {
     await click(row('Classement'), 'Classement');
-    globalThis.setTimeout = (fn, ms, ...rest) => { if (ms !== 5000) return realSet(fn, ms, ...rest); const id = { fn }; timers.set(id, fn); return id; };
+    globalThis.setTimeout = (fn, ms, ...rest) => { if (ms !== 10000) return realSet(fn, ms, ...rest); const id = { fn }; timers.set(id, fn); return id; };
     globalThis.clearTimeout = (id) => { if (!timers.delete(id)) realClear(id); };
     await click(button('15/4'), '15/4');
     const region = document.querySelector('[role=status][aria-live]');
@@ -461,12 +461,25 @@ test('toast : au-dessus du bandeau d’installation, délai en pause au focus et
     assert.equal(timers.size, 0, 'pause au focus');
     await act(async () => button('Annuler').blur());
     assert.equal(timers.size, 1, 'repart à la sortie');
-    const hover = (kind, to) => act(async () => toast().dispatchEvent(new window.MouseEvent(kind, { bubbles: true, relatedTarget: to })));
-    await hover('mouseover', document.body);
-    assert.equal(timers.size, 0, 'pause au survol');
-    await hover('mouseout', document.body);
+    const pointer = (kind, pointerType) => act(async () => {
+      const event = new window.MouseEvent(kind, { bubbles: true, relatedTarget: document.body });
+      Object.defineProperty(event, 'pointerType', { value: pointerType });
+      toast().dispatchEvent(event);
+    });
+    await pointer('pointerover', 'touch');
+    assert.equal(timers.size, 1, 'un toucher ne fige pas le délai');
+    await pointer('pointerout', 'touch');
+    await pointer('pointerover', 'mouse');
+    assert.equal(timers.size, 0, 'pause au survol de la souris');
+    await pointer('pointerout', 'mouse');
     assert.equal(timers.size, 1);
     await act(async () => [...timers.values()][0]());
+    assert.equal(toast(), null);
+    // Échap ferme le toast quand le focus est dedans.
+    await click(row('Classement'), 'Classement');
+    await click(button('15/3'), '15/3');
+    assert.ok(toast());
+    await act(async () => { button('Annuler').focus(); button('Annuler').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     assert.equal(toast(), null);
   } finally {
     globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear;

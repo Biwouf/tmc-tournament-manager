@@ -1,23 +1,13 @@
 import { supabase } from './supabase';
+import { decodePhoto } from './decodePhoto';
 import type { CompoEntry } from './teamCompo';
 
 // Taille conseillée par l'API pour une image : au-delà, elle est réduite côté serveur et coûte plus cher.
 const MAX_EDGE = 1568;
 
-async function decode(file: File): Promise<ImageBitmap> {
-  try { return await createImageBitmap(file); }
-  catch (error) {
-    // Seul Safari décode le HEIC des iPhone : ailleurs (Chrome, Firefox), conversion par libheif,
-    // chargée à la demande pour ne pas alourdir la PWA.
-    const { heicTo, isHeic } = await import('heic-to');
-    if (!(await isHeic(file))) throw error;
-    return heicTo({ blob: file, type: 'bitmap' });
-  }
-}
-
 /** Photo (HEIC compris) → JPEG réduit, en base64 sans préfixe. */
 export async function photoToJpeg(file: File): Promise<string> {
-  const bitmap = await decode(file);
+  const bitmap = await decodePhoto(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
