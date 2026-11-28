@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useModalDialog } from '../../hooks/useModalDialog';
 import { createPortal } from 'react-dom';
 import { ACCOUNT_COPY as T } from '../../../../shared/accountCopy.mjs';
 import { RANK_NUMBERED, RANK_NUMBERED_LABEL, RANK_SERIES } from '../../../../shared/tennisRankings';
@@ -17,17 +18,8 @@ const errorClass = 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm
 function AccountSheet({ title, onClose, busy = false, children }: {
   title: string; onClose: () => void; busy?: boolean; children: ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const ref = useModalDialog();
   const titleId = useId();
-  useEffect(() => {
-    const dialog = ref.current!;
-    const trigger = document.activeElement as HTMLElement | null;
-    dialog.showModal();
-    return () => {
-      dialog.close();
-      if (trigger?.isConnected) trigger.focus();
-    };
-  }, []);
   return createPortal(
     <dialog ref={ref} aria-labelledby={titleId}
       onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}

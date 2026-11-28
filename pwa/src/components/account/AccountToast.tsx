@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ACCOUNT_COPY as T } from '../../../../shared/accountCopy.mjs';
 
-export type Toast = { text: string; undo?: () => void };
+/** `onEnd` : le toast n'est plus là (délai, remplacé, page quittée, ou « Annuler » touché). */
+export type Toast = { text: string; undo?: () => void; onEnd?: () => void };
 
 const DELAY = 5000;
 
@@ -26,6 +27,7 @@ export default function AccountToast({ toast, onClose }: { toast: Toast | null; 
     const timer = setTimeout(onClose, DELAY);
     return () => clearTimeout(timer);
   }, [toast, paused, onClose]);
+  useEffect(() => () => toast?.onEnd?.(), [toast]);
   return (
     <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4"
       style={{ bottom: 'calc(56px + var(--install-banner-height, 0px) + 16px + env(safe-area-inset-bottom))' }}>
